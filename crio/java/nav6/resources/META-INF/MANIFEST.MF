@@ -1,0 +1,6 @@
+MIDlet-Name: nav6Test
+MIDlet-Version: 1.0.0
+MIDlet-Vendor: FIRST
+MIDlet-1: RobotTemplate, , com.kauailabs.nav6.RobotTemplate
+MicroEdition-Profile: IMP-1.0
+MicroEdition-Configuration: CLDC-1.1

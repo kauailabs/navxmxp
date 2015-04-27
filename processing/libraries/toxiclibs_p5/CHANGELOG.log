@@ -1,0 +1,613 @@
+2011-01-03  Karsten Schmidt  <k@postspectacular.com>
+
+	* examples/core/misc/CustomEvents/CustomEvents.pde,
+	src.audio/toxi/audio/AudioBuffer.java,
+	src.audio/toxi/audio/AudioSource.java,
+	src.audio/toxi/audio/DecompressInputStream.java,
+	src.audio/toxi/audio/FIRFilter.java,
+	src.audio/toxi/audio/IIRFilter.java,
+	src.audio/toxi/audio/JOALUtil.java,
+	src.audio/toxi/audio/MultiTimbralManager.java,
+	src.audio/toxi/audio/SoundListener.java,
+	src.audio/toxi/audio/SynthUtil.java,
+	src.audio/toxi/music/DelayedSamplePlayer.java,
+	src.audio/toxi/music/QuantizedTimeHandler.java,
+	src.audio/toxi/music/QuantizedTimeProvider.java,
+	src.audio/toxi/music/scale/AbstractScale.java,
+	src.audio/toxi/music/scale/GenericScale.java,
+	src.audio/toxi/music/scale/MajorScale.java,
+	src.color/toxi/color/AccessCriteria.java,
+	src.color/toxi/color/AlphaAccessor.java,
+	src.color/toxi/color/CMYKAccessor.java,
+	src.color/toxi/color/CMYKDistanceProxy.java,
+	src.color/toxi/color/ColorGradient.java,
+	src.color/toxi/color/ColorList.java,
+	src.color/toxi/color/ColorRange.java,
+	src.color/toxi/color/ColorTheme.java,
+	src.color/toxi/color/DistanceProxy.java,
+	src.color/toxi/color/HSVAccessor.java,
+	src.color/toxi/color/HSVDistanceProxy.java,
+	src.color/toxi/color/HistEntry.java,
+	src.color/toxi/color/Histogram.java, src.color/toxi/color/Hue.java,
+	src.color/toxi/color/LuminanceAccessor.java,
+	src.color/toxi/color/NamedColor.java,
+	src.color/toxi/color/ProximityComparator.java,
+	src.color/toxi/color/RGBAccessor.java,
+	src.color/toxi/color/RGBDistanceProxy.java,
+	src.color/toxi/color/ReadonlyTColor.java,
+	src.color/toxi/color/TColor.java,
+	src.color/toxi/color/TColorAdapter.java,
+	src.color/toxi/color/ToneMap.java,
+	src.color/toxi/color/theory/AnalogousStrategy.java,
+	src.color/toxi/color/theory/ColorTheoryRegistry.java,
+	src.color/toxi/color/theory/ColorTheoryStrategy.java,
+	src.color/toxi/color/theory/ComplementaryStrategy.java,
+	src.color/toxi/color/theory/CompoundTheoryStrategy.java,
+	src.color/toxi/color/theory/LeftSplitComplementaryStrategy.java,
+	src.color/toxi/color/theory/MonochromeTheoryStrategy.java,
+	src.color/toxi/color/theory/RightSplitComplementaryStrategy.java,
+	src.color/toxi/color/theory/SingleComplementStrategy.java,
+	src.color/toxi/color/theory/SplitComplementaryStrategy.java,
+	src.color/toxi/color/theory/TetradTheoryStrategy.java,
+	src.color/toxi/color/theory/TriadTheoryStrategy.java,
+	src.core/toxi/geom/AABB.java,
+	src.core/toxi/geom/AxisAlignedCylinder.java,
+	src.core/toxi/geom/BernsteinPolynomial.java,
+	src.core/toxi/geom/Circle.java,
+	src.core/toxi/geom/CircleIntersector.java,
+	src.core/toxi/geom/Cone.java, src.core/toxi/geom/Ellipse.java,
+	src.core/toxi/geom/Intersector2D.java,
+	src.core/toxi/geom/Intersector3D.java,
+	src.core/toxi/geom/IsectData2D.java,
+	src.core/toxi/geom/IsectData3D.java, src.core/toxi/geom/Line2D.java,
+	src.core/toxi/geom/Line3D.java, src.core/toxi/geom/Matrix4x4.java,
+	src.core/toxi/geom/Plane.java, src.core/toxi/geom/PointCloud.java,
+	src.core/toxi/geom/PointOctree.java,
+	src.core/toxi/geom/PointQuadtree.java,
+	src.core/toxi/geom/Polygon2D.java,
+	src.core/toxi/geom/PolygonClipper2D.java,
+	src.core/toxi/geom/Quaternion.java, src.core/toxi/geom/Ray2D.java,
+	src.core/toxi/geom/Ray3D.java,
+	src.core/toxi/geom/Ray3DIntersector.java,
+	src.core/toxi/geom/ReadonlyVec2D.java,
+	src.core/toxi/geom/ReadonlyVec3D.java, src.core/toxi/geom/Rect.java,
+	src.core/toxi/geom/Reflector3D.java,
+	src.core/toxi/geom/Shape2D.java, src.core/toxi/geom/Shape3D.java,
+	src.core/toxi/geom/Sphere.java,
+	src.core/toxi/geom/SphereIntersectorReflector.java,
+	src.core/toxi/geom/Spline2D.java, src.core/toxi/geom/Spline3D.java,
+	src.core/toxi/geom/SutherlandHodgemanClipper.java,
+	src.core/toxi/geom/Triangle.java,
+	src.core/toxi/geom/Triangle2D.java,
+	src.core/toxi/geom/Triangle3D.java,
+	src.core/toxi/geom/TriangleIntersector.java,
+	src.core/toxi/geom/Vec2D.java, src.core/toxi/geom/Vec3D.java,
+	src.core/toxi/geom/XAxisCylinder.java,
+	src.core/toxi/geom/YAxisCylinder.java,
+	src.core/toxi/geom/ZAxisCylinder.java,
+	src.core/toxi/geom/mesh/BezierPatch.java,
+	src.core/toxi/geom/mesh/BoxSelector.java,
+	src.core/toxi/geom/mesh/DefaultSTLColorModel.java,
+	src.core/toxi/geom/mesh/DefaultSelector.java,
+	src.core/toxi/geom/mesh/Face.java,
+	src.core/toxi/geom/mesh/LaplacianSmooth.java,
+	src.core/toxi/geom/mesh/MaterialiseSTLColorModel.java,
+	src.core/toxi/geom/mesh/Mesh3D.java,
+	src.core/toxi/geom/mesh/OBJWriter.java,
+	src.core/toxi/geom/mesh/PlaneSelector.java,
+	src.core/toxi/geom/mesh/STLColorModel.java,
+	src.core/toxi/geom/mesh/STLReader.java,
+	src.core/toxi/geom/mesh/STLWriter.java,
+	src.core/toxi/geom/mesh/SphereFunction.java,
+	src.core/toxi/geom/mesh/SphericalHarmonics.java,
+	src.core/toxi/geom/mesh/SuperEllipsoid.java,
+	src.core/toxi/geom/mesh/SurfaceFunction.java,
+	src.core/toxi/geom/mesh/SurfaceMeshBuilder.java,
+	src.core/toxi/geom/mesh/Terrain.java,
+	src.core/toxi/geom/mesh/TriangleMesh.java,
+	src.core/toxi/geom/mesh/Vertex.java,
+	src.core/toxi/geom/mesh/VertexSelector.java,
+	src.core/toxi/geom/mesh/WEFace.java,
+	src.core/toxi/geom/mesh/WEMeshFilterStrategy.java,
+	src.core/toxi/geom/mesh/WETriangleMesh.java,
+	src.core/toxi/geom/mesh/WEVertex.java,
+	src.core/toxi/geom/mesh/WingedEdge.java,
+	src.core/toxi/geom/mesh/subdiv/DisplacementSubdivision.java,
+	src.core/toxi/geom/mesh/subdiv/DualDisplacementSubdivision.java,
+	src.core/toxi/geom/mesh/subdiv/DualSubdivision.java,
+	src.core/toxi/geom/mesh/subdiv/EdgeLengthComparator.java,
+	src.core/toxi/geom/mesh/subdiv/FaceCountComparator.java,
+	src.core/toxi/geom/mesh/subdiv/MidpointDisplacementSubdivision.java,
+	src.core/toxi/geom/mesh/subdiv/MidpointSubdivision.java,
+	src.core/toxi/geom/mesh/subdiv/NormalDisplacementSubdivision.java,
+	src.core/toxi/geom/mesh/subdiv/SubdivisionStrategy.java,
+	src.core/toxi/geom/mesh/subdiv/TriSubdivision.java,
+	src.core/toxi/geom/mesh2d/DelaunayVertex.java,
+	src.core/toxi/geom/mesh2d/Voronoi.java,
+	src.core/toxi/math/BezierInterpolation.java,
+	src.core/toxi/math/CircularInterpolation.java,
+	src.core/toxi/math/CosineInterpolation.java,
+	src.core/toxi/math/DecimatedInterpolation.java,
+	src.core/toxi/math/ExponentialInterpolation.java,
+	src.core/toxi/math/InterpolateStrategy.java,
+	src.core/toxi/math/Interpolation2D.java,
+	src.core/toxi/math/LinearInterpolation.java,
+	src.core/toxi/math/MathUtils.java, src.core/toxi/math/ScaleMap.java,
+	src.core/toxi/math/SigmoidInterpolation.java,
+	src.core/toxi/math/SinCosLUT.java,
+	src.core/toxi/math/ThresholdInterpolation.java,
+	src.core/toxi/math/ZoomLensInterpolation.java,
+	src.core/toxi/math/conversion/UnitTranslator.java,
+	src.core/toxi/math/noise/PerlinNoise.java,
+	src.core/toxi/math/noise/SimplexNoise.java,
+	src.core/toxi/math/waves/AMFMSineWave.java,
+	src.core/toxi/math/waves/AbstractWave.java,
+	src.core/toxi/math/waves/ConstantWave.java,
+	src.core/toxi/math/waves/FMHarmonicSquareWave.java,
+	src.core/toxi/math/waves/FMSawtoothWave.java,
+	src.core/toxi/math/waves/FMSineWave.java,
+	src.core/toxi/math/waves/FMSquareWave.java,
+	src.core/toxi/math/waves/FMTriangleWave.java,
+	src.core/toxi/math/waves/SineWave.java,
+	src.core/toxi/math/waves/WaveState.java,
+	src.core/toxi/util/DateUtils.java,
+	src.core/toxi/util/FileSequenceDescriptor.java,
+	src.core/toxi/util/FileUtils.java,
+	src.core/toxi/util/datatypes/ArrayUtil.java,
+	src.core/toxi/util/datatypes/BiasedFloatRange.java,
+	src.core/toxi/util/datatypes/BiasedIntegerRange.java,
+	src.core/toxi/util/datatypes/DoubleRange.java,
+	src.core/toxi/util/datatypes/FloatRange.java,
+	src.core/toxi/util/datatypes/GenericSet.java,
+	src.core/toxi/util/datatypes/IntegerRange.java,
+	src.core/toxi/util/datatypes/IntegerSet.java,
+	src.core/toxi/util/datatypes/SingletonRegistry.java,
+	src.core/toxi/util/datatypes/TypedProperties.java,
+	src.core/toxi/util/datatypes/WeightedRandomEntry.java,
+	src.core/toxi/util/datatypes/WeightedRandomSet.java,
+	src.core/toxi/util/events/EventDispatcher.java,
+	src.data/toxi/data/csv/CSVAdapter.java,
+	src.data/toxi/data/csv/CSVFieldMapper.java,
+	src.data/toxi/data/csv/CSVListener.java,
+	src.data/toxi/data/csv/CSVParser.java,
+	src.data/toxi/data/feeds/AtomAuthor.java,
+	src.data/toxi/data/feeds/AtomContent.java,
+	src.data/toxi/data/feeds/AtomEntry.java,
+	src.data/toxi/data/feeds/AtomFeed.java,
+	src.data/toxi/data/feeds/AtomLink.java,
+	src.data/toxi/data/feeds/RSSChannel.java,
+	src.data/toxi/data/feeds/RSSEnclosure.java,
+	src.data/toxi/data/feeds/RSSFeed.java,
+	src.data/toxi/data/feeds/RSSItem.java,
+	src.data/toxi/data/feeds/util/Iso8601DateAdapter.java,
+	src.data/toxi/data/feeds/util/Rfc822DateAdapter.java,
+	src.image/toxi/image/util/Filter8bit.java,
+	src.image/toxi/image/util/TiledFrameExporter.java,
+	src.p5/toxi/processing/ToxiclibsSupport.java,
+	src.physics/toxi/physics/ParticlePath.java,
+	src.physics/toxi/physics/ParticleString.java,
+	src.physics/toxi/physics/PullBackString.java,
+	src.physics/toxi/physics/VerletConstrainedSpring.java,
+	src.physics/toxi/physics/VerletMinDistanceSpring.java,
+	src.physics/toxi/physics/VerletParticle.java,
+	src.physics/toxi/physics/VerletPhysics.java,
+	src.physics/toxi/physics/VerletSpring.java,
+	src.physics/toxi/physics/behaviors/AttractionBehavior.java,
+	src.physics/toxi/physics/behaviors/ConstantForceBehavior.java,
+	src.physics/toxi/physics/behaviors/GravityBehavior.java,
+	src.physics/toxi/physics/behaviors/ParticleBehavior.java,
+	src.physics/toxi/physics/constraints/AxisConstraint.java,
+	src.physics/toxi/physics/constraints/BoxConstraint.java,
+	src.physics/toxi/physics/constraints/CylinderConstraint.java,
+	src.physics/toxi/physics/constraints/MaxConstraint.java,
+	src.physics/toxi/physics/constraints/MinConstraint.java,
+	src.physics/toxi/physics/constraints/ParticleConstraint.java,
+	src.physics/toxi/physics/constraints/PlaneConstraint.java,
+	src.physics/toxi/physics/constraints/SoftBoxConstraint.java,
+	src.physics/toxi/physics/constraints/SphereConstraint.java,
+	src.physics/toxi/physics2d/ParticlePath2D.java,
+	src.physics/toxi/physics2d/ParticleString2D.java,
+	src.physics/toxi/physics2d/PullBackString2D.java,
+	src.physics/toxi/physics2d/VerletConstrainedSpring2D.java,
+	src.physics/toxi/physics2d/VerletMinDistanceSpring2D.java,
+	src.physics/toxi/physics2d/VerletParticle2D.java,
+	src.physics/toxi/physics2d/VerletPhysics2D.java,
+	src.physics/toxi/physics2d/VerletSpring2D.java,
+	src.physics/toxi/physics2d/behaviors/AttractionBehavior.java,
+	src.physics/toxi/physics2d/behaviors/ConstantForceBehavior.java,
+	src.physics/toxi/physics2d/behaviors/GravityBehavior.java,
+	src.physics/toxi/physics2d/behaviors/ParticleBehavior2D.java,
+	src.physics/toxi/physics2d/constraints/AngularConstraint.java,
+	src.physics/toxi/physics2d/constraints/AxisConstraint.java,
+	src.physics/toxi/physics2d/constraints/CircularConstraint.java,
+	src.physics/toxi/physics2d/constraints/MaxConstraint.java,
+	src.physics/toxi/physics2d/constraints/MinConstraint.java,
+	src.physics/toxi/physics2d/constraints/ParticleConstraint2D.java,
+	src.physics/toxi/physics2d/constraints/RectConstraint.java,
+	src.sim/toxi/sim/automata/CAMatrix.java,
+	src.sim/toxi/sim/automata/CARule.java,
+	src.sim/toxi/sim/automata/CARule2D.java,
+	src.sim/toxi/sim/automata/CAWolfram1D.java,
+	src.sim/toxi/sim/automata/EvolvableMatrix.java,
+	src.sim/toxi/sim/automata/MatrixEvolver.java,
+	src.sim/toxi/sim/dla/BottomUpOrder.java,
+	src.sim/toxi/sim/dla/DLA.java,
+	src.sim/toxi/sim/dla/DLAConfiguration.java,
+	src.sim/toxi/sim/dla/DLAEventAdapter.java,
+	src.sim/toxi/sim/dla/DLAEventListener.java,
+	src.sim/toxi/sim/dla/DLAGuideLines.java,
+	src.sim/toxi/sim/dla/DLAParticle.java,
+	src.sim/toxi/sim/dla/DLASegment.java,
+	src.sim/toxi/sim/dla/PipelineOrder.java,
+	src.sim/toxi/sim/dla/RadialDistanceOrder.java,
+	src.sim/toxi/sim/erosion/ErosionFunction.java,
+	src.sim/toxi/sim/erosion/TalusAngleErosion.java,
+	src.sim/toxi/sim/erosion/ThermalErosion.java,
+	src.sim/toxi/sim/fluids/FluidSolver.java,
+	src.sim/toxi/sim/grayscott/GrayScott.java,
+	src.test/toxi/test/JAXBGeomTest.java,
+	src.test/toxi/test/geom/AABBIsecTest.java,
+	src.test/toxi/test/geom/PlaneTest.java,
+	src.test/toxi/test/geom/TriangleTest.java,
+	src.test/toxi/test/geom/WEMeshTest.java,
+	src.volume/toxi/volume/ArrayIsoSurface.java,
+	src.volume/toxi/volume/BoxBrush.java,
+	src.volume/toxi/volume/HashIsoSurface.java,
+	src.volume/toxi/volume/IsoSurface.java,
+	src.volume/toxi/volume/MarchingCubesIndex.java,
+	src.volume/toxi/volume/MeshLatticeBuilder.java,
+	src.volume/toxi/volume/MeshVoxelizer.java,
+	src.volume/toxi/volume/RoundBrush.java,
+	src.volume/toxi/volume/VolumetricBrush.java,
+	src.volume/toxi/volume/VolumetricHashMap.java,
+	src.volume/toxi/volume/VolumetricSpace.java,
+	src.volume/toxi/volume/VolumetricSpaceArray.java:
+	adding/updating comments in all source files, renaming Triangle into
+	Triangle3D, adding CustomEvents example
+	[7b3562f4cdf0] <toxiclibs>
+
+2011-01-01  Karsten Schmidt  <k@postspectacular.com>
+
+	* src.p5/toxi/processing/ToxiclibsSupport.java:
+	adding support for translate, scale and rotate methods in
+	ToxiclibsSupport
+	[9747da618e01] <toxiclibs>
+
+2010-12-31  Karsten Schmidt  <k@postspectacular.com>
+
+	* examples/audio-external/HelloULaw/HelloULaw.pde, examples/audio-
+	external/HelloULaw/data/phone_ulaw.wav,
+	examples/audio/HelloULaw/HelloULaw.pde,
+	examples/audio/HelloULaw/data/phone_ulaw.wav,
+	examples/color/ImageColors/ImageColors.pde,
+	examples/color/MultiColorGradient/MultiColorGradient.pde,
+	examples/color/Ranges/Ranges.pde,
+	examples/core/geometry/Circle3Points/Circle3Points.pde,
+	examples/core/geometry/DashedDottedBox/DashedDottedBox.pde,
+	examples/core/geometry/Line2DIntersect/Line2DIntersect.pde,
+	examples/core/geometry/PolarUnravel/PolarUnravel.pde,
+	examples/core/geometry/Sierpinski/Sierpinski.pde, examples/core/geom
+	etry/TriangleCircumCircle/TriangleCircumCircle.pde,
+	examples/core/interpolation/BezierTween/BezierTween.pde,
+	examples/core/interpolation/LogScaleMap/LogScaleMap.pde,
+	examples/core/interpolation/ScaleMapDataViz/ScaleMapDataViz.pde,
+	examples/core/interpolation/ZoomLens/ZoomLens.pde,
+	examples/core/mapping/LogScaleMap/LogScaleMap.pde,
+	examples/core/mapping/ScaleMapDataViz/ScaleMapDataViz.pde,
+	examples/core/mapping/TwitterGeo/TwitterGeo.pde,
+	examples/core/mapping/TwitterGeo/code/readme.txt,
+	examples/core/mesh/BezierPatchSimple/BezierPatchSimple.pde,
+	examples/core/mesh/MeshDoodle/MeshDoodle.pde,
+	examples/core/mesh/MeshFaceExtrude/MeshFaceExtrude.pde,
+	examples/core/mesh/MobiusStripe/MobiusStripe.pde,
+	examples/core/mesh/OBJSTLStreamExport/OBJSTLStreamExport.pde,
+	examples/core/mesh/STLImportTest/STLImportTest.pde, examples/core/me
+	sh/SphericalHarmonicsMeshBuilder/SphericalHarmonicsMeshBuilder.pde, e
+	xamples/core/mesh/SuperEllipsoidMeshBuilder/SuperEllipsoidMeshBuilde
+	r.pde, examples/core/mesh/TerrainSteering/Car.pde,
+	examples/core/mesh/TerrainSteering/TerrainSteering.pde,
+	examples/core/splines/SplineFeatures/SplineFeatures.pde,
+	examples/data/FlickrAtom/FlickrAtom.pde,
+	examples/p5/GeometryInStyle/GeometryInStyle.pde,
+	examples/physics/Attraction2D/Attraction2D.pde,
+	examples/physics/BoxConstraintDemo/BoxConstraintDemo.pde,
+	examples/physics/DraggableParticles/DraggableParticles.pde,
+	examples/physics/InflateMesh/InflateMesh.pde,
+	examples/physics/JoinedCatenary/JoinedCatenary.pde,
+	examples/physics/JoinedCatenary/Mesh.pde,
+	examples/physics/JoinedCatenary/Voxel.pde,
+	examples/volume/AnimatedNoise/AnimatedNoise.pde,
+	examples/volume/ImplicitFunction/ImplicitFunction.pde,
+	examples/volume/ImplicitFunction/Volume.pde,
+	examples/volume/MRISurface/MRISurface.pde,
+	examples/volume/NoiseSurface/NoiseSurface.pde,
+	examples/volume/VoxelizeMesh/VoxelizeMesh.pde,
+	src.core/toxi/geom/Triangle2D.java,
+	src.core/toxi/geom/mesh/Terrain.java,
+	src.p5/toxi/processing/ToxiclibsSupport.java,
+	src.volume/toxi/volume/MeshVoxelizer.java:
+	updating & testing ALL existing demos/examples with syntax changes &
+	comments, adding new demos, minor updates ToxiclibsSupport and
+	MeshVoxelizer classes, added Triangle2D.fromBarycentric(), adding
+	more Terrain.toMesh() versions to be more compatible with other
+	primitives
+	[79344cb5ea8f] <toxiclibs>
+
+2010-11-14  Karsten Schmidt  <k@postspectacular.com>
+
+	* examples/core/AdditiveWaves/AdditiveWaves.pde,
+	examples/core/ArcPolarCoordinates/ArcPolarCoordinates.pde,
+	examples/core/BezierTween/BezierTween.pde,
+	examples/core/BiasedRangeHistogram/BiasedRangeHistogram.pde,
+	examples/core/CircleTangentPoint/CircleTangentPoint.pde,
+	examples/core/DashedDottedBox/DashedDottedBox.pde,
+	examples/core/FileSequence/FileSequence.pde,
+	examples/core/FileSequence/data/cloud-100.png,
+	examples/core/FileSequence/data/cloud-101.png,
+	examples/core/FileSequence/data/cloud-102.png,
+	examples/core/FileSequence/data/cloud-103.png,
+	examples/core/FileSequence/data/cloud-104.png,
+	examples/core/FileSequence/data/cloud-105.png,
+	examples/core/FileSequence/data/cloud-106.png,
+	examples/core/FileSequence/data/cloud-107.png,
+	examples/core/FileSequence/data/cloud-108.png,
+	examples/core/FileSequence/data/cloud-109.png,
+	examples/core/FileSequence/data/cloud-110.png,
+	examples/core/FileSequence/data/cloud-111.png,
+	examples/core/FileSequence/data/cloud-112.png,
+	examples/core/FileSequence/data/cloud-113.png,
+	examples/core/FileSequence/data/cloud-114.png,
+	examples/core/FileSequence/data/cloud-115.png,
+	examples/core/FileSequence/data/cloud-116.png,
+	examples/core/FileSequence/data/cloud-117.png,
+	examples/core/FileSequence/data/cloud-118.png,
+	examples/core/FileSequence/data/cloud-119.png,
+	examples/core/FileSequence/data/cloud-120.png,
+	examples/core/FileSequence/data/cloud-121.png,
+	examples/core/FileSequence/data/cloud-122.png,
+	examples/core/FileSequence/data/cloud-123.png,
+	examples/core/FileSequence/data/cloud-124.png,
+	examples/core/FileSequence/data/cloud-125.png,
+	examples/core/FileSequence/data/cloud-126.png,
+	examples/core/FileSequence/data/cloud-127.png,
+	examples/core/FileSequence/data/cloud-128.png,
+	examples/core/FileSequence/data/cloud-129.png,
+	examples/core/InterpolateGrid/InterpolateGrid.pde,
+	examples/core/InterpolateTest/InterpolateTest.pde,
+	examples/core/LennyExplorer/Boundaries.pde,
+	examples/core/LennyExplorer/LennyExplorer.pde,
+	examples/core/LennyExplorer/Path.pde,
+	examples/core/Line2DIntersect/Line2DIntersect.pde,
+	examples/core/LogScaleMap/LogScaleMap.pde,
+	examples/core/MeshAlignToAxis/MeshAlignToAxis.pde,
+	examples/core/MeshDoodle/MeshDoodle.pde,
+	examples/core/MeshFaceExtrude/MeshFaceExtrude.pde,
+	examples/core/OBJSTLStreamExport/OBJSTLStreamExport.pde,
+	examples/core/OctreeDemo/OctreeDemo.pde,
+	examples/core/OctreeDemo/VisibleOctree.pde,
+	examples/core/PolarLines/PolarLines.pde,
+	examples/core/PolarUnravel/PolarUnravel.pde,
+	examples/core/PolygonClipping/PolygonClipping.pde,
+	examples/core/RayReflectSphere/RayReflectSphere.pde,
+	examples/core/STLImportTest/STLImportTest.pde,
+	examples/core/STLImportTest/mesh-flipped.stl,
+	examples/core/STLImportTest/mesh.stl,
+	examples/core/ScaleMapDataViz/ScaleMapDataViz.pde,
+	examples/core/ShiffmanFlocking/Boid.pde,
+	examples/core/ShiffmanFlocking/Flock.pde,
+	examples/core/ShiffmanFlocking/ShiffmanFlocking.pde,
+	examples/core/ShiffmanFlocking3D/Boid.pde,
+	examples/core/ShiffmanFlocking3D/Flock.pde,
+	examples/core/ShiffmanFlocking3D/ShiffmanFlocking3D.pde,
+	examples/core/SimplexNoiseTest/SimplexNoiseTest.pde,
+	examples/core/SmoothDoodle/SmoothDoodle.pde, examples/core/Spherical
+	HarmonicsMeshBuilder/SphericalHarmonicsMeshBuilder.pde,
+	examples/core/SplineBlobTest/Spine.pde,
+	examples/core/SplineBlobTest/SpineSplineBlob.pde,
+	examples/core/SplineBlobTest/SplineBlob.pde,
+	examples/core/SplineBlobTest/SplineBlobTest.pde,
+	examples/core/SplineFeatures/SplineFeatures.pde,
+	examples/core/SplineTightness/SplineTightness.pde, examples/core/Sup
+	erEllipsoidMeshBuilder/SuperEllipsoidMeshBuilder.pde,
+	examples/core/TerrainSteering/Car.pde,
+	examples/core/TerrainSteering/TerrainSteering.pde,
+	examples/core/TriangleCircumCircle/TriangleCircumCircle.pde,
+	examples/core/WheelInsets/WheelInsets.pde,
+	examples/core/ZoomLens/ZoomLens.pde,
+	examples/core/geometry/ArcPolarCoordinates/ArcPolarCoordinates.pde,
+	examples/core/geometry/Circle3Points/Circle3Points.pde,
+	examples/core/geometry/CircleTangentPoint/CircleTangentPoint.pde,
+	examples/core/geometry/DashedDottedBox/DashedDottedBox.pde,
+	examples/core/geometry/LennyExplorer/Boundaries.pde,
+	examples/core/geometry/LennyExplorer/LennyExplorer.pde,
+	examples/core/geometry/LennyExplorer/Path.pde,
+	examples/core/geometry/Line2DIntersect/Line2DIntersect.pde,
+	examples/core/geometry/OctreeDemo/OctreeDemo.pde,
+	examples/core/geometry/OctreeDemo/VisibleOctree.pde,
+	examples/core/geometry/PolarLines/PolarLines.pde,
+	examples/core/geometry/PolarUnravel/PolarUnravel.pde,
+	examples/core/geometry/PolygonClipping/PolygonClipping.pde,
+	examples/core/geometry/RayReflectSphere/RayReflectSphere.pde, exampl
+	es/core/geometry/TriangleCircumCircle/TriangleCircumCircle.pde,
+	examples/core/geometry/WheelInsets/WheelInsets.pde,
+	examples/core/interpolation/BezierTween/BezierTween.pde,
+	examples/core/interpolation/InterpolateGrid/InterpolateGrid.pde,
+	examples/core/interpolation/InterpolateTest/InterpolateTest.pde,
+	examples/core/interpolation/LogScaleMap/LogScaleMap.pde,
+	examples/core/interpolation/ScaleMapDataViz/ScaleMapDataViz.pde,
+	examples/core/interpolation/ZoomLens/ZoomLens.pde,
+	examples/core/math/AdditiveWaves/AdditiveWaves.pde,
+	examples/core/math/BiasedRangeHistogram/BiasedRangeHistogram.pde,
+	examples/core/math/SimplexNoiseTest/SimplexNoiseTest.pde,
+	examples/core/mesh/MeshAlignToAxis/MeshAlignToAxis.pde,
+	examples/core/mesh/MeshCutPlanes/MeshCutPlanes.pde,
+	examples/core/mesh/MeshDoodle/MeshDoodle.pde,
+	examples/core/mesh/MeshFaceExtrude/MeshFaceExtrude.pde,
+	examples/core/mesh/OBJSTLStreamExport/OBJSTLStreamExport.pde,
+	examples/core/mesh/STLImportTest/STLImportTest.pde,
+	examples/core/mesh/STLImportTest/mesh-flipped.stl,
+	examples/core/mesh/STLImportTest/mesh.stl, examples/core/mesh/Spheri
+	calHarmonicsMeshBuilder/SphericalHarmonicsMeshBuilder.pde, examples/
+	core/mesh/SuperEllipsoidMeshBuilder/SuperEllipsoidMeshBuilder.pde,
+	examples/core/mesh/TerrainSteering/Car.pde,
+	examples/core/mesh/TerrainSteering/TerrainSteering.pde,
+	examples/core/misc/FileSequence/FileSequence.pde,
+	examples/core/misc/FileSequence/data/cloud-100.png,
+	examples/core/misc/FileSequence/data/cloud-101.png,
+	examples/core/misc/FileSequence/data/cloud-102.png,
+	examples/core/misc/FileSequence/data/cloud-103.png,
+	examples/core/misc/FileSequence/data/cloud-104.png,
+	examples/core/misc/FileSequence/data/cloud-105.png,
+	examples/core/misc/FileSequence/data/cloud-106.png,
+	examples/core/misc/FileSequence/data/cloud-107.png,
+	examples/core/misc/FileSequence/data/cloud-108.png,
+	examples/core/misc/FileSequence/data/cloud-109.png,
+	examples/core/misc/FileSequence/data/cloud-110.png,
+	examples/core/misc/FileSequence/data/cloud-111.png,
+	examples/core/misc/FileSequence/data/cloud-112.png,
+	examples/core/misc/FileSequence/data/cloud-113.png,
+	examples/core/misc/FileSequence/data/cloud-114.png,
+	examples/core/misc/FileSequence/data/cloud-115.png,
+	examples/core/misc/FileSequence/data/cloud-116.png,
+	examples/core/misc/FileSequence/data/cloud-117.png,
+	examples/core/misc/FileSequence/data/cloud-118.png,
+	examples/core/misc/FileSequence/data/cloud-119.png,
+	examples/core/misc/FileSequence/data/cloud-120.png,
+	examples/core/misc/FileSequence/data/cloud-121.png,
+	examples/core/misc/FileSequence/data/cloud-122.png,
+	examples/core/misc/FileSequence/data/cloud-123.png,
+	examples/core/misc/FileSequence/data/cloud-124.png,
+	examples/core/misc/FileSequence/data/cloud-125.png,
+	examples/core/misc/FileSequence/data/cloud-126.png,
+	examples/core/misc/FileSequence/data/cloud-127.png,
+	examples/core/misc/FileSequence/data/cloud-128.png,
+	examples/core/misc/FileSequence/data/cloud-129.png,
+	examples/core/misc/ShiffmanFlocking/Boid.pde,
+	examples/core/misc/ShiffmanFlocking/Flock.pde,
+	examples/core/misc/ShiffmanFlocking/ShiffmanFlocking.pde,
+	examples/core/misc/ShiffmanFlocking3D/Boid.pde,
+	examples/core/misc/ShiffmanFlocking3D/Flock.pde,
+	examples/core/misc/ShiffmanFlocking3D/ShiffmanFlocking3D.pde,
+	examples/core/splines/SmoothDoodle/SmoothDoodle.pde,
+	examples/core/splines/SplineBlobTest/Spine.pde,
+	examples/core/splines/SplineBlobTest/SpineSplineBlob.pde,
+	examples/core/splines/SplineBlobTest/SplineBlob.pde,
+	examples/core/splines/SplineBlobTest/SplineBlobTest.pde,
+	examples/core/splines/SplineFeatures/SplineFeatures.pde,
+	examples/core/splines/SplineTightness/SplineTightness.pde,
+	src.core/toxi/geom/Circle.java, src.core/toxi/geom/Ray2D.java,
+	src.core/toxi/geom/Ray3D.java,
+	src.core/toxi/geom/Ray3DIntersector.java,
+	src.p5/toxi/processing/ToxiclibsSupport.java,
+	src.test/toxi/test/Circle3.java:
+	updating circle & ray classes, adding test sketches, restructuring
+	examples folder
+	[4a6521be5907] <toxiclibs>
+
+2010-11-04  Karsten Schmidt  <k@postspectacular.com>
+
+	* src.p5/toxi/processing/ToxiclibsSupport.java:
+	updating ToxiclibsSupport class to reflect recent changes to
+	toMesh() method signatures
+	[99aca9be6303] <toxiclibs>
+
+2010-09-19  Karsten Schmidt  <k@postspectacular.com>
+
+	* src.p5/toxi/processing/ToxiclibsSupport.java:
+	updated sphere() function in ToxiclibsSupport to use Sphere.toMesh()
+	functionality
+	[818e56ce6e0d] <wemesh>
+
+2010-09-10  Karsten Schmidt  <k@postspectacular.com>
+
+	* src.p5/toxi/processing/ToxiclibsSupport.java:
+	adding origin(len) as shorthand to draw coordinate axes at world
+	origin
+	[b1ce8ddac957] <wemesh>
+
+2010-08-16  Karsten Schmidt  <k@postspectacular.com>
+
+	* src.p5/toxi/processing/ToxiclibsSupport.java:
+	adding meshNormalMapped() to ToxiclibsSupport
+	[9853ee1f01a7] <wemesh>
+
+2010-08-11  Karsten Schmidt  <k@postspectacular.com>
+
+	* src.p5/toxi/processing/ToxiclibsSupport.java:
+	refactoring mesh() methods in ToxiclibsSupport to work with Mesh3D
+	interface instead of TriangleMesh only
+	[ab61d87e38b6] <wemesh>
+
+2010-08-09  Karsten Schmidt  <k@postspectacular.com>
+
+	* src.p5/toxi/processing/ToxiclibsSupport.java:
+	adding WEMesh support to ToxiclibsSupport
+	[4c93b4ec997e] <wemesh>
+
+2010-07-12  Karsten Schmidt  <k@postspectacular.com>
+
+	* src.p5/toxi/processing/ToxiclibsSupport.java:
+	adding support for Readonly vectors
+	[0be0f428d14c] <toxiclibs>
+
+	* src.p5/toxi/processing/ToxiclibsSupport.java:
+	adding origin() and polygon2D() methods, adding javadocs and minor
+	refactoring of processVertices2D/3D methods to support open/closed
+	shapes
+	[52ad597daf85] <toxiclibs>
+
+2010-04-27  Karsten Schmidt  <k@postspectacular.com>
+
+	* src.p5/toxi/processing/ToxiclibsSupport.java:
+	adding texturedMesh() method to support new UV coords feature of
+	TriangleMesh
+	[4589dc31e384] <toxiclibs>
+
+2010-04-16  Karsten Schmidt  <k@postspectacular.com>
+
+	* src.p5/toxi/processing/ToxiclibsSupport.java:
+	another tweak to list generics for lineStrip2D()
+	[f642148c61ef] <toxiclibs>
+
+	* src.p5/toxi/processing/ToxiclibsSupport.java:
+	adding line() versions taking only 2 vectors instead of Line2D/3D
+	instances
+	[dceb60f9028a] <toxiclibs>
+
+2010-04-12  Karsten Schmidt  <k@postspectacular.com>
+
+	* src.p5/toxi/processing/ToxiclibsSupport.java:
+	updating generics for lineStrip & pointList methods to support
+	Vec2D/3D sub-types
+	[2ac580ab925b] <toxiclibs>
+
+2010-04-06  Karsten Schmidt  <k@postspectacular.com>
+
+	* src.p5/toxi/processing/ToxiclibsSupport.java:
+	downstream changes to cone class updates
+	[76c64461fe36] <toxiclibs>
+
+	* src.p5/toxi/processing/ToxiclibsSupport.java:
+	minor fix in mesh(), normal length param now used properly
+	[412ea3789600] <toxiclibs>
+
+	* src.p5/toxi/processing/ToxiclibsSupport.java:
+	updating generics for list drawing ops (now supporting Vec2D/3D
+	derrived classes too, e.g. VerletParticles)
+	[b7e40d209c35] <toxiclibs>
+
+2010-03-19  Karsten Schmidt  <k@postspectacular.com>
+
+	* ant/build_p5.xml, examples/p5/GeometryInStyle/GeometryInStyle.pde,
+	src.p5/toxi/processing/ToxiclibsSupport.java:
+	adding more methods to P5 wrappers, adding GeometryInStyle demo,
+	updating library package name in build_p5.xml
+	[b410f38c5dfc] <toxiclibs>
+
+2010-03-18  Karsten Schmidt  <k@postspectacular.com>
+
+	* .classpath, src.p5/toxi/processing/ToxiclibsSupport.java:
+	adding src.p5 folder providing wrappers to allow direct use of
+	toxi.geom datatypes from Processing, updating eclipse classpath
+	[bb2a49d50cda] <toxiclibs>
+

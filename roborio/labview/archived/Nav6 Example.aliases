@@ -1,0 +1,12 @@
+[My Computer]
+My Computer = "192.168.200.88"
+
+[roboRIO-8330]
+roboRIO-8330 = "192.168.254.142"
+
+[RT CompactRIO Target]
+RT CompactRIO Target = "10.3.31.2"
+
+[RT roboRIO Target]
+RT roboRIO Target = "0.0.0.0"
+

@@ -1,0 +1,11 @@
+nav6 Simple Robot Example
+--------------------------------
+
+This program is the simplest sample program that implements
+the full field control and demonstrates the use of the
+nav6 Open Source IMU for FIRST Robotics.
+This is an excellent starting point for your programs.
+
+This program simply initializes the Serial Port and
+the IMU, and in Teleoperated Mode regularly updates
+the Dashboard with the latest readings from the IMU.

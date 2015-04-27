@@ -1,0 +1,373 @@
+<HTML>
+<HEAD>
+<TITLE>Nav6.lvlib:Open.vi</TITLE>
+<META NAME="Author" CONTENT="">
+<META NAME="GENERATOR" CONTENT="G Development Environment">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF">
+<A NAME="Nav6.lvlib:Open.vi"></A><H2>Nav6.lvlib:Open.vi</H2>
+<P>Open a reference to the Nav6 IMU. A reference to a serial port is required to be passed in.</P>
+<P></P>
+<P>Only YPR Mode is supported at this time. The Open VI should be placed in Begin in the FRC Framework.</P>
+<P><IMG SRC="Nav6_lvlib_Openc.png" ALT="Nav6.lvlib:Open.vi"></P>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="cu8.png" ALT="cu8"></P>
+</TD>
+<TD>
+<B>UpdateRate (100Hz)</B> <P>The update rate with which to configure the Nav6 in hz. Valid values are 4 - 100. 100 hz is the default. Values outside the valid range are coerced to the closest valid value.</P>
+</TD>
+</TR>
+</Table>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="cerrcodeclst.png" ALT="cerrcodeclst"></P>
+</TD>
+<TD>
+<B>error in (no error)</B> <P><B>error in (no error)</B> describes error conditions that occur before this node runs. The default is no error. If an error occurred before this node runs, the node passes the <B>error in (no error)</B> value to <B>error out</B>. This node runs normally only if no error occurred before this node runs. If an error occurs while this node runs, it runs normally and sets its own error status in <B>error out</B>. Use the Simple Error Handler or General Error Handler VIs to display the description of the error code. Use exception control to treat what is normally an error as no error or to treat a warning as an error. Use <B>error in (no error)</B> and <B>error out</B> to check errors and to specify execution order by wiring <B>error out</B> from one node to <B>error in (no error)</B> of the next node.</P>
+</TD>
+</TR>
+</Table>
+<UL>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="cbool.png" ALT="cbool"></P>
+</TD>
+<TD>
+<B>status</B> <P><B>status</B> is TRUE (X) if an error occurred before this node ran or FALSE (checkmark) to indicate a warning or that no error occurred before this node ran. The default is FALSE.</P>
+</TD>
+</TR>
+</Table>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="ci32.png" ALT="ci32"></P>
+</TD>
+<TD>
+<B>code</B> <P><B>code</B> is the error or warning code. The default is 0. If <B>status</B> is TRUE, <B>code</B> is an error code. If <B>status</B> is FALSE, <B>code</B> is 0 or a warning code.</P>
+</TD>
+</TR>
+</Table>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="cstr.png" ALT="cstr"></P>
+</TD>
+<TD>
+<B>source</B> <P><B>source</B> specifies the origin of the error or warning and is, in most cases, the name of the node that produced the error or warning. The default is an empty string.</P>
+</TD>
+</TR>
+</Table>
+</UL>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="ccclst.png" ALT="ccclst"></P>
+</TD>
+<TD>
+<B>SerialPortRef</B> <P><B>SerialPortRef</B> specifies a reference to the serial port corresponding to the serial device you want to use. Use the Open VI to open this reference.</P>
+</TD>
+</TR>
+</Table>
+<UL>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="cerrcodeclst.png" ALT="cerrcodeclst"></P>
+</TD>
+<TD>
+<B>DevStatus</B> <P><B>DevStatus</B> describes the error status before this VI or function runs. The default is no error.</P>
+</TD>
+</TR>
+</Table>
+<UL>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="cbool.png" ALT="cbool"></P>
+</TD>
+<TD>
+<B>status</B> <P><B>status</B> is TRUE (X) if an error occurred before this node ran or FALSE (checkmark) to indicate a warning or that no error occurred before this node ran. The default is FALSE.</P>
+</TD>
+</TR>
+</Table>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="ci32.png" ALT="ci32"></P>
+</TD>
+<TD>
+<B>code</B> <P><B>code</B> is the error or warning code. The default is 0. If <B>status</B> is TRUE, <B>code</B> is an error code. If <B>status</B> is FALSE, <B>code</B> is 0 or a warning code.</P>
+</TD>
+</TR>
+</Table>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="cstr.png" ALT="cstr"></P>
+</TD>
+<TD>
+<B>source</B> <P><B>source</B> specifies the origin of the error or warning and is, in most cases, the name of the node that produced the error or warning. The default is an empty string.</P>
+</TD>
+</TR>
+</Table>
+</UL>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="cvsrn.png" ALT="cvsrn"></P>
+</TD>
+<TD>
+<B>Serial Port Name</B> <P><B>Serial Port Name</B> specifies the name of the serial port you want to use.</P>
+</TD>
+</TR>
+</Table>
+</UL>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="cenum.png" ALT="cenum"></P>
+</TD>
+<TD>
+<B>Nav6Mode (YPR)</B> <P>The protocol mode to set the nav6 to.</P>
+<P></P>
+<P>YPR - Yaw, Pitch, Roll, Compass Heading</P>
+<P>Gyro - The Gyro Data update message communicates the raw gyro, accelerometer, magnetometer and temperature data. This data bypasses the Digital Motion Processor, and allows the individual sensors to be used directly without any intervening processing.</P>
+<P>Quaternion - The Quaternion Data update message communicates the Quaternions calculated by the Digital Motion Procssor, as well as some of the raw sensors readings</P>
+<P></P>
+<P>YPR mode is the only mode currently implemented</P>
+</TD>
+</TR>
+</Table>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="ierrcodeclst.png" ALT="ierrcodeclst"></P>
+</TD>
+<TD>
+<B>error out</B> <P><B>error out</B> contains error information. If <B>error in</B> indicates that an error occurred before this VI or function ran, <B>error out</B> contains the same error information. Otherwise, it describes the error status that this VI or function produces. Right-click the <B>error out</B> front panel indicator and select <B>Explain Error</B> from the shortcut menu for more information about the error.</P>
+</TD>
+</TR>
+</Table>
+<UL>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="ibool.png" ALT="ibool"></P>
+</TD>
+<TD>
+<B>status</B> <P><B>status</B> is TRUE (X) if an error occurred before this node ran or FALSE (checkmark) to indicate a warning or that no error occurred before this node ran.</P>
+</TD>
+</TR>
+</Table>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="ii32.png" ALT="ii32"></P>
+</TD>
+<TD>
+<B>code</B> <P><B>code</B> is the error or warning code. If <B>status</B> is TRUE, <B>code</B> is an error code. If <B>status</B> is FALSE, <B>code</B> is 0 or a warning code.</P>
+</TD>
+</TR>
+</Table>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="istr.png" ALT="istr"></P>
+</TD>
+<TD>
+<B>source</B> <P><B>source</B> specifies the origin of the error or warning and is, in most cases, the name of the node that produced the error or warning.</P>
+</TD>
+</TR>
+</Table>
+</UL>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="iu32.png" ALT="iu32"></P>
+</TD>
+<TD>
+<B>Gyroscope Full Scale Range (deg/sec)</B> </TD>
+</TR>
+</Table>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="iu32.png" ALT="iu32"></P>
+</TD>
+<TD>
+<B>Accelerometer Full Scale Range (g)</B> </TD>
+</TR>
+</Table>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="iu32.png" ALT="iu32"></P>
+</TD>
+<TD>
+<B>Output Rate (hz)</B> </TD>
+</TR>
+</Table>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="ienum.png" ALT="ienum"></P>
+</TD>
+<TD>
+<B>CalibrationState</B> <P>Wait - Waiting to start calibrating.</P>
+<P>Accumulate - Calibrating</P>
+<P>Complete - Calibration is complete</P>
+</TD>
+</TR>
+</Table>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="icclst.png" ALT="icclst"></P>
+</TD>
+<TD>
+<B>Nav6DevRef</B> <P>Reference to the Nav6</P>
+</TD>
+</TR>
+</Table>
+<UL>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="icclst.png" ALT="icclst"></P>
+</TD>
+<TD>
+<B>SerialPortRef</B> <P><B>SerialPortRef</B> returns a reference to the serial port.</P>
+</TD>
+</TR>
+</Table>
+<UL>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="ierrcodeclst.png" ALT="ierrcodeclst"></P>
+</TD>
+<TD>
+<B>DevStatus</B> <P><B>DevStatus</B> describes the error status that this VI or function produces.</P>
+</TD>
+</TR>
+</Table>
+<UL>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="ibool.png" ALT="ibool"></P>
+</TD>
+<TD>
+<B>status</B> <P><B>status</B> is TRUE (X) if an error occurred before this node ran or FALSE (checkmark) to indicate a warning or that no error occurred before this node ran.</P>
+</TD>
+</TR>
+</Table>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="ii32.png" ALT="ii32"></P>
+</TD>
+<TD>
+<B>code</B> <P><B>code</B> is the error or warning code. If <B>status</B> is TRUE, <B>code</B> is an error code. If <B>status</B> is FALSE, <B>code</B> is 0 or a warning code.</P>
+</TD>
+</TR>
+</Table>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="istr.png" ALT="istr"></P>
+</TD>
+<TD>
+<B>source</B> <P><B>source</B> specifies the origin of the error or warning and is, in most cases, the name of the node that produced the error or warning.</P>
+</TD>
+</TR>
+</Table>
+</UL>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="ivsrn.png" ALT="ivsrn"></P>
+</TD>
+<TD>
+<B>Serial Port Name</B> <P><B>Serial Port Name</B> returns the name of the serial port you want to use.</P>
+</TD>
+</TR>
+</Table>
+</UL>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="iu8.png" ALT="iu8"></P>
+</TD>
+<TD>
+<B>UpdateRate</B> </TD>
+</TR>
+</Table>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="ierrcodeclst.png" ALT="ierrcodeclst"></P>
+</TD>
+<TD>
+<B>Error</B> <P><B>error out</B> contains error information. If <B>error in</B> indicates that an error occurred before this VI or function ran, <B>error out</B> contains the same error information. Otherwise, it describes the error status that this VI or function produces. Right-click the <B>error out</B> front panel indicator and select <B>Explain Error</B> from the shortcut menu for more information about the error.</P>
+</TD>
+</TR>
+</Table>
+<UL>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="ibool.png" ALT="ibool"></P>
+</TD>
+<TD>
+<B>status</B> <P><B>status</B> is TRUE (X) if an error occurred before this node ran or FALSE (checkmark) to indicate a warning or that no error occurred before this node ran.</P>
+</TD>
+</TR>
+</Table>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="ii32.png" ALT="ii32"></P>
+</TD>
+<TD>
+<B>code</B> <P><B>code</B> is the error or warning code. If <B>status</B> is TRUE, <B>code</B> is an error code. If <B>status</B> is FALSE, <B>code</B> is 0 or a warning code.</P>
+</TD>
+</TR>
+</Table>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="istr.png" ALT="istr"></P>
+</TD>
+<TD>
+<B>source</B> <P><B>source</B> specifies the origin of the error or warning and is, in most cases, the name of the node that produced the error or warning.</P>
+</TD>
+</TR>
+</Table>
+</UL>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="ienum.png" ALT="ienum"></P>
+</TD>
+<TD>
+<B>Nav6Mode</B> </TD>
+</TR>
+</Table>
+</UL>
+<Table>
+<TR valign=TOP>
+<TD>
+<P><IMG SRC="ibool.png" ALT="ibool"></P>
+</TD>
+<TD>
+<B>Open Succesfull</B> <P>True if a response to the stream command was received.</P>
+</TD>
+</TR>
+</Table>
+</BODY>
+</HTML>

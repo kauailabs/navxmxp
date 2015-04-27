@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<wrxml>
+    <properties platform="VxWorks" platform_name="vxworks-6.3" root="1" type="DownloadableKernelModuleProject"/>
+    <attributes>
+        <mapAttribute>
+            <listAttribute key="BLD::Info|GlobalMacros">
+                <stringAttribute value="PROJECT_TYPE"/>
+                <stringAttribute value="DEFINES"/>
+                <stringAttribute value="EXPAND_DBG"/>
+            </listAttribute>
+            <stringAttribute key="BLD::Info|GlobalMacro|DEFINES" value=""/>
+            <stringAttribute key="BLD::Info|GlobalMacro|EXPAND_DBG" value="0"/>
+            <stringAttribute key="BLD::Info|GlobalMacro|PROJECT_TYPE" value="DKM"/>
+            <listAttribute key="BLD::Info|Incl|PPC32diab">
+                <stringAttribute value="-I$(WIND_BASE)/target/h/WPILib"/>
+                <stringAttribute value="-I$(WIND_BASE)/target/h"/>
+                <stringAttribute value="-I$(WIND_BASE)/target/h/wrn/coreip"/>
+            </listAttribute>
+            <listAttribute key="BLD::Info|Incl|PPC32gnu">
+                <stringAttribute value="-I$(WIND_BASE)/target/h"/>
+                <stringAttribute value="-I$(WIND_BASE)/target/h/wrn/coreip"/>
+            </listAttribute>
+            <listAttribute key="BLD::Info|Incl|PPC603diab">
+                <stringAttribute value="-I$(WIND_BASE)/target/h"/>
+                <stringAttribute value="-I$(WIND_BASE)/target/h/wrn/coreip"/>
+            </listAttribute>
+            <listAttribute key="BLD::Info|Incl|PPC603gnu">
+                <stringAttribute value="-I$(WIND_BASE)/target/h"/>
+                <stringAttribute value="-I$(WIND_BASE)/target/h/WPILib"/>
+                <stringAttribute value="-I$(WIND_BASE)/target/h/wrn/coreip"/>
+            </listAttribute>
+            <listAttribute key="BLD::Info|Libs|PPC32diab">
+                <stringAttribute value="$(WIND_BASE)/target/lib/WPILib.a"/>
+            </listAttribute>
+            <listAttribute key="BLD::Info|Libs|PPC603gnu">
+                <stringAttribute value="$(WIND_BASE)/target/lib/WPILib.a"/>
+            </listAttribute>
+            <listAttribute key="BLD::Info|Macros">
+                <stringAttribute value="VX_CPU_FAMILY"/>
+                <stringAttribute value="CPU"/>
+                <stringAttribute value="TOOL_FAMILY"/>
+                <stringAttribute value="TOOL"/>
+                <stringAttribute value="TOOL_PATH"/>
+                <stringAttribute value="CC_ARCH_SPEC"/>
+                <stringAttribute value="LIBPATH"/>
+                <stringAttribute value="LIBS"/>
+            </listAttribute>
+            <stringAttribute key="BLD::Info|Macro|CC_ARCH_SPEC|value|PPC32diab" value="-tPPCFH:vxworks63 -Xstmw-slow -DPPC32_fp60x"/>
+            <stringAttribute key="BLD::Info|Macro|CC_ARCH_SPEC|value|PPC32gnu" value="-mhard-float -mstrict-align -mno-implicit-fp -DPPC32_fp60x"/>
+            <stringAttribute key="BLD::Info|Macro|CC_ARCH_SPEC|value|PPC603diab" value="-tPPC603FH:vxworks63"/>
+            <stringAttribute key="BLD::Info|Macro|CC_ARCH_SPEC|value|PPC603gnu" value="-mcpu=603 -mstrict-align -mno-implicit-fp -mlongcall"/>
+            <stringAttribute key="BLD::Info|Macro|CPU|value|PPC32diab" value="PPC32"/>
+            <stringAttribute key="BLD::Info|Macro|CPU|value|PPC32gnu" value="PPC32"/>
+            <stringAttribute key="BLD::Info|Macro|CPU|value|PPC603diab" value="PPC603"/>
+            <stringAttribute key="BLD::Info|Macro|CPU|value|PPC603gnu" value="PPC603"/>
+            <stringAttribute key="BLD::Info|Macro|LIBPATH|value|PPC32diab" value=""/>
+            <stringAttribute key="BLD::Info|Macro|LIBPATH|value|PPC32gnu" value=""/>
+            <stringAttribute key="BLD::Info|Macro|LIBPATH|value|PPC603diab" value=""/>
+            <stringAttribute key="BLD::Info|Macro|LIBPATH|value|PPC603gnu" value=""/>
+            <stringAttribute key="BLD::Info|Macro|LIBS|value|PPC32diab" value=""/>
+            <stringAttribute key="BLD::Info|Macro|LIBS|value|PPC32gnu" value=""/>
+            <stringAttribute key="BLD::Info|Macro|LIBS|value|PPC603diab" value=""/>
+            <stringAttribute key="BLD::Info|Macro|LIBS|value|PPC603gnu" value=""/>
+            <stringAttribute key="BLD::Info|Macro|TOOL_FAMILY|value|PPC32diab" value="diab"/>
+            <stringAttribute key="BLD::Info|Macro|TOOL_FAMILY|value|PPC32gnu" value="gnu"/>
+            <stringAttribute key="BLD::Info|Macro|TOOL_FAMILY|value|PPC603diab" value="diab"/>
+            <stringAttribute key="BLD::Info|Macro|TOOL_FAMILY|value|PPC603gnu" value="gnu"/>
+            <stringAttribute key="BLD::Info|Macro|TOOL_PATH|value|PPC32diab" value=""/>
+            <stringAttribute key="BLD::Info|Macro|TOOL_PATH|value|PPC32gnu" value=""/>
+            <stringAttribute key="BLD::Info|Macro|TOOL_PATH|value|PPC603diab" value=""/>
+            <stringAttribute key="BLD::Info|Macro|TOOL_PATH|value|PPC603gnu" value=""/>
+            <stringAttribute key="BLD::Info|Macro|TOOL|value|PPC32diab" value="diab"/>
+            <stringAttribute key="BLD::Info|Macro|TOOL|value|PPC32gnu" value="gnu"/>
+            <stringAttribute key="BLD::Info|Macro|TOOL|value|PPC603diab" value="diab"/>
+            <stringAttribute key="BLD::Info|Macro|TOOL|value|PPC603gnu" value="gnu"/>
+            <stringAttribute key="BLD::Info|Macro|VX_CPU_FAMILY|value|PPC32diab" value="ppc"/>
+            <stringAttribute key="BLD::Info|Macro|VX_CPU_FAMILY|value|PPC32gnu" value="ppc"/>
+            <stringAttribute key="BLD::Info|Macro|VX_CPU_FAMILY|value|PPC603diab" value="ppc"/>
+            <stringAttribute key="BLD::Info|Macro|VX_CPU_FAMILY|value|PPC603gnu" value="ppc"/>
+            <listAttribute key="BLD::Info|Tools">
+                <stringAttribute value="C-Compiler"/>
+                <stringAttribute value="C++-Compiler"/>
+                <stringAttribute value="Linker"/>
+                <stringAttribute value="Partial Image Linker"/>
+                <stringAttribute value="Librarian"/>
+                <stringAttribute value="Assembler"/>
+            </listAttribute>
+            <stringAttribute key="BLD::Info|Tool|Assembler|cmd|PPC32diab" value="echo &quot;building $@&quot;;%assemblerprefix% $(TOOL_PATH)dcc %DebugModeFlags% %ToolFlags% $(ADDED_CFLAGS) %Includes% $(ADDED_INCLUDES) -DCPU=$(CPU) -DTOOL_FAMILY=$(TOOL_FAMILY) -DTOOL=$(TOOL) -D_WRS_KERNEL   $(DEFINES) -o %OutFile% -c %InFile%"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|cmd|PPC32gnu" value="echo &quot;building $@&quot;;%assemblerprefix% $(TOOL_PATH)ccppc %DebugModeFlags% %ToolFlags% $(ADDED_CFLAGS) %Includes% $(ADDED_INCLUDES) -DCPU=$(CPU) -DTOOL_FAMILY=$(TOOL_FAMILY) -DTOOL=$(TOOL) -D_WRS_KERNEL   $(DEFINES) -o %OutFile% -c %InFile%"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|cmd|PPC603diab" value="echo &quot;building $@&quot;;%assemblerprefix% $(TOOL_PATH)dcc %DebugModeFlags% %ToolFlags% $(ADDED_CFLAGS) %Includes% $(ADDED_INCLUDES) -DCPU=$(CPU) -DTOOL_FAMILY=$(TOOL_FAMILY) -DTOOL=$(TOOL) -D_WRS_KERNEL   $(DEFINES) -o %OutFile% -c %InFile%"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|cmd|PPC603gnu" value="echo &quot;building $@&quot;;%assemblerprefix% $(TOOL_PATH)ccppc %DebugModeFlags% %ToolFlags% $(ADDED_CFLAGS) %Includes% $(ADDED_INCLUDES) -DCPU=$(CPU) -DTOOL_FAMILY=$(TOOL_FAMILY) -DTOOL=$(TOOL) -D_WRS_KERNEL   $(DEFINES) -o %OutFile% -c %InFile%"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|dbgFlags|PPC32diab" value="-g"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|dbgFlags|PPC32gnu" value="-g"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|dbgFlags|PPC603diab" value="-g"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|dbgFlags|PPC603gnu" value="-g"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|derivedSigs|PPC32diab" value="*.o"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|derivedSigs|PPC32gnu" value="*.o"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|derivedSigs|PPC603diab" value="*.o"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|derivedSigs|PPC603gnu" value="*.o"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|flags|PPC32diab" value="$(CC_ARCH_SPEC) -W:c:,-Xclib-optim-off -Xansi -Xlocal-data-area-static-only -Xpreprocess-assembly -Xcpp-no-space  -Xmake-dependency=0xd"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|flags|PPC32gnu" value="$(CC_ARCH_SPEC) -ansi   -xassembler-with-cpp -MD -MP"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|flags|PPC603diab" value="$(CC_ARCH_SPEC) -W:c:,-Xclib-optim-off -Xansi -Xlocal-data-area-static-only -Xpreprocess-assembly -Xcpp-no-space  -Xmake-dependency=0xd"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|flags|PPC603gnu" value="$(CC_ARCH_SPEC) -ansi   -xassembler-with-cpp -MD -MP"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|nonDbgFlags|PPC32diab" value="-XO -Xsize-opt"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|nonDbgFlags|PPC32gnu" value="-O2 -fstrength-reduce -fno-builtin"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|nonDbgFlags|PPC603diab" value="-XO -Xsize-opt"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|nonDbgFlags|PPC603gnu" value="-O2 -fstrength-reduce -fno-builtin"/>
+            <booleanAttribute key="BLD::Info|Tool|Assembler|object" value="true"/>
+            <booleanAttribute key="BLD::Info|Tool|Assembler|passAble" value="false"/>
+            <stringAttribute key="BLD::Info|Tool|Assembler|sigs" value="*.s"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|cmd|PPC32diab" value="echo &quot;building $@&quot;;%cppcompilerprefix% $(TOOL_PATH)dcc %DebugModeFlags% %ToolFlags% $(ADDED_C++FLAGS) %Includes% $(ADDED_INCLUDES) -DCPU=$(CPU) -DTOOL_FAMILY=$(TOOL_FAMILY) -DTOOL=$(TOOL) -D_WRS_KERNEL   $(DEFINES) -o %OutFile% -c %InFile%"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|cmd|PPC32gnu" value="echo &quot;building $@&quot;;%cppcompilerprefix% $(TOOL_PATH)ccppc %DebugModeFlags% %ToolFlags% $(ADDED_C++FLAGS) %Includes% $(ADDED_INCLUDES) -DCPU=$(CPU) -DTOOL_FAMILY=$(TOOL_FAMILY) -DTOOL=$(TOOL) -D_WRS_KERNEL   $(DEFINES) -o %OutFile% -c %InFile%"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|cmd|PPC603diab" value="echo &quot;building $@&quot;;%cppcompilerprefix% $(TOOL_PATH)dcc %DebugModeFlags% %ToolFlags% $(ADDED_C++FLAGS) %Includes% $(ADDED_INCLUDES) -DCPU=$(CPU) -DTOOL_FAMILY=$(TOOL_FAMILY) -DTOOL=$(TOOL) -D_WRS_KERNEL   $(DEFINES) -o %OutFile% -c %InFile%"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|cmd|PPC603gnu" value="echo &quot;building $@&quot;;%cppcompilerprefix% $(TOOL_PATH)ccppc %DebugModeFlags% %ToolFlags% $(ADDED_C++FLAGS) %Includes% $(ADDED_INCLUDES) -DCPU=$(CPU) -DTOOL_FAMILY=$(TOOL_FAMILY) -DTOOL=$(TOOL) -D_WRS_KERNEL   $(DEFINES) -o %OutFile% -c %InFile%"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|dbgFlags|PPC32diab" value="-g"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|dbgFlags|PPC32gnu" value="-g"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|dbgFlags|PPC603diab" value="-g"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|dbgFlags|PPC603gnu" value="-g"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|derivedSigs|PPC32diab" value="*.o"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|derivedSigs|PPC32gnu" value="*.o"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|derivedSigs|PPC603diab" value="*.o"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|derivedSigs|PPC603gnu" value="*.o"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|flags|PPC32diab" value="$(CC_ARCH_SPEC) -W:c:,-Xclib-optim-off -Xansi -Xlocal-data-area-static-only -Xforce-declarations  -Xmake-dependency=0xd"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|flags|PPC32gnu" value="$(CC_ARCH_SPEC) -ansi -Wall  -MD -MP"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|flags|PPC603diab" value="$(CC_ARCH_SPEC) -W:c:,-Xclib-optim-off -Xansi -Xlocal-data-area-static-only -Xforce-declarations  -Xmake-dependency=0xd"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|flags|PPC603gnu" value="$(CC_ARCH_SPEC) -ansi -Wall  -MD -MP -mlongcall"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|nonDbgFlags|PPC32diab" value="-XO -Xsize-opt"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|nonDbgFlags|PPC32gnu" value="-O2 -fstrength-reduce -fno-builtin"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|nonDbgFlags|PPC603diab" value="-XO -Xsize-opt"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|nonDbgFlags|PPC603gnu" value="-O2 -fstrength-reduce -fno-builtin"/>
+            <booleanAttribute key="BLD::Info|Tool|C++-Compiler|object" value="true"/>
+            <booleanAttribute key="BLD::Info|Tool|C++-Compiler|passAble" value="false"/>
+            <stringAttribute key="BLD::Info|Tool|C++-Compiler|sigs" value="*.cpp;*.C;*.cxx;*.cc"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|cmd|PPC32diab" value="echo &quot;building $@&quot;;%ccompilerprefix% $(TOOL_PATH)dcc %DebugModeFlags% %ToolFlags% $(ADDED_CFLAGS) %Includes% $(ADDED_INCLUDES) -DCPU=$(CPU) -DTOOL_FAMILY=$(TOOL_FAMILY) -DTOOL=$(TOOL) -D_WRS_KERNEL   $(DEFINES) -o %OutFile% -c %InFile%"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|cmd|PPC32gnu" value="echo &quot;building $@&quot;;%ccompilerprefix% $(TOOL_PATH)ccppc %DebugModeFlags% %ToolFlags% $(ADDED_CFLAGS) %Includes% $(ADDED_INCLUDES) -DCPU=$(CPU) -DTOOL_FAMILY=$(TOOL_FAMILY) -DTOOL=$(TOOL) -D_WRS_KERNEL   $(DEFINES) -o %OutFile% -c %InFile%"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|cmd|PPC603diab" value="echo &quot;building $@&quot;;%ccompilerprefix% $(TOOL_PATH)dcc %DebugModeFlags% %ToolFlags% $(ADDED_CFLAGS) %Includes% $(ADDED_INCLUDES) -DCPU=$(CPU) -DTOOL_FAMILY=$(TOOL_FAMILY) -DTOOL=$(TOOL) -D_WRS_KERNEL   $(DEFINES) -o %OutFile% -c %InFile%"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|cmd|PPC603gnu" value="echo &quot;building $@&quot;;%ccompilerprefix% $(TOOL_PATH)ccppc %DebugModeFlags% %ToolFlags% $(ADDED_CFLAGS) %Includes% $(ADDED_INCLUDES) -DCPU=$(CPU) -DTOOL_FAMILY=$(TOOL_FAMILY) -DTOOL=$(TOOL) -D_WRS_KERNEL   $(DEFINES) -o %OutFile% -c %InFile%"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|dbgFlags|PPC32diab" value="-g"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|dbgFlags|PPC32gnu" value="-g"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|dbgFlags|PPC603diab" value="-g"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|dbgFlags|PPC603gnu" value="-g"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|derivedSigs|PPC32diab" value="*.o"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|derivedSigs|PPC32gnu" value="*.o"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|derivedSigs|PPC603diab" value="*.o"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|derivedSigs|PPC603gnu" value="*.o"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|flags|PPC32diab" value="$(CC_ARCH_SPEC) -W:c:,-Xclib-optim-off -Xansi -Xlocal-data-area-static-only -Xforce-declarations  -Xmake-dependency=0xd"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|flags|PPC32gnu" value="$(CC_ARCH_SPEC) -ansi  -Wall  -MD -MP"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|flags|PPC603diab" value="$(CC_ARCH_SPEC) -W:c:,-Xclib-optim-off -Xansi -Xlocal-data-area-static-only -Xforce-declarations  -Xmake-dependency=0xd"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|flags|PPC603gnu" value="$(CC_ARCH_SPEC) -ansi  -Wall  -MD -MP -mlongcall"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|nonDbgFlags|PPC32diab" value="-XO -Xsize-opt"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|nonDbgFlags|PPC32gnu" value="-O2 -fstrength-reduce -fno-builtin"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|nonDbgFlags|PPC603diab" value="-XO -Xsize-opt"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|nonDbgFlags|PPC603gnu" value="-O2 -fstrength-reduce -fno-builtin"/>
+            <booleanAttribute key="BLD::Info|Tool|C-Compiler|object" value="true"/>
+            <booleanAttribute key="BLD::Info|Tool|C-Compiler|passAble" value="false"/>
+            <stringAttribute key="BLD::Info|Tool|C-Compiler|sigs" value="*.c"/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|cmd|PPC32diab" value="echo &quot;building $@&quot;;%archiverprefix% $(TOOL_PATH)dar %ToolFlags% %OutFile% %Objects%"/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|cmd|PPC32gnu" value="echo &quot;building $@&quot;;%archiverprefix% $(TOOL_PATH)arppc %ToolFlags% %OutFile% %Objects%"/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|cmd|PPC603diab" value="echo &quot;building $@&quot;;%archiverprefix% $(TOOL_PATH)dar %ToolFlags% %OutFile% %Objects%"/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|cmd|PPC603gnu" value="echo &quot;building $@&quot;;%archiverprefix% $(TOOL_PATH)arppc %ToolFlags% %OutFile% %Objects%"/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|dbgFlags|PPC32diab" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|dbgFlags|PPC32gnu" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|dbgFlags|PPC603diab" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|dbgFlags|PPC603gnu" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|derivedSigs|PPC32diab" value="*.a"/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|derivedSigs|PPC32gnu" value="*.a"/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|derivedSigs|PPC603diab" value="*.a"/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|derivedSigs|PPC603gnu" value="*.a"/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|flags|PPC32diab" value="crus"/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|flags|PPC32gnu" value="crus"/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|flags|PPC603diab" value="crus"/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|flags|PPC603gnu" value="crus"/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|nonDbgFlags|PPC32diab" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|nonDbgFlags|PPC32gnu" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|nonDbgFlags|PPC603diab" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|nonDbgFlags|PPC603gnu" value=""/>
+            <booleanAttribute key="BLD::Info|Tool|Librarian|object" value="false"/>
+            <booleanAttribute key="BLD::Info|Tool|Librarian|passAble" value="true"/>
+            <stringAttribute key="BLD::Info|Tool|Librarian|sigs" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Linker|cmd|PPC32diab" value="echo &quot;building $@&quot;;rm -f %OutFile%;ddump -Ng %Objects% %Libraries% | tclsh $(WIND_BASE)/host/resource/hutils/tcl/munch.tcl -c ppc &gt; $(OBJ_DIR)/ctdt.c;%ccompilerprefix% $(TOOL_PATH)dcc %DebugModeFlags% $(CC_ARCH_SPEC) -Xdollar-in-ident -Xforce-declarations $(ADDED_CFLAGS) %Includes% $(ADDED_INCLUDES) -DCPU=$(CPU) -DTOOL_FAMILY=$(TOOL_FAMILY) -DTOOL=$(TOOL) -D_WRS_KERNEL   $(DEFINES)  -o $(OBJ_DIR)/ctdt.o -c $(OBJ_DIR)/ctdt.c;%linkerprefix% $(TOOL_PATH)dld -tPPCFH:vxworks63 -X -r5 %ToolFlags% -o %OutFile% $(OBJ_DIR)/ctdt.o %Objects% %Libraries% $(LIBPATH) $(LIBS)  $(ADDED_LIBPATH) $(ADDED_LIBS) &amp;&amp; if [ &quot;$(EXPAND_DBG)&quot; = &quot;1&quot; ]; then plink &quot;$@&quot;;fi"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|cmd|PPC32gnu" value="echo &quot;building $@&quot;;rm -f %OutFile%;nmppc %Objects% %Libraries% | tclsh $(WIND_BASE)/host/resource/hutils/tcl/munch.tcl -c ppc &gt; $(OBJ_DIR)/ctdt.c;%ccompilerprefix% $(TOOL_PATH)ccppc %DebugModeFlags% $(CC_ARCH_SPEC) -fdollars-in-identifiers -Wall $(ADDED_CFLAGS) %Includes% $(ADDED_INCLUDES) -DCPU=$(CPU) -DTOOL_FAMILY=$(TOOL_FAMILY) -DTOOL=$(TOOL) -D_WRS_KERNEL   $(DEFINES)  -o $(OBJ_DIR)/ctdt.o -c $(OBJ_DIR)/ctdt.c;%linkerprefix% $(TOOL_PATH)ccppc -r -nostdlib -Wl,-X %ToolFlags% -o %OutFile% $(OBJ_DIR)/ctdt.o %Objects% %Libraries% $(LIBPATH) $(LIBS)  $(ADDED_LIBPATH) $(ADDED_LIBS) &amp;&amp; if [ &quot;$(EXPAND_DBG)&quot; = &quot;1&quot; ]; then plink &quot;$@&quot;;fi"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|cmd|PPC603diab" value="echo &quot;building $@&quot;;rm -f %OutFile%;ddump -Ng %Objects% %Libraries% | tclsh $(WIND_BASE)/host/resource/hutils/tcl/munch.tcl -c ppc &gt; $(OBJ_DIR)/ctdt.c;%ccompilerprefix% $(TOOL_PATH)dcc %DebugModeFlags% $(CC_ARCH_SPEC) -Xdollar-in-ident -Xforce-declarations $(ADDED_CFLAGS) %Includes% $(ADDED_INCLUDES) -DCPU=$(CPU) -DTOOL_FAMILY=$(TOOL_FAMILY) -DTOOL=$(TOOL) -D_WRS_KERNEL   $(DEFINES)  -o $(OBJ_DIR)/ctdt.o -c $(OBJ_DIR)/ctdt.c;%linkerprefix% $(TOOL_PATH)dld -tPPC603FH:vxworks63 -X -r5 %ToolFlags% -o %OutFile% $(OBJ_DIR)/ctdt.o %Objects% %Libraries% $(LIBPATH) $(LIBS)  $(ADDED_LIBPATH) $(ADDED_LIBS) &amp;&amp; if [ &quot;$(EXPAND_DBG)&quot; = &quot;1&quot; ]; then plink &quot;$@&quot;;fi"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|cmd|PPC603gnu" value="echo &quot;building $@&quot;;rm -f %OutFile%;nmppc %Objects% %Libraries% | tclsh $(WIND_BASE)/host/resource/hutils/tcl/munch.tcl -c ppc &gt; $(OBJ_DIR)/ctdt.c;%ccompilerprefix% $(TOOL_PATH)ccppc %DebugModeFlags% $(CC_ARCH_SPEC) -fdollars-in-identifiers -Wall $(ADDED_CFLAGS) %Includes% $(ADDED_INCLUDES) -DCPU=$(CPU) -DTOOL_FAMILY=$(TOOL_FAMILY) -DTOOL=$(TOOL) -D_WRS_KERNEL   $(DEFINES)  -o $(OBJ_DIR)/ctdt.o -c $(OBJ_DIR)/ctdt.c;%linkerprefix% $(TOOL_PATH)ccppc -r -nostdlib -Wl,-X %ToolFlags% -o %OutFile% $(OBJ_DIR)/ctdt.o %Objects% %Libraries% $(LIBPATH) $(LIBS)  $(ADDED_LIBPATH) $(ADDED_LIBS) &amp;&amp; if [ &quot;$(EXPAND_DBG)&quot; = &quot;1&quot; ]; then plink &quot;$@&quot;;fi"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|dbgFlags|PPC32diab" value="-g"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|dbgFlags|PPC32gnu" value="-g"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|dbgFlags|PPC603diab" value="-g"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|dbgFlags|PPC603gnu" value="-g"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|derivedSigs|PPC32diab" value="*.out"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|derivedSigs|PPC32gnu" value="*.out"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|derivedSigs|PPC603diab" value="*.out"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|derivedSigs|PPC603gnu" value="*.out"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|flags|PPC32diab" value="-r4"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|flags|PPC32gnu" value="-T $(WIND_BASE)/target/h/tool/gnu/ldscripts/link.OUT"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|flags|PPC603diab" value="-r4"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|flags|PPC603gnu" value="-T $(WIND_BASE)/target/h/tool/gnu/ldscripts/link.OUT"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|nonDbgFlags|PPC32diab" value="-XO -Xsize-opt"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|nonDbgFlags|PPC32gnu" value="-O2 -fstrength-reduce -fno-builtin"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|nonDbgFlags|PPC603diab" value="-XO -Xsize-opt"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|nonDbgFlags|PPC603gnu" value="-O2 -fstrength-reduce -fno-builtin"/>
+            <booleanAttribute key="BLD::Info|Tool|Linker|object" value="false"/>
+            <booleanAttribute key="BLD::Info|Tool|Linker|passAble" value="false"/>
+            <stringAttribute key="BLD::Info|Tool|Linker|sigs" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|cmd|PPC32diab" value="echo &quot;building $@&quot;;%linkerprefix% $(TOOL_PATH)dld -tPPCFH:vxworks63 -X -r5 %ToolFlags% -o %OutFile% %Objects% $(LIBPATH) $(LIBS) $(ADDED_LIBPATH) $(ADDED_LIBS)  &amp;&amp; if [ &quot;$(EXPAND_DBG)&quot; = &quot;1&quot; ]; then plink &quot;$@&quot;;fi"/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|cmd|PPC32gnu" value="echo &quot;building $@&quot;;%linkerprefix% $(TOOL_PATH)ccppc -r -nostdlib -Wl,-X %ToolFlags% -o %OutFile% %Objects% $(LIBPATH) $(LIBS) $(ADDED_LIBPATH) $(ADDED_LIBS)  &amp;&amp; if [ &quot;$(EXPAND_DBG)&quot; = &quot;1&quot; ]; then plink &quot;$@&quot;;fi"/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|cmd|PPC603diab" value="echo &quot;building $@&quot;;%linkerprefix% $(TOOL_PATH)dld -tPPC603FH:vxworks63 -X -r5 %ToolFlags% -o %OutFile% %Objects% $(LIBPATH) $(LIBS) $(ADDED_LIBPATH) $(ADDED_LIBS)  &amp;&amp; if [ &quot;$(EXPAND_DBG)&quot; = &quot;1&quot; ]; then plink &quot;$@&quot;;fi"/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|cmd|PPC603gnu" value="echo &quot;building $@&quot;;%linkerprefix% $(TOOL_PATH)ccppc -r -nostdlib -Wl,-X %ToolFlags% -o %OutFile% %Objects% $(LIBPATH) $(LIBS) $(ADDED_LIBPATH) $(ADDED_LIBS)  &amp;&amp; if [ &quot;$(EXPAND_DBG)&quot; = &quot;1&quot; ]; then plink &quot;$@&quot;;fi"/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|dbgFlags|PPC32diab" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|dbgFlags|PPC32gnu" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|dbgFlags|PPC603diab" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|dbgFlags|PPC603gnu" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|derivedSigs|PPC32diab" value="*.o"/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|derivedSigs|PPC32gnu" value="*.o"/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|derivedSigs|PPC603diab" value="*.o"/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|derivedSigs|PPC603gnu" value="*.o"/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|flags|PPC32diab" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|flags|PPC32gnu" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|flags|PPC603diab" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|flags|PPC603gnu" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|nonDbgFlags|PPC32diab" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|nonDbgFlags|PPC32gnu" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|nonDbgFlags|PPC603diab" value=""/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|nonDbgFlags|PPC603gnu" value=""/>
+            <booleanAttribute key="BLD::Info|Tool|Partial Image Linker|object" value="false"/>
+            <booleanAttribute key="BLD::Info|Tool|Partial Image Linker|passAble" value="true"/>
+            <stringAttribute key="BLD::Info|Tool|Partial Image Linker|sigs" value=""/>
+            <stringAttribute key="BLD::Info|cmd" value="%makeprefix% make --no-print-directory"/>
+            <stringAttribute key="BLD::Info|defaultSpec" value="PPC603gnu"/>
+            <stringAttribute key="BLD::Info|redirDir|PPC32diab" value="PPC32diab"/>
+            <stringAttribute key="BLD::Info|redirDir|PPC32gnu" value="PPC32gnu"/>
+            <stringAttribute key="BLD::Info|redirDir|PPC603diab" value="PPC603diab"/>
+            <stringAttribute key="BLD::Info|redirDir|PPC603gnu" value="PPC603gnu"/>
+            <stringAttribute key="BLD::Info|redirRoot" value=""/>
+            <listAttribute key="BLD::Info|specs">
+                <stringAttribute value="PPC32diab"/>
+                <stringAttribute value="PPC32gnu"/>
+                <stringAttribute value="PPC603diab"/>
+                <stringAttribute value="PPC603gnu"/>
+            </listAttribute>
+            <intAttribute key="BuildSupportEnabled" value="1"/>
+            <listAttribute key="BuildSupportForBuildSpecs">
+                <stringAttribute value="PPC603gnu"/>
+            </listAttribute>
+            <booleanAttribute key="BuildTargetCentric" value="true"/>
+        </mapAttribute>
+    </attributes>
+    <buildtargets>
+        <buildtarget buildtool="Linker" name="SimpleTemplate" passed="false" targetname="SimpleTemplate">
+            <contents>
+                <buildtargetreference name="/nav6SimpleRobotExample/SimpleTemplate_partialImage"/>
+            </contents>
+        </buildtarget>
+        <buildtarget buildtool="Partial Image Linker" name="SimpleTemplate_partialImage" passed="true" targetname="SimpleTemplate_partialImage">
+            <contents>
+                <folder name="/nav6SimpleRobotExample" recursive="true"/>
+            </contents>
+        </buildtarget>
+    </buildtargets>
+</wrxml>
