@@ -1,4 +1,4 @@
-REM Batch file to create the nav6 distributable package
+REM Batch file to create the navX MXP distributable package
 md dist
 pushd dist
 
@@ -69,4 +69,4 @@ cp -r ./processing/navXMXPUI/application.windows64/* ./utilities/navXMXPUI/appli
 cp -r ./drivers ./utilities
 "C:\Program Files\7-zip\7z" a navx-utilities.zip ./utilities/*
 rm -r -f utilities
-dosyncftp
+REM dosyncftp
