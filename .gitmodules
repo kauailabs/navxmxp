@@ -1,0 +1,3 @@
+[submodule "latest"]
+	path = roborio/labview/navx-MXP-LabVIEW
+	url = https://github.com/FRC900/navx-MXP-LabVIEW
