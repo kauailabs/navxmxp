@@ -1,3 +1,6 @@
 [submodule "latest"]
 	path = roborio/labview/navx-MXP-LabVIEW
 	url = https://github.com/FRC900/navx-MXP-LabVIEW
+[submodule "roborio/labview"]
+	path = roborio/labview
+	url = https://github.com/FRC900/navx-MXP-LabVIEW
