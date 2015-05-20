@@ -318,7 +318,7 @@ void draw() {
     textAlign(RIGHT);
     text(nfp(world_linear_acceleration_y,1,2),135,height-60);
     textAlign(LEFT);
-    text("Accel Y:",20, height-40);
+    text("Accel Z:",20, height-40);
     textAlign(RIGHT);
     text(nfp(world_linear_acceleration_z,1,2),135,height-40);
     textAlign(LEFT);
@@ -329,18 +329,18 @@ void draw() {
       fill(128,128,128);
     }
     textAlign(LEFT);
-    text("Yaw:",width-150,height-120);
+    text("Yaw (Z):",width-150,height-80);
     textAlign(RIGHT);
-    text(nfp(yaw_degrees,3,2),width-15, height-120);
+    text(nfp(yaw_degrees,3,2),width-15, height-80);
     fill(255,255,255);
     textAlign(LEFT);
-    text("Pitch:",width-150,height-100);
+    text("Pitch (Y):",width-150,height-100);
     textAlign(RIGHT);
     text(nfp(pitch_degrees,3,2),width-15, height-100);
     textAlign(LEFT);
-    text("Roll:",width-150,height-80);
+    text("Roll (X):",width-150,height-120);
     textAlign(RIGHT);
-    text(nfp(roll_degrees,3,2),width-15, height-80);
+    text(nfp(roll_degrees,3,2),width-15, height-120);
     textAlign(LEFT);
     if ( !compass_calibrated ) {
       fill(128,128,128);
