@@ -79,17 +79,124 @@ struct platform_data_s {
  * matrix seen below tells the MPL how to rotate the raw data from the
  * driver(s).
  */
-static struct platform_data_s gyro_pdata = {
-    { 1, 0, 0,
-      0, 1, 0,
-      0, 0, 1}
+
+/* 'Logical' Axes Orientation - As viewed by navX MXP Users.         */
+/* This is often referred to as the "World" reference frame.         */
+
+#define MPU_LOGICAL_AXIS_X	0   // PITCH: Increases as 'right' lifts
+#define MPU_LOGICAL_AXIS_Y	1	// ROLL:  Increases as 'front' lifts
+#define MPU_LOGICAL_AXIS_Z	2	// YAW:   Increases as rotates clockwise
+
+#define NUM_LOGICAL_AXES	3
+
+/* Defines the transform from mpu axes to board axes orientation */
+
+static struct platform_data_s mpu_to_board_orientation_matrices[NUM_LOGICAL_AXES * 2] = {
+	// MPU_X_AXIS_DOWN_YAW
+	{  0, -1,  0,   // x = chip y (inverted)
+	   0,  0,  1,   // y = chip z
+      -1,  0,  0},  // z = chip x (inverted)
+    // MPU_Y_AXIS_DOWN_YAW
+	{ -1,  0,  0,   // x = chip x (inverted)
+	   0,  0, -1,   // y = chip z (inverted)
+       0, -1,  0},  // z = chip y (inverted)
+	// MPU_Z_AXIS_DOWN_YAW
+	{ -1,  0,  0,   // x = chip x (inverted)
+       0,  1,  0,   // y = chip y
+       0,  0, -1},  // z = chip z (inverted)
+    // MPU_X_AXIS_UP_YAW
+	{  0, -1,  0,   // x = chip y (inverted)
+	   0,  0, -1,   // y = chip z (inverted)
+       1,  0,  0},  // z = chip x
+    // MPU_Y_AXIS_UP_YAW
+	{  1,  0,  0,   // x = chip x
+	   0,  0, -1,   // y = chip z (inverted)
+       0,  1,  0},  // z = chip y
+    // MPU_Z_AXIS_UP_YAW
+	{  1,  0,  0,   // x = chip x
+       0,  1,  0,   // y = chip y
+       0,  0,  1},  // z = chip z
 };
 
-static struct platform_data_s compass_pdata = {
-    { 0, 1, 0,
-      1, 0, 0,
-      0, 0,-1}
+const int default_mpu_yaw_axis = MPU_LOGICAL_AXIS_Z;
+const bool default_mpu_yaw_axis_up = true;
+
+uint8_t curr_mpu_yaw_axis = default_mpu_yaw_axis;
+bool curr_mpu_yaw_axis_up = default_mpu_yaw_axis_up;
+struct platform_data_s curr_mpu_to_board_orientation_matrix;
+
+_EXTERN_ATTRIB int set_current_mpu_to_board_xform(uint8_t yaw_axis, bool up) {
+	platform_data_s *p_selected = 0;
+	int status = -1;
+	unsigned short gyro_fsr;
+	unsigned char accel_fsr;
+	if ( yaw_axis > (NUM_LOGICAL_AXES-1) ) return status;
+	size_t index = yaw_axis;
+	if ( up ) {
+		index += NUM_LOGICAL_AXES;
+	}
+	curr_mpu_yaw_axis = yaw_axis;
+	p_selected = &(mpu_to_board_orientation_matrices[index]);
+	memcpy(&curr_mpu_to_board_orientation_matrix, p_selected, sizeof(platform_data_s));
+    mpu_get_gyro_fsr(&gyro_fsr);
+    mpu_get_accel_fsr(&accel_fsr);
+    inv_set_gyro_orientation_and_scale(
+            inv_orientation_matrix_to_scalar(curr_mpu_to_board_orientation_matrix.orientation),
+            (long)gyro_fsr<<15);
+    inv_set_accel_orientation_and_scale(
+            inv_orientation_matrix_to_scalar(curr_mpu_to_board_orientation_matrix.orientation),
+            (long)accel_fsr<<15);
+    status = dmp_set_orientation(
+        inv_orientation_matrix_to_scalar(curr_mpu_to_board_orientation_matrix.orientation));
+    return status;
+}
+
+void set_default_mpu_to_board_xform() {
+	set_current_mpu_to_board_xform(default_mpu_yaw_axis, default_mpu_yaw_axis_up);
+}
+
+/* Defines the transform from compass axes to mpu axes orientation */
+
+static struct platform_data_s compass_to_mpu_orientation_matrix = {
+    {  0,  1,  0, // x = chip y
+       1,  0,  0, // y = chip x
+       0,  0, -1} // z = chip z (inverted)
 };
+
+void xform_compass_to_mpu_coordinates( short raw_compass_data[3] ) {
+	short raw_compass_data_copy[3];
+	for ( int i = 0; i < 3; i++ ) {
+		raw_compass_data_copy[i] = raw_compass_data[i];
+	}
+	for ( int i = 0; i < 3; i++ ) {
+		raw_compass_data[i] = 0;
+		for ( int j = 0; j < 3; j++ ) {
+			if ( compass_to_mpu_orientation_matrix.orientation[(i*3)+j] != 0 ) {
+				raw_compass_data[i] =
+						raw_compass_data_copy[j] *
+						compass_to_mpu_orientation_matrix.orientation[(i*3)+j];
+			}
+		}
+	}
+};
+
+void xform_mpu_to_board_coordinates( short mpu_coordinate_data[3] ) {
+	short mpu_coordinate_data_copy[3];
+	for ( int i = 0; i < 3; i++ ) {
+		mpu_coordinate_data_copy[i] = mpu_coordinate_data[i];
+	}
+	for ( int i = 0; i < 3; i++ ) {
+		mpu_coordinate_data[i] = 0;
+		for ( int j = 0; j < 3; j++ ) {
+			if ( curr_mpu_to_board_orientation_matrix.orientation[(i*3)+j] != 0 ) {
+				mpu_coordinate_data[i] =
+						mpu_coordinate_data_copy[j] *
+						curr_mpu_to_board_orientation_matrix.orientation[(i*3)+j];
+			}
+		}
+	}
+}
+
 #define COMPASS_ENABLED 1
 unsigned char *mpl_key = (unsigned char*)"eMPL 5.1";
 
@@ -321,17 +428,6 @@ _EXTERN_ATTRIB void mpu_initialize(unsigned short mpu_interrupt_pin)
     inv_set_compass_sample_rate(COMPASS_READ_MS * 1000L);
 #endif
 
-    inv_set_gyro_orientation_and_scale(
-            inv_orientation_matrix_to_scalar(gyro_pdata.orientation),
-            (long)gyro_fsr<<15);
-    inv_set_accel_orientation_and_scale(
-            inv_orientation_matrix_to_scalar(gyro_pdata.orientation),
-            (long)accel_fsr<<15);
-#ifdef COMPASS_ENABLED
-    inv_set_compass_orientation_and_scale(
-            inv_orientation_matrix_to_scalar(compass_pdata.orientation),
-            (long)compass_fsr<<15);
-#endif
     /* Initialize HAL state variables. */
 #ifdef COMPASS_ENABLED
     hal.sensors = ACCEL_ON | GYRO_ON | COMPASS_ON;
@@ -378,8 +474,7 @@ _EXTERN_ATTRIB void mpu_initialize(unsigned short mpu_interrupt_pin)
      * be used in combination with DMP_FEATURE_SEND_RAW_GYRO.
      */
     dmp_load_motion_driver_firmware();
-    dmp_set_orientation(
-        inv_orientation_matrix_to_scalar(gyro_pdata.orientation));
+    set_current_mpu_to_board_xform(MPU_LOGICAL_AXIS_Z, true);
     dmp_register_tap_cb(tap_cb);
     dmp_register_android_orient_cb(android_orient_cb);
 
@@ -412,6 +507,72 @@ _EXTERN_ATTRIB void get_mpu_config(struct mpu_config *pconfig)
 	dmp_get_fifo_rate(&pconfig->mpu_update_rate);
     mpu_get_gyro_fsr(&pconfig->gyro_fsr);
     mpu_get_accel_fsr(&pconfig->accel_fsr);
+}
+
+/* Read all 3 accelerometer axes, whichever axis has the greatest
+ * absolute value (~1G) is the axis best suited to be used
+ * for orientation.
+ *
+ * Note that this function has a threshold, meaning that this
+ * function will only succeed if (a) the device is still and
+ * thus acceleration due to motion is minimal and (b) an axis
+ * can be found which is at least X% (80?) of 1G, translating
+ * to a maximum allowable angle from vertical.
+ */
+
+const uint8_t INVALID_AXIS = 255;
+
+_EXTERN_ATTRIB int sense_current_mpu_yaw_orientation( uint8_t *mpu_yaw_axis, bool* up)
+{
+	short raw_accel_data[3];
+	float accel_data_g[3];
+	long raw_accel_data_accumulator[3] = {0,0,0};
+	unsigned long sample_timestamp;
+	unsigned char accel_fsr;
+	unsigned short sample_rate;
+	unsigned long sample_period_ms;
+	int iteration_count = 10;
+	mpu_get_accel_fsr(&accel_fsr);
+    mpu_get_sample_rate(&sample_rate);
+    sample_period_ms = 1000 / sample_rate;
+    unsigned char valid_yaw_axis = INVALID_AXIS;
+    bool valid_axis_up = true;
+
+	int curr_iteration = 0;
+	while ( curr_iteration < iteration_count ) {
+		if(!mpu_get_accel_reg(raw_accel_data, &sample_timestamp)) {
+			/* Accumulate acceleration*/
+			for ( int i = 0; i < 3; i++) {
+				raw_accel_data_accumulator[i] += raw_accel_data[i];
+			}
+		} else {
+			return -1;
+		}
+		delay_ms(sample_period_ms);
+		curr_iteration++;
+	}
+	/* Compute mean acceleration in each axis */
+	for ( int i = 0; i < 3; i++) {
+		raw_accel_data[i] = (short)(raw_accel_data_accumulator[i] / iteration_count);
+	}
+	/* Find the axis, if any, which has a value close to +/- 1g */
+	for ( int i = 0; i < 3; i++) {
+		accel_data_g[i] = (((float)raw_accel_data[i]) / (32768.0 / accel_fsr));
+		if ( ( fabs(accel_data_g[i]) > .8 ) && ( fabs(accel_data_g[i]) < 1.2 ) ) {
+			if ( valid_yaw_axis == INVALID_AXIS ) {
+				valid_yaw_axis = i;
+				valid_axis_up = (accel_data_g[i] > 0);
+			} else {
+				/* More than on axis at/near 1G.  This is an error. */
+				return -1;
+			}
+		}
+	}
+	if ( valid_yaw_axis != INVALID_AXIS ) {
+		*mpu_yaw_axis = valid_yaw_axis;
+		*up = valid_axis_up;
+	}
+	return (valid_yaw_axis != INVALID_AXIS) ? 0 : -1;
 }
 
 _EXTERN_ATTRIB int run_mpu_self_test(struct mpu_selftest_calibration_data *caldata)
@@ -571,6 +732,9 @@ _EXTERN_ATTRIB int periodic_compass_update() {
 
 		ret = mpu_get_compass_reg(new_compass_data_short, &curr_timestamp);
 		if (!ret) {
+			// Xform Compass data from chip to board orientation
+			xform_compass_to_mpu_coordinates( new_compass_data_short );
+			/* Accumulate Compass Data */
 			compass_accumulator[0] += new_compass_data_short[0];
 			compass_accumulator[1] += new_compass_data_short[1];
 			compass_accumulator[2] += new_compass_data_short[2];
@@ -625,6 +789,8 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
 			}
 		}
 		if (sensors & INV_XYZ_ACCEL) {
+			/* Transform raw accelerometer data to board orientation */
+			xform_mpu_to_board_coordinates(accel_short);
 			accel[0] = (long)accel_short[0];
 			accel[1] = (long)accel_short[1];
 			accel[2] = (long)accel_short[2];
@@ -740,10 +906,9 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
 
 	    	float mag_field[3];
 
-	    	/* Note:  X/Y are swapped, and z is inverted, see compass orientation matrix */
-	    	pdata->raw_compass[0] = compass_short[1];
-	    	pdata->raw_compass[1] = compass_short[0];
-	    	pdata->raw_compass[2] = -compass_short[2];
+	    	pdata->raw_compass[0] = compass_short[0];
+	    	pdata->raw_compass[1] = compass_short[1];
+	    	pdata->raw_compass[2] = compass_short[2];
 
 			/* Apply compass calibration biases */
 	    	mag_field[0] = pdata->raw_compass[0] - magcaldata.bias[0];
@@ -784,7 +949,11 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
 	    	//if(heading_radians < 0)
 	    	//	heading_radians += 2*PI;
 
-	    	/* Perform tilt compensation, based upon pitch/roll */
+			/* Perform tilt compensation, based upon pitch/roll     */
+			/* Note that pitch (X Axis) is inverted here, since the */
+			/* sign of the X axis is inverted within the Quaternion */
+			/* provided by the MPU.                                 */
+
             float inverted_pitch = -ypr[1];
             float roll = ypr[2];
 
@@ -792,6 +961,9 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
             float sin_roll = sin(roll);
             float cos_pitch = cos(inverted_pitch);
             float sin_pitch = sin(inverted_pitch);
+
+	    	/* Transform compass data to board orientation */
+			xform_mpu_to_board_coordinates(pdata->calibrated_compass);
 
             float MAG_X = pdata->calibrated_compass[0] * cos_pitch + pdata->calibrated_compass[2] * sin_pitch;
             float MAG_Y = pdata->calibrated_compass[0] * sin_roll * sin_pitch + pdata->calibrated_compass[1] * cos_roll - pdata->calibrated_compass[2] * sin_roll * cos_pitch;

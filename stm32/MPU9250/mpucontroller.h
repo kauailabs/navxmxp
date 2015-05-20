@@ -128,4 +128,7 @@ _EXTERN_ATTRIB void mpu_get_mag_cal_data(struct mag_calibration_data *magcaldata
 _EXTERN_ATTRIB bool is_mag_cal_data_default( struct mag_calibration_data *magcaldata );
 _EXTERN_ATTRIB int periodic_compass_update();
 
+_EXTERN_ATTRIB int sense_current_mpu_yaw_orientation( uint8_t *mpu_yaw_axis, bool* up);
+_EXTERN_ATTRIB int set_current_mpu_to_board_xform(uint8_t yaw_axis, bool up);
+
 #endif /* MPUCONTROLLER_H_ */

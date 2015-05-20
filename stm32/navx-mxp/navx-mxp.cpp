@@ -85,6 +85,11 @@ struct fusion_settings {
 	float sealevel_pressure_millibars;
 };
 
+struct board_orientation_settings {
+	uint8_t yaw_axis;
+	bool yaw_axis_up;
+};
+
 /* nav10_cal_data is persisted to flash */
 struct flash_cal_data {
 	uint8_t									selfteststatus;
@@ -93,6 +98,7 @@ struct flash_cal_data {
 	bool   									dmpcaldatavalid;
 	struct mag_calibration_data				magcaldata;
 	struct fusion_settings					fusiondata;
+	struct board_orientation_settings		orientationdata;
 };
 
 const float default_motion_detect_thresh_g = 0.02f;
@@ -244,6 +250,18 @@ void interpolate_temp_correction_offsets( 	struct mpu_dmp_calibration_interpolat
 	}
 }
 
+int sense_and_update_yaw_orientation() {
+	uint8_t mpu_yaw_axis;
+	bool yaw_axis_up;
+	if ( !sense_current_mpu_yaw_orientation( &mpu_yaw_axis, &yaw_axis_up) ) {
+		set_current_mpu_to_board_xform(mpu_yaw_axis, yaw_axis_up);
+		((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis = mpu_yaw_axis;
+		((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up = yaw_axis_up;
+		return 0;
+	}
+	return -1;
+}
+
 _EXTERN_ATTRIB void nav10_init()
 {
 	registers.op_status		= NAVX_OP_STATUS_INITIALIZING;
@@ -304,6 +322,8 @@ _EXTERN_ATTRIB void nav10_init()
 		if ( ((struct flash_cal_data *)flashdata)->dmpcaldatavalid ) {
 			mpu_apply_calibration_data( &((struct flash_cal_data *)flashdata)->mpucaldata );
 			mpu_apply_dmp_gyro_biases(&((struct flash_cal_data *)flashdata)->dmpcaldata);
+			set_current_mpu_to_board_xform(((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis,
+					((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up);
 			last_gyro_bias_load_temperature = ((struct flash_cal_data *)flashdata)->dmpcaldata.mpu_temp_c;
 			cal_led_cycle = flash_off;
 			registers.op_status = NAVX_OP_STATUS_NORMAL;
@@ -313,6 +333,11 @@ _EXTERN_ATTRIB void nav10_init()
 			registers.op_status = NAVX_OP_STATUS_IMU_AUTOCAL_IN_PROGRESS;
 			registers.cal_status |= NAVX_CAL_STATUS_IMU_CAL_INPROGRESS;
 			cal_led_cycle = flash_slow;
+			while ( true ) {
+				if ( !sense_and_update_yaw_orientation() ) {
+					break;
+				}
+			}
 		}
 		if ( !is_mag_cal_data_default(&((struct flash_cal_data *)flashdata)->magcaldata) ) {
 			registers.cal_status |= NAVX_CAL_STATUS_MAG_CAL_COMPLETE;
@@ -324,24 +349,29 @@ _EXTERN_ATTRIB void nav10_init()
 		registers.op_status = NAVX_OP_STATUS_SELFTEST_IN_PROGRESS;
 		uint8_t selftest_status = 0;
 		while ( selftest_status != 7 ) {
-			selftest_status = run_mpu_self_test(&((struct flash_cal_data *)flashdata)->mpucaldata);
-			if ( selftest_status == 7 ) {
-				mpu_apply_calibration_data(&((struct flash_cal_data *)flashdata)->mpucaldata);
-				mpu_get_mag_cal_data(&((struct flash_cal_data *)flashdata)->magcaldata);
-				init_fusion_settings(&((struct flash_cal_data *)flashdata)->fusiondata);
-				registers.selftest_status = selftest_status | NAVX_SELFTEST_STATUS_COMPLETE;
-				((struct flash_cal_data *)flashdata)->selfteststatus = selftest_status;
-				registers.op_status = NAVX_OP_STATUS_IMU_AUTOCAL_IN_PROGRESS;
-				registers.cal_status |= NAVX_CAL_STATUS_IMU_CAL_INPROGRESS;
-				cal_led_cycle = flash_slow;
+			if ( !sense_and_update_yaw_orientation() ) {
+				selftest_status = run_mpu_self_test(&((struct flash_cal_data *)flashdata)->mpucaldata);
+				if ( selftest_status == 7 ) {
+					/* Self-test passed */
+					mpu_apply_calibration_data(&((struct flash_cal_data *)flashdata)->mpucaldata);
+					mpu_get_mag_cal_data(&((struct flash_cal_data *)flashdata)->magcaldata);
+					init_fusion_settings(&((struct flash_cal_data *)flashdata)->fusiondata);
+					registers.selftest_status = selftest_status | NAVX_SELFTEST_STATUS_COMPLETE;
+					((struct flash_cal_data *)flashdata)->selfteststatus = selftest_status;
+					registers.op_status = NAVX_OP_STATUS_IMU_AUTOCAL_IN_PROGRESS;
+					registers.cal_status |= NAVX_CAL_STATUS_IMU_CAL_INPROGRESS;
+					cal_led_cycle = flash_slow;
+				} else {
+					/* Self-test failed, and we have no calibration data. */
+					/* Indicate error                                     */
+					cal_led_cycle = flash_fast;
+					registers.op_status = NAVX_OP_STATUS_ERROR;
+					registers.selftest_status = selftest_status;
+					/* Detect MPU on I2C bus */
+					HAL_LED2_On( mpu_detect() ? 1 : 0);
+				}
 			} else {
-				/* Self-test failed, and we have no calibration data. */
-				/* Indicate error                                     */
-				cal_led_cycle = flash_fast;
-				registers.op_status = NAVX_OP_STATUS_ERROR;
-				registers.selftest_status = selftest_status;
-				/* Detect MPU on I2C bus */
-				HAL_LED2_On( mpu_detect() ? 1 : 0);
+				/* Couldn't sense yaw orientation axis.  Continue retrying... */
 			}
 		}
 	}
