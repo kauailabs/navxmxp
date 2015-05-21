@@ -3,12 +3,6 @@
 #include "IMUAdvanced.h"
 #include "AHRS.h"
 
-/* NOTE:  Comment in only ONE of the following definitions. */
-
-//#define ENABLE_IMU
-//#define ENABLE_IMU_ADVANCED
-#define ENABLE_AHRS
-
 /**
  * This is a demo program showing the use of the RobotBase class.
  * The SimpleRobot class is the base of a robot application that will automatically call your
@@ -18,13 +12,7 @@
 class Robot : public SampleRobot
 {
 	NetworkTable *table;
-#if defined(ENABLE_AHRS)
 	AHRS *imu;
-#elif defined(ENABLE_IMU_ADVANCED)
-	IMUAdvanced *imu;
-#else // ENABLE_IMU
-	IMU *imu;
-#endif
 	SerialPort *serial_port;
 	bool first_iteration;
 
@@ -38,13 +26,7 @@ public:
 		table = NetworkTable::GetTable("datatable");
 		serial_port = new SerialPort(57600,SerialPort::kMXP);
         uint8_t update_rate_hz = 50;
-#if defined(ENABLE_AHRS)
         imu = new AHRS(serial_port,update_rate_hz);
-#elif defined(ENABLE_IMU_ADVANCED)
-        imu = new IMUAdvanced(serial_port,update_rate_hz);
-#else // ENABLE_IMU
-        imu = new IMU(serial_port,update_rate_hz);
-#endif
         if ( imu ) {
         	LiveWindow::GetInstance()->AddSensor("IMU", "Gyro", imu);
         }
@@ -83,20 +65,22 @@ public:
 			SmartDashboard::PutNumber("IMU_Update_Count", imu->GetUpdateCount());
 			SmartDashboard::PutNumber("IMU_Byte_Count", imu->GetByteCount());
 
-#if defined (ENABLE_IMU_ADVANCED) || defined(ENABLE_AHRS)
-			SmartDashboard::PutNumber("IMU_Accel_X", imu->GetWorldLinearAccelX());
+		    /* These functions are compatible w/the WPI Gyro Class */
+			SmartDashboard::PutNumber(   "IMU_TotalYaw", 		imu->GetAngle());
+			SmartDashboard::PutNumber(   "IMU_YawRateDPS",		imu->GetRate());
+
+	        SmartDashboard::PutNumber("IMU_Accel_X", imu->GetWorldLinearAccelX());
 			SmartDashboard::PutNumber("IMU_Accel_Y", imu->GetWorldLinearAccelY());
 			SmartDashboard::PutBoolean("IMU_IsMoving", imu->IsMoving());
 			SmartDashboard::PutNumber("IMU_Temp_C", imu->GetTempC());
             SmartDashboard::PutBoolean("IMU_IsCalibrating", imu->IsCalibrating());
-#if defined (ENABLE_AHRS)
+
             SmartDashboard::PutNumber("Velocity_X",       	imu->GetVelocityX() );
             SmartDashboard::PutNumber("Velocity_Y",       	imu->GetVelocityY() );
             SmartDashboard::PutNumber("Displacement_X",     imu->GetDisplacementX() );
             SmartDashboard::PutNumber("Displacement_Y",     imu->GetDisplacementY() );
-#endif
-#endif
-			Wait(0.2);				// wait for a while
+
+            Wait(0.2);				// wait for a while
 		}
 	}
 

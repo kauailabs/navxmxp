@@ -316,13 +316,12 @@ public class AHRS extends IMU {
 
         	/* Update base IMU class variables */
         	
-            this.yaw = ahrs_update.yaw;
-            this.pitch = ahrs_update.pitch;
-            this.roll = ahrs_update.roll;
-            this.compass_heading = ahrs_update.compass_heading;
-            updateYawHistory(ahrs_update.yaw);            
+        	setYawPitchRoll( ahrs_update.yaw,
+        						ahrs_update.pitch,
+        						ahrs_update.roll,
+        						ahrs_update.compass_heading);
 
-            /* Update AHRS class variables */
+        	/* Update AHRS class variables */
             
             // 9-axis data
             this.fused_heading			= ahrs_update.fused_heading;

@@ -66,6 +66,9 @@ public:
 	double GetUpdateCount();
 	void Restart();
 	bool  IsCalibrating();
+	/* The following functions added for compatibility w/the WPI Gyro Class */
+	double GetAngle();
+	double GetRate();
 
 	uint8_t update_rate_hz;	
 	char current_stream_type;
@@ -80,12 +83,16 @@ private:
 protected:
 
 	void UpdateYawHistory(float curr_yaw );
+	float GetYawUnsynchronized();
 	
 	Task *	m_task;
 	float 	yaw;
 	float 	pitch; 
 	float 	roll;
 	float   compass_heading;
+    int yaw_crossing_count;
+    int yaw_last_direction;
+    float last_yaw_rate;
 	float 	yaw_history[YAW_HISTORY_LENGTH];
 	int 	next_yaw_history_index;
 	double 	last_update_time;

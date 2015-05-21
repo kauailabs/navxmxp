@@ -269,6 +269,9 @@ void IMU::InternalInit( SerialPort *pport, uint8_t update_rate_hz, char stream_t
 	yaw = 0.0;
 	pitch = 0.0;
 	roll = 0.0;
+    yaw_crossing_count = 0;
+    yaw_last_direction = 0;
+    last_yaw_rate = 0.0f;
 	pserial_port = pport;
 	pserial_port->Reset();
 	InitIMU();
@@ -358,6 +361,15 @@ void IMU::ZeroYaw()
 }
 
 
+float IMU::GetYawUnsynchronized()
+{
+	double yaw = this->yaw;
+	yaw -= yaw_offset;
+	if ( yaw < -180 ) yaw += 360;
+	if ( yaw > 180 ) yaw -= 360;
+	return yaw;
+}
+
 /**
  * Return the yaw angle in degrees.
  * 
@@ -368,11 +380,46 @@ void IMU::ZeroYaw()
 float IMU::GetYaw( void )
 {
 	Synchronized sync(cIMUStateSemaphore);
-	double yaw = this->yaw;
-	yaw -= yaw_offset;
-	if ( yaw < -180 ) yaw += 360;
-	if ( yaw > 180 ) yaw -= 360;
-	return yaw;
+	return GetYawUnsynchronized();
+}
+
+/**
+ * Returns the total accumulated yaw angle (Z Axis, in degrees)
+ * reported by the navX MXP.
+ *
+ * The angle is continuous, that is can go beyond 360 degrees. This make algorithms that wouldn't
+ * want to see a discontinuity in the gyro output as it sweeps past 0 on the second time around.
+ *
+ * Note that the returned yaw value will be offset by a user-specified
+ * offset value; this user-specified offset value is set by
+ * invoking the zeroYaw() method.
+ *
+ * Returns the current heading of the robot in degrees. This heading is based on integration
+ * of the returned rate from the gyro.
+ */
+
+double IMU::GetAngle()
+{
+	double accumulated_yaw_angle = (double)yaw_crossing_count * 360.0f;
+	double curr_yaw = GetYaw();
+	if ( curr_yaw < 0.0f ) {
+		curr_yaw += 360.0f;
+	}
+	accumulated_yaw_angle += curr_yaw;
+	return accumulated_yaw_angle;
+}
+
+/**
+ * Return the rate of rotation of the gyro.
+ *
+ * The rate is based on the most recent reading of the gyro analog value.
+ *
+ * Returns the current rate in degrees per second
+ */
+
+double IMU::GetRate()
+{
+	return last_yaw_rate * (float)update_rate_hz;
 }
 
 float IMU::GetPitch( void )
@@ -435,10 +482,45 @@ void IMU::SetYawPitchRoll(float yaw, float pitch, float roll, float compass_head
 	{
 		Synchronized sync(cIMUStateSemaphore);
 		
+    	float last_offset_corrected_yaw = GetYawUnsynchronized();
+
+    	float last_yaw = this->yaw + 180.0f;
+    	float curr_yaw = yaw + 180.0f;
+        float delta_yaw = curr_yaw - last_yaw;
+        this->last_yaw_rate = delta_yaw;
+
+        yaw_last_direction = 0;
+    	if ( curr_yaw < last_yaw ) {
+    		if ( delta_yaw < 180.0f ) {
+    			yaw_last_direction = -1;
+    		} else {
+    			yaw_last_direction = 1;
+    		}
+    	} else if ( curr_yaw > last_yaw ) {
+    		if ( delta_yaw > 180.0f ) {
+    			yaw_last_direction = -1;
+    		} else {
+    			yaw_last_direction = 1;
+    		}
+    	}
+
 		this->yaw = yaw;
 		this->pitch = pitch;
 		this->roll = roll;
 		this->compass_heading = compass_heading;
+
+    	float curr_offset_corrected_yaw = GetYawUnsynchronized();
+
+    	if ( yaw_last_direction < 0 ) {
+			if ( ( curr_offset_corrected_yaw < 0.0f ) && ( last_offset_corrected_yaw >= 0.0f ) ) {
+				yaw_crossing_count--;
+			}
+    	} else if ( yaw_last_direction > 0 ) {
+			if ( ( curr_offset_corrected_yaw >= 0.0f ) && ( last_offset_corrected_yaw < 0.0f ) ) {
+				yaw_crossing_count++;
+			}
+    	}
+
 	}
 	UpdateYawHistory(this->yaw);
 }

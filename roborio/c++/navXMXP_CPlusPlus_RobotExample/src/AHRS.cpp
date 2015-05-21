@@ -111,11 +111,7 @@ int AHRS::DecodePacketHandler( char *received_data, int bytes_remaining )
 	if (packet_length > 0) {
 		/* Update base IMU class variables */
 
-		this->yaw = yaw;
-		this->pitch = pitch;
-		this->roll = roll;
-		this->compass_heading = compass_heading;
-		UpdateYawHistory(yaw);
+		SetYawPitchRoll(yaw,pitch,roll,compass_heading);
 
 		/* Update AHRS class variables */
 

@@ -4,7 +4,7 @@
 /* Created in support of Team 2465 (Kauaibots).  Go Thunderchicken!           */
 /*                                                                            */
 /* Open Source Software - may be modified and shared by FRC teams. Any        */
-/* modifications to this code must be accompanied by the nav6_License.txt file*/ 
+/* modifications to this code must be accompanied by the LICENSE file         */ 
 /* in the root directory of the project.                                      */
 /*----------------------------------------------------------------------------*/
 
@@ -51,6 +51,9 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
     protected volatile float pitch;
     protected volatile float roll;
     protected volatile float compass_heading;
+    protected volatile int yaw_crossing_count;
+    protected volatile int yaw_last_direction;
+    protected volatile float last_yaw_rate;
     volatile int update_count = 0;
     volatile int byte_count = 0;
     volatile float nav6_yaw_offset_degrees;
@@ -84,6 +87,9 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
         yaw = (float) 0.0;
         pitch = (float) 0.0;
         roll = (float) 0.0;
+        yaw_crossing_count = 0;
+        yaw_last_direction = 0;
+        last_yaw_rate = 0.0f;
         try {
             serial_port.reset();
         } catch (RuntimeException ex) {
@@ -144,14 +150,50 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
         last_update_time = 0.0;
     }
 
-    private void setYawPitchRoll(float yaw, float pitch, float roll, float compass_heading) {
+    protected void setYawPitchRoll(float yaw, float pitch, float roll, float compass_heading) {
 
+    	float last_offset_corrected_yaw = getYaw();
+    	
+    	float last_yaw = this.yaw + 180.0f;
+    	float curr_yaw = yaw + 180.0f;
+        float delta_yaw = curr_yaw - last_yaw;
+        this.last_yaw_rate = delta_yaw;
+        
+        yaw_last_direction = 0;
+    	if ( curr_yaw < last_yaw ) {
+    		if ( delta_yaw < 180.0f ) {
+    			yaw_last_direction = -1;
+    		} else {
+    			yaw_last_direction = 1;
+    		}
+    	} else if ( curr_yaw > last_yaw ) {
+    		if ( delta_yaw > 180.0f ) {
+    			yaw_last_direction = -1;
+    		} else {
+    			yaw_last_direction = 1;
+    		}
+    	}
+    	
         this.yaw = yaw;
         this.pitch = pitch;
         this.roll = roll;
         this.compass_heading = compass_heading;
-
+        
         updateYawHistory(this.yaw);
+
+    	float curr_offset_corrected_yaw = getYaw();
+    	
+    	if ( yaw_last_direction < 0 ) {
+			if ( ( curr_offset_corrected_yaw < 0.0f ) && ( last_offset_corrected_yaw >= 0.0f ) ) {
+				yaw_crossing_count--;
+			}    		
+    	} else if ( yaw_last_direction > 0 ) {
+			if ( ( curr_offset_corrected_yaw >= 0.0f ) && ( last_offset_corrected_yaw < 0.0f ) ) {
+				yaw_crossing_count++;
+			}    		
+    	}
+    	
+    
     }
 
     protected void updateYawHistory(float curr_yaw) {
@@ -176,7 +218,7 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
 
     /**
      * Returns the current pitch value (in degrees, from -180 to 180)
-     * reported by the nav6 IMU.
+     * reported by the navX MXP.
      * @return The current pitch value in degrees (-180 to 180).
      */
         public float getPitch() {
@@ -185,7 +227,7 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
 
     /**
      * Returns the current roll value (in degrees, from -180 to 180)
-     * reported by the nav6 IMU.
+     * reported by the navX MXP.
      * @return The current roll value in degrees (-180 to 180).
      */
     public float getRoll() {
@@ -194,7 +236,7 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
 
     /**
      * Returns the current yaw value (in degrees, from -180 to 180)
-     * reported by the nav6 IMU.
+     * reported by the navX MXP.
      * 
      * Note that the returned yaw value will be offset by a user-specified
      * offset value; this user-specified offset value is set by 
@@ -213,10 +255,47 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
     }
 
     /**
-     * Returns the current tilt-compensated compass heading 
-     * value (in degrees, from 0 to 360) reported by the nav6 IMU.
+     * Returns the total accumulated yaw angle (Z Axis, in degrees)
+     * reported by the navX MXP.
      * 
-     * Note that this value is sensed by the nav6 magnetometer,
+     * The angle is continuous, that is can go beyond 360 degrees. This make algorithms that wouldn't
+     * want to see a discontinuity in the gyro output as it sweeps past 0 on the second time around.
+     *
+     * Note that the returned yaw value will be offset by a user-specified
+     * offset value; this user-specified offset value is set by 
+     * invoking the zeroYaw() method.
+     *
+     * @return the current heading of the robot in degrees. This heading is based on integration
+     * of the returned rate from the gyro.
+     */
+    
+    public double getAngle() {
+        double accumulated_yaw_angle = (double)yaw_crossing_count * 360.0f;
+        double curr_yaw = getYaw();
+        if ( curr_yaw < 0.0f ) {
+        	curr_yaw += 360.0f;
+        }
+        accumulated_yaw_angle += curr_yaw;
+    	return accumulated_yaw_angle;
+    }
+    
+    /**
+     * Return the rate of rotation of the gyro.
+     * 
+     * The rate is based on the most recent reading of the gyro analog value.
+     * 
+     * @return the current rate in degrees per second
+     */
+    
+    public double getRate() {
+    	return last_yaw_rate * (float)update_rate_hz;    	
+    }
+    
+    /**
+     * Returns the current tilt-compensated compass heading 
+     * value (in degrees, from 0 to 360) reported by the navX MXP IMU.
+     * 
+     * Note that this value is sensed by the navX MXP magnetometer,
      * which can be affected by nearby magnetic fields (e.g., the
      * magnetic fields generated by nearby motors).
      * @return The current tilt-compensated compass heading, in degrees (0-360).
@@ -227,7 +306,7 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
 
     /**
      * Sets the user-specified yaw offset to the current
-     * yaw value reported by the nav6 IMU.
+     * yaw value reported by the navX MXP.
      * 
      * This user-specified yaw offset is automatically
      * subtracted from subsequent yaw values reported by
@@ -235,13 +314,25 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
      */
     public void zeroYaw() {
         user_yaw_offset = getAverageFromYawHistory();
+        yaw_crossing_count = 0;
     }
 
+   /**
+    * Reset the gyro.
+    *
+    * Resets the gyro Z (Yaw) axis to a heading of zero. This can be used if there is significant 
+    * drift in the gyro and it needs to be recalibrated after it has been running.
+    */
+    
+    public void reset() {
+    	zeroYaw();
+    }
+    
     /**
-     * Indicates whether the nav6 IMU is currently connected
+     * Indicates whether the navX MXP is currently connected
      * to the host computer.  A connection is considered established
      * whenever a value update packet has been received from the
-     * nav6 IMU within the last second.
+     * navX MXP within the last second.
      * @return Returns true if a valid update has been received within the last second.
      */
     public boolean isConnected() {
@@ -251,13 +342,13 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
 
     /**
      * Returns the count in bytes of data received from the
-     * nav6 IMU.  This could can be useful for diagnosing 
+     * navX MXP.  This could can be useful for diagnosing 
      * connectivity issues.
      * 
      * If the byte count is increasing, but the update count
      * (see getUpdateCount()) is not, this indicates a software
      * misconfiguration.
-     * @return The number of bytes received from the nav6 IMU.
+     * @return The number of bytes received from the navX MXP.
      */
     public double getByteCount() {
         return byte_count;
@@ -265,26 +356,26 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
 
     /**
      * Returns the count of valid update packets which have
-     * been received from the nav6 IMU.  This count should increase
+     * been received from the navX MXP.  This count should increase
      * at the same rate indicated by the configured update rate.
-     * @return The number of valid updates received from the nav6 IMU.
+     * @return The number of valid updates received from the navX MXP.
      */
     public double getUpdateCount() {
         return update_count;
     }
 
     /**
-     * Returns true if the nav6 IMU is currently performing automatic
-     * calibration.  Automatic calibration occurs when the nav6 IMU
-     * is initially powered on, during which time the nav6 IMU should
+     * Returns true if the navX MXP is currently performing automatic
+     * calibration.  Automatic calibration occurs when the navX MXP
+     * is initially powered on, during which time the navX MXP should
      * be held still.
      * 
      * During this automatically calibration, the yaw, pitch and roll
      * values returned may not be accurate.
      * 
-     * Once complete, the nav6 IMU will automatically remove an internal
+     * Once complete, the navX MXP will automatically remove an internal
      * yaw offset value from all reported values.
-     * @return Returns true if the nav6 IMU is currently calibrating.
+     * @return Returns true if the navX MXP is currently calibrating.
      */
     public boolean isCalibrating() {
         short calibration_state = (short)(this.flags & IMUProtocol.NAV6_FLAG_MASK_CALIBRATION_STATE);
