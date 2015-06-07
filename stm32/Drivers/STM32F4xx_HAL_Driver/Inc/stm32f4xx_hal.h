@@ -153,6 +153,7 @@ HAL_StatusTypeDef HAL_DeInit(void);
 void HAL_MspInit(void);
 void HAL_MspDeInit(void);
 HAL_StatusTypeDef HAL_InitTick (uint32_t TickPriority);
+void HAL_I2C_Reset(I2C_HandleTypeDef* hi2c);
 
 /* Peripheral Control functions  ************************************************/
 void HAL_IncTick(void);
