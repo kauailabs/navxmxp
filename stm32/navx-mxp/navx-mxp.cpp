@@ -58,6 +58,9 @@ uint8_t spi1_RxBuffer[RXBUFFERSIZE];
 #define MIN_SAMPLE_RATE_HZ 4
 #define MAX_SAMPLE_RATE_HZ 60
 
+#define UART_RX_PACKET_TIMEOUT_MS 	30 /* Max wait after start of packet */
+#define MIN_UART_MESSAGE_LENGTH		STREAM_CMD_MESSAGE_LENGTH
+
 uint8_t clip_sample_rate(uint8_t update_rate_hz)
 {
 	if ( update_rate_hz < MIN_SAMPLE_RATE_HZ ) {
@@ -136,8 +139,9 @@ struct __attribute__ ((__packed__)) nav10_protocol_registers {
 	uint8_t					op_status;
 	uint8_t					cal_status;
 	uint8_t					selftest_status;
+	uint16_t				capability_flags;
 	/* Reserved */
-	uint8_t					reserved[5];
+	uint8_t					reserved[3];
 	/* Processed Data */
 	uint16_t				sensor_status;
 	uint32_t				timestamp;
@@ -158,6 +162,12 @@ struct __attribute__ ((__packed__)) nav10_protocol_registers {
 	s_short_hundred_float	pressure_sensor_temp_c;
 	s_short_hundred_float 	yaw_offset;
 	s_short_ratio_float 	quat_offset[4];
+	/* Integrated Values */
+	/* - Read/Write Registers */
+	uint16_t				integration_control;
+	/* - Read-only Registers */
+	s_1616_float			velocity[3];
+	s_1616_float			displacement[3];
 } registers, shadow_registers;
 
 /* Statistical Averages */
@@ -201,10 +211,6 @@ void init_history()
 }
 
 uint8_t *flashdata = 0;
-
-int16_t last_mag_x = 0;
-int16_t last_mag_y = 0;
-int16_t last_mag_z = 0;
 
 static const uint8_t flash_fast = 0b10101010; /* Self-test Fail */
 static const uint8_t flash_slow = 0b11111110; /* IMU Cal */
@@ -262,8 +268,12 @@ int sense_and_update_yaw_orientation() {
 	return -1;
 }
 
+uint8_t crc_lookup_table[256];
+
 _EXTERN_ATTRIB void nav10_init()
 {
+	IMURegisters::buildCRCLookupTable(crc_lookup_table, sizeof(crc_lookup_table));
+
 	registers.op_status		= NAVX_OP_STATUS_INITIALIZING;
 	registers.hw_rev		= NAVX_MXP_HARDWARE_REV;
 	registers.identifier	= NAVX_MODEL_NAVX_MXP;
@@ -314,6 +324,8 @@ _EXTERN_ATTRIB void nav10_init()
 	HAL_LED2_On(0);
 	uint16_t flashdatasize;
 	bool flashdatavalid;
+	bool mpu_cal_complete = false;
+	bool mag_cal_complete = false;
 	registers.cal_status = NAVX_CAL_STATUS_IMU_CAL_INPROGRESS;
 	registers.selftest_status = 0;
 	flashdata = FlashStorage.get_mem(flashdatavalid,flashdatasize);
@@ -328,32 +340,33 @@ _EXTERN_ATTRIB void nav10_init()
 			cal_led_cycle = flash_off;
 			registers.op_status = NAVX_OP_STATUS_NORMAL;
 			registers.cal_status |= NAVX_CAL_STATUS_IMU_CAL_ACCUMULATE;
-		} else {
-			/* DMP Calibration Data is not valid */
-			registers.op_status = NAVX_OP_STATUS_IMU_AUTOCAL_IN_PROGRESS;
-			registers.cal_status |= NAVX_CAL_STATUS_IMU_CAL_INPROGRESS;
-			cal_led_cycle = flash_slow;
-			while ( true ) {
-				if ( !sense_and_update_yaw_orientation() ) {
-					break;
-				}
-			}
+			mpu_cal_complete = true;
 		}
 		if ( !is_mag_cal_data_default(&((struct flash_cal_data *)flashdata)->magcaldata) ) {
+			mpu_apply_mag_cal_data(&((struct flash_cal_data *)flashdata)->magcaldata);
 			registers.cal_status |= NAVX_CAL_STATUS_MAG_CAL_COMPLETE;
+			mag_cal_complete = true;
 		}
-		mpu_apply_mag_cal_data(&((struct flash_cal_data *)flashdata)->magcaldata);
 		registers.selftest_status = ((struct flash_cal_data *)flashdata)->selfteststatus;
-	} else {
+	}
+
+	/* If no MPU calibration data exists, detect yaw orientation, and run self tests which */
+	/* will acquire MPU calibration data.  Note that the self-tests require correct yaw    */
+	/* orientation in order to return correct results.                                     */
+
+	if ( !mpu_cal_complete ) {
 		cal_led_cycle = flash_slow;
 		registers.op_status = NAVX_OP_STATUS_SELFTEST_IN_PROGRESS;
 		uint8_t selftest_status = 0;
 		while ( selftest_status != 7 ) {
 			if ( !sense_and_update_yaw_orientation() ) {
-				selftest_status = run_mpu_self_test(&((struct flash_cal_data *)flashdata)->mpucaldata);
+				selftest_status = run_mpu_self_test(&((struct flash_cal_data *)flashdata)->mpucaldata,
+													((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis,
+													((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up);
 				if ( selftest_status == 7 ) {
 					/* Self-test passed */
 					mpu_apply_calibration_data(&((struct flash_cal_data *)flashdata)->mpucaldata);
+					/* Retrieve default magnetometer calibration data */
 					mpu_get_mag_cal_data(&((struct flash_cal_data *)flashdata)->magcaldata);
 					init_fusion_settings(&((struct flash_cal_data *)flashdata)->fusiondata);
 					registers.selftest_status = selftest_status | NAVX_SELFTEST_STATUS_COMPLETE;
@@ -363,18 +376,21 @@ _EXTERN_ATTRIB void nav10_init()
 					cal_led_cycle = flash_slow;
 				} else {
 					/* Self-test failed, and we have no calibration data. */
-					/* Indicate error                                     */
+					/* Indicate error, and continue retrying.             */
 					cal_led_cycle = flash_fast;
 					registers.op_status = NAVX_OP_STATUS_ERROR;
 					registers.selftest_status = selftest_status;
-					/* Detect MPU on I2C bus */
+					/* Re-detect MPU on I2C bus */
 					HAL_LED2_On( mpu_detect() ? 1 : 0);
 				}
 			} else {
-				/* Couldn't sense yaw orientation axis.  Continue retrying... */
+				/* Couldn't sense yaw orientation axis.  The board needs to be held still and */
+				/* with one of the axes perpendicular to the earth.  Continue retrying...     */
 			}
 		}
 	}
+
+	/* Configure device and external communication interrupts */
 
 	GPIO_InitTypeDef GPIO_InitStruct;
 
@@ -392,12 +408,12 @@ _EXTERN_ATTRIB void nav10_init()
 
 	/* EXTI interrupt initialization */
 	HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4/*NVIC_PRIORITYGROUP_0*/);
-	HAL_NVIC_SetPriority((IRQn_Type)EXTI9_5_IRQn, 0, 0);
+	HAL_NVIC_SetPriority((IRQn_Type)EXTI9_5_IRQn, 5, 0);
 	HAL_NVIC_EnableIRQ((IRQn_Type)EXTI9_5_IRQn);
 
 	/* Initiate Data Reception on slave SPI Interface, if it is enabled. */
 	if ( HAL_SPI_Slave_Enabled() ) {
-		HAL_SPI_Receive_IT(&hspi1, (uint8_t *)spi1_RxBuffer, 3);
+		HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, 3);
 	}
 
 	/* Initiate Data Reception on slave I2C Interface */
@@ -411,10 +427,26 @@ bool calibration_active = false;
 unsigned long cal_button_pressed_timestamp = 0;
 unsigned long reset_imu_cal_buttonpress_period_ms = 5000;
 
+#define BUTTON_DEBOUNCE_SAMPLES 10
+
 static void cal_button_isr(void)
 {
 	/* If CAL button held down for sufficient duration, clear accel/gyro cal data */
-	if ( HAL_CAL_Button_Pressed() ) {
+	bool button_pressed = false;
+
+	/* De-bounce the CAL button */
+
+	int button_pressed_count = 0;
+	for ( int i = 0; i < BUTTON_DEBOUNCE_SAMPLES; i++) {
+		if ( HAL_CAL_Button_Pressed() ) {
+			button_pressed_count++;
+		}
+	}
+	if ( button_pressed_count > (BUTTON_DEBOUNCE_SAMPLES/2) ) {
+		button_pressed = true;
+	}
+
+	if ( button_pressed ) {
 		cal_button_pressed_timestamp = HAL_GetTick();
 	} else {
 		if ( (HAL_GetTick() - cal_button_pressed_timestamp) >= reset_imu_cal_buttonpress_period_ms) {
@@ -502,9 +534,7 @@ unsigned long yaw_offset_startup_timeout_ms = 20000;
 
 int yaw_offset_accumulator_count = 0;
 float yaw_accumulator = 0.0;
-float quaternion_accumulator[4] = { 0.0, 0.0, 0.0, 0.0 };
 float calibrated_yaw_offset = 0.0;
-float calibrated_quaternion_offset[4] = { 0.0, 0.0, 0.0, 0.0 };
 int imu_cal_bias_change_count = 0;
 bool yaw_offset_calibration_complete = false;
 unsigned long last_temp_compensation_check_timestamp = 0;
@@ -522,9 +552,14 @@ struct mpu_dmp_calibration_interpolation_coefficients temp_correction_coefficien
 bool temp_correction_coefficients_valid = false;
 
 PrintSerialReceiver* serial_interfaces[NUM_STREAMING_INTERFACES] = {&SerialUSB,&Serial6};
+uint32_t last_packet_start_rx_timestamp[NUM_STREAMING_INTERFACES] = {0,0};
 int num_serial_interfaces = 1;
+/* Signal that sample rate has been updated by remote user */
 bool sample_rate_update = true;
 uint8_t new_sample_rate = 0;
+/* Signal that integration control has been updated by remote user */
+bool integration_control_update = true;
+uint8_t new_integration_control = 0;
 
 _EXTERN_ATTRIB void nav10_main()
 {
@@ -546,10 +581,13 @@ _EXTERN_ATTRIB void nav10_main()
 	    bool send_mag_cal_response[2] = { false, false };
 	    bool send_tuning_var_set_response[2] = { false, false };
 	    bool send_data_retrieval_response[2] = {false, false};
+	    bool send_integration_control_response[2] = {false,false};
 	    uint8_t tuning_var_status;
 	    AHRS_TUNING_VAR_ID tuning_var_id, retrieved_var_id;
 	    AHRS_DATA_TYPE retrieved_data_type;
 	    AHRS_DATA_ACTION data_action;
+	    uint8_t integration_control_action;
+	    int32_t integration_control_parameter;
 		int num_update_bytes[2] = { 0, 0 };
 		int num_resp_bytes[2] = { 0, 0 };
 		periodic_compass_update();
@@ -563,6 +601,17 @@ _EXTERN_ATTRIB void nav10_main()
 			sample_rate_update = false;
 			send_stream_response[0] = true;
 			send_stream_response[1] = true;
+		}
+		if ( integration_control_update ) {
+			reset_velocity_and_dispacement_integrator(&mpudata,new_integration_control);
+			if ( new_integration_control & 0x80 ) {
+				if ( yaw_offset_calibration_complete ) {
+					float curr_yaw_offset;
+					get_yaw_offset(&curr_yaw_offset);
+					set_yaw_offset(mpudata.yaw + curr_yaw_offset);
+				}
+			}
+			integration_control_update = false;
 		}
 		if ( dmp_data_ready() ) {
 			HAL_LED1_On(1);
@@ -590,6 +639,8 @@ _EXTERN_ATTRIB void nav10_main()
 					registers.mag_raw[i]			= mpudata.calibrated_compass[i];
 					registers.accel_raw[i]			= mpudata.raw_accel[i];
 					registers.gyro_raw[i]			= mpudata.raw_gyro[i];
+					IMURegisters::encodeProtocol1616Float( mpudata.velocity[i], (char *)&registers.velocity[i]);
+					IMURegisters::encodeProtocol1616Float( mpudata.displacement[i], (char *)&registers.displacement[i]);
 				}
 
 				/* Peform motion detection, a deviation from the norm of world linear accel (X and Y axes) */
@@ -653,10 +704,38 @@ _EXTERN_ATTRIB void nav10_main()
 
 	    		for ( int ifx = 0; ifx < num_serial_interfaces; ifx++ ) {
 
-	    			if ( update_type[ifx] == MSGID_AHRS_UPDATE ) {
+	    			if ( update_type[ifx] == MSGID_AHRSPOS_UPDATE ) {
+
+	    				num_update_bytes[ifx] = AHRSProtocol::encodeAHRSPosUpdate( update_buffer[ifx],
+								mpudata.yaw,
+								mpudata.pitch,
+								mpudata.roll,
+								mpudata.heading,
+								0.0, 							/* TODO:  Calc altitude    */
+								mpudata.fused_heading,
+								mpudata.world_linear_accel[0],
+								mpudata.world_linear_accel[1],
+								mpudata.world_linear_accel[2],
+								mpudata.temp_c,
+								mpudata.quaternion[0] >> 16,
+								mpudata.quaternion[1] >> 16,
+								mpudata.quaternion[2] >> 16,
+								mpudata.quaternion[3] >> 16,
+								mpudata.velocity[0],
+								mpudata.velocity[1],
+								mpudata.velocity[2],
+								mpudata.displacement[0],
+								mpudata.displacement[1],
+								mpudata.displacement[2],
+								registers.op_status,
+								registers.sensor_status,
+								registers.cal_status,
+								registers.selftest_status);
+	    			}
+	    			else if ( update_type[ifx] == MSGID_AHRS_UPDATE ) {
 
 						num_update_bytes[ifx] = AHRSProtocol::encodeAHRSUpdate( update_buffer[ifx],
-													mpudata.yaw - calibrated_yaw_offset,
+													mpudata.yaw,
 													mpudata.pitch,
 													mpudata.roll,
 													mpudata.heading,
@@ -718,7 +797,7 @@ _EXTERN_ATTRIB void nav10_main()
 					} else {
 
 						num_update_bytes[ifx] = IMUProtocol::encodeYPRUpdate( update_buffer[ifx],
-													mpudata.yaw - calibrated_yaw_offset,
+													mpudata.yaw/* - calibrated_yaw_offset*/,
 													mpudata.pitch,
 													mpudata.roll,
 													mpudata.heading);
@@ -757,9 +836,6 @@ _EXTERN_ATTRIB void nav10_main()
 							 ( registers.sensor_status & NAVX_SENSOR_STATUS_YAW_STABLE ) ) {
 
 							yaw_accumulator += mpudata.yaw;
-							for ( int i = 0; i < 4; i++ ) {
-								quaternion_accumulator[i] += (float)(mpudata.quaternion[i] >> 16) / 16384.0f;
-							}
 							yaw_offset_accumulator_count++;
 
 							if ( yaw_offset_accumulator_count >= current_yaw_history_size ) {
@@ -769,11 +845,7 @@ _EXTERN_ATTRIB void nav10_main()
 
 								calibrated_yaw_offset = yaw_accumulator / yaw_offset_accumulator_count;
 								registers.yaw_offset = IMURegisters::encodeSignedHundredthsFloat(calibrated_yaw_offset);
-								for ( int i = 0; i < 4; i++ ) {
-									calibrated_quaternion_offset[i] =
-											quaternion_accumulator[i] / yaw_offset_accumulator_count;
-									registers.quat_offset[i] = calibrated_quaternion_offset[i];
-								}
+								set_yaw_offset(calibrated_yaw_offset);
 								yaw_offset_calibration_complete = true;
 								send_stream_response[0] = true;
 								send_stream_response[1] = true;
@@ -791,10 +863,7 @@ _EXTERN_ATTRIB void nav10_main()
 								registers.cal_status |= NAVX_CAL_STATUS_IMU_CAL_COMPLETE;
 								calibrated_yaw_offset = 0.0f;
 								registers.yaw_offset = IMURegisters::encodeSignedHundredthsFloat(calibrated_yaw_offset);
-								for ( int i = 0; i < 4; i++ ) {
-									calibrated_quaternion_offset[i] = 0.0f;
-									registers.quat_offset[i] = 0.0f;
-								}
+								set_yaw_offset(calibrated_yaw_offset);
 								yaw_offset_calibration_complete = true;
 								send_stream_response[0] = true;
 								send_stream_response[1] = true;
@@ -803,9 +872,6 @@ _EXTERN_ATTRIB void nav10_main()
 							} else {
 								yaw_offset_accumulator_count = 0;
 								yaw_accumulator = 0.0;
-								for ( int i = 0; i < 4; i++ ) {
-									quaternion_accumulator[i] = 0.0f;
-								}
 							}
 						}
 					}
@@ -849,8 +915,8 @@ _EXTERN_ATTRIB void nav10_main()
 						if(__HAL_I2C_GET_FLAG(&hi2c2, I2C_FLAG_BUSY) == SET) {
 							/* Bus Busy.  Reset the I2C Interface, in an attempt */
 							/* to resolve this condition.                        */
-							HAL_I2C_MspDeInit(&hi2c2);
-							HAL_I2C_MspInit(&hi2c2);
+							HAL_I2C_Reset(&hi2c2);
+							HAL_I2C_Reset(&hi2c2);
 						}
 					}
 			}
@@ -883,7 +949,7 @@ _EXTERN_ATTRIB void nav10_main()
 
 		/* Process inbound configuration requests */
 		for ( int ifx = 0; ifx < num_serial_interfaces; ifx++ ) {
-			/* Scan for start of message, removing any bytes that precede it. */
+			/* Scan for start of message, discarding any bytes that precede it. */
 			bool found_start_of_message = false;
 			while ( serial_interfaces[ifx]->available() > 0 ) {
 				char rcv_byte = serial_interfaces[ifx]->peek();
@@ -891,23 +957,59 @@ _EXTERN_ATTRIB void nav10_main()
 					serial_interfaces[ifx]->read();
 				}
 				else {
-					HAL_Delay(2);
+					if ( last_packet_start_rx_timestamp[ifx] == 0 ) {
+						last_packet_start_rx_timestamp[ifx] = HAL_GetTick();
+					}
 					found_start_of_message = true;
 					break;
 				}
 			}
 
+			/* If packet start recently found, but insufficient bytes have been */
+			/* received after waiting the maximum packet rx time, flush the     */
+			/* packet start Indicator.                                          */
+			if ( found_start_of_message &&
+				 serial_interfaces[ifx]->available() < MIN_UART_MESSAGE_LENGTH &&
+				 HAL_GetTick() - last_packet_start_rx_timestamp[ifx] > (uint32_t)UART_RX_PACKET_TIMEOUT_MS ) {
+				/* Flush the start of message indicator. */
+				serial_interfaces[ifx]->read();
+				last_packet_start_rx_timestamp[ifx] = 0;
+				break;
+			}
+
 			/* If sufficient bytes have been received, process the data and */
 			/* if a valid message is received, handle it.                   */
 
-			if( found_start_of_message && ( serial_interfaces[ifx]->available() >= (STREAM_CMD_MESSAGE_LENGTH-1) ) ) {
+			if( found_start_of_message && ( serial_interfaces[ifx]->available() >= MIN_UART_MESSAGE_LENGTH ) ) {
 				size_t bytes_read = 0;
+				last_packet_start_rx_timestamp[ifx] = 0;
 				while ( serial_interfaces[ifx]->available() ) {
 					if ( bytes_read >= sizeof(inbound_data) ) {
 						break;
 					}
 					inbound_data[bytes_read++] = serial_interfaces[ifx]->read();
 				}
+
+				/* If this is a binary message, the packet length is encoded. */
+				/* In this case, wait for additional bytes to arrive, with a  */
+				/* timeout in case of error.                                  */
+
+				if ( inbound_data[1] == BINARY_PACKET_INDICATOR_CHAR ) {
+					char expected_len = inbound_data[2] + 2;
+					if ( bytes_read < expected_len ) {
+						uint32_t start_wait_timestamp = HAL_GetTick();
+						while ( bytes_read < expected_len ) {
+							if ( serial_interfaces[ifx]->available() ) {
+								inbound_data[bytes_read++] = serial_interfaces[ifx]->read();
+							} else {
+								if ( HAL_GetTick() - start_wait_timestamp > (uint32_t)UART_RX_PACKET_TIMEOUT_MS ) {
+									break;
+								}
+							}
+						}
+					}
+				}
+
 				size_t i = 0;
 				/* Scan the buffer looking for valid packets */
 				while ( i < bytes_read )
@@ -938,7 +1040,8 @@ _EXTERN_ATTRIB void nav10_main()
 						if ( ( new_stream_type == MSGID_YPR_UPDATE) ||
 							 ( new_stream_type == MSGID_QUATERNION_UPDATE ) ||
 							 ( new_stream_type == MSGID_GYRO_UPDATE ) ||
-							 ( new_stream_type == MSGID_AHRS_UPDATE ) ) {
+							 ( new_stream_type == MSGID_AHRS_UPDATE ) ||
+							 ( new_stream_type == MSGID_AHRSPOS_UPDATE ) ) {
 							update_type[ifx] = new_stream_type;
 						}
 					}
@@ -972,6 +1075,13 @@ _EXTERN_ATTRIB void nav10_main()
 													retrieved_data_type, retrieved_var_id ) ) ) {
 						send_data_retrieval_response[ifx] = true;
 					}
+					else if ( ( packet_length = AHRSProtocol::decodeIntegrationControlCmd(
+													&inbound_data[i], bytes_remaining,
+													integration_control_action, integration_control_parameter ) ) ) {
+						send_integration_control_response[ifx] = true;
+						integration_control_update = true;
+						new_integration_control = integration_control_action;
+					}
 					if ( packet_length > 0 ) {
 						i += packet_length;
 					} else {
@@ -984,15 +1094,26 @@ _EXTERN_ATTRIB void nav10_main()
 			/* on the same interface on which they were received.         */
 
 			if ( send_stream_response[ifx] ) {
+				uint16_t flags;
+				flags = (registers.op_status == NAVX_OP_STATUS_IMU_AUTOCAL_IN_PROGRESS) ?
+						NAV6_CALIBRATION_STATE_WAIT : (yaw_offset_calibration_complete ?
+								NAV6_CALIBRATION_STATE_COMPLETE : NAV6_CALIBRATION_STATE_ACCUMULATE );
+				flags |= (NAVX_CAPABILITY_FLAG_OMNIMOUNT +
+						  NAVX_CAPABILITY_FLAG_VEL_AND_DISP +
+						  NAVX_CAPABILITY_FLAG_YAW_RESET);
+				uint16_t yaw_axis_info =
+					 (((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis * 2) +
+					 ((((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up) ? 0 : 1) +
+					 1;
+				yaw_axis_info <<= 2;
+				flags |= yaw_axis_info;
 				num_resp_bytes[ifx] = IMUProtocol::encodeStreamResponse(  response_buffer[ifx], update_type[ifx],
 																	mpuconfig.gyro_fsr, mpuconfig.accel_fsr, mpuconfig.mpu_update_rate, calibrated_yaw_offset,
-																	(uint16_t)(calibrated_quaternion_offset[0] * 16384),
-																	(uint16_t)(calibrated_quaternion_offset[1] * 16384),
-																	(uint16_t)(calibrated_quaternion_offset[2] * 16384),
-																	(uint16_t)(calibrated_quaternion_offset[3] * 16384),
-																	(registers.op_status == NAVX_OP_STATUS_IMU_AUTOCAL_IN_PROGRESS) ?
-																			NAV6_CALIBRATION_STATE_WAIT : (yaw_offset_calibration_complete ?
-																					NAV6_CALIBRATION_STATE_COMPLETE : NAV6_CALIBRATION_STATE_ACCUMULATE ) );
+																	0,
+																	0,
+																	0,
+																	0,
+																	flags );
 			}
 			if ( send_mag_cal_response[ifx] ) {
 				num_resp_bytes[ifx] = AHRSProtocol::encodeDataSetResponse(response_buffer[ifx], MAG_CALIBRATION, UNSPECIFIED, DATA_GETSET_SUCCESS);
@@ -1041,6 +1162,11 @@ _EXTERN_ATTRIB void nav10_main()
 							(uint8_t *)&chipid );
 				}
 			}
+			if ( send_integration_control_response[ifx] ) {
+				num_resp_bytes[ifx] = AHRSProtocol::encodeIntegrationControlResponse(response_buffer[ifx],
+						integration_control_action,
+						integration_control_parameter );
+			}
 		}
 
 		/* Transmit Updates available serial interface(s) */
@@ -1057,10 +1183,10 @@ _EXTERN_ATTRIB void nav10_main()
 
 		if ( num_update_bytes[0] > 0 ) {
 			/* Update shadow registers; disable i2c/spi interrupts around this access. */
-		    HAL_NVIC_DisableIRQ((IRQn_Type)I2C3_EV_IRQn);
-		    HAL_NVIC_DisableIRQ((IRQn_Type)SPI1_IRQn);
+		    NVIC_DisableIRQ((IRQn_Type)I2C3_EV_IRQn);
+		    NVIC_DisableIRQ((IRQn_Type)SPI1_IRQn);
 		    memcpy(&shadow_registers, &registers, sizeof(registers));
-		    HAL_NVIC_EnableIRQ((IRQn_Type)SPI1_IRQn);
+		    NVIC_EnableIRQ((IRQn_Type)SPI1_IRQn);
 		    if ( prepare_i2c_receive_timeout_count > 0 ) {
 				if ( (HAL_GetTick() - prepare_i2c_receive_last_attempt_timestamp) > (unsigned long)5000) {
 					if ( HAL_OK == prepare_next_i2c_receive() ) {
@@ -1068,12 +1194,12 @@ _EXTERN_ATTRIB void nav10_main()
 					}
 		    	}
 		    }
-		    HAL_NVIC_EnableIRQ((IRQn_Type)I2C3_EV_IRQn);
+		    NVIC_EnableIRQ((IRQn_Type)I2C3_EV_IRQn);
 		}
 	}
 }
 
-uint8_t *GetRegisterAddressAndMaximumSize( uint8_t register_address, uint16_t& size )
+__STATIC_INLINE uint8_t *GetRegisterAddressAndMaximumSize( uint8_t register_address, uint16_t& size )
 {
 	if ( register_address > NAVX_REG_LAST) {
 		size = 0;
@@ -1089,8 +1215,28 @@ volatile unsigned long last_i2c_tx_start_timestamp = 0;
 volatile bool i2c_tx_in_progress = false;
 #define I2C_TX_TIMEOUT_MS ((unsigned long)100)
 #define I2C_PREPARE_RECEIVE_TIMEOUT_MS  ((unsigned long)100)
+#define I2C_PREPARE_TRANSMIT_TIMEOUT_MS  ((unsigned long)100)
 int i2c_error_count = 0;
 HAL_I2C_ErrorTypeDef last_i2c_err_code = HAL_I2C_ERROR_NONE;
+
+void i2c_hard_reset()
+{
+	HAL_I2C_DeInit(&hi2c3);
+	/* Perform software reset */
+	hi2c3.Instance->CR1 |= 0x8000;
+    /* Clear all registers */
+	hi2c3.Instance->CR1 = 0;
+	hi2c3.Instance->CR2 = 0;
+	hi2c3.Instance->CCR = 0;
+	hi2c3.Instance->TRISE = 0;
+	hi2c3.Instance->SR1 = 0;
+	hi2c3.Instance->SR2 = 0;
+	hi2c3.Instance->OAR1 = 0;
+	hi2c3.Instance->OAR2 = 0;
+	/* Release software reset */
+	hi2c3.Instance->CR1 &= ~0x8000;
+	HAL_I2C_Init(&hi2c3);
+}
 
 /* Prepare for next reception on the I2C3 (external control) port */
 /* This function includes a retry mechanism, and also will reset  */
@@ -1109,21 +1255,7 @@ HAL_StatusTypeDef prepare_next_i2c_receive()
 			HAL_I2C_Init(&hi2c3);
 			status = HAL_I2C_Slave_Receive_IT(&hi2c3, (uint8_t*)i2c3_RxBuffer, 2);
 			if ( status != HAL_OK ) {
-				HAL_I2C_DeInit(&hi2c3);
-				/* Perform software reset */
-				hi2c3.Instance->CR1 |= 0x8000;
-			    /* Clear all registers */
-				hi2c3.Instance->CR1 = 0;
-				hi2c3.Instance->CR2 = 0;
-				hi2c3.Instance->CCR = 0;
-				hi2c3.Instance->TRISE = 0;
-				hi2c3.Instance->SR1 = 0;
-				hi2c3.Instance->SR2 = 0;
-				hi2c3.Instance->OAR1 = 0;
-				hi2c3.Instance->OAR2 = 0;
-				/* Release software reset */
-				hi2c3.Instance->CR1 &= ~0x8000;
-				HAL_I2C_Init(&hi2c3);
+				i2c_hard_reset();
 				status = HAL_I2C_Slave_Receive_IT(&hi2c3, (uint8_t*)i2c3_RxBuffer, 2);
 				if ( status != HAL_OK ) {
 					prepare_i2c_receive_timeout_count++;
@@ -1133,6 +1265,19 @@ HAL_StatusTypeDef prepare_next_i2c_receive()
 		}
 	}
 	return status;
+}
+
+void process_writable_register_update( uint8_t requested_address, uint8_t *reg_addr, uint8_t value )
+{
+	if ( requested_address == NAVX_REG_UPDATE_RATE_HZ ) {
+		*reg_addr = clip_sample_rate(value);
+		new_sample_rate = *reg_addr;
+		sample_rate_update = true;
+	} else if ( requested_address == NAVX_REG_INTEGRATION_CTL) {
+		/* This is a write-only register */
+		new_integration_control = value;
+		integration_control_update = true;
+	}
 }
 
 void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *I2cHandle)
@@ -1158,23 +1303,34 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *I2cHandle)
 				reg_addr = GetRegisterAddressAndMaximumSize(requested_address, max_size);
 				if ( reg_addr ) {
 					if ( write ) {
-						if ( requested_address == NAVX_REG_UPDATE_RATE_HZ ) {
-							*reg_addr = clip_sample_rate(num_bytes);
-							new_sample_rate = *reg_addr;
-							sample_rate_update = true;
-						}
+						process_writable_register_update( requested_address, reg_addr, num_bytes /* value */ );
 					} else {
 						uint8_t i2c_bytes_to_be_transmitted = (num_bytes > max_size) ? max_size : num_bytes;
 						memcpy(i2c_tx_buffer,reg_addr,i2c_bytes_to_be_transmitted);
 						status = HAL_BUSY;
+						unsigned long prepare_i2c_tx_last_attempt_timestamp = 0;
 						while ( status == HAL_BUSY ) /* Consider a timeout on this wait... */
 						{
 							status = HAL_I2C_Slave_Transmit_IT(&hi2c3, i2c_tx_buffer, i2c_bytes_to_be_transmitted);
-						}
-						if ( status == HAL_OK ) {
-							i2c_transmitting = true;
-							i2c_tx_in_progress = true;
-							last_i2c_tx_start_timestamp = HAL_GetTick();
+							if ( status == HAL_OK ) {
+								i2c_transmitting = true;
+								i2c_tx_in_progress = true;
+								last_i2c_tx_start_timestamp = HAL_GetTick();
+								break;
+							} else {
+								/* I2C Transmit not ready to request start.     */
+								/* If timeout waiting occurs, the I2C interface */
+								/* likely needs to be reset.                    */
+								if ( prepare_i2c_tx_last_attempt_timestamp == 0 ) {
+									prepare_i2c_tx_last_attempt_timestamp = HAL_GetTick();
+								} else if ( HAL_GetTick() - prepare_i2c_tx_last_attempt_timestamp >
+											I2C_PREPARE_TRANSMIT_TIMEOUT_MS) {
+									/* Transmit aborted, client will need to */
+									/* timeout.                              */
+									i2c_hard_reset();
+									break;
+								}
+							}
 						}
 					}
 				}
@@ -1206,22 +1362,22 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *I2cHandle)
 	if ( I2cHandle->Instance == I2C3 )
 	{
 		last_i2c_err_code = I2cHandle->ErrorCode;
-		if ( I2cHandle->ErrorCode != HAL_I2C_ERROR_AF) {
-			HAL_I2C_DeInit(I2cHandle);
-			HAL_I2C_Init(I2cHandle);
-		}
 		if ( I2cHandle->ErrorCode == HAL_I2C_ERROR_AF ) {
 			I2cHandle->XferCount = 0;
 			I2cHandle->XferSize = 0;
 			I2cHandle->pBuffPtr = 0;
+		} else {
+			HAL_I2C_DeInit(I2cHandle);
+			HAL_I2C_Init(I2cHandle);
 		}
+
 		i2c_tx_in_progress = false;
 		prepare_next_i2c_receive();
 		i2c_error_count++;
 	}
 }
 
-bool transmitting = false;
+bool spi_transmitting = false;
 uint8_t spi_bytes_to_be_transmitted = 0;
 unsigned long last_spi_tx_start_timestamp = 0;
 #define SPI_TX_TIMEOUT_MS ((unsigned long)10)
@@ -1229,8 +1385,8 @@ unsigned long last_spi_tx_start_timestamp = 0;
 void Reset_SPI() {
 	HAL_SPI_DeInit(&hspi1);
 	HAL_SPI_Init(&hspi1);
-	transmitting = false;
-	HAL_SPI_Receive_IT(&hspi1, (uint8_t *)spi1_RxBuffer, 3);
+	spi_transmitting = false;
+	HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, 3);
 }
 
 int wrong_size_spi_receive_count = 0;
@@ -1251,17 +1407,16 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
 	uint8_t received_crc;
 	uint8_t calculated_crc;
 	int i;
-	register uint8_t byte_to_send;
 	bool write = false;
 	if ( hspi->Instance == SPI1 ) {
-		if ( !transmitting ) {
+		if ( !spi_transmitting ) {
 			int num_bytes_received = hspi->RxXferSize - hspi->RxXferCount;
 			if ( num_bytes_received == 3 ) {
 				reg_address = spi1_RxBuffer[0];
 				reg_count = spi1_RxBuffer[1];
 				received_crc = spi1_RxBuffer[2];
-				calculated_crc = IMURegisters::getCRC(spi1_RxBuffer,2);
-				if ( ( reg_count != 0xFF ) && ( reg_address != 0xFF ) && ( received_crc == calculated_crc ) ) {
+				calculated_crc = IMURegisters::getCRCWithTable(crc_lookup_table,spi1_RxBuffer,2);
+				if ( ( reg_address != 0xFF ) && ( received_crc == calculated_crc ) ) {
 					if ( reg_address & 0x80 ) {
 						write = true;
 						reg_address &= ~0x80;
@@ -1269,35 +1424,29 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
 					reg_addr = GetRegisterAddressAndMaximumSize(reg_address, max_size);
 					if ( reg_addr ) {
 						if ( write ) {
-							if ( reg_address == NAVX_REG_UPDATE_RATE_HZ ) {
-								*reg_addr = clip_sample_rate(reg_count);
-								new_sample_rate = *reg_addr;
-								sample_rate_update = true;
-								HAL_SPI_Receive_IT(&hspi1, (uint8_t *)spi1_RxBuffer,3);
-							}
-
+							process_writable_register_update( reg_address, reg_addr, reg_count /* value */ );
+							HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer,3);
 						} else {
-							last_spi_tx_start_timestamp = HAL_GetTick();
-							transmitting = true;
+							spi_transmitting = true;
 							spi_bytes_to_be_transmitted = (reg_count > max_size) ? max_size : reg_count;
 							for ( i = 0; i < spi_bytes_to_be_transmitted; i++ ) {
-								byte_to_send = reg_addr[i];
-								spi_tx_buffer[i] = byte_to_send;
+								spi_tx_buffer[i] = reg_addr[i];
 							}
-							spi_tx_buffer[spi_bytes_to_be_transmitted] = IMURegisters::getCRC(spi_tx_buffer,(uint8_t)spi_bytes_to_be_transmitted);
+							spi_tx_buffer[spi_bytes_to_be_transmitted] = IMURegisters::getCRCWithTable(crc_lookup_table, spi_tx_buffer,(uint8_t)spi_bytes_to_be_transmitted);
 							HAL_SPI_Transmit_DMA(&hspi1, spi_tx_buffer, spi_bytes_to_be_transmitted+1);
+							last_spi_tx_start_timestamp = HAL_GetTick();
 						}
 					} else {
 						invalid_reg_address_spi_count++;
-						HAL_SPI_Receive_IT(&hspi1, (uint8_t *)spi1_RxBuffer,3);
+						HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer,3);
 					}
 				} else {
 					invalid_char_spi_receive_count++;
-					HAL_SPI_Receive_IT(&hspi1, (uint8_t *)spi1_RxBuffer,3);
+					HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer,3);
 				}
 			} else {
 				wrong_size_spi_receive_count++;
-				HAL_SPI_Receive_IT(&hspi1, (uint8_t *)spi1_RxBuffer,3);
+				HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer,3);
 			}
 		}
 	}
@@ -1306,26 +1455,26 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
 void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
 {
 	if ( hspi->Instance == SPI1 ) {
-		// HAL_SPI_ERROR_OVR: Master has transmitted bytes, the slave hasn't read the
-		// previous byte in the receive register.  This case occurs when the
-		// Receive ISR hasn't been responded to before the master starts writing.
-		/* Prepare for next receive */
+		/* HAL_SPI_ERROR_OVR: Master has transmitted bytes, the slave hasn't read the */
+		/* previous byte in the receive register.  This case occurs when the          */
+		/* Receive ISR hasn't been responded to before the master starts writing.     */
+
+		/* Clear the error, and prepare for next receive.                             */
 		spi_error_count++;
-		/* This is a bit heavy-handed, perhaps a simpler, faster mechanism exists? */
-		transmitting = false;
+		spi_transmitting = false;
 		if ( hspi->ErrorCode == HAL_SPI_ERROR_OVR) {
 			__HAL_SPI_CLEAR_OVRFLAG(hspi);
 			spi_ovr_error_count++;
 		}
-		HAL_SPI_Receive_IT(&hspi1, (uint8_t *)spi1_RxBuffer, 3);
+		HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, 3);
 	}
 }
 
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 {
 	if ( hspi->Instance == SPI1 ) {
-		transmitting = false;
-		HAL_SPI_Receive_IT(&hspi1, (uint8_t *)spi1_RxBuffer, 3);
+		spi_transmitting = false;
+		HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, 3);
 	}
 }
 
