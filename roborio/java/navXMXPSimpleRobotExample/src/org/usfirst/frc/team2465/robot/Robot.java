@@ -8,6 +8,7 @@ package org.usfirst.frc.team2465.robot;
 
 import com.kauailabs.navx_mxp.AHRS;
 
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.SerialPort;
 import edu.wpi.first.wpilibj.SampleRobot;
 import edu.wpi.first.wpilibj.Timer;
@@ -43,9 +44,6 @@ public class Robot extends SampleRobot {
 		// lower value, as shown here, depending upon your needs.
     	// The recommended update rate is 50Hz
 		
-		// You can also use the IMUAdvanced class for advanced
-		// features on a nav6 or a navX MXP.
-    	
     	// The AHRS class provides access to advanced features on 
     	// a navX MXP, including 9-axis headings
     	// and magnetic disturbance detection.  This class also offers
@@ -75,10 +73,13 @@ public class Robot extends SampleRobot {
      */
     public void operatorControl() {
 
+    	int reset_yaw_count = 0;
+    	int reset_displacement_count = 0;
+    	AHRS.BoardYawAxis yaw_axis = new AHRS.BoardYawAxis();
         while (isOperatorControl() && isEnabled()) {
             
             // When calibration has completed, zero the yaw
-            // Calibration is complete approaximately 20 seconds
+            // Calibration is complete approximately 20 seconds
             // after the robot is powered on.  During calibration,
             // the robot should be still
             
@@ -91,6 +92,24 @@ public class Robot extends SampleRobot {
             
             // Update the dashboard with status and orientation
             // data from the navX MXP
+            
+            imu.getBoardYawAxis(yaw_axis);  
+            
+            SmartDashboard.putBoolean("Yaw_Axis_Up",       yaw_axis.up);
+            SmartDashboard.putNumber( "Yaw_Axis", 			yaw_axis.board_axis);            
+            boolean reset_yaw_button_pressed = DriverStation.getInstance().getStickButton(0,(byte)1);
+            if ( reset_yaw_button_pressed ) {
+            	imu.zeroYaw();
+            	reset_yaw_count++;
+            }
+            boolean reset_displacement_button_pressed = DriverStation.getInstance().getStickButton(0,(byte)2);
+            if ( reset_displacement_button_pressed ) {
+            	imu.resetDisplacement();
+            	reset_displacement_count++;
+            }
+            
+            SmartDashboard.putInt(      "Reset_Yaw_Count", reset_yaw_count);
+            SmartDashboard.putInt("Reset_Displacement_Count", reset_displacement_count);
             
             SmartDashboard.putBoolean(  "IMU_Connected",        imu.isConnected());
             SmartDashboard.putBoolean(  "IMU_IsCalibrating",    imu.isCalibrating());
@@ -115,7 +134,7 @@ public class Robot extends SampleRobot {
             SmartDashboard.putNumber(   "Displacement_X",       imu.getDisplacementX() );
             SmartDashboard.putNumber(   "Displacement_Y",       imu.getDisplacementY() );
             
-            Timer.delay(0.2);
+            Timer.delay(0.1);
         }
      }
     

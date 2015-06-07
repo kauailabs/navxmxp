@@ -34,6 +34,7 @@ public class AHRS extends IMU {
 	static final byte    NAVX_MXP_DEFAULT_UPDATE_RATE_HZ      = 60;
    
     private AHRSProtocol.AHRSUpdate ahrs_update_data;    
+    private AHRSProtocol.AHRSPosUpdate ahrs_pos_update_data;
     volatile float world_linear_accel_x;
     volatile float world_linear_accel_y;
     volatile float world_linear_accel_z;
@@ -51,7 +52,9 @@ public class AHRS extends IMU {
     volatile boolean altitude_valid;
     volatile boolean is_magnetometer_calibrated;
     volatile boolean magnetic_disturbance;
-    
+    private float last_velocity[] = new float[3];
+    private float displacement[] = new float[3];
+       
     /**
      * Constructs the AHRS class, overriding the default update rate
      * with a custom rate which may be from 4 to 60, representing
@@ -65,7 +68,8 @@ public class AHRS extends IMU {
     public AHRS(SerialPort serial_port, byte update_rate_hz) {
         super(serial_port,update_rate_hz);
         ahrs_update_data = new AHRSProtocol.AHRSUpdate();
-        update_type = AHRSProtocol.MSGID_AHRS_UPDATE;
+        ahrs_pos_update_data = new AHRSProtocol.AHRSPosUpdate();
+        update_type = AHRSProtocol.MSGID_AHRSPOS_UPDATE;
         world_linear_accel_x =
         		world_linear_accel_y =
         		world_linear_accel_z =
@@ -103,6 +107,11 @@ public class AHRS extends IMU {
         int packet_length = AHRSProtocol.decodeAHRSUpdate(received_data, offset, bytes_remaining, ahrs_update_data);
         if (packet_length > 0) {
             setAHRSData(ahrs_update_data);
+        } else {
+        	packet_length = AHRSProtocol.decodeAHRSPosUpdate(received_data,offset,bytes_remaining, ahrs_pos_update_data);
+        	if ( packet_length > 0 ) {
+        		setAHRSPosData(ahrs_pos_update_data);
+        	}
         }
         return packet_length;
     }
@@ -180,19 +189,6 @@ public class AHRS extends IMU {
     public boolean isRotating()
     {
         return is_rotating;
-    }
-
-    /**
-     * Returns the current barometric pressure, based upon calibrated readings
-     * from the onboard pressure sensor.  This value is in units of millibar.
-     * 
-     * NOTE:  This value is only valid for a navX MXP Aero.  To determine
-     * whether this value is valid, see isAltitudeValid().
-     * @return Returns current barometric pressure (navX MXP Aero only).
-     */
-    public float getBarometricPressure()
-    {
-        return barometric_pressure;
     }
 
     /**
@@ -284,31 +280,65 @@ public class AHRS extends IMU {
         return this.mpu_temp_c;
     }
     
-    /**
-     * Returns the current calibrated magnetometer sensor reading.
-     * @return the current calibrated magnetometer reading, in device units.
-     */
-    public short getCalibratedMagnetometerX() 
-    {
-    	return this.cal_mag_x;
-    }
-    
-    /**
-     * Returns the current calibrated magnetometer sensor reading.
-     * @return the current calibrated magnetometer reading, in device units.
-     */
-    public short getCalibratedMagnetometerY() 
-    {
-    	return this.cal_mag_y;
-    }
-    
-    /**
-     * Returns the current calibrated magnetometer sensor reading.
-     * @return the current calibrated magnetometer reading, in device units.
-     */
-    public short getCalibratedMagnetometerZ() 
-    {
-    	return this.cal_mag_z;
+    private void setAHRSPosData(AHRSProtocol.AHRSPosUpdate ahrs_update ) {
+        synchronized (this) { // synchronized block
+
+        	/* Update base IMU class variables */
+        	
+        	setYawPitchRoll( ahrs_update.yaw,
+        						ahrs_update.pitch,
+        						ahrs_update.roll,
+        						ahrs_update.compass_heading);
+
+        	/* Update AHRS class variables */
+            
+            // 9-axis data
+            this.fused_heading			= ahrs_update.fused_heading;
+
+            // Gravity-corrected linear acceleration (world-frame)
+            this.world_linear_accel_x	= ahrs_update.linear_accel_x;
+            this.world_linear_accel_y	= ahrs_update.linear_accel_y;
+            this.world_linear_accel_z	= ahrs_update.linear_accel_z;
+            
+            // Gyro/Accelerometer Die Temperature
+            this.mpu_temp_c				= ahrs_update.mpu_temp;
+            
+            // Barometric Pressure/Altitude
+            this.altitude				= ahrs_update.altitude;
+            this.barometric_pressure	= ahrs_update.barometric_pressure;
+            this.baro_sensor_temp_c		= ahrs_update.baro_temp;
+            
+            // Status/Motion Detection
+            this.is_moving				= 
+            		(((ahrs_update.sensor_status & 
+            				AHRSProtocol.NAVX_SENSOR_STATUS_MOVING) != 0) 
+            				? true : false);
+            this.is_rotating				= 
+            		(((ahrs_update.sensor_status & 
+            				AHRSProtocol.NAVX_SENSOR_STATUS_YAW_STABLE) != 0) 
+            				? true : false);
+            this.altitude_valid				= 
+            		(((ahrs_update.sensor_status & 
+            				AHRSProtocol.NAVX_SENSOR_STATUS_ALTITUDE_VALID) != 0) 
+            				? true : false);
+            this.is_magnetometer_calibrated =
+            		(((ahrs_update.cal_status & 
+            				AHRSProtocol.NAVX_CAL_STATUS_MAG_CAL_COMPLETE) != 0) 
+            				? true : false);
+            this.magnetic_disturbance		=
+            		(((ahrs_update.sensor_status & 
+            				AHRSProtocol.NAVX_SENSOR_STATUS_MAG_DISTURBANCE) != 0) 
+            				? true : false);                        
+
+            this.last_velocity[0] = ahrs_update.vel_x;
+            this.last_velocity[1] = ahrs_update.vel_y;
+            this.last_velocity[2] = ahrs_update.vel_z;
+            
+            this.displacement[0] = ahrs_update.disp_x;
+            this.displacement[1] = ahrs_update.disp_y;
+            this.displacement[2] = ahrs_update.disp_z;
+        }
+    	
     }
     
     private void setAHRSData(AHRSProtocol.AHRSUpdate ahrs_update) {
@@ -375,18 +405,25 @@ public class AHRS extends IMU {
         }
     }
     
-    private float last_velocity[] = new float[2];
-    private float displacement[] = new float[2];
-   
     /**
      * Zeros the displacement integration variables.   Invoke this at the moment when
      * integration begins.
      * @return none.
      */
     public void resetDisplacement() {
-    	for ( int i = 0; i < 2; i++ ) {
-    		last_velocity[i] = 0.0f;
-    		displacement[i] = 0.0f;
+    	if ( isDisplacementSupported() ) {
+    		/* navX MXP supports on-board integration of velocity/displacement */
+    		enqueueIntegrationControlMessage(	(byte)(AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_VEL_X |
+    													AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_VEL_Y |
+    													AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_VEL_Z |
+    													AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_DISP_X |
+    													AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_DISP_Y |
+    													AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_DISP_Z) );
+    	} else {
+	    	for ( int i = 0; i < 3; i++ ) {
+	    		last_velocity[i] = 0.0f;
+	    		displacement[i] = 0.0f;
+	    	}
     	}
     }
     
@@ -436,8 +473,16 @@ public class AHRS extends IMU {
     }
     
     /**
+     * Returns the velocity (in meters/sec) of the Z axis.
+     * @return none.
+     */
+    public float getVelocityZ() {
+    	return last_velocity[2];
+    }
+    
+    /**
      * Returns the displacement (in meters) of the X axis since resetDisplacement()
-     * was invoked.
+     * was last invoked.
      * @return none.
      */
     public float getDisplacementX() {
@@ -446,10 +491,19 @@ public class AHRS extends IMU {
     
     /**
      * Returns the displacement (in meters) of the Y axis since resetDisplacement()
-     * was invoked.
+     * was last invoked.
      * @return none.
      */
     public float getDisplacementY() {
     	return displacement[1];
+    }
+
+    /**
+     * Returns the displacement (in meters) of the Z axis since resetDisplacement()
+     * was last invoked.
+     * @return none.
+     */
+    public float getDisplacementZ() {
+    	return displacement[2];
     }
 }
