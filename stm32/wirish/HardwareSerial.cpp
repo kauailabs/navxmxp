@@ -35,11 +35,19 @@
 
 HardwareSerial Serial6;
 
+#define BUFFERED_WRITE /* Define this symbol to enable buffer writing */
+
 HardwareSerial::HardwareSerial() {
 	this->rx_buffer_bytes_available = 0;
 	this->rx_buffer_index = 0;
+	this->rx_buffer_next_readable_byte_index = 0;
 	for ( uint32_t i = 0; i < sizeof(this->rx_buffer); i++ ) {
 		this->rx_buffer[i] = 0;
+	}
+    this->tx_buffer_index = 0;
+    this->tx_buffer_bytes_pending = 0;
+	for ( uint32_t i = 0; i < sizeof(this->tx_buffer); i++ ) {
+		this->tx_buffer[i] = 0;
 	}
 	tx_in_progress = false;
 	receive_request_pending = false;
@@ -60,9 +68,11 @@ void HardwareSerial::begin(uint32_t baud) {
 	this->tx_in_progress = false;
 	this->rx_buffer_bytes_available = 0;
 	this->rx_buffer_index = 0;
+	this->rx_buffer_next_readable_byte_index = 0;
+	this->tx_buffer_bytes_pending = 0;
+	this->tx_buffer_index = 0;
 	receive_request_pending = false;
 	status = HAL_UART_Receive_IT(&huart6, &this->rx_buffer[this->rx_buffer_index], 1);
-
 }
 
 /**
@@ -81,8 +91,23 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
 	HAL_StatusTypeDef status;
 	Serial6.rx_buffer_index++;
 	Serial6.rx_buffer_bytes_available++;
+	Serial6.rx_buffer_next_readable_byte_index = Serial6.rx_buffer_index - Serial6.rx_buffer_bytes_available;
+	if ( Serial6.rx_buffer_next_readable_byte_index < 0 ) {
+		Serial6.rx_buffer_next_readable_byte_index += UART_RX_BUFFER_SIZE;
+	}
 	if ( Serial6.rx_buffer_index >= UART_RX_BUFFER_SIZE) {
 		Serial6.rx_buffer_index = 0;
+	}
+
+	/* If another byte is already available, read it out now */
+	/* and place in buffer, rather than wait for interrupt.  */
+	uint32_t uart_status_reg = UartHandle->Instance->SR;
+	if ( ( uart_status_reg & 0x20 ) != 0 ) {
+		uint32_t rx_data_reg = UartHandle->Instance->DR;
+		uint8_t rx_data = (uint8_t)rx_data_reg & 0x000000FF;
+		Serial6.rx_buffer[Serial6.rx_buffer_index] = rx_data;
+		Serial6.rx_buffer_index++;
+		Serial6.rx_buffer_bytes_available++;
 	}
 
 	if ( Serial6.rx_buffer_bytes_available < UART_RX_BUFFER_SIZE ) {
@@ -107,18 +132,33 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *UartHandle)
 			Serial6.receive_request_pending = false;
 		}
 	}
+
+#ifdef BUFFERED_WRITE
+	uint16_t num_bytes_transmitted = UartHandle->TxXferSize - UartHandle->TxXferCount;
+	Serial6.tx_buffer_bytes_pending -= num_bytes_transmitted;
+	Serial6.PossiblyStartNextTransmitUnsafe();
+#endif
+
 }
 
 int error_count = 0;
+int overrun_error_count = 0;
 
-void HAL_UART_ErrorCallback(UART_HandleTypeDef *UartHandle)
+static void ResetUart()
 {
-	error_count++;
 	/* Reset the UART.  The begin() method only takes effect if */
 	/* the baud rate changes, so force a change here.           */
 	uint32_t baud = huart6.Init.BaudRate;
 	huart6.Init.BaudRate = 0;
 	Serial6.begin(baud);
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *UartHandle)
+{
+	if ( HAL_UART_ERROR_NONE != UartHandle->ErrorCode ) {
+		error_count++;
+		ResetUart();
+	}
 }
 
 
@@ -134,24 +174,29 @@ uint8_t HardwareSerial::read(void) {
 
 	if ( rx_buffer_bytes_available < 1 ) return -1;
 
-	HAL_NVIC_DisableIRQ(USART6_IRQn);
+	NVIC_DisableIRQ(USART6_IRQn);
 	int next_index = this->rx_buffer_index - this->rx_buffer_bytes_available;
 	if ( next_index < 0 ) {
 		next_index += UART_RX_BUFFER_SIZE;
 	}
 	this->rx_buffer_bytes_available--;
+	int curr_buffer_index = Serial6.rx_buffer_index;
+	Serial6.rx_buffer_next_readable_byte_index++;
+	if ( Serial6.rx_buffer_next_readable_byte_index >= sizeof(Serial6.rx_buffer)) {
+		Serial6.rx_buffer_next_readable_byte_index = 0;
+	}
+    NVIC_EnableIRQ(USART6_IRQn);
 
 	/* If receive buffer was full, and has been emptied, begin receiving more data now. */
 	HAL_StatusTypeDef status;
 	if ( Serial6.rx_buffer_bytes_available == (UART_RX_BUFFER_SIZE-1) ) {
-		status = HAL_UART_Receive_IT(&huart6, &Serial6.rx_buffer[Serial6.rx_buffer_index], 1);
+		status = HAL_UART_Receive_IT(&huart6, &Serial6.rx_buffer[curr_buffer_index], 1);
 		if ( HAL_OK == status ) {
 			full_buffer = false;
 		} else {
 			failed_posted_read = false;
 		}
 	}
-    HAL_NVIC_EnableIRQ(USART6_IRQn);
 
 	return this->rx_buffer[next_index];
 }
@@ -160,7 +205,7 @@ uint32_t HardwareSerial::read(uint8_t *buf, uint32_t len)
 {
 	uint32_t total_count = 0;
 	if ( rx_buffer_bytes_available < 1 ) return -1;
-    HAL_NVIC_DisableIRQ(USART6_IRQn);
+    NVIC_DisableIRQ(USART6_IRQn);
     int avail_data_count = this->rx_buffer_bytes_available;
     int avail_data_index = this->rx_buffer_index - avail_data_count;
     uint8_t *avail_data_start;
@@ -179,7 +224,7 @@ uint32_t HardwareSerial::read(uint8_t *buf, uint32_t len)
 	total_count += avail_data_count;
 
 	this->rx_buffer_bytes_available-= total_count;
-    HAL_NVIC_EnableIRQ(USART6_IRQn);
+    NVIC_EnableIRQ(USART6_IRQn);
     return total_count;
 }
 
@@ -187,15 +232,19 @@ uint8_t HardwareSerial::peek(void)
 {
 	if ( rx_buffer_bytes_available < 1 ) return -1;
 
-	HAL_NVIC_DisableIRQ(USART6_IRQn);
+	return this->rx_buffer[rx_buffer_next_readable_byte_index];
+#if 0
+	/* This is legacy code that requires interrupts to be masked during peek. */
+	NVIC_DisableIRQ(USART6_IRQn);
 	int next_index = this->rx_buffer_index - this->rx_buffer_bytes_available;
+    NVIC_EnableIRQ(USART6_IRQn);
 	if ( next_index < 0 ) {
 		next_index += UART_RX_BUFFER_SIZE;
 	}
 	uint8_t new_byte = this->rx_buffer[next_index];
-    HAL_NVIC_EnableIRQ(USART6_IRQn);
 
     return new_byte;
+#endif
 }
 
 uint32_t HardwareSerial::available(void) {
@@ -227,18 +276,35 @@ void HardwareSerial::write(unsigned char ch) {
 			}
 		}
 	}
-
 }
 
 void HardwareSerial::write(const void *buf, uint32_t len) {
-
-	uint8_t *ch = (uint8_t*)buf;
-    while (len--) {
-        write(*ch++);
-    }
-	return;
-
-	/*
+#ifdef BUFFERED_WRITE
+	int err = 0;
+	NVIC_DisableIRQ(USART6_IRQn);
+	int buffer_bytes_free = sizeof(this->tx_buffer) - this->tx_buffer_bytes_pending;
+	if ( len > (uint32_t)buffer_bytes_free ) {
+		/* This is an error, transmit buffer overflow. */
+		err = 1;
+		ResetUart();
+	} else {
+		int bytes_til_end_of_buffer = sizeof(this->tx_buffer) - this->tx_buffer_index;
+		if ( bytes_til_end_of_buffer > (int)len ) {
+			memcpy(&this->tx_buffer[this->tx_buffer_index],buf,len);
+			this->tx_buffer_bytes_pending += len;
+			this->tx_buffer_index += len;
+		} else {
+			memcpy(&this->tx_buffer[this->tx_buffer_index],buf,bytes_til_end_of_buffer);
+			int bytes_remaining = len - bytes_til_end_of_buffer;
+			memcpy(&this->tx_buffer[0], (uint8_t *)buf + bytes_til_end_of_buffer, bytes_remaining);
+			this->tx_buffer_bytes_pending += len;
+			this->tx_buffer_index = bytes_remaining;
+		}
+		PossiblyStartNextTransmitUnsafe();
+	}
+	NVIC_EnableIRQ(USART6_IRQn);
+#else
+	/* Blocking Write */
 	if ( tx_in_progress ) return;
 	tx_in_progress = true;
 	serial_write_start_timestamp = HAL_GetTick();
@@ -246,12 +312,45 @@ void HardwareSerial::write(const void *buf, uint32_t len) {
 		tx_in_progress = false;
 	} else {
 		while ( tx_in_progress ) {
-			HAL_Delay(1);
+			//HAL_Delay(1);
 			if ( (HAL_GetTick() - serial_write_start_timestamp) > (unsigned long)SERIAL_WRITE_TIMEOUT_MS) {
 				tx_in_progress = false;
 			}
 		}
-	}*/
+	}
+#endif
+
+}
+
+bool HardwareSerial::PossiblyStartNextTransmitUnsafe()
+{
+	bool ok = true;
+
+	/* If a transmit is not already in progress, then start one now */
+	if ( !tx_in_progress ) {
+		// start transfer from next_buffer_index til end of packet or end of buffer, which ever comes first.
+		if ( this->tx_buffer_bytes_pending > 0 ) {
+			int start_index = this->tx_buffer_index - this->tx_buffer_bytes_pending;
+			uint8_t *start_address;
+			if ( start_index >= 0 ) {
+				start_address = &this->tx_buffer[start_index];
+			} else {
+				start_address = &this->tx_buffer[(sizeof(this->tx_buffer) + start_index)];
+				start_index += sizeof(this->tx_buffer);
+			}
+			int xfer_len = this->tx_buffer_bytes_pending;
+			if ( ( start_index + this->tx_buffer_bytes_pending ) > sizeof(this->tx_buffer) ) {
+				xfer_len = sizeof(this->tx_buffer) - start_index;
+			}
+			if ( HAL_UART_Transmit_IT(&huart6, &this->tx_buffer[start_index], xfer_len) != HAL_OK ) {
+				tx_in_progress = false;
+				ok = false;
+			} else {
+				tx_in_progress = true;
+			}
+		}
+	}
+	return ok;
 }
 
 
