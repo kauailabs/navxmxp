@@ -1,0 +1,33 @@
+//arduino example code for getting the calibrated magnetometer data 
+//calibrated_values[3] is the global array where the calibrated data will be placed
+//calibrated_values[3]: [0]=Xc, [1]=Yc, [2]=Zc
+float calibrated_values[3];   
+//transformation(float uncalibrated_values[3]) is the function of the magnetometer data correction 
+//uncalibrated_values[3] is the array of the non calibrated magnetometer data
+//uncalibrated_values[3]: [0]=Xnc, [1]=Ync, [2]=Znc
+void transformation(float uncalibrated_values[3])    
+{
+  //calibration_matrix[3][3] is the transformation matrix
+  //replace M11, M12,..,M33 with your transformation matrix data
+  double calibration_matrix[3][3] = 
+  {
+    {M11, M12, M13},
+    {M21, M22, M23},
+    {M31, M32, M33}  
+  };
+  //bias[3] is the bias
+  //replace Bx, By, Bz with your bias data
+  double bias[3] = 
+  {
+    Bx,
+    By,
+    Bz
+  };  
+  //calculation
+  for (int i=0; i<3; ++i) uncalibrated_values[i] = uncalibrated_values[i] - bias[i];
+  float result[3] = {0, 0, 0};
+  for (int i=0; i<3; ++i)
+    for (int j=0; j<3; ++j)
+      result[i] += calibration_matrix[i][j] * uncalibrated_values[j];
+  for (int i=0; i<3; ++i) calibrated_values[i] = result[i];
+}

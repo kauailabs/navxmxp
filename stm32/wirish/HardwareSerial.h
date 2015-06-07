@@ -41,6 +41,7 @@ extern "C" {
 }
 
 #define UART_RX_BUFFER_SIZE 512
+#define UART_TX_BUFFER_SIZE 512
 
 class HardwareSerial : public PrintSerialReceiver {
 public:
@@ -61,11 +62,17 @@ public:
     virtual void write(const void *buf, uint32_t len);
     virtual ~HardwareSerial(){}
 
+    bool PossiblyStartNextTransmitUnsafe();
+
     uint8_t rx_buffer[UART_RX_BUFFER_SIZE];
     int  rx_buffer_index;
     int		rx_buffer_bytes_available;
+    int  rx_buffer_next_readable_byte_index;
     bool tx_in_progress;
     bool receive_request_pending;
+    uint8_t tx_buffer[UART_TX_BUFFER_SIZE];
+    int	tx_buffer_index;
+    int tx_buffer_bytes_pending;
 };
 
 extern UART_HandleTypeDef huart6;

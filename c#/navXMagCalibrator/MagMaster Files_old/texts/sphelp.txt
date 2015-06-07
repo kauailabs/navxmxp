@@ -1,0 +1,21 @@
+You should connect your magnetometer device (for example an arduino board) to PC
+via serial port with 9600 bps boud rate and select the required serial port.
+
+The code for the arduino board you can find in a folder with this program. If you use
+other device then:
+
+You should transmit the magnetometer data by using the string format as shown here:
+X1,Y1,Z1
+X2,Y2,Z2
+---------------
+Xn,Yn,Zn
+
+For example:
+214.14,134.12,502.50
+299.23,120.00,490.10
+-----------------------------------
+125.55,165.87,520.56
+
+The time between the string transmissions should not be less than 100 milliseconds.
+
+If you can not connect your magnetometer device to PC then you can use any other way to get to know the magnetometer data. You can enter these data in the program manually.
