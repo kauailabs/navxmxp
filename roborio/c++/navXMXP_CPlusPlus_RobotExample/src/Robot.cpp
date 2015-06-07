@@ -47,6 +47,8 @@ public:
 	 */
 	void OperatorControl(void)
 	{
+		int reset_yaw_count = 0;
+		int reset_displacement_count = 0;
 		while (IsOperatorControl())
 		{
 			if ( first_iteration ) {
@@ -57,6 +59,25 @@ public:
 	                first_iteration = false;
 	            }
 			}
+            bool yaw_axis_up;
+            uint8_t yaw_axis = imu->GetBoardYawAxis(yaw_axis_up);
+
+            bool reset_yaw_button_pressed = DriverStation::GetInstance()->GetStickButton(0,1);
+            if ( reset_yaw_button_pressed ) {
+            	imu->ZeroYaw();
+            	reset_yaw_count++;
+            }
+            bool reset_displacement_button_pressed = DriverStation::GetInstance()->GetStickButton(0,2);
+            if ( reset_displacement_button_pressed ) {
+            	imu->ResetDisplacement();
+            	reset_displacement_count++;
+            }
+
+            SmartDashboard::PutNumber("Reset_Yaw_Count", reset_yaw_count);
+            SmartDashboard::PutNumber("Reset_Displacement_Count", reset_displacement_count);
+            SmartDashboard::PutBoolean("Yaw_Axis_Up",       yaw_axis_up);
+            SmartDashboard::PutNumber( "Yaw_Axis", 			yaw_axis);
+
 			SmartDashboard::PutBoolean( "IMU_Connected", imu->IsConnected());
 			SmartDashboard::PutNumber("IMU_Yaw", imu->GetYaw());
 			SmartDashboard::PutNumber("IMU_Pitch", imu->GetPitch());
@@ -80,7 +101,7 @@ public:
             SmartDashboard::PutNumber("Displacement_X",     imu->GetDisplacementX() );
             SmartDashboard::PutNumber("Displacement_Y",     imu->GetDisplacementY() );
 
-            Wait(0.2);				// wait for a while
+            Wait(0.1);				// wait for a while
 		}
 	}
 

@@ -75,6 +75,8 @@ typedef int32_t     s_1616_float;
 #define NAVX_REG_OP_STATUS       	0x08 /* NAVX_OP_STATUS_XXX */
 #define NAVX_REG_CAL_STATUS       	0x09 /* NAVX_CAL_STATUS_XXX */
 #define NAVX_REG_SELFTEST_STATUS 	0x0A /* NAVX_SELFTEST_STATUS_XXX */
+#define NAVX_REG_CAPABILITY_FLAGS_L 0x0B
+#define NAVX_REG_CAPABILITY_FLAGS_H 0x0C
 
 /**********************************************/
 /* Processed Data Registers                   */
@@ -195,7 +197,45 @@ typedef int32_t     s_1616_float;
 #define NAVX_REG_QUAT_OFFSET_Z_L 	0x54 /* Lower 8 bits of Quaternion Z */
 #define NAVX_REG_QUAT_OFFSET_Z_H 	0x55 /* Upper 8 bits of Quaternion Z */
 
-#define NAVX_REG_LAST NAVX_REG_QUAT_OFFSET_Z_H
+/**********************************************/
+/* Integrated Data Registers                  */
+/**********************************************/
+
+/* Integration Control (Write-Only)           */
+#define NAVX_REG_INTEGRATION_CTL	0x56
+#define NAVX_REG_PAD_UNUSED			0x57
+
+/* Velocity:  Range -32768.9999 - 32767.9999 in units of Meters/Sec      */
+
+#define NAVX_REG_VEL_X_I_L			0x58
+#define NAVX_REG_VEL_X_I_H			0x59
+#define NAVX_REG_VEL_X_D_L			0x5A
+#define NAVX_REG_VEL_X_D_H			0x5B
+#define NAVX_REG_VEL_Y_I_L			0x5C
+#define NAVX_REG_VEL_Y_I_H			0x5D
+#define NAVX_REG_VEL_Y_D_L			0x5E
+#define NAVX_REG_VEL_Y_D_H			0x5F
+#define NAVX_REG_VEL_Z_I_L			0x60
+#define NAVX_REG_VEL_Z_I_H			0x61
+#define NAVX_REG_VEL_Z_D_L			0x62
+#define NAVX_REG_VEL_Z_D_H			0x63
+
+/* Displacement:  Range -32768.9999 - 32767.9999 in units of Meters      */
+
+#define NAVX_REG_DISP_X_I_L			0x64
+#define NAVX_REG_DISP_X_I_H			0x65
+#define NAVX_REG_DISP_X_D_L			0x66
+#define NAVX_REG_DISP_X_D_H			0x67
+#define NAVX_REG_DISP_Y_I_L			0x68
+#define NAVX_REG_DISP_Y_I_H			0x69
+#define NAVX_REG_DISP_Y_D_L			0x6A
+#define NAVX_REG_DISP_Y_D_H			0x6B
+#define NAVX_REG_DISP_Z_I_L			0x6C
+#define NAVX_REG_DISP_Z_I_H			0x6D
+#define NAVX_REG_DISP_Z_D_L			0x6E
+#define NAVX_REG_DISP_Z_D_H			0x6F
+
+#define NAVX_REG_LAST NAVX_REG_DISP_Z_D_H
 
 /* NAVX_MODEL */
 
@@ -237,6 +277,34 @@ typedef int32_t     s_1616_float;
 #define NAVX_SENSOR_STATUS_SEALEVEL_PRESS_SET		0x10
 #define NAVX_SENSOR_STATUS_FUSED_HEADING_VALID		0x20
 
+/* NAVX_REG_CAPABILITY_FLAGS (Aligned w/NAV6 Flags, see IMUProtocol.h) */
+
+#define NAVX_CAPABILITY_FLAG_OMNIMOUNT				0x0004
+#define NAVX_CAPABILITY_FLAG_OMNIMOUNT_CONFIG_MASK	0x0038
+#define NAVX_CAPABILITY_FLAG_VEL_AND_DISP			0x0040
+#define NAVX_CAPABILITY_FLAG_YAW_RESET				0x0080
+
+/* NAVX_OMNIMOUNT_CONFIG */
+
+#define OMNIMOUNT_DEFAULT							0 /* Same as Y_Z_UP */
+#define OMNIMOUNT_YAW_X_UP							1
+#define OMNIMOUNT_YAW_X_DOWN						2
+#define OMNIMOUNT_YAW_Y_UP							3
+#define OMNIMOUNT_YAW_Y_DOWN						4
+#define OMNIMOUNT_YAW_Z_UP							5
+#define OMNIMOUNT_YAW_Z_DOWN						6
+
+/* NAVX_INTEGRATION_CTL */
+
+#define NAVX_INTEGRATION_CTL_RESET_VEL_X			0x01
+#define NAVX_INTEGRATION_CTL_RESET_VEL_Y			0x02
+#define NAVX_INTEGRATION_CTL_RESET_VEL_Z			0x04
+#define NAVX_INTEGRATION_CTL_RESET_DISP_X			0x08
+#define NAVX_INTEGRATION_CTL_RESET_DISP_Y			0x10
+#define NAVX_INTEGRATION_CTL_RESET_DISP_Z			0x20
+
+#define NAVX_INTEGRATION_CTL_RESET_YAW				0x80
+
 class IMURegisters
 {
 public:
@@ -257,6 +325,13 @@ public:
 	}
 	static inline void encodeProtocolInt16( int16_t val, char *int16_bytes) {
 		*((int16_t *)int16_bytes) = val;
+	}
+
+	static inline int32_t decodeProtocolInt32( char *int32_bytes ) {
+		return *((int32_t *)int32_bytes);
+	}
+	static inline void encodeProtocolInt32( int32_t val, char *int32_bytes) {
+		*((int32_t *)int32_bytes) = val;
 	}
 
 	/* -327.68 to +327.68 */
@@ -319,25 +394,47 @@ public:
 
 	/* <int16>.<uint16> (-32768.9999 to 32767.9999) */
 	static float decodeProtocol1616Float( char *uint8_16_16_bytes ) {
-		float result = (float)decodeProtocolInt16(uint8_16_16_bytes);
-		float decimal_portion = ((float)decodeProtocolUint16(uint8_16_16_bytes + sizeof(uint16_t))) / 65535.0f; /* TODO:  IS this off by one? */
-		if ( result >= 0.0 ) {
-			result += decimal_portion;
-		} else {
-			result -= decimal_portion;
-		}
+		float result = (float)decodeProtocolInt32( uint8_16_16_bytes );
+		result /= 65536.0f;
 		return result;
 	}
 	static void encodeProtocol1616Float( float val, char *uint8_16_16_bytes ) {
-
-		int16_t int_portion = (int)val;
-		float decimal_portion = val - (float)int_portion;
-		uint16_t decimal_as_int = (uint16_t)(decimal_portion * 65535.0f); /* TODO:  IS this off by one? */
-		encodeProtocolInt16(int_portion, uint8_16_16_bytes);
-		encodeProtocolUint16(decimal_as_int, uint8_16_16_bytes + sizeof(uint16_t));
+		val *= 65536.0f;
+		int32_t packed_float = (int32_t)val;
+		encodeProtocolInt32(packed_float, uint8_16_16_bytes);
 	}
 
 #define CRC7_POLY 0x91
+
+	static void buildCRCLookupTable( uint8_t* table, size_t length )
+	{
+		size_t crc;
+		size_t i, j;
+		if ( length == 256 ) {
+			for ( i = 0; i < length; i++ ) {
+				crc = (uint8_t)i;
+				for (j = 0; j < 8; j++) {
+					if (crc & 1) {
+						crc ^= CRC7_POLY;
+					}
+					crc >>= 1;
+				}
+				table[i] = crc;
+			}
+		}
+	}
+
+	static inline uint8_t getCRCWithTable( uint8_t* table, uint8_t message[], uint8_t length )
+	{
+		  uint8_t i, crc = 0;
+
+		  for (i = 0; i < length; i++)
+		  {
+		    crc ^= message[i];
+		    crc = table[crc];
+		  }
+		  return crc;
+	}
 
 	static uint8_t getCRC(uint8_t message[], uint8_t length)
 	{

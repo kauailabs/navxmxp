@@ -26,6 +26,12 @@
 
 #define YAW_HISTORY_LENGTH 10
 
+enum YAW_AXIS {
+	YAW_AXIS_X = 0,
+	YAW_AXIS_Y = 1,
+	YAW_AXIS_Z = 2,
+};
+
 class IMU : public SensorBase, public PIDSource, public LiveWindowSendable
 {
 protected:
@@ -70,6 +76,8 @@ public:
 	double GetAngle();
 	double GetRate();
 
+	uint8_t GetBoardYawAxis( bool& up);
+
 	uint8_t update_rate_hz;	
 	char current_stream_type;
 	virtual int DecodePacketHandler( char *received_data, int bytes_remaining );
@@ -84,7 +92,12 @@ protected:
 
 	void UpdateYawHistory(float curr_yaw );
 	float GetYawUnsynchronized();
+	bool IsOmniMountSupported();
+	bool IsBoardYawResetSupported();
+	bool IsDisplacementSupported();
 	
+	void EnqueueIntegrationControlMessage(uint8_t action);
+
 	Task *	m_task;
 	float 	yaw;
 	float 	pitch; 

@@ -41,7 +41,7 @@
      */
 AHRS::AHRS(SerialPort *pport, uint8_t update_rate_hz) : IMU(pport,update_rate_hz)
 {
-		this->current_stream_type = MSGID_AHRS_UPDATE;
+		this->current_stream_type = MSGID_AHRSPOS_UPDATE;
 		world_linear_accel_x =
 			world_linear_accel_y =
 			world_linear_accel_z =
@@ -72,12 +72,15 @@ int AHRS::DecodePacketHandler( char *received_data, int bytes_remaining )
 	float altitude, fused_heading, linear_accel_x, linear_accel_y, linear_accel_z;
 	float mpu_temp;
 	int16_t raw_mag_x, raw_mag_y, raw_mag_z;
-	int16_t cal_mag_x, cal_mag_y, cal_mag_z;
-	float mag_norm_ratio, mag_norm_scalar;
+	int16_t cal_mag_x = 0, cal_mag_y = 0, cal_mag_z = 0;
+	float mag_norm_ratio = 0.0f, mag_norm_scalar = 0.0f;
 	int16_t quat_w, quat_x, quat_y, quat_z;
 	float baro_pressure, baro_temp;
 	uint8_t op_status, sensor_status;
 	uint8_t cal_status, selftest_status;
+	float vel_x, vel_y, vel_z;
+	float disp_x, disp_y, disp_z;
+	bool perform_integration = true;
 
 	int packet_length = AHRSProtocol::decodeAHRSUpdate(	received_data, bytes_remaining,
 														yaw,
@@ -108,6 +111,36 @@ int AHRS::DecodePacketHandler( char *received_data, int bytes_remaining )
 														sensor_status,
 														cal_status,
 														selftest_status);
+	if (packet_length == 0) {
+		packet_length = AHRSProtocol::decodeAHRSPosUpdate(	received_data, bytes_remaining,
+															yaw,
+															pitch,
+															roll,
+															compass_heading,
+															altitude,
+															fused_heading,
+															linear_accel_x,
+															linear_accel_y,
+															linear_accel_z,
+															mpu_temp,
+															quat_w,
+															quat_x,
+															quat_y,
+															quat_z,
+															vel_x,
+															vel_y,
+															vel_z,
+															disp_x,
+															disp_y,
+															disp_z,
+															op_status,
+															sensor_status,
+															cal_status,
+															selftest_status);
+		if ( packet_length > 0 ) {
+			perform_integration = false;
+		}
+	}
 	if (packet_length > 0) {
 		/* Update base IMU class variables */
 
@@ -159,10 +192,19 @@ int AHRS::DecodePacketHandler( char *received_data, int bytes_remaining )
 						NAVX_SENSOR_STATUS_MAG_DISTURBANCE) != 0)
 						? true : false);
 
-		UpdateDisplacement( this->world_linear_accel_x,
-				this->world_linear_accel_y,
-				update_rate_hz,
-				this->is_moving);
+		if ( perform_integration ) {
+			UpdateDisplacement( this->world_linear_accel_x,
+					this->world_linear_accel_y,
+					update_rate_hz,
+					this->is_moving);
+		} else {
+			this->last_velocity[0] = vel_x;
+			this->last_velocity[1] = vel_y;
+			this->last_velocity[2] = vel_z;
+			this->displacement[0]  = disp_x;
+			this->displacement[1]  = disp_y;
+			this->displacement[2]  = disp_z;
+		}
 	}
 	return packet_length;
 }
@@ -378,9 +420,19 @@ short AHRS::GetCalibratedMagnetometerZ()
  */
 void AHRS::ResetDisplacement()
 {
-	for ( int i = 0; i < 2; i++ ) {
-		last_velocity[i] = 0.0f;
-		displacement[i] = 0.0f;
+	if ( this->IsDisplacementSupported() ) {
+		/* navX MXP supports on-board integration of velocity/displacement */
+		EnqueueIntegrationControlMessage(	NAVX_INTEGRATION_CTL_RESET_VEL_X |
+											NAVX_INTEGRATION_CTL_RESET_VEL_Y |
+											NAVX_INTEGRATION_CTL_RESET_VEL_Z |
+											NAVX_INTEGRATION_CTL_RESET_DISP_X |
+											NAVX_INTEGRATION_CTL_RESET_DISP_Y |
+											NAVX_INTEGRATION_CTL_RESET_DISP_Z );
+	} else {
+		for ( int i = 0; i < 2; i++ ) {
+			last_velocity[i] = 0.0f;
+			displacement[i] = 0.0f;
+		}
 	}
 }
 

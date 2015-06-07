@@ -14,7 +14,7 @@
 #include "LiveWindow/LiveWindow.h"
 #include <time.h>
 #include "IMU.h"
-#include "IMUProtocol.h"
+#include "AHRSProtocol.h"
 #include <string.h>
 #include <exception>
 
@@ -32,8 +32,11 @@ static bool stop = false;
 
 static char protocol_buffer[1024];
 static char additional_received_data[1024];
+static bool signal_transmit_integration_control = false;
+static uint8_t next_integration_control_action = 0;
+static bool signal_retransmit_stream_config = false;
 
-//#define DEBUG_IMU_RX  // Comment out to disable receive debugging
+#define DEBUG_IMU_RX  // Comment out to disable receive debugging
 
 static void imuTask(IMU *imu)
 {
@@ -45,6 +48,7 @@ static void imuTask(IMU *imu)
     bool stream_response_received = false;
     double last_valid_packet_time = 0.0;
     int partial_binary_packet_count = 0;
+    int stream_config_request_count = 0;
     int stream_response_receive_count = 0;
     int stream_response_timeout_count = 0;
     int timeout_count = 0;
@@ -53,6 +57,7 @@ static void imuTask(IMU *imu)
     double last_stream_command_sent_timestamp = 0.0;
     int updates_in_last_second = 0;
     double last_second_start_time = 0;
+    int integration_response_receive_count = 0;
 
 	SerialPort *pport = imu->GetSerialPort();
     try {
@@ -84,6 +89,25 @@ static void imuTask(IMU *imu)
 
             // Wait, with delays to conserve CPU resources, until
             // bytes have arrived.
+        	bool send_integration_control = false;
+        	uint8_t integration_control_action;
+        	{
+        		Synchronized sync(cIMUStateSemaphore);
+				if ( signal_transmit_integration_control ) {
+					send_integration_control = signal_transmit_integration_control;
+					integration_control_action = next_integration_control_action;
+					signal_transmit_integration_control = false;
+					next_integration_control_action = 0;
+        		}
+        	}
+
+        	if ( send_integration_control ) {
+                int cmd_packet_length = AHRSProtocol::encodeIntegrationControlCmd( protocol_buffer, integration_control_action, 0 );
+                try {
+                    pport->Write( protocol_buffer, cmd_packet_length );
+                } catch (std::exception ex2) {
+                }
+        	}
 
             while ( !stop && ( pport->GetBytesReceived() < 1 ) ) {
             	delayMillis(1000/update_rate_hz);
@@ -177,13 +201,26 @@ static void imuTask(IMU *imu)
 #endif
                         }
                         else {
-                            // current index is not the start of a valid packet; increment
-                            i++;
+                        	uint8_t action;
+                        	int32_t parameter;
+        					packet_length = AHRSProtocol::decodeIntegrationControlResponse( &protocol_buffer[i], bytes_remaining,
+        							  action, parameter );
+        					if ( packet_length > 0 ) {
+        						// Confirmation of integration control
+        						integration_response_receive_count++;
 #ifdef DEBUG_IMU_RX
-                    		discarded_bytes_count++;
-        			        SmartDashboard::PutNumber("nav6 Discarded Bytes", (double)discarded_bytes_count);
+        						SmartDashboard::PutNumber("IntegrationControlRxCount", integration_response_receive_count);
 #endif
-                        }
+                                i += packet_length;
+        					} else {
+                        	// current index is not the start of a valid packet; increment
+								i++;
+#ifdef DEBUG_IMU_RX
+								discarded_bytes_count++;
+								SmartDashboard::PutNumber("nav6 Discarded Bytes", (double)discarded_bytes_count);
+#endif
+        					}
+        				}
                     }
                 }
 
@@ -199,15 +236,26 @@ static void imuTask(IMU *imu)
 #endif
                 }
 
+                bool retransmit_stream_config = false;
+                if ( signal_retransmit_stream_config ) {
+                	signal_retransmit_stream_config = false;
+                	retransmit_stream_config = true;
+                }
+
                 // If a stream configuration response has not been received within three seconds
                 // of operation, (re)send a stream configuration request
 
-                if ( !stream_response_received && ((Timer::GetFPGATimestamp() - last_stream_command_sent_timestamp ) > 3.0 ) ) {
+                if ( retransmit_stream_config ||
+                		(!stream_response_received && ((Timer::GetFPGATimestamp() - last_stream_command_sent_timestamp ) > 3.0 ) ) ) {
                     int cmd_packet_length = IMUProtocol::encodeStreamCommand( protocol_buffer, imu->current_stream_type, imu->update_rate_hz );
                     try {
                         last_stream_command_sent_timestamp = Timer::GetFPGATimestamp();
                         pport->Write( protocol_buffer, cmd_packet_length );
                         pport->Flush();
+#ifdef DEBUG_IMU_RX
+                        stream_config_request_count++;
+                    	SmartDashboard::PutNumber("nav6 Stream Config Request sent ", (double)stream_config_request_count);
+#endif
                     } catch (std::exception ex2) {
 #ifdef DEBUG_IMU_RX
                     	stream_response_timeout_count++;
@@ -228,6 +276,7 @@ static void imuTask(IMU *imu)
                 /* streaming packet type is configured correctly.                                */
 
                 if ( ( Timer::GetFPGATimestamp() - last_valid_packet_time ) > 1.0 ) {
+                	last_stream_command_sent_timestamp = 0.0;
                 	stream_response_received = false;
                 }
             }
@@ -357,9 +406,13 @@ bool IMU::IsCalibrating()
 
 void IMU::ZeroYaw()
 {
-	yaw_offset = GetAverageFromYawHistory();
+	if ( this->IsBoardYawResetSupported() ) {
+		/* navX MXP supports on-board yaw offset reset */
+		EnqueueIntegrationControlMessage( NAVX_INTEGRATION_CTL_RESET_YAW );
+	} else {
+		yaw_offset = GetAverageFromYawHistory();
+	}
 }
-
 
 float IMU::GetYawUnsynchronized()
 {
@@ -568,7 +621,55 @@ void IMU::SetStreamResponse( char stream_type,
 		this->accel_fsr_g = accel_fsr;
 		this->gyro_fsr_dps = gyro_fsr_dps;
 		this->update_rate_hz = update_rate_hz;
+        /* If AHRSPOS is update type is request, but board doesn't support it, */
+        /* retransmit the stream config, falling back to AHRS Update mode.     */
+        if ( current_stream_type == MSGID_AHRSPOS_UPDATE ) {
+        	if ( !IsDisplacementSupported() ) {
+        		current_stream_type = MSGID_AHRS_UPDATE;
+        		signal_retransmit_stream_config = true;
+        	}
+        }
+
 	}		
 }
+
+bool IMU::IsOmniMountSupported()
+{
+	return ((this->flags & NAVX_CAPABILITY_FLAG_OMNIMOUNT) ? true : false);
+}
+
+bool IMU::IsBoardYawResetSupported()
+{
+	return ((this->flags & NAVX_CAPABILITY_FLAG_YAW_RESET) ? true : false);
+}
+
+bool IMU::IsDisplacementSupported()
+{
+	return ((this->flags & NAVX_CAPABILITY_FLAG_VEL_AND_DISP) ? true : false);
+}
+
+void IMU::EnqueueIntegrationControlMessage(uint8_t action)
+{
+	Synchronized sync(cIMUStateSemaphore);
+	signal_transmit_integration_control = true;
+	next_integration_control_action = action;
+}
+
+uint8_t IMU::GetBoardYawAxis( bool& up)
+{
+	uint16_t yaw_axis_info = (flags >> 2) & 0x0007;
+	uint8_t yaw_axis;
+	if ( yaw_axis_info == OMNIMOUNT_DEFAULT) {
+		yaw_axis = YAW_AXIS_Z;
+		up = true;
+	} else {
+		yaw_axis = (uint8_t)yaw_axis_info;
+		yaw_axis -= 1;
+		up = ((yaw_axis & 0x01) ? false : true);
+		yaw_axis >>= 1;
+	}
+	return yaw_axis;
+}
+
 
 

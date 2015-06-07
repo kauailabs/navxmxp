@@ -80,8 +80,8 @@ protected:
     void UpdateDisplacement( float accel_x_g, float accel_y_g,
     							int update_rate_hz, bool is_moving );
 
-    float last_velocity[2];
-    float displacement[2];
+    float last_velocity[3];
+    float displacement[3];
 
 };
 #endif
