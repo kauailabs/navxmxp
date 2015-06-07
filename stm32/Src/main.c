@@ -43,11 +43,14 @@
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c2;
 I2C_HandleTypeDef hi2c3;
+DMA_HandleTypeDef hdma_i2c3_tx;
 
 SPI_HandleTypeDef hspi1;
 DMA_HandleTypeDef hdma_spi1_tx;
+DMA_HandleTypeDef hdma_spi1_rx;
 
 UART_HandleTypeDef huart6;
+DMA_HandleTypeDef hdma_usart6_tx;
 
 
 /* USER CODE BEGIN PV */
@@ -322,16 +325,18 @@ void MX_GPIO_Init(void)
 void MX_DMA_Init(void)
 {
   /* DMA controller clock enable */
-  //__DMA1_CLK_ENABLE();
+  __DMA1_CLK_ENABLE();
   __DMA2_CLK_ENABLE();
 
   /* DMA interrupt init */
-  HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 1, 1);
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 1, 0); /* SPI */
+  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
+  HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 1, 0); /* SPI */
   HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
-  //HAL_NVIC_SetPriority(DMA2_Stream6_IRQn, 0, 0);
-  //HAL_NVIC_EnableIRQ(DMA2_Stream6_IRQn);
-  //HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 0, 0);
-  //HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
+  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 2, 0); /* I2C */
+  HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
+  HAL_NVIC_SetPriority(DMA2_Stream6_IRQn, 3, 0); /* UART */
+  HAL_NVIC_EnableIRQ(DMA2_Stream6_IRQn);
 
 }
  
