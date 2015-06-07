@@ -65,6 +65,8 @@ struct mpu_data {
 									// interpolating values between each compass update with
 									// deltas in yaw change.
 	unsigned long timestamp;		// When the mpu data was acquired
+	float velocity[3];				// Meters/Sec
+	float displacement[3];			// Meters
 };
 
 /* This structure represents the current configuration of the MPU */
@@ -110,7 +112,7 @@ struct mag_calibration_data {
 
 _EXTERN_ATTRIB bool mpu_detect();
 _EXTERN_ATTRIB void mpu_initialize(unsigned short mpu_interrupt_pin);
-_EXTERN_ATTRIB int run_mpu_self_test(struct mpu_selftest_calibration_data *caldata);
+_EXTERN_ATTRIB int run_mpu_self_test(struct mpu_selftest_calibration_data *caldata, uint8_t yaw_axis, bool yaw_axis_up);
 _EXTERN_ATTRIB void enable_dmp();
 _EXTERN_ATTRIB int dmp_data_ready();
 _EXTERN_ATTRIB int get_dmp_data(struct mpu_data *pdata);
@@ -130,5 +132,11 @@ _EXTERN_ATTRIB int periodic_compass_update();
 
 _EXTERN_ATTRIB int sense_current_mpu_yaw_orientation( uint8_t *mpu_yaw_axis, bool* up);
 _EXTERN_ATTRIB int set_current_mpu_to_board_xform(uint8_t yaw_axis, bool up);
+
+_EXTERN_ATTRIB void reset_velocity_and_dispacement_integrator( struct mpu_data *pdata, uint8_t axes_to_reset );
+_EXTERN_ATTRIB void set_motion_detection_threshold_g( float threshold_g );
+
+_EXTERN_ATTRIB void set_yaw_offset( float yaw_offset_angle_degrees );
+_EXTERN_ATTRIB void get_yaw_offset( float *yaw_offset_angle_degrees );
 
 #endif /* MPUCONTROLLER_H_ */
