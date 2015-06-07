@@ -78,7 +78,7 @@ void HAL_PCD_MspInit(PCD_HandleTypeDef* hpcd)
       __HAL_USB_FS_EXTI_CLEAR_FLAG();
       __HAL_USB_FS_EXTI_SET_RISING_EGDE_TRIGGER();
       __HAL_USB_FS_EXTI_ENABLE_IT();
-      HAL_NVIC_SetPriority(OTG_FS_WKUP_IRQn, 3, 2);
+      HAL_NVIC_SetPriority(OTG_FS_WKUP_IRQn, 4, 0);
       HAL_NVIC_EnableIRQ(OTG_FS_WKUP_IRQn);
     }
   /* USER CODE BEGIN USB_OTG_FS_MspInit 1 */
