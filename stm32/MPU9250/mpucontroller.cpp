@@ -120,6 +120,7 @@ static struct platform_data_s mpu_to_board_orientation_matrices[NUM_LOGICAL_AXES
 
 const int default_mpu_yaw_axis = MPU_LOGICAL_AXIS_Z;
 const bool default_mpu_yaw_axis_up = true;
+float motion_detection_threshold_g = 0.02f;
 
 uint8_t curr_mpu_yaw_axis = default_mpu_yaw_axis;
 bool curr_mpu_yaw_axis_up = default_mpu_yaw_axis_up;
@@ -215,7 +216,7 @@ float last_valid_fused_heading = 0.0f;
 float yaw_at_last_valid_fused_heading = 0.0f;
 float compass_heading_noise_band_degrees = 2.0f;
 bool first_valid_fused_heading_detected = false;
-int valid_fused_header_count = 0;
+int valid_fused_heading_count = 0;
 
 _EXTERN_ATTRIB bool is_mag_cal_data_default( struct mag_calibration_data *magcaldata )
 {
@@ -262,7 +263,7 @@ _EXTERN_ATTRIB void mpu_apply_mag_cal_data(struct mag_calibration_data *caldata)
 	last_valid_fused_heading = 0.0f;
 	yaw_at_last_valid_fused_heading = 0.0f;
 	first_valid_fused_heading_detected = false;
-	valid_fused_header_count = 0;
+	valid_fused_heading_count = 0;
 }
 
 _EXTERN_ATTRIB void mpu_get_mag_cal_data(struct mag_calibration_data *caldata) {
@@ -321,7 +322,6 @@ static void android_orient_cb(unsigned char orientation)
 	}
 }
 
-unsigned long timestamp = 0;
 unsigned long sensor_timestamp = 0;
 unsigned char accel_fsr = 0;
 
@@ -346,7 +346,7 @@ _EXTERN_ATTRIB void mpu_initialize(unsigned short mpu_interrupt_pin)
     if (result) {
         /* Reset */
     }
-
+#if 0 /* MPL Initialization - not used */
     /* If you're not using an MPU9150 AND you're not using DMP features, this
      * function will place all slaves on the primary bus.
      * mpu_set_bypass(1);
@@ -358,7 +358,7 @@ _EXTERN_ATTRIB void mpu_initialize(unsigned short mpu_interrupt_pin)
     }
 
     /* Compute 6-axis and 9-axis quaternions. */
-    inv_enable_quaternion();
+    //inv_enable_quaternion();
     /* Update gyro biases when not in motion.
      * WARNING: These algorithms are mutually exclusive.
      */
@@ -392,6 +392,7 @@ _EXTERN_ATTRIB void mpu_initialize(unsigned short mpu_interrupt_pin)
     if (result) {
         /* Reset */
     }
+#endif
     /* Get/set hardware configuration. Start gyro. */
     /* Wake up all sensors. */
 #ifdef COMPASS_ENABLED
@@ -416,6 +417,7 @@ _EXTERN_ATTRIB void mpu_initialize(unsigned short mpu_interrupt_pin)
 #ifdef COMPASS_ENABLED
     mpu_get_compass_fsr(&compass_fsr);
 #endif
+#if 0
     /* Sync driver configuration with MPL. */
     /* Sample rate expected in microseconds. */
     inv_set_gyro_sample_rate(1000000L / gyro_rate);
@@ -427,7 +429,7 @@ _EXTERN_ATTRIB void mpu_initialize(unsigned short mpu_interrupt_pin)
      */
     inv_set_compass_sample_rate(COMPASS_READ_MS * 1000L);
 #endif
-
+#endif
     /* Initialize HAL state variables. */
 #ifdef COMPASS_ENABLED
     hal.sensors = ACCEL_ON | GYRO_ON | COMPASS_ON;
@@ -441,7 +443,7 @@ _EXTERN_ATTRIB void mpu_initialize(unsigned short mpu_interrupt_pin)
     hal.next_temp_ms = 0;
 
     /* Compass reads are handled by scheduler. */
-    get_ms(&timestamp);
+    get_ms(&sensor_timestamp);
 
     /* To initialize the DMP:
      * 1. Call dmp_load_motion_driver_firmware(). This pushes the DMP image in
@@ -575,7 +577,7 @@ _EXTERN_ATTRIB int sense_current_mpu_yaw_orientation( uint8_t *mpu_yaw_axis, boo
 	return (valid_yaw_axis != INVALID_AXIS) ? 0 : -1;
 }
 
-_EXTERN_ATTRIB int run_mpu_self_test(struct mpu_selftest_calibration_data *caldata)
+_EXTERN_ATTRIB int run_mpu_self_test(struct mpu_selftest_calibration_data *caldata, uint8_t yaw_axis, bool yaw_axis_up)
 {
     int result;
     int i;
@@ -586,6 +588,32 @@ _EXTERN_ATTRIB int run_mpu_self_test(struct mpu_selftest_calibration_data *calda
 #elif defined (MPU6050) || defined (MPU9150)
     result = mpu_run_self_test(gyro, accel);
 #endif
+
+    /* The MPU driver self test always assumes the Yaw axis is the Z axis */
+    /* and subtracts/adds 1G to that axis to offset gravity.  Therefore,  */
+    /* if a different yaw axis is chosen, gravity should be added back to */
+    /* the Z axis, and removed from the chosen yaw axis.                  */
+
+    if ( ( yaw_axis < 3 ) && ( yaw_axis != 2 ) ) {
+		/* Add back previously-subtracted gravity */
+    	if ( accel[2] < 0 ) {
+    		accel[2] += 65536L;
+    	} else {
+    		accel[2] -= 65536L;
+    	}
+    	/* Remove gravity from the chosen yaw axis */
+    	if ( yaw_axis_up ) {
+    		accel[yaw_axis] -= 65536L;
+    	} else {
+    		accel[yaw_axis] += 65536L;
+    	}
+    	/* If a different yaw axis is chosen, the bias test in the MPU    */
+    	/* driver will fail.  In this case, clear any accelerometer error */
+    	/* result.  Note that in the factory, self tests should always    */
+    	/* be run w/the default axis orientation (Yaw axis = z, dir = up) */
+    	result |= 0x2;
+    }
+
     if (result == 0x7) {
         /* Test passed. We can trust the gyro data here, so now we need to update calibrated data*/
         for ( i=0; i < 3; i++ ) {
@@ -599,6 +627,17 @@ _EXTERN_ATTRIB int run_mpu_self_test(struct mpu_selftest_calibration_data *calda
 	return result;
 }
 
+uint8_t curr_sample_rate = DEFAULT_MPU_HZ;
+float   curr_sample_period = 1.0f / DEFAULT_MPU_HZ + 10;
+float   curr_sample_period_squared = (1.0f / DEFAULT_MPU_HZ ) * (1.0f / DEFAULT_MPU_HZ);
+
+void update_curr_sample_rate( uint8_t new_sample_rate )
+{
+	curr_sample_rate = new_sample_rate;
+	curr_sample_period = 1.0f / curr_sample_rate;
+	curr_sample_period_squared = curr_sample_period * curr_sample_period;
+}
+
 _EXTERN_ATTRIB void enable_dmp()
 {
 	if ( hal.dmp_on ) return;
@@ -607,12 +646,17 @@ _EXTERN_ATTRIB void enable_dmp()
 	hal.dmp_on = 1;
 	/* Preserve current FIFO rate. */
 	mpu_get_sample_rate(&sample_rate);
+	update_curr_sample_rate(sample_rate);
 	dmp_set_fifo_rate(sample_rate);
+#if 0
 	inv_set_quat_sample_rate(1000000L / sample_rate);
+#endif
 	mpu_set_dmp_state(1);
 	MPL_LOGI("DMP enabled.\n");
 }
-//#define USE_CAL_MPU_REGISTERS
+
+#define USE_CAL_MPU_REGISTERS
+
 _EXTERN_ATTRIB int mpu_apply_calibration_data(struct mpu_selftest_calibration_data *caldata)
 {
 	long gyro[3], accel[3];
@@ -626,15 +670,13 @@ _EXTERN_ATTRIB int mpu_apply_calibration_data(struct mpu_selftest_calibration_da
         unsigned char i = 0;
 
         for(i = 0; i<3; i++) {
-        	gyro[i] = (long)(caldata->gyro_bias[i] * 32.8f); //convert to +-1000dps (2000dps?)
+        	gyro[i] = (long)(caldata->gyro_bias[i] * 32.768f); //convert to +-1000dps in HW units
         	gyro[i] = (long)(gyro[i] >> 16);
         	accel[i] = caldata->accel_bias[i];
-        	accel[i] *= 4096.f; //convert to +-8G Scott Libert, 11/26/2014: Data sheet says +- 16G! (2G?)
+        	accel[i] *= 2048.f; //convert to +-16G in HW units
         	accel[i] = accel[i] >> 16;
          }
-
-        //mpu_set_gyro_bias_reg(gyro);
-
+        mpu_set_gyro_bias_reg(gyro);
 #if defined (MPU6500) || defined (MPU9250)
         mpu_set_accel_bias_6500_reg(accel);
 #elif defined (MPU6050) || defined (MPU9150)
@@ -672,7 +714,8 @@ _EXTERN_ATTRIB int mpu_apply_calibration_data(struct mpu_selftest_calibration_da
 }
 
 #define PI 3.1415926f
-const float radians_to_degrees = 180.0 / M_PI;
+const float radians_to_degrees = 180.0f / M_PI;
+const float degrees_to_radians = M_PI / 180.0f;
 
 _EXTERN_ATTRIB int dmp_data_ready()
 {
@@ -709,9 +752,6 @@ void dmpGetYawPitchRoll(float *data, Quaternion *q, struct FloatVectorStruct *gr
     data[2] = atan(gravity -> y / sqrt(gravity -> x*gravity -> x + gravity -> z*gravity -> z));
 }
 
-#ifdef COMPASS_ENABLED
-    short compass_short[3];
-#endif
 long last_temperature = 32 * 65535; /* Reasonable default */
 long compass_accumulator[3] = {0,0,0};
 long compass_accumulator_count = 0;
@@ -720,6 +760,8 @@ unsigned long next_compass_ms = 0;
 int new_compass = 0;
 int new_temp = 0;
 int new_data = 0;
+uint32_t non_moving_sample_count[2] = { 100, 100 };
+float curr_yaw_offset_radians = 0;
 
 _EXTERN_ATTRIB int periodic_compass_update() {
 	short new_compass_data_short[3];
@@ -750,26 +792,23 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
     FloatVectorStruct gravity;
     short sensors;
     unsigned char more;
-    unsigned long sensor_timestamp;
     long accel[3];
     if ( !hal.new_gyro ) return -1;
     if ( NULL == pdata ) return -1;
 
-    get_ms(&timestamp);
-
     if (!dmp_read_fifo(gyro, accel_short, pdata->quaternion, &sensor_timestamp, &sensors, &more) ) {
 
     	/* Read mpu temperature data if sufficient time has passed. */
-		if (timestamp > hal.next_temp_ms) {
-			hal.next_temp_ms = timestamp + TEMP_READ_MS;
+		if (sensor_timestamp > hal.next_temp_ms) {
+			hal.next_temp_ms = sensor_timestamp + TEMP_READ_MS;
 			new_temp = 1;
 		}
 
 #ifdef COMPASS_ENABLED
 		/* Due to compass noise, average each sample (period = COMPASS_READ_MS) */
-		if ((timestamp > hal.next_compass_ms) && !hal.lp_accel_mode &&
+		if ((sensor_timestamp > hal.next_compass_ms) && !hal.lp_accel_mode &&
 			hal.new_gyro && (hal.sensors & COMPASS_ON)) {
-			hal.next_compass_ms = timestamp + COMPASS_READ_MS;
+			hal.next_compass_ms = sensor_timestamp + COMPASS_READ_MS;
 			new_compass = 1;
 		}
 #endif
@@ -782,10 +821,11 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
 			new_data = 1;
 			if (new_temp) {
 				new_temp = 0;
-				mpu_get_temperature(&last_temperature, &sensor_timestamp);
-				/* Correct for discrepancy between datasheet and mpu_get_temperature implementation */
-				last_temperature -= (14 * 65536);
-				pdata->temp_c = last_temperature / 65536.0;
+				if ( !mpu_get_temperature(&last_temperature, &sensor_timestamp) ) {
+					/* Correct for discrepancy between datasheet and mpu_get_temperature implementation */
+					last_temperature -= (14 * 65536);
+					pdata->temp_c = last_temperature / 65536.0;
+				}
 			}
 		}
 		if (sensors & INV_XYZ_ACCEL) {
@@ -803,14 +843,10 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
 #ifdef COMPASS_ENABLED
 		periodic_compass_update();
 		if (new_compass && ( compass_accumulator_count > 0 )) {
-			long compass[3];
-			compass[0] = (compass_accumulator[0] / compass_accumulator_count);
-			compass[1] = (compass_accumulator[1] / compass_accumulator_count);
-			compass[2] = (compass_accumulator[2] / compass_accumulator_count);
+			pdata->raw_compass[0] = (short)(compass_accumulator[0] / compass_accumulator_count);
+			pdata->raw_compass[1] = (short)(compass_accumulator[1] / compass_accumulator_count);
+			pdata->raw_compass[2] = (short)(compass_accumulator[2] / compass_accumulator_count);
 
-			compass_short[0] = (short)compass[0];
-			compass_short[1] = (short)compass[1];
-			compass_short[2] = (short)compass[2];
 			/* Reset accumulator */
 			compass_accumulator_count = 0;
 			compass_accumulator[0] = 0;
@@ -829,10 +865,26 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
 			 * rate requested by the host.
 			 */
 			float ypr[3];
-			Quaternion q( (float)(pdata->quaternion[0] >> 16) / 16384.0f,
+			float last_accel[3];			// Last sample period acceleration values
+			last_accel[0] = pdata->world_linear_accel[0];
+			last_accel[1] = pdata->world_linear_accel[1];
+			last_accel[2] = pdata->world_linear_accel[2];
+
+			/* Rotate the Quaternion from the MPU by the inverse of the current yaw offset */
+
+			Quaternion q_in( (float)(pdata->quaternion[0] >> 16) / 16384.0f,
 						  (float)(pdata->quaternion[1] >> 16) / 16384.0f,
 						  (float)(pdata->quaternion[2] >> 16) / 16384.0f,
 						  (float)(pdata->quaternion[3] >> 16) / 16384.0f);
+
+			Quaternion world_frame_rotation( cos(-curr_yaw_offset_radians/2), 0.0f, 0.0f, -sin(-curr_yaw_offset_radians/2) );
+
+			Quaternion q = world_frame_rotation.getProduct(q_in);
+
+			pdata->quaternion[0] = ((long)(q.w * 16384.0f)) << 16;
+			pdata->quaternion[1] = ((long)(q.x * 16384.0f)) << 16;
+			pdata->quaternion[2] = ((long)(q.y * 16384.0f)) << 16;
+			pdata->quaternion[3] = ((long)(q.z * 16384.0f)) << 16;
 
 			getGravity(&gravity, &q);
 			dmpGetYawPitchRoll(ypr, &q, &gravity);
@@ -841,9 +893,11 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
 			pdata->pitch = ypr[1] * radians_to_degrees;
 			pdata->roll = ypr[2] * radians_to_degrees;
 
-	        pdata->world_linear_accel[0] = (((float)accel_short[0]) / (32768.0 / accel_fsr)) - gravity.x;
-	        pdata->world_linear_accel[1] = (((float)accel_short[1]) / (32768.0 / accel_fsr)) - gravity.y;
-	        pdata->world_linear_accel[2] = (((float)accel_short[2]) / (32768.0 / accel_fsr)) - gravity.z;
+			float linear_accel[3];
+
+	        linear_accel[0] = (((float)accel_short[0]) / (32768.0 / accel_fsr)) - gravity.x;
+	        linear_accel[1] = (((float)accel_short[1]) / (32768.0 / accel_fsr)) - gravity.y;
+	        linear_accel[2] = (((float)accel_short[2]) / (32768.0 / accel_fsr)) - gravity.z;
 
 	        float q1[4];
 	        float q2[4];
@@ -859,9 +913,9 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
 	        q1[3] = q.z;
 
 	        q2[0] = 0;
-	        q2[1] = pdata->world_linear_accel[0];
-	        q2[2] = pdata->world_linear_accel[1];
-	        q2[3] = pdata->world_linear_accel[2];
+	        q2[1] = linear_accel[0];
+	        q2[2] = linear_accel[1];
+	        q2[3] = linear_accel[2];
 
 	        // Rotate linear acceleration so that it's relative to the world reference frame
 
@@ -904,11 +958,43 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
 	        pdata->world_linear_accel[1] = q_final[2];
 	        pdata->world_linear_accel[2] = q_final[3];
 
-	    	float mag_field[3];
+	        float world_linear_accel_norm[2];
 
-	    	pdata->raw_compass[0] = compass_short[0];
-	    	pdata->raw_compass[1] = compass_short[1];
-	    	pdata->raw_compass[2] = compass_short[2];
+			for ( int i = 0; i < 2; i++ ) {
+				world_linear_accel_norm[i] = fabs (pdata->world_linear_accel[i]);
+				if ( non_moving_sample_count[i] != 0 ) {
+					if ( world_linear_accel_norm[i] > motion_detection_threshold_g ) {
+						non_moving_sample_count[i] = 0;
+					} else {
+						non_moving_sample_count[i]++;
+					}
+				} else {
+					if ( world_linear_accel_norm[i] > (motion_detection_threshold_g * 10) ) {
+						non_moving_sample_count[i] = 0;
+					} else {
+						non_moving_sample_count[i]++;
+					}
+				}
+			}
+
+			for ( int i = 0; i < 2; i++ ) {
+				if ( non_moving_sample_count[i] > 2 ) {
+					/* Reset velocity integration */
+					pdata->velocity[i] = 0.0f;
+				} else {
+					/* Integrate velocity and displacement */
+					float curr_accel_m_s2 = pdata->world_linear_accel[i] * 9.80665f;
+					float last_accel_m_s2 = last_accel[i] * 9.80665f;
+					/* Perform trapezoidal integration, to reduce sampling losses. */
+					/* Vf = Vi * a*t -- adding trapezoidal integration:  Vf = Vi + ((last_a + ((curr_a - last_a)/2)) * t) */
+					float curr_velocity_m_s = pdata->velocity[i] + ((last_accel_m_s2 + ((curr_accel_m_s2 - last_accel_m_s2)/2.0)) * curr_sample_period);
+					/* d = (Vi + Vf)/2) * t -- adding trapezoidal integration:  d = (Vi + ((Vf-Vi)/2) * t */
+					pdata->displacement[i] += (((pdata->velocity[i] + (curr_velocity_m_s - pdata->velocity[i]))/2.0) * curr_sample_period);
+					pdata->velocity[i] = curr_velocity_m_s;
+				}
+			}
+
+	    	float mag_field[3];
 
 			/* Apply compass calibration biases */
 	    	mag_field[0] = pdata->raw_compass[0] - magcaldata.bias[0];
@@ -945,10 +1031,6 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
 			pdata->calibrated_compass[1] *= pdata->mag_norm_scalar;
 			pdata->calibrated_compass[2] *= pdata->mag_norm_scalar;
 
-	    	// Correct for when signs are reversed.
-	    	//if(heading_radians < 0)
-	    	//	heading_radians += 2*PI;
-
 			/* Perform tilt compensation, based upon pitch/roll     */
 			/* Note that pitch (X Axis) is inverted here, since the */
 			/* sign of the X axis is inverted within the Quaternion */
@@ -966,7 +1048,9 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
 			xform_mpu_to_board_coordinates(pdata->calibrated_compass);
 
             float MAG_X = pdata->calibrated_compass[0] * cos_pitch + pdata->calibrated_compass[2] * sin_pitch;
-            float MAG_Y = pdata->calibrated_compass[0] * sin_roll * sin_pitch + pdata->calibrated_compass[1] * cos_roll - pdata->calibrated_compass[2] * sin_roll * cos_pitch;
+            float MAG_Y = pdata->calibrated_compass[0] * sin_roll * sin_pitch +
+            				pdata->calibrated_compass[1] * cos_roll -
+            				pdata->calibrated_compass[2] * sin_roll * cos_pitch;
             float tilt_compensated_heading_radians = atan2(MAG_Y,MAG_X);
 	    	pdata->heading = tilt_compensated_heading_radians * radians_to_degrees;
 
@@ -975,6 +1059,14 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
 	    	/* Magnetic anomaly.                                                                */
 
 	    	bool interpolate_fused_heading = true;
+	    	float latest_gyro_interpolated_heading = last_valid_fused_heading +
+	    											 (pdata->yaw - yaw_at_last_valid_fused_heading);
+	    	/* Normalize to 0-360 degree range */
+	    	if ( latest_gyro_interpolated_heading < 0 ) {
+	    		latest_gyro_interpolated_heading += 360.0f;
+	    	} else if ( latest_gyro_interpolated_heading > 360.0f ) {
+	    		latest_gyro_interpolated_heading -= 360.0f;
+	    	}
 	    	if ( new_compass ) {
 	    		float compass_delta = fabs(pdata->heading - last_new_compass_heading);
 	    		float yaw_delta = fabs(pdata->yaw - yaw_at_last_new_compass_heading);
@@ -989,19 +1081,32 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
 				/* TODO:  Ignore updates from yaw until gyro has been calibrated?          */
 				/* Only declare new compass readings valid if rotation less than the       */
 				/* compass noise band has occurred.                                        */
+	    		/* Then, fuse latest gyro-derived heading with compass heading using a     */
+	    		/* complementary filter.                                                   */
 
 	    		if ( ( !pdata->magnetic_anomaly_detected ) &&
 	    		     ( yaw_delta < compass_heading_noise_band_degrees ) ) {
-	    			valid_fused_header_count++;
-	    			if ( valid_fused_header_count >= 3 ) {
-						first_valid_fused_heading_detected = true;
-						pdata->fused_heading =
-							last_valid_fused_heading = pdata->heading;
-							yaw_at_last_valid_fused_heading = pdata->yaw;
+	    			valid_fused_heading_count++;
+	    			if ( valid_fused_heading_count >= 3 ) {
+	    				if ( !first_valid_fused_heading_detected ) {
+							first_valid_fused_heading_detected = true;
+							pdata->fused_heading = pdata->heading;
+	    				} else {
+#define FUSED_HEADING_COMPLEMENTARY_FILTER_TAU 0.20f
+							float continuous_compass_heading = pdata->heading;
+							if ( continuous_compass_heading < 0.0f ) {
+								continuous_compass_heading += 360.0f;
+							}
+							/* Complementary filter gyro and compass data */
+							pdata->fused_heading = (latest_gyro_interpolated_heading * (1.0f-FUSED_HEADING_COMPLEMENTARY_FILTER_TAU)) +
+												   (continuous_compass_heading * (FUSED_HEADING_COMPLEMENTARY_FILTER_TAU));
+	    				}
+						yaw_at_last_valid_fused_heading = pdata->yaw;
+						last_valid_fused_heading = pdata->fused_heading;
 						interpolate_fused_heading = false;
 	    			}
 	    		} else {
-	    			valid_fused_header_count = 0;
+	    			valid_fused_heading_count = 0;
 	    		}
 				new_compass = 0;
 				yaw_at_last_new_compass_heading = pdata->yaw;
@@ -1010,14 +1115,14 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
 
 	    	if ( interpolate_fused_heading ) {
 	    		/* Interpolate fused heading based upon change in gyro yaw */
-	    		pdata->fused_heading = last_valid_fused_heading + (pdata->yaw - yaw_at_last_valid_fused_heading);
+	    		pdata->fused_heading = latest_gyro_interpolated_heading;
 	    	}
 
 	        /* Modify compass heading ranges from -180-180 to 0-360 degrees */
 	        if ( pdata->heading < 0 ) {
 	        	pdata->heading += 360;
 	        }
-	        /* Fused heading possible ranges are Modify 0 (compass) + -180 [-180] */
+	        /* Fused heading possible ranges are 0 (compass) + -180 [-180] */
 	        /* to 360 + 180 (540).  Modify the range to be 0-360 degrees.         */
 	        if ( pdata->fused_heading < 0 ) {
 	        	pdata->fused_heading += 360;
@@ -1037,6 +1142,8 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
 	    	pdata->raw_accel[0] = accel_short[0];
 	    	pdata->raw_accel[1] = accel_short[1];
 	    	pdata->raw_accel[2] = accel_short[2];
+
+	    	pdata->timestamp = sensor_timestamp;
 		}
 		return 0;
 	} else {
@@ -1085,15 +1192,20 @@ _EXTERN_ATTRIB int mpu_apply_dmp_gyro_biases(struct mpu_dmp_calibration_data *dm
 }
 
 _EXTERN_ATTRIB int mpu_set_new_sample_rate( uint8_t new_sample_rate ) {
+	update_curr_sample_rate(new_sample_rate);
 	long int mpl_rate_us = 1000000L / new_sample_rate;
 	if (hal.dmp_on) {
         dmp_set_fifo_rate(new_sample_rate);
+#if 0
         inv_set_quat_sample_rate(mpl_rate_us);
+#endif
     } else {
         mpu_set_sample_rate(new_sample_rate);
     }
+#if 0
     inv_set_gyro_sample_rate(mpl_rate_us);
     inv_set_accel_sample_rate(mpl_rate_us);
+#endif
     return 0;
 }
 
@@ -1101,4 +1213,52 @@ _EXTERN_ATTRIB bool mpu_detect()
 {
 	uint8_t address = 0x68;
 	return ( HAL_I2C_IsDeviceReady(&hi2c2, address<<1, 3, 100) == HAL_OK );
+}
+
+/* Reset integrators for velocity and displacement.  Each of the lower 6 bits of the */
+/* "axes to reset" variable corresponds to a integration variable.                   */
+
+_EXTERN_ATTRIB void reset_velocity_and_dispacement_integrator( struct mpu_data *pdata,
+															   uint8_t axes_to_reset )
+{
+	if ( axes_to_reset & 0x01 ) {
+		pdata->velocity[0] = 0.0f;
+	}
+	if ( axes_to_reset & 0x02 ) {
+		pdata->velocity[1] = 0.0f;
+	}
+	if ( axes_to_reset & 0x04 ) {
+		pdata->velocity[2] = 0.0f;
+	}
+	if ( axes_to_reset & 0x08 ) {
+		pdata->displacement[0] = 0.0f;
+	}
+	if ( axes_to_reset & 0x01 ) {
+		pdata->displacement[1] = 0.0f;
+	}
+	if ( axes_to_reset & 0x02 ) {
+		pdata->displacement[2] = 0.0f;
+	}
+}
+
+_EXTERN_ATTRIB void set_motion_detection_threshold_g( float threshold_g )
+{
+	motion_detection_threshold_g = threshold_g;
+}
+
+_EXTERN_ATTRIB void set_yaw_offset( float yaw_offset_angle_degrees )
+{
+	if ( yaw_offset_angle_degrees < 0.0f ) {
+		yaw_offset_angle_degrees += 360.0f;
+	}
+	curr_yaw_offset_radians = yaw_offset_angle_degrees * degrees_to_radians;
+}
+
+_EXTERN_ATTRIB void get_yaw_offset( float *yaw_offset_angle_degrees )
+{
+	float curr_yaw_offset = curr_yaw_offset_radians * radians_to_degrees;
+	if ( curr_yaw_offset >= 180.0f ) {
+		curr_yaw_offset -= 360.0f;
+	}
+	*yaw_offset_angle_degrees = curr_yaw_offset;
 }
