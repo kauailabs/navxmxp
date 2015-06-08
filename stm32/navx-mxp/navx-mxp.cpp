@@ -256,6 +256,16 @@ void interpolate_temp_correction_offsets( 	struct mpu_dmp_calibration_interpolat
 	}
 }
 
+void update_yaw_orientation_register()
+{
+    uint16_t yaw_axis_info =
+         (((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis * 2) +
+         ((((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up) ? 0 : 1) +
+         1;
+    registers.capability_flags &= ~NAVX_CAPABILITY_FLAG_OMNIMOUNT_CONFIG_MASK;
+    registers.capability_flags |= (yaw_axis_info << 2);
+}
+
 int sense_and_update_yaw_orientation() {
 	uint8_t mpu_yaw_axis;
 	bool yaw_axis_up;
@@ -339,6 +349,7 @@ _EXTERN_ATTRIB void nav10_init()
 			mpu_apply_dmp_gyro_biases(&((struct flash_cal_data *)flashdata)->dmpcaldata);
 			set_current_mpu_to_board_xform(((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis,
 					((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up);
+			update_yaw_orientation_register();
 			last_gyro_bias_load_temperature = ((struct flash_cal_data *)flashdata)->dmpcaldata.mpu_temp_c;
 			cal_led_cycle = flash_off;
 			registers.op_status = NAVX_OP_STATUS_NORMAL;
@@ -368,6 +379,9 @@ _EXTERN_ATTRIB void nav10_init()
 													((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up);
 				if ( selftest_status == 7 ) {
 					/* Self-test passed */
+		            set_current_mpu_to_board_xform(((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis,
+		                    ((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up);
+		            update_yaw_orientation_register();
 					mpu_apply_calibration_data(&((struct flash_cal_data *)flashdata)->mpucaldata);
 					/* Retrieve default magnetometer calibration data */
 					mpu_get_mag_cal_data(&((struct flash_cal_data *)flashdata)->magcaldata);
