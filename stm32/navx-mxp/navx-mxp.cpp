@@ -280,6 +280,9 @@ _EXTERN_ATTRIB void nav10_init()
 	registers.fw_major		= NAVX_MXP_FIRMWARE_VERSION_MAJOR;
 	registers.fw_minor		= NAVX_MXP_FIRMWARE_VERSION_MINOR;
 	read_unique_id(&chipid);
+	registers.capability_flags = NAVX_CAPABILITY_FLAG_OMNIMOUNT |
+	        NAVX_CAPABILITY_FLAG_VEL_AND_DISP |
+	        NAVX_CAPABILITY_FLAG_YAW_RESET;
 
 	__TIM11_CLK_ENABLE();
 	/* Set Interrupt Group Priority; this is a low-priority interrupt */
