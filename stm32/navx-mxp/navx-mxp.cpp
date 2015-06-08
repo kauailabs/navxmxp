@@ -606,9 +606,12 @@ _EXTERN_ATTRIB void nav10_main()
 			reset_velocity_and_dispacement_integrator(&mpudata,new_integration_control);
 			if ( new_integration_control & 0x80 ) {
 				if ( yaw_offset_calibration_complete ) {
+				    /* Current yaw angle now becomes zero degrees */
 					float curr_yaw_offset;
 					get_yaw_offset(&curr_yaw_offset);
-					set_yaw_offset(mpudata.yaw + curr_yaw_offset);
+					calibrated_yaw_offset = mpudata.yaw + curr_yaw_offset;
+					registers.yaw_offset = calibrated_yaw_offset;
+					set_yaw_offset(calibrated_yaw_offset);
 				}
 			}
 			integration_control_update = false;
@@ -797,7 +800,7 @@ _EXTERN_ATTRIB void nav10_main()
 					} else {
 
 						num_update_bytes[ifx] = IMUProtocol::encodeYPRUpdate( update_buffer[ifx],
-													mpudata.yaw/* - calibrated_yaw_offset*/,
+													mpudata.yaw,
 													mpudata.pitch,
 													mpudata.roll,
 													mpudata.heading);
