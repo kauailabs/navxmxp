@@ -304,8 +304,8 @@ _EXTERN_ATTRIB void nav10_init()
 	HAL_NVIC_EnableIRQ((IRQn_Type)TIM1_TRG_COM_TIM11_IRQn);
 	/* Initialize low-priority, 125ms timer */
 	TimHandle.Instance = TIM11;
-	/* Compute the prescaler value to have TIM3 counter clock equal to 10 KHz */
-	uint32_t uwPrescalerValue = (uint32_t) ((SystemCoreClock /2) / 10000) - 1;
+	/* Compute the prescaler value to have TIM11 counter clock equal to 10 KHz */
+	uint32_t uwPrescalerValue = (uint32_t) (SystemCoreClock / 10000) - 1;
 	/* Initialize TIM3 peripheral for 250ms Interrupt */
 	TimHandle.Init.Period = 2500 - 1;
 	TimHandle.Init.Prescaler = uwPrescalerValue;
@@ -445,7 +445,7 @@ struct mpu_config mpuconfig;
 unsigned long last_scan = 0;
 bool calibration_active = false;
 unsigned long cal_button_pressed_timestamp = 0;
-unsigned long reset_imu_cal_buttonpress_period_ms = 5000;
+unsigned long reset_imu_cal_buttonpress_period_ms = 3000;
 
 #define BUTTON_DEBOUNCE_SAMPLES 10
 
