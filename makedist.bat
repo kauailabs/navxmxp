@@ -20,6 +20,9 @@ mkdir docs
 mkdir enclosure
 mkdir processing
 mkdir schematics
+mkdir drivers
+mkdir navXConfig
+mkdir navXMagCalibrator
 
 REM TODO:  Need to fix the folder locations for the navx MXP project
 
@@ -50,23 +53,21 @@ rm -r -f ./processing/nav6UI/application*
 cp ../*.txt ./
 rm ../navx-mxp.zip
 xcopy /S /E /Y ..\stm32 .\stm32
+rm -r -f ./drivers/*
+cp -r ../drivers/* ./drivers
+rm -r -f ./navXConfig/*
+cp -r ../c#/navXConfig/bin/Debug/app.publish/* ./navXConfig 
+rm -r -f ./navXMagCalibrator/*
+cp -r ../c#/navXMagCalibrator/bin/Debug/app.publish/* ./navXMagCalibrator 
 REM Delete any stm32 files copied to the dist directory which are not appropriate for distribution
 del /S /Q .\stm32\Debug\*.*
 del /S /Q .\stm32\Release\*.*
 del /S /Q .\stm32\MPU9250\core\*.*
 del /S /Q .\stm32\MPU9250\mpl\*.*
+del /S /Q .\roborio\c++\navXMXP_CPlusPlus_RobotExample\Debug\*.*
+del /S /Q .\roborio\java\navXMXPSimpleRobotExample\build\*.*
 rm  -r -f .\.svn
 "C:\Program Files\7-Zip\7z" a ../navx-mxp.zip *
 popd
 rm -r -f dist
-mkdir utilities
-cp -r ./installers/* ./utilities
-mkdir utilities\navXMXPUI
-REM mkdir utilities\navXMXPUI\application.windows32
-mkdir utilities\navXMXPUI\application.windows64
-REM cp -r ./processing/navXMXPUI/application.windows32/* ./utilities/navXMXPUI/application.windows32
-cp -r ./processing/navXMXPUI/application.windows64/* ./utilities/navXMXPUI/application.windows64
-cp -r ./drivers ./utilities
-"C:\Program Files\7-zip\7z" a navx-utilities.zip ./utilities/*
-rm -r -f utilities
 REM dosyncftp
