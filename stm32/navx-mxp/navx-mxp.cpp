@@ -49,6 +49,9 @@ FlashStorageClass FlashStorage; /* Class managing persistent configuration data 
 
 int prepare_i2c_receive_timeout_count = 0;
 unsigned long prepare_i2c_receive_last_attempt_timestamp = 0;
+bool i2c_rx_in_progress = false;
+uint32_t last_i2c_rx_start_timestamp = 0;
+int i2c_glitch_count = 0;
 HAL_StatusTypeDef prepare_next_i2c_receive();
 
 #define RXBUFFERSIZE 64
@@ -296,7 +299,7 @@ _EXTERN_ATTRIB void nav10_init()
 
 	__TIM11_CLK_ENABLE();
 	/* Set Interrupt Group Priority; this is a low-priority interrupt */
-	HAL_NVIC_SetPriority((IRQn_Type)TIM1_TRG_COM_TIM11_IRQn, 3, 15);
+	HAL_NVIC_SetPriority((IRQn_Type)TIM1_TRG_COM_TIM11_IRQn, 6, 0);
 	/* Enable the TIMx global Interrupt */
 	HAL_NVIC_EnableIRQ((IRQn_Type)TIM1_TRG_COM_TIM11_IRQn);
 	/* Initialize low-priority, 125ms timer */
@@ -434,7 +437,7 @@ _EXTERN_ATTRIB void nav10_init()
 	}
 
 	/* Initiate Data Reception on slave I2C Interface */
-	HAL_I2C_Slave_Receive_IT(&hi2c3, (uint8_t*)i2c3_RxBuffer, 2);
+	prepare_next_i2c_receive();
 }
 
 struct mpu_data mpudata;
@@ -932,20 +935,58 @@ _EXTERN_ATTRIB void nav10_main()
 					bool mpu_present = mpu_detect();
 					HAL_LED2_On( mpu_present ? 1 : 0);
 					if ( !mpu_present ) {
-						if(__HAL_I2C_GET_FLAG(&hi2c2, I2C_FLAG_BUSY) == SET) {
-							/* Bus Busy.  Reset the I2C Interface, in an attempt */
-							/* to resolve this condition.                        */
-							HAL_I2C_Reset(&hi2c2);
-							HAL_I2C_Reset(&hi2c2);
-						}
+			            timestamp = HAL_GetTick();
+			            if ( ( last_scan > 0 ) && ( timestamp - last_scan > (unsigned long)250 ) ) {
+			                bool bus_error = (__HAL_I2C_GET_FLAG(&hi2c2, I2C_FLAG_BERR) == SET);
+			                bool bus_busy = (__HAL_I2C_GET_FLAG(&hi2c2, I2C_FLAG_BUSY) == SET);
+                            if( bus_error || bus_busy ) {
+                                /* Bus Busy, or Bus Error.  Reset the I2C Interface, in an attempt */
+                                /* to resolve this condition.                                      */
+                                HAL_I2C_Reset(&hi2c2);
+                                HAL_I2C_Reset(&hi2c2);
+                                last_scan = HAL_GetTick();
+                            }
+			            }
 					}
 			}
 		} else {
 			/* No Data Ready Interrupt received */
 			timestamp = HAL_GetTick();
-			if ( timestamp - last_scan > (unsigned long)500 ) {
+			if ( ( last_scan > 0 ) && ( timestamp - last_scan > (unsigned long)500 ) ) {
 				HAL_LED1_On(0);
 				HAL_LED2_On(0);
+				uint32_t temp;
+				bool group_enabled = false;
+				bool pin_masked_in = false;
+				bool rising_edge_trigger = false;
+				bool falling_edge_trigger = false;
+				bool pull_up_direction = false;
+		        temp = SYSCFG->EXTICR[2];
+                if ( temp & 0x00000003 ) {
+                    /* EXTI8 is enabled for GPIOC Group */
+                    group_enabled = true;
+                }
+		        temp = EXTI->IMR;
+                if ( temp & 0x00000100 ) {
+                    /* GPIO 8 is masked in */
+                    pin_masked_in = true;
+                }
+                temp = EXTI->RTSR;
+                if ( temp & 0x00000100 ) {
+                    /* GPIO 8 is rising edge triggered */
+                    rising_edge_trigger = true;
+                }
+                temp = EXTI->FTSR;
+                if ( temp & 0x00000100 ) {
+                    /* GPIO 8 is falling edge triggered */
+                    falling_edge_trigger = true;
+                }
+                temp = GPIOC->PUPDR;
+                if ( temp & 0x0001000 ) {
+                    /* GPIO 8 is pull-up direction */
+                    pull_up_direction = true;
+                }
+
 				/* HACK:  For some reason, in certain error cases (e.g., when  */
 				/* power to I2C/SPI/UART is removed and then re-applied), the  */
 				/* PC8 Interrupt Mask is disabled.  For the navX-MXP, this     */
@@ -958,7 +999,7 @@ _EXTERN_ATTRIB void nav10_main()
 				GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
 				GPIO_InitStruct.Pull = GPIO_NOPULL;
 				HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
+				last_scan = timestamp;
 #ifdef DEBUG_I2C_COMM
 				for ( int ifx = 0; ifx < num_serial_interfaces; ifx++ ) {
 					serial_interfaces[ifx]->println("Scanning");
@@ -1216,6 +1257,17 @@ _EXTERN_ATTRIB void nav10_main()
 		    }
 		    NVIC_EnableIRQ((IRQn_Type)I2C3_EV_IRQn);
 		}
+		if ( i2c_rx_in_progress ) {
+		    if ( HAL_GetTick() - last_i2c_rx_start_timestamp > (uint32_t)40 ) {
+		        if ( ( hi2c3.XferCount != 0 ) &&
+		             ( hi2c3.XferSize > hi2c3.XferCount ) ) {
+		            if ( ( hi2c3.Instance->CR2 & (I2C_IT_EVT | I2C_IT_BUF | I2C_IT_ERR) ) == 0 ) {
+		                i2c_glitch_count++;
+                        __HAL_I2C_ENABLE_IT(&hi2c3, I2C_IT_EVT | I2C_IT_BUF | I2C_IT_ERR);
+		            }
+		        }
+		    }
+		}
 	}
 }
 
@@ -1284,6 +1336,10 @@ HAL_StatusTypeDef prepare_next_i2c_receive()
 			break;
 		}
 	}
+	if ( status == HAL_OK ) {
+	    i2c_rx_in_progress = true;
+	    last_i2c_rx_start_timestamp = HAL_GetTick();
+	}
 	return status;
 }
 
@@ -1300,6 +1356,8 @@ void process_writable_register_update( uint8_t requested_address, uint8_t *reg_a
 	}
 }
 
+int unexpected_receive_size_count = 0;
+
 void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *I2cHandle)
 {
 	HAL_StatusTypeDef status;
@@ -1309,6 +1367,7 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *I2cHandle)
 	uint8_t *rx_bytes_start = I2cHandle->pBuffPtr - num_bytes_received;
 	bool i2c_transmitting = false;
 	bool write = false;
+	i2c_rx_in_progress = false;
 	if ( I2cHandle->Instance == I2C3 ) {
 		if ( I2cHandle->Instance->SR2 & I2C_SR2_TRA ) {
 		} else {
@@ -1355,6 +1414,9 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *I2cHandle)
 					}
 				}
 			}
+			else {
+			    unexpected_receive_size_count++;
+			}
 		}
 		if ( !i2c_transmitting ) {
 			i2c_tx_in_progress = false;
@@ -1391,6 +1453,7 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *I2cHandle)
 			HAL_I2C_Init(I2cHandle);
 		}
 
+		i2c_rx_in_progress = false;
 		i2c_tx_in_progress = false;
 		prepare_next_i2c_receive();
 		i2c_error_count++;

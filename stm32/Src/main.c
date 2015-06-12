@@ -168,7 +168,7 @@ void SystemClock_Config(void)
 	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_SYSCLK|RCC_CLOCKTYPE_PCLK1;
 	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
 	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4; // 24Mhz.  Was RCC_HCLK_DIV2 (48Mhz);
 	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 	HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3);
 }
@@ -180,7 +180,7 @@ void MX_I2C2_Init(void)
 
 
 	hi2c2.Instance = I2C2;
-	hi2c2.Init.ClockSpeed =  192000;
+	hi2c2.Init.ClockSpeed =  100000; // Was 192000;
 	hi2c2.Init.DutyCycle = I2C_DUTYCYCLE_2;
     hi2c2.Init.OwnAddress1 = 0;
     hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
@@ -325,7 +325,7 @@ void MX_GPIO_Init(void)
 void MX_DMA_Init(void)
 {
   /* DMA controller clock enable */
-  __DMA1_CLK_ENABLE();
+  //__DMA1_CLK_ENABLE();
   __DMA2_CLK_ENABLE();
 
   /* DMA interrupt init */
@@ -333,8 +333,8 @@ void MX_DMA_Init(void)
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
   HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 1, 0); /* SPI */
   HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
-  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 2, 0); /* I2C */
-  HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
+//  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 2, 0); /* I2C */
+//  HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
   HAL_NVIC_SetPriority(DMA2_Stream6_IRQn, 3, 0); /* UART */
   HAL_NVIC_EnableIRQ(DMA2_Stream6_IRQn);
 
