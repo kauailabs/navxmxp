@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("navXConfig")]
-[assembly: AssemblyDescription("navX Configuration Tool")]
+[assembly: AssemblyTitle("navXFirmwareUpdater")]
+[assembly: AssemblyDescription("navX Firmware Update Tool")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Kauai Labs, Inc.")]
-[assembly: AssemblyProduct("navXConfig")]
-[assembly: AssemblyCopyright("Copyright ©  2014")]
+[assembly: AssemblyProduct("navXFirmwareUpdater")]
+[assembly: AssemblyCopyright("Copyright ©  2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("19557629-b23d-4d07-ad0f-13e1d3d88215")]
+[assembly: Guid("7ac5fdfe-3be1-4571-bf51-59257e78ade5")]
 
 // Version information for an assembly consists of the following four values:
 //

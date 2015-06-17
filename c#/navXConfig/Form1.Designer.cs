@@ -29,6 +29,7 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             this.button_exit = new System.Windows.Forms.Button();
             this.comboBox1 = new System.Windows.Forms.ComboBox();
             this.start_button = new System.Windows.Forms.Button();
@@ -53,12 +54,12 @@
             this.button_restore_default4 = new System.Windows.Forms.Button();
             this.restore_all_factory_defaults_button = new System.Windows.Forms.Button();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
-            this.groupBox2 = new System.Windows.Forms.GroupBox();
-            this.label5 = new System.Windows.Forms.Label();
-            this.label6 = new System.Windows.Forms.Label();
-            this.label7 = new System.Windows.Forms.Label();
-            this.label8 = new System.Windows.Forms.Label();
             this.label9 = new System.Windows.Forms.Label();
+            this.groupBox2 = new System.Windows.Forms.GroupBox();
+            this.label8 = new System.Windows.Forms.Label();
+            this.label7 = new System.Windows.Forms.Label();
+            this.label6 = new System.Windows.Forms.Label();
+            this.label5 = new System.Windows.Forms.Label();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.SuspendLayout();
@@ -272,6 +273,15 @@
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Environment";
             // 
+            // label9
+            // 
+            this.label9.AutoSize = true;
+            this.label9.Location = new System.Drawing.Point(239, 27);
+            this.label9.Name = "label9";
+            this.label9.Size = new System.Drawing.Size(38, 13);
+            this.label9.TabIndex = 15;
+            this.label9.Text = "millibar";
+            // 
             // groupBox2
             // 
             this.groupBox2.Controls.Add(this.label8);
@@ -291,23 +301,14 @@
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "Thresholds";
             // 
-            // label5
+            // label8
             // 
-            this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(8, 129);
-            this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(170, 13);
-            this.label5.TabIndex = 11;
-            this.label5.Text = "(Lower Values = Higher Sensitivity)";
-            // 
-            // label6
-            // 
-            this.label6.AutoSize = true;
-            this.label6.Location = new System.Drawing.Point(239, 22);
-            this.label6.Name = "label6";
-            this.label6.Size = new System.Drawing.Size(15, 13);
-            this.label6.TabIndex = 12;
-            this.label6.Text = "G";
+            this.label8.AutoSize = true;
+            this.label8.Location = new System.Drawing.Point(239, 99);
+            this.label8.Name = "label8";
+            this.label8.Size = new System.Drawing.Size(15, 13);
+            this.label8.TabIndex = 14;
+            this.label8.Text = "%";
             // 
             // label7
             // 
@@ -318,23 +319,23 @@
             this.label7.TabIndex = 13;
             this.label7.Text = "Deg/sec";
             // 
-            // label8
+            // label6
             // 
-            this.label8.AutoSize = true;
-            this.label8.Location = new System.Drawing.Point(239, 99);
-            this.label8.Name = "label8";
-            this.label8.Size = new System.Drawing.Size(15, 13);
-            this.label8.TabIndex = 14;
-            this.label8.Text = "%";
+            this.label6.AutoSize = true;
+            this.label6.Location = new System.Drawing.Point(239, 22);
+            this.label6.Name = "label6";
+            this.label6.Size = new System.Drawing.Size(15, 13);
+            this.label6.TabIndex = 12;
+            this.label6.Text = "G";
             // 
-            // label9
+            // label5
             // 
-            this.label9.AutoSize = true;
-            this.label9.Location = new System.Drawing.Point(239, 27);
-            this.label9.Name = "label9";
-            this.label9.Size = new System.Drawing.Size(38, 13);
-            this.label9.TabIndex = 15;
-            this.label9.Text = "millibar";
+            this.label5.AutoSize = true;
+            this.label5.Location = new System.Drawing.Point(8, 129);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(170, 13);
+            this.label5.TabIndex = 11;
+            this.label5.Text = "(Lower Values = Higher Sensitivity)";
             // 
             // Form1
             // 
@@ -357,6 +358,7 @@
             this.Controls.Add(this.button_exit);
             this.Controls.Add(this.groupBox1);
             this.Controls.Add(this.groupBox2);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "Form1";
             this.Text = "navX MXP Configuration";
             this.Load += new System.EventHandler(this.Form1_Load);

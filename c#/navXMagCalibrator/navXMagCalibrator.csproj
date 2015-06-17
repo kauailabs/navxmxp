@@ -28,7 +28,7 @@
     <TargetCulture>en-US</TargetCulture>
     <ProductName>navXMagCalibrator</ProductName>
     <PublisherName>Kauai Labs</PublisherName>
-    <ApplicationRevision>20</ApplicationRevision>
+    <ApplicationRevision>21</ApplicationRevision>
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <CreateDesktopShortcut>true</CreateDesktopShortcut>
@@ -177,21 +177,57 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="icon.ico" />
-    <Content Include="MagMaster Files\images\matrix.PNG" />
-    <Content Include="MagMaster Files\images\X_minus_0.png" />
-    <Content Include="MagMaster Files\images\X_minus_180.png" />
-    <Content Include="MagMaster Files\images\X_plus_0.png" />
-    <Content Include="MagMaster Files\images\X_plus_180.png" />
-    <Content Include="MagMaster Files\images\Y_minus_0.png" />
-    <Content Include="MagMaster Files\images\Y_minus_180.png" />
-    <Content Include="MagMaster Files\images\Y_plus_0.png" />
-    <Content Include="MagMaster Files\images\Y_plus_180.png" />
-    <Content Include="MagMaster Files\images\Z_minus_0.png" />
-    <Content Include="MagMaster Files\images\Z_minus_180.png" />
-    <Content Include="MagMaster Files\images\Z_plus_0.png" />
-    <Content Include="MagMaster Files\images\Z_plus_180.png" />
-    <Content Include="MagMaster Files\texts\acode.txt" />
-    <Content Include="MagMaster Files\texts\sphelp.txt" />
+    <Content Include="MagMaster Files\images\matrix.PNG">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MagMaster Files\images\X_minus_0.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MagMaster Files\images\X_minus_180.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MagMaster Files\images\X_plus_0.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MagMaster Files\images\X_plus_180.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MagMaster Files\images\Y_minus_0.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MagMaster Files\images\Y_minus_180.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MagMaster Files\images\Y_plus_0.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MagMaster Files\images\Y_plus_180.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MagMaster Files\images\Z_minus_0.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MagMaster Files\images\Z_minus_180.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MagMaster Files\images\Z_plus_0.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MagMaster Files\images\Z_plus_180.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MagMaster Files\texts\acode.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="MagMaster Files\texts\sphelp.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\navXComUtilities\navXComUtilities.csproj">
+      <Project>{50327705-DBE1-4B1A-AFAE-DEEE9CB8C8E9}</Project>
+      <Name>navXComUtilities</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

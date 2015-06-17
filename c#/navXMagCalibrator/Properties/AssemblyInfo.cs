@@ -7,10 +7,10 @@ using System.Resources;
 // набора атрибутов. Измените значения этих атрибутов, чтобы изменить сведения,
 // связанные со сборкой.
 [assembly: AssemblyTitle("navXMagCalibrator")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("navX Magnetometer Calibration Tool")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Kauai Labs")]
-[assembly: AssemblyProduct("navX-MXP")]
+[assembly: AssemblyCompany("Kauai Labs, Inc.")]
+[assembly: AssemblyProduct("navXMagCalibrator")]
 [assembly: AssemblyCopyright("Copyright © Kauai Labs, Inc. 2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]

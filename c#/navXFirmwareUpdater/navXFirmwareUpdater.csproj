@@ -5,16 +5,16 @@
     <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
     <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{3EABD58B-7894-4061-B523-00F2F04D13D2}</ProjectGuid>
+    <ProjectGuid>{65993E71-7D19-421E-9CF1-7DA415AFA1E0}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>navXConfig</RootNamespace>
-    <AssemblyName>navXConfig</AssemblyName>
+    <RootNamespace>navXFirmwareUpdater</RootNamespace>
+    <AssemblyName>navXFirmwareUpdater</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <TargetFrameworkProfile>Client</TargetFrameworkProfile>
     <FileAlignment>512</FileAlignment>
     <IsWebBootstrapper>false</IsWebBootstrapper>
-    <PublishUrl>C:\Users\Scott\Documents\navxmxp-read-only\installers\navXConfig\</PublishUrl>
+    <PublishUrl>C:\Users\Scott\Documents\navxmxp-read-only\installers\navXFirmwareUpdater\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
     <UpdateEnabled>false</UpdateEnabled>
@@ -27,7 +27,7 @@
     <SupportUrl>https://code.google.com/p/navx</SupportUrl>
     <ProductName>navXConfig</ProductName>
     <PublisherName>Kauai Labs</PublisherName>
-    <ApplicationRevision>5</ApplicationRevision>
+    <ApplicationRevision>9</ApplicationRevision>
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <PublishWizardCompleted>true</PublishWizardCompleted>
@@ -64,10 +64,12 @@
   <PropertyGroup>
     <SignManifests>true</SignManifests>
   </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>download.ico</ApplicationIcon>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Management" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -97,6 +99,7 @@
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
     </Compile>
     <None Include="navXConfig_TemporaryKey.pfx" />
     <None Include="Properties\Settings.settings">
@@ -136,6 +139,33 @@
       <Project>{50327705-DBE1-4B1A-AFAE-DEEE9CB8C8E9}</Project>
       <Name>navXComUtilities</Name>
     </ProjectReference>
+    <ProjectReference Include="..\NetDFULib\NetDFULib.csproj">
+      <Project>{11F242A9-FEB4-4C2A-9E6C-A02E947F498D}</Project>
+      <Name>NetDFULib</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Service References\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="configuration.ico" />
+    <Content Include="download.ico" />
+    <Content Include="STDFU.dll" />
+    <Content Include="STDFUFiles.dll" />
+    <Content Include="STDFUPRT.dll" />
+    <Content Include="STTubeDevice30.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <PublishFile Include="configuration.ico">
+      <Visible>False</Visible>
+      <Group>
+      </Group>
+      <TargetPath>
+      </TargetPath>
+      <PublishState>Exclude</PublishState>
+      <IncludeHash>True</IncludeHash>
+      <FileType>File</FileType>
+    </PublishFile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

@@ -10,10 +10,10 @@ using System.Globalization;
 using System.Threading;
 using System.IO;
 using System.IO.Ports;
-using System.Management;
+using NetDFULib;
 using navXComUtilities;
 
-namespace navXConfig
+namespace navXFirmwareUpdater
 {
     public partial class Form1 : Form
     {
@@ -24,10 +24,31 @@ namespace navXConfig
         static Boolean port_close_flag;
         int empty_serial_data_counter;
         string curDir;
- 
+        string full_path_to_hex_file;
+
+        static string statusText;
+
+        static FirmwareUpdate firmwareUpdate = new FirmwareUpdate();
+        static HEX2DFU hex2dfu = new HEX2DFU();
+        static TextBox statusTextbox;
+        static ProgressBar progressBar;
+        static Form1 form1;
+
+        const UInt16 theVid = 0x0483;
+        const UInt16 thePid = 0x5740;
+        const UInt16 theBcd = 0x0200;
+
+        bool port_open_in_progress = false;
+        bool dialog_in_progress = false;
+
         public Form1()
         {
             InitializeComponent();
+            button1.Enabled = false;
+            statusTextbox = this.firmwareUpdateStatus;
+            progressBar = progressBar1;
+            form1 = this;
+            progressBar1.Visible = false;
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -43,11 +64,19 @@ namespace navXConfig
             stop_button.Enabled = false;
             enable_controls(false);
             navXComHelper.InitPortComboBox(comboBox1);
+            label1.Enabled = false;
+            label2.Enabled = false;
+            label3.Enabled = false;
+            label8.Enabled = false;
+            label_ReadyToUpdate.Visible = false;
+            label_NotReadyToUpdate.Visible = true;
+            label_VCP_Mode_Not_Ready.Visible = true;
+            label_VCP_Open_Ready.Visible = false;
         }
-
+        
         private void comboBox1_DropDown(object sender, EventArgs e)
         {
-            navXComHelper.HandleComboBoxDropDownEvent(comboBox1);
+            navXComHelper.HandleComboBoxDropDownEvent(comboBox1);            
         }
 
         const int tuning_var_id_unspecified = 0;
@@ -66,12 +95,34 @@ namespace navXConfig
                 // Set the read/write timeouts
                 port.ReadTimeout = 500;
                 port.WriteTimeout = 500;
-                port.Open();
+                try
+                {
+                    this.UseWaitCursor = true;
+                    Application.DoEvents();
+                    port_open_in_progress = true;
+                    port.Open();
+                    port.DiscardInBuffer();
+                    port_open_in_progress = false;
+                    this.UseWaitCursor = false;
+                }
+                catch (Exception ex)
+                {
+                    port_open_in_progress = false;
+                    this.UseWaitCursor = false;
+                    Application.DoEvents();
+                    dialog_in_progress = true;
+                    MessageBox.Show("Error opening port.  " + ex.Message,
+                                     "navXFirmwareUpdater",
+                                     MessageBoxButtons.OK,
+                                     MessageBoxIcon.Error);
+                    dialog_in_progress = false;
+                    return;
+                }
+
                 stop_button.Enabled = true;
                 start_button.Enabled = false;
                 comboBox1.Enabled = false;
                 enable_controls(true);
-                port.DiscardInBuffer();
                 send_board_identity_request();
                 System.Threading.Thread.Sleep(25);
                 refresh_settings();
@@ -84,37 +135,19 @@ namespace navXConfig
             {
                 close_port();
                 enable_controls(false);
+                dialog_in_progress = true;
                 MessageBox.Show("Empty port name.", "Warning!");
+                dialog_in_progress = false;
             }
 
         }
 
         private void enable_controls(bool enable)
         {
-            maskedTextBox1.Enabled = enable;
-            maskedTextBox2.Enabled = enable;
-            maskedTextBox3.Enabled = enable;
-            maskedTextBox4.Enabled = enable;
-            set_button1.Enabled = enable;
-            button1.Enabled = enable;
-            button2.Enabled = enable;
-            button3.Enabled = enable;
-            button_restore_default1.Enabled = enable;
-            button_restore_default2.Enabled = enable;
-            button_restore_default3.Enabled = enable;
-            button_restore_default4.Enabled = enable;
-            restore_all_factory_defaults_button.Enabled = enable;
         }
 
         private void refresh_settings()
         {
-            request_tuning_variable(tuning_var_id_motion_threshold);
-            Thread.Sleep(10);
-            request_tuning_variable(tuning_var_id_yaw_stable_threshold);
-            Thread.Sleep(10);
-            request_tuning_variable(tuning_var_id_mag_distrubance_threshold);
-            Thread.Sleep(10);
-            request_tuning_variable(tuning_var_id_sea_level_pressure);
         }
 
         private void stop_button_Click(object sender, EventArgs e)
@@ -143,6 +176,14 @@ namespace navXConfig
             bytes_from_usart = null;
             num_bytes_from_usart = 0;
             enable_controls(false);
+            firmwareVersion.Text = "";
+            boardVersion.Text = "";
+            boardID.Text = "";
+            boardType.Text = "";
+            label1.Enabled = false;
+            label2.Enabled = false;
+            label3.Enabled = false;
+            label8.Enabled = false;
         }
 
         private void floatTextToint16_buf(string float_text, Byte[] buf, int index)
@@ -178,33 +219,29 @@ namespace navXConfig
 
         private float text1616FloatToFloat(Byte[] buf, int index)
         {
-            Int32 integer = BitConverter.ToInt32(buf, index);
-            float val = (float)integer;
-            val /= 65536.0f;
+            Int16 integer = BitConverter.ToInt16(buf, index);
+            float val = (float)BitConverter.ToUInt16(buf, index + 2);
+            val /= 65535.0f;
+            val += integer;
             return val;
         }
 
         private void floatTextTo1616Float(string float_text, Byte[] buf, int index)
         {
-            float x_d = Convert.ToSingle(float_text);
-            x_d *= 65536.0f;
-            int decimal_as_int = (int)x_d;
-            if (BitConverter.IsLittleEndian)
+            float x = Convert.ToSingle(float_text);
+            short x_i = (short)x;
+            float x_d = (x - (float)x_i);
+            x_d *= 65535.0f;
+            if (x_d < 0.0f)
             {
-                buf[index + 3] = (byte)(decimal_as_int >> 24);
-                buf[index + 2] = (byte)(decimal_as_int >> 16);
-                buf[index + 1] = (byte)(decimal_as_int >> 8);
-                buf[index + 0] = (byte)(decimal_as_int >> 0);
+                x_d *= -1;
             }
-            else
-            {
-                buf[index + 0] = (byte)(decimal_as_int >> 24);
-                buf[index + 1] = (byte)(decimal_as_int >> 16);
-                buf[index + 2] = (byte)(decimal_as_int >> 8);
-                buf[index + 3] = (byte)(decimal_as_int >> 0);
-            }
+            short decimal_as_int = (short)x_d;
+            buf[index + 0] = (byte)x_i;
+            buf[index + 1] = (byte)(x_i >> 8);
+            buf[index + 2] = (byte)decimal_as_int;
+            buf[index + 3] = (byte)(decimal_as_int >> 8);
         }
-
 
         public void CharToHex(byte b, byte[] buf, int index)
         {
@@ -341,54 +378,8 @@ namespace navXConfig
                              (usart_bytes[usart_data_offset + 1] == Convert.ToByte(navx_binary_msg_indicator)))
                         {
                             /* Valid packet start found */
-                            if ((usart_bytes[usart_data_offset + 2] == navx_tuning_getset_msg_len - 2) &&
-                                 (usart_bytes[usart_data_offset + 3] == Convert.ToByte(navx_tuning_getset_msg_id)))
-                            {
-                                /* AHRS Update packet received */
-                                byte[] bytes = new byte[navx_tuning_getset_msg_len];
-                                System.Buffer.BlockCopy(usart_bytes, usart_data_offset, bytes, 0, navx_tuning_getset_msg_len);
-                                valid_bytes_available -= navx_tuning_getset_msg_len;
-                                usart_data_offset += navx_tuning_getset_msg_len;
-
-                                byte type = bytes[4];
-                                byte varid = bytes[5];
-                                float value = text1616FloatToFloat(bytes, 6);
-
-                                if (varid == tuning_var_id_motion_threshold)
-                                {
-                                    maskedTextBox1.Text = String.Format("{0:##0.###}", value);
-                                }
-                                if (varid == tuning_var_id_yaw_stable_threshold)
-                                {
-                                    maskedTextBox2.Text = String.Format("{0:##0.###}", value);
-                                }
-                                if (varid == tuning_var_id_mag_distrubance_threshold)
-                                {
-                                    value *= 100; /* Convert from ratio to percentage */
-                                    maskedTextBox3.Text = String.Format("{0:##0.#}", value);
-                                }
-                                if (varid == tuning_var_id_sea_level_pressure)
-                                {
-                                    maskedTextBox4.Text = String.Format("{0:##0.###}", value);
-                                }
-                            }
-                            else if ((usart_bytes[usart_data_offset + 2] == navx_tuning_set_response_msg_len - 2) &&
-                                     (usart_bytes[usart_data_offset + 3] == Convert.ToByte(navx_tuning_set_response_msg_id)))
-                            {
-                                byte[] bytes = new byte[navx_tuning_set_response_msg_len];
-                                System.Buffer.BlockCopy(usart_bytes, usart_data_offset, bytes, 0, navx_tuning_set_response_msg_len);
-                                valid_bytes_available -= navx_tuning_set_response_msg_len;
-                                usart_data_offset += navx_tuning_set_response_msg_len;
-
-                                byte type = bytes[4];
-                                byte varid = bytes[5];
-                                byte status = bytes[6];
-                                string msg = "Data Set Response:  variable:  " + varid +
-                                                ", status = " + status;
-                                MessageBox.Show(msg, "Data Set");
-                            }
-                            else if ((usart_bytes[usart_data_offset + 2] == navx_board_id_msg_length - 2) &&
-                                     (usart_bytes[usart_data_offset + 3] == Convert.ToByte(navx_board_id_msg_type)))
+                            if ((usart_bytes[usart_data_offset + 2] == navx_board_id_msg_length - 2) &&
+                                (usart_bytes[usart_data_offset + 3] == Convert.ToByte(navx_board_id_msg_type)))
                             {
                                 /* Mag Cal Data Response received */
                                 byte[] bytes = new byte[navx_board_id_msg_length];
@@ -405,12 +396,22 @@ namespace navXConfig
                                 {
                                     unique_id[i] = bytes[10 + i];
                                 }
-                                string msg = "Board type:  navx MXP (" + boardtype + ")\n" +
-                                                 "H/W Rev:  " + hwrev + "\n" +
-                                                 "F/W Rev:  " + fw_major + "." + fw_minor + "." + fw_revision + "\n" +
-                                                 "Unique ID:  ";
-                                msg += BitConverter.ToString(unique_id);
-                                MessageBox.Show(msg, "Kauai Labs Sensor Board ID");
+
+                                if (boardtype == 50)
+                                {
+                                    boardType.Text = "navX MXP";
+                                }
+                                else
+                                {
+                                    boardType.Text = boardtype.ToString();
+                                }
+                                boardVersion.Text = hwrev.ToString();
+                                firmwareVersion.Text = fw_major.ToString() + "." + fw_minor.ToString() + "." + fw_revision.ToString();
+                                boardID.Text = BitConverter.ToString(unique_id);
+                                label1.Enabled = true;
+                                label2.Enabled = true;
+                                label3.Enabled = true;
+                                label8.Enabled = true;
                             }
                             else
                             {
@@ -433,106 +434,30 @@ namespace navXConfig
                         // At end of buffer, stop scanning
                         end_of_data = true;
                     }
-                    /*
-                    string[] serial_values = string_from_usart.Split(',');
-                    if (serial_values[0] != "" && serial_values[1] != "" && serial_values[2] != "")
-                    {
-                        X_serial_value = double.Parse(serial_values[0]);
-                        Y_serial_value = double.Parse(serial_values[1]);
-                        Z_serial_value = double.Parse(serial_values[2]);
-                    }*/
                 }
                 //empty_serial_data_counter++;
                 if (empty_serial_data_counter >= 10)
                 {
                     close_port();
+                    dialog_in_progress = true;
                     MessageBox.Show("No serial data.", "Warning!");
+                    dialog_in_progress = false;
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 close_port();
-                MessageBox.Show("Serial port error.", "Warning!");
+                dialog_in_progress = true;
+                MessageBox.Show("Serial port error.  " + ex.Message, "Warning!");
+                dialog_in_progress = false;
             }
         }
 
         private void timer1_Tick(object sender, EventArgs e)
         {
-            var_refresh();
-        }
-
-        private void request_tuning_variable(int var_id)
-        {
-            if (port.IsOpen)
+            if ((!port_open_in_progress) && (!dialog_in_progress))
             {
-                Byte[] buf = new Byte[navx_tuning_get_request_msg_len]; /* HACK:  Must be 9 bytes to register to the navX MXP */
-
-                // Header
-                buf[0] = Convert.ToByte('!');
-                buf[1] = Convert.ToByte('#');
-                buf[2] = (byte)(buf.Length - 2);
-                buf[3] = Convert.ToByte(navx_tuning_get_request_msg_id);
-                // Data
-                buf[4] = (byte)0; /* Tuning Variable data type */
-                buf[5] = (byte)var_id;
-                // Footer
-                // Checksum is at 6;
-                byte checksum = (byte)0;
-                for (int i = 0; i < 6; i++)
-                {
-                    checksum += (byte)buf[i];
-                }
-                CharToHex(checksum, buf, 6);
-
-                // Terminator begins at 8;
-                buf[8] = Convert.ToByte('\r');
-                buf[9] = Convert.ToByte('\n');
-
-                try
-                {
-                    port.Write(buf, 0, buf.Length);
-                }
-                catch (Exception)
-                {
-                }
-            }
-        }
-
-        private void set_tuning_variable(int var_id, float val, bool restore_to_defaults)
-        {
-            if (port.IsOpen)
-            {
-                Byte[] buf = new Byte[navx_tuning_getset_msg_len]; /* HACK:  Must be 9 bytes to register to the navX MXP */
-
-                // Header
-                buf[0] = Convert.ToByte('!');
-                buf[1] = Convert.ToByte('#');
-                buf[2] = (byte)(buf.Length - 2);
-                buf[3] = Convert.ToByte(navx_tuning_getset_msg_id);
-                // Data
-                buf[4] = (byte)(restore_to_defaults ? 2 : 1); /* DATA_SET_TO_DEFAULT : DATA_SET */
-                buf[5] = (byte)var_id;
-                floatTextTo1616Float(val.ToString(), buf, 6);
-                // Footer
-                // Checksum is at 10;
-                byte checksum = (byte)0;
-                for (int i = 0; i < 10; i++)
-                {
-                    checksum += (byte)buf[i];
-                }
-                CharToHex(checksum, buf, 10);
-
-                // Terminator begins at 12;
-                buf[12] = Convert.ToByte('\r');
-                buf[13] = Convert.ToByte('\n');
-
-                try
-                {
-                    port.Write(buf, 0, buf.Length);
-                }
-                catch (Exception)
-                {
-                }
+                var_refresh();
             }
         }
 
@@ -541,104 +466,224 @@ namespace navXConfig
             this.Close();
         }
 
-        private void set_button1_Click(object sender, EventArgs e)
+        private void selectHexFile_Click(object sender, EventArgs e)
         {
-            try
+            // Create an instance of the open file dialog box.
+            OpenFileDialog openFileDialog1 = new OpenFileDialog();
+            // Set filter options and filter index.
+            openFileDialog1.Filter = "Hex Files (.hex)|*.hex";
+            openFileDialog1.FilterIndex = 1;
+
+            openFileDialog1.Multiselect = false;
+
+            // Call the ShowDialog method to show the dialog box.
+            dialog_in_progress = true;
+            bool userClickedOK = (openFileDialog1.ShowDialog() == DialogResult.OK);
+            dialog_in_progress = false;
+
+            // Process input if the user clicked OK.
+            if (userClickedOK == true)
             {
-                String val_string = maskedTextBox1.Text;
-                float val = Convert.ToSingle(val_string);
-                set_tuning_variable(tuning_var_id_motion_threshold, val, false);
-                Thread.Sleep(25);
-                refresh_settings();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.ToString());
+                navXHexFilePath.Text = Path.GetFileName(openFileDialog1.FileName);
+                full_path_to_hex_file = openFileDialog1.FileName;
             }
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
+            firmwareUpdate.OnFirmwareUpdateProgress += new FirmwareUpdateProgressEventHandler(firmwareUpdate_OnFirmwareUpdateProgress);
+            FirmwareUpdateProgressEventArgs fupea;
+            progressBar1.Maximum = 100;
+            progressBar1.Step = 1;
+            progressBar1.Value = 0;
+
+            statusText = "";
+            statusTextbox.Clear();
+            progressBar1.Visible = true;
+            Application.DoEvents();
+            fupea = new FirmwareUpdateProgressEventArgs(0, "Detecting DFU Interface...", false);
+            firmwareUpdate_OnFirmwareUpdateProgress(this, fupea);
+
+            if (port.IsOpen)
+            {
+                close_port();
+            }
+
+            bool is_dfu_available = false;
+            Cursor.Current = Cursors.WaitCursor;
+            Application.DoEvents();
             try
             {
-                String val_string = maskedTextBox2.Text;
-                float val = Convert.ToSingle(val_string);
-                set_tuning_variable(tuning_var_id_yaw_stable_threshold, val, false);
-                Thread.Sleep(25);
-                refresh_settings();
+                is_dfu_available = firmwareUpdate.IsDFUDeviceFound();
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.ToString());
+                fupea = new FirmwareUpdateProgressEventArgs(0, ex.Message, true);
+                firmwareUpdate_OnFirmwareUpdateProgress(this, fupea);
             }
-        }
+            if (!is_dfu_available)
+            {
+                Cursor.Current = Cursors.Default;
+                progressBar1.Visible = false;
+                Application.DoEvents();
+                dialog_in_progress = true;
+                MessageBox.Show("navX Board must be in DFU mode to download firmware.\n\n" +
+                                "1. Unplug the board from your PC's USB port.\n" +
+                                "2. While holding down the 'CAL' button, press the 'RESET' button.\n" +
+                                "3. Then re-connect the board to the PC USB port.\n\n" +
+                                "When in DFU mode, only the RED power LED will be ON.",
+                                "navX Firmware Update",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                dialog_in_progress = false;
+                return;
+            }
+            String dfu_file_name = Path.GetTempPath() + "navx.dfu";
+            bool converted = hex2dfu.ConvertHexToDFU(full_path_to_hex_file,
+                                    dfu_file_name,
+                                    theVid,
+                                    thePid,
+                                    theBcd);
+            if (!converted)
+            {
+                Cursor.Current = Cursors.Default;
+                progressBar1.Visible = false;
+                Application.DoEvents();
+                dialog_in_progress = true;
+                MessageBox.Show("Error converting " + navXHexFilePath.Text + " to DFU format.",
+                                "navX Firmware Update",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Error);
+                dialog_in_progress = false;
+                return;
+            }
 
-        private void button2_Click(object sender, EventArgs e)
-        {
+            UInt16 VID;
+            UInt16 PID;
+            UInt16 Version;
+ 
             try
             {
-                String val_string = maskedTextBox3.Text;
-                float val = Convert.ToSingle(val_string);
-                val /= 100; /* Convert from percentage to ratio */
-                set_tuning_variable(tuning_var_id_mag_distrubance_threshold, val, false);
-                Thread.Sleep(25);
-                refresh_settings();
+                firmwareUpdate.ParseDFU_File(dfu_file_name, out VID, out PID, out Version);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.ToString());
+                Cursor.Current = Cursors.Default;
+                progressBar1.Visible = false;
+                Application.DoEvents();
+                fupea = new FirmwareUpdateProgressEventArgs(0, "Error parsing DFU file. " + ex.Message, false);
+                firmwareUpdate_OnFirmwareUpdateProgress(this, fupea);
+                dialog_in_progress = true;
+                MessageBox.Show("Error parsing DFU file. " + ex.Message,
+                                "navX Firmware Update",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Error);
+                dialog_in_progress = false;
+                return;
             }
-        }
 
-        private void button3_Click(object sender, EventArgs e)
-        {
+            fupea = new FirmwareUpdateProgressEventArgs(0, ("Found VID: " + VID.ToString("X4") + " PID: " + PID.ToString("X4") + " Version: " + Version.ToString("X4")), false);
+            firmwareUpdate_OnFirmwareUpdateProgress(this, fupea);
+
             try
             {
-                String val_string = maskedTextBox4.Text;
-                float val = Convert.ToSingle(val_string);
-                set_tuning_variable(tuning_var_id_sea_level_pressure, val, false);
-                Thread.Sleep(25);
-                refresh_settings();
+                bool eraseEveything = false;
+                bool exitDFUMode = true;
+
+                firmwareUpdate.UpdateFirmware(dfu_file_name, eraseEveything, exitDFUMode);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.ToString());
+                Cursor.Current = Cursors.Default;
+                progressBar1.Visible = false;
+                Application.DoEvents();
+                fupea = new FirmwareUpdateProgressEventArgs(0, "Error deploying DFU file. " + ex.Message, true);
+                firmwareUpdate_OnFirmwareUpdateProgress(this,fupea);
+                dialog_in_progress = true;
+                MessageBox.Show("Error deploying DFU file. " + ex.Message,
+                                "navX Firmware Update",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Error);
+                dialog_in_progress = false;
+                return;
+            }
+            progressBar1.Visible = false;
+            Cursor.Current = Cursors.Default;
+        }
+        static void firmwareUpdate_OnFirmwareUpdateProgress(object sender, FirmwareUpdateProgressEventArgs e)
+        {
+            statusText += e.Message + " " + System.Environment.NewLine;
+            statusTextbox.Invoke(new Action(() => statusTextbox.Text = statusText));
+            statusTextbox.Invoke(new Action(() => statusTextbox.SelectionStart = statusTextbox.Text.Length));
+            statusTextbox.Invoke(new Action(() => statusTextbox.ScrollToCaret()));
+            progressBar.Invoke(new Action(() => progressBar.Value = (int)e.Percentage));
+            if (e.Percentage == 100)
+            {
+                form1.Invoke(new Action(() => MessageBox.Show("Firmware Update Complete.\n\nYou can verify the version on the 'Currently-loaded Firmware Version' tab.","navX Firmware Updater",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information)));
             }
         }
 
-        private void button_restore_default1_Click(object sender, EventArgs e)
+        private void label5_Click(object sender, EventArgs e)
         {
-            set_tuning_variable(tuning_var_id_motion_threshold, 0.0f, true);
-            Thread.Sleep(25);
-            refresh_settings();
+
         }
 
-        private void button_restore_default2_Click(object sender, EventArgs e)
+        private void groupBox2_Enter(object sender, EventArgs e)
         {
-            set_tuning_variable(tuning_var_id_yaw_stable_threshold, 0.0f, true);
-            Thread.Sleep(25);
-            refresh_settings();
+
         }
 
-        private void button_restore_default3_Click(object sender, EventArgs e)
+        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
         {
-            set_tuning_variable(tuning_var_id_mag_distrubance_threshold, 0.0f, true);
-            Thread.Sleep(25);
-            refresh_settings();
+
         }
 
-        private void button_restore_default4_Click(object sender, EventArgs e)
+        private void tabPage1_Click(object sender, EventArgs e)
         {
-            set_tuning_variable(tuning_var_id_sea_level_pressure, 0.0f, true);
-            Thread.Sleep(25);
-            refresh_settings();
+
         }
 
-        private void restore_all_factory_defaults_button_Click(object sender, EventArgs e)
+        private void timer2_Tick(object sender, EventArgs e)
         {
-            set_tuning_variable(tuning_var_id_unspecified, 0.0f, true);
-            Thread.Sleep(25);
-            refresh_settings();
+            if ( (!port_open_in_progress) && (!dialog_in_progress) )
+            {
+                if (tabControl1.SelectedTab == tabPage1)
+                {
+                    if (full_path_to_hex_file != null)
+                    {
+                        bool dfu_device_present = navXComHelper.IsDFUDevicePresent();
+                        bool firmware_file_ready = (full_path_to_hex_file != null) &&
+                                                    (full_path_to_hex_file.Length > 1);
+                        button1.Enabled = (dfu_device_present && firmware_file_ready);
+                        label_NotReadyToUpdate.Visible = !button1.Enabled;
+                        label_ReadyToUpdate.Visible = button1.Enabled;
+                    }
+                }
+                if (tabControl1.SelectedTab == tabPage2)
+                {
+                    bool vcp_device_present = (navXComHelper.GetnavXSerialPortNames().Length > 0);
+                    label_VCP_Mode_Not_Ready.Visible = !vcp_device_present;
+                    label_VCP_Open_Ready.Visible = (vcp_device_present && !port.IsOpen);
+                    if (!vcp_device_present && (comboBox1.Items.Count > 0))
+                    {
+                        if (port.IsOpen)
+                        {
+                            close_port();
+                        }
+                        comboBox1.Items.Clear();
+                    }
+                    else
+                    {
+                        if (comboBox1.Items.Count == 0)
+                        {
+                            navXComHelper.InitPortComboBox(comboBox1);
+                            start_button.Enabled = true;
+                        }
+                    }
+                }
+            }
         }
     }
+
 }

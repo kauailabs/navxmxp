@@ -10,6 +10,7 @@ using System.IO.Ports;
 using System.Threading;
 using System.IO;
 using System.Globalization;
+using navXComUtilities;
 
 namespace compass_calibrator
 {
@@ -25,14 +26,18 @@ namespace compass_calibrator
         int empty_serial_data_counter;
         string curDir;
         string symbol_mask = "1234567890.-";
+#if DEBUG
         StreamWriter writer;
+#endif
         Int16 last_mag_x;
         Int16 last_mag_y;
         Int16 last_mag_z;
         public Form1()
         {
             InitializeComponent();
+#if DEBUG
             writer = new StreamWriter("nav6datalog.txt", true);
+#endif
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -47,6 +52,7 @@ namespace compass_calibrator
 
             stop_button.Enabled = false;
             point_buttons_enable(false);
+            navXComHelper.InitPortComboBox(comboBox1);
         }
 
         private void point_buttons_enable(Boolean b_enable)
@@ -98,6 +104,7 @@ namespace compass_calibrator
                 point_buttons_enable(true);
                 start_button.Enabled = false;
                 comboBox1.Enabled = false;
+                port.DiscardInBuffer();
                 send_board_identity_request();
                 System.Threading.Thread.Sleep(100);
                 send_ahrs_stream_request();
@@ -131,7 +138,7 @@ namespace compass_calibrator
             {
                 port.Close();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
             }
             start_button.Enabled = true;
@@ -182,7 +189,7 @@ namespace compass_calibrator
                         }
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                 }
             }
@@ -280,7 +287,9 @@ namespace compass_calibrator
                                      (last_mag_z != raw_mag_z))
                                 {
                                     String row = raw_mag_x + "," + raw_mag_y + "," + raw_mag_z;
+#if DEBUG                                    
                                     writer.WriteLine(row);
+#endif
                                     last_mag_x = raw_mag_x;
                                     last_mag_y = raw_mag_y;
                                     last_mag_z = raw_mag_z;
@@ -383,7 +392,7 @@ namespace compass_calibrator
                     MessageBox.Show("No serial data.", "Warning!");
                 }
             }
-            catch ( Exception ex )
+            catch ( Exception )
             {
                 close_port();
                 MessageBox.Show("Serial port error.", "Warning!");
@@ -405,11 +414,7 @@ namespace compass_calibrator
 
         private void comboBox1_DropDown(object sender, EventArgs e)
         {
-            comboBox1.Items.Clear();
-            foreach (string s in SerialPort.GetPortNames())
-            {
-                comboBox1.Items.Add(s);
-            }    
+            navXComHelper.HandleComboBoxDropDownEvent(comboBox1);
         }
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
@@ -1024,7 +1029,7 @@ namespace compass_calibrator
                 {
                     port.Write(buf, 0, buf.Length);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                 }
             }
@@ -1059,7 +1064,7 @@ namespace compass_calibrator
                 {
                     port.Write(buf, 0, buf.Length);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                 }
             }
@@ -1195,7 +1200,7 @@ namespace compass_calibrator
 
         private void button2_Click(object sender, EventArgs e)
         {
-            System.Diagnostics.Process.Start("https://code.google.com/p/navx-mxp/wiki/Calibration");
+            System.Diagnostics.Process.Start("http://www.pdocs.kauailabs.com/navx-mxp/software/tools/magnetometer-calibration/");
         }
 
         private void button15_Click(object sender, EventArgs e)
