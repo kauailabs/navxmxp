@@ -1,0 +1,3 @@
+If you are new to using the navX MXP, please visit the navX MXP website at http://navx-mxp.kauailabs.com.
+
+This site includes documentation on Installation and Software, as well as example code and much more.
