@@ -342,7 +342,7 @@ bool HardwareSerial::PossiblyStartNextTransmitUnsafe()
 			if ( ( start_index + this->tx_buffer_bytes_pending ) > sizeof(this->tx_buffer) ) {
 				xfer_len = sizeof(this->tx_buffer) - start_index;
 			}
-			if ( HAL_UART_Transmit_IT(&huart6, &this->tx_buffer[start_index], xfer_len) != HAL_OK ) {
+			if ( HAL_UART_Transmit_DMA(&huart6, &this->tx_buffer[start_index], xfer_len) != HAL_OK ) {
 				tx_in_progress = false;
 				ok = false;
 			} else {

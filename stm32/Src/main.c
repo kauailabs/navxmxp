@@ -325,7 +325,7 @@ void MX_GPIO_Init(void)
 void MX_DMA_Init(void)
 {
   /* DMA controller clock enable */
-  //__DMA1_CLK_ENABLE();
+  __DMA1_CLK_ENABLE();
   __DMA2_CLK_ENABLE();
 
   /* DMA interrupt init */
@@ -333,8 +333,8 @@ void MX_DMA_Init(void)
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
   HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 1, 0); /* SPI */
   HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
-//  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 2, 0); /* I2C */
-//  HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
+  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 2, 0); /* I2C */
+  HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
   HAL_NVIC_SetPriority(DMA2_Stream6_IRQn, 3, 0); /* UART */
   HAL_NVIC_EnableIRQ(DMA2_Stream6_IRQn);
 

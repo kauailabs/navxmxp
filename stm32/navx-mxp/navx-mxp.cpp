@@ -259,14 +259,23 @@ void interpolate_temp_correction_offsets( 	struct mpu_dmp_calibration_interpolat
 	}
 }
 
-void update_yaw_orientation_register()
+uint16_t get_capability_flags()
 {
+    uint16_t capability_flags = 0;
+    capability_flags |= (NAVX_CAPABILITY_FLAG_OMNIMOUNT +
+                         NAVX_CAPABILITY_FLAG_VEL_AND_DISP +
+                         NAVX_CAPABILITY_FLAG_YAW_RESET);
     uint16_t yaw_axis_info =
-         (((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis * 2) +
-         ((((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up) ? 0 : 1) +
-         1;
-    registers.capability_flags &= ~NAVX_CAPABILITY_FLAG_OMNIMOUNT_CONFIG_MASK;
-    registers.capability_flags |= (yaw_axis_info << 2);
+         (((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis << 1) +
+         ((((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up) ? 1 : 0);
+    yaw_axis_info <<= 3;
+    capability_flags |= yaw_axis_info;
+    return capability_flags;
+}
+
+void update_capability_flags()
+{
+    registers.capability_flags = get_capability_flags();
 }
 
 int sense_and_update_yaw_orientation() {
@@ -293,9 +302,7 @@ _EXTERN_ATTRIB void nav10_init()
 	registers.fw_major		= NAVX_MXP_FIRMWARE_VERSION_MAJOR;
 	registers.fw_minor		= NAVX_MXP_FIRMWARE_VERSION_MINOR;
 	read_unique_id(&chipid);
-	registers.capability_flags = NAVX_CAPABILITY_FLAG_OMNIMOUNT |
-	        NAVX_CAPABILITY_FLAG_VEL_AND_DISP |
-	        NAVX_CAPABILITY_FLAG_YAW_RESET;
+	update_capability_flags();
 
 	__TIM11_CLK_ENABLE();
 	/* Set Interrupt Group Priority; this is a low-priority interrupt */
@@ -352,7 +359,7 @@ _EXTERN_ATTRIB void nav10_init()
 			mpu_apply_dmp_gyro_biases(&((struct flash_cal_data *)flashdata)->dmpcaldata);
 			set_current_mpu_to_board_xform(((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis,
 					((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up);
-			update_yaw_orientation_register();
+			update_capability_flags();
 			last_gyro_bias_load_temperature = ((struct flash_cal_data *)flashdata)->dmpcaldata.mpu_temp_c;
 			cal_led_cycle = flash_off;
 			registers.op_status = NAVX_OP_STATUS_NORMAL;
@@ -384,7 +391,7 @@ _EXTERN_ATTRIB void nav10_init()
 					/* Self-test passed */
 		            set_current_mpu_to_board_xform(((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis,
 		                    ((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up);
-		            update_yaw_orientation_register();
+		            update_capability_flags();
 					mpu_apply_calibration_data(&((struct flash_cal_data *)flashdata)->mpucaldata);
 					/* Retrieve default magnetometer calibration data */
 					mpu_get_mag_cal_data(&((struct flash_cal_data *)flashdata)->magcaldata);
@@ -580,6 +587,8 @@ uint8_t new_sample_rate = 0;
 /* Signal that integration control has been updated by remote user */
 bool integration_control_update = true;
 uint8_t new_integration_control = 0;
+uint32_t i2c_bus_reset_count = 0;
+uint32_t i2c_interrupt_reset_count = 0;
 
 _EXTERN_ATTRIB void nav10_main()
 {
@@ -936,14 +945,16 @@ _EXTERN_ATTRIB void nav10_main()
 					HAL_LED2_On( mpu_present ? 1 : 0);
 					if ( !mpu_present ) {
 			            timestamp = HAL_GetTick();
-			            if ( ( last_scan > 0 ) && ( timestamp - last_scan > (unsigned long)250 ) ) {
+			            uint32_t max_wait_ms = 3 * (1000 / registers.update_rate_hz);
+			            if ( ( last_scan > 0 ) && ( timestamp - last_scan > max_wait_ms ) ) {
 			                bool bus_error = (__HAL_I2C_GET_FLAG(&hi2c2, I2C_FLAG_BERR) == SET);
 			                bool bus_busy = (__HAL_I2C_GET_FLAG(&hi2c2, I2C_FLAG_BUSY) == SET);
                             if( bus_error || bus_busy ) {
                                 /* Bus Busy, or Bus Error.  Reset the I2C Interface, in an attempt */
                                 /* to resolve this condition.                                      */
                                 HAL_I2C_Reset(&hi2c2);
-                                HAL_I2C_Reset(&hi2c2);
+                                i2c_bus_reset_count++;
+                                //HAL_I2C_Reset(&hi2c2);
                                 last_scan = HAL_GetTick();
                             }
 			            }
@@ -952,7 +963,8 @@ _EXTERN_ATTRIB void nav10_main()
 		} else {
 			/* No Data Ready Interrupt received */
 			timestamp = HAL_GetTick();
-			if ( ( last_scan > 0 ) && ( timestamp - last_scan > (unsigned long)500 ) ) {
+            uint32_t max_wait_ms = 6 * (1000 / registers.update_rate_hz);
+			if ( ( last_scan > 0 ) && ( timestamp - last_scan > max_wait_ms ) ) {
 				HAL_LED1_On(0);
 				HAL_LED2_On(0);
 				uint32_t temp;
@@ -1000,6 +1012,7 @@ _EXTERN_ATTRIB void nav10_main()
 				GPIO_InitStruct.Pull = GPIO_NOPULL;
 				HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 				last_scan = timestamp;
+				i2c_interrupt_reset_count++;
 #ifdef DEBUG_I2C_COMM
 				for ( int ifx = 0; ifx < num_serial_interfaces; ifx++ ) {
 					serial_interfaces[ifx]->println("Scanning");
@@ -1155,19 +1168,10 @@ _EXTERN_ATTRIB void nav10_main()
 			/* on the same interface on which they were received.         */
 
 			if ( send_stream_response[ifx] ) {
-				uint16_t flags;
-				flags = (registers.op_status == NAVX_OP_STATUS_IMU_AUTOCAL_IN_PROGRESS) ?
-						NAV6_CALIBRATION_STATE_WAIT : (yaw_offset_calibration_complete ?
-								NAV6_CALIBRATION_STATE_COMPLETE : NAV6_CALIBRATION_STATE_ACCUMULATE );
-				flags |= (NAVX_CAPABILITY_FLAG_OMNIMOUNT +
-						  NAVX_CAPABILITY_FLAG_VEL_AND_DISP +
-						  NAVX_CAPABILITY_FLAG_YAW_RESET);
-				uint16_t yaw_axis_info =
-					 (((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis * 2) +
-					 ((((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up) ? 0 : 1) +
-					 1;
-				yaw_axis_info <<= 2;
-				flags |= yaw_axis_info;
+				uint16_t flags = (registers.op_status == NAVX_OP_STATUS_IMU_AUTOCAL_IN_PROGRESS) ?
+						            NAV6_CALIBRATION_STATE_WAIT : (yaw_offset_calibration_complete ?
+						                    NAV6_CALIBRATION_STATE_COMPLETE : NAV6_CALIBRATION_STATE_ACCUMULATE );
+				flags |= get_capability_flags();
 				num_resp_bytes[ifx] = IMUProtocol::encodeStreamResponse(  response_buffer[ifx], update_type[ifx],
 																	mpuconfig.gyro_fsr, mpuconfig.accel_fsr, mpuconfig.mpu_update_rate, calibrated_yaw_offset,
 																	0,
@@ -1390,7 +1394,7 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *I2cHandle)
 						unsigned long prepare_i2c_tx_last_attempt_timestamp = 0;
 						while ( status == HAL_BUSY ) /* Consider a timeout on this wait... */
 						{
-							status = HAL_I2C_Slave_Transmit_IT(&hi2c3, i2c_tx_buffer, i2c_bytes_to_be_transmitted);
+							status = HAL_I2C_Slave_Transmit_DMA(&hi2c3, i2c_tx_buffer, i2c_bytes_to_be_transmitted);
 							if ( status == HAL_OK ) {
 								i2c_transmitting = true;
 								i2c_tx_in_progress = true;
@@ -1499,7 +1503,7 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
 				reg_count = spi1_RxBuffer[1];
 				received_crc = spi1_RxBuffer[2];
 				calculated_crc = IMURegisters::getCRCWithTable(crc_lookup_table,spi1_RxBuffer,2);
-				if ( ( reg_address != 0xFF ) && ( received_crc == calculated_crc ) ) {
+				if ( ( reg_address != 0xFF ) && (reg_count > 0 ) && ( received_crc == calculated_crc ) ) {
 					if ( reg_address & 0x80 ) {
 						write = true;
 						reg_address &= ~0x80;

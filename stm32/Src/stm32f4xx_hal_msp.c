@@ -140,7 +140,7 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
     /* Peripheral DMA init*/
-/*
+
     hdma_i2c3_tx.Instance = DMA1_Stream4;
     hdma_i2c3_tx.Init.Channel = DMA_CHANNEL_3;
     hdma_i2c3_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
@@ -155,9 +155,10 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
     HAL_DMA_Init(&hdma_i2c3_tx);
 
     __HAL_LINKDMA(hi2c,hdmatx,hdma_i2c3_tx);
-*/
+
+    /* Per Data sheet, in Fast Mode, the max digital filter value at 24Mhz Clock is 7 */
     HAL_I2CEx_AnalogFilter_Config(hi2c,0); // Enable Analog Noise Filter
-    HAL_I2CEx_DigitalFilter_Config(hi2c,12); // Enable Digital Noise Filter (Range 0 [none] - 15)
+    HAL_I2CEx_DigitalFilter_Config(hi2c,7); // Enable Digital Noise Filter (Range 0 [none] - 15)
 
     HAL_NVIC_SetPriority(I2C3_EV_IRQn, 2, 0);
     HAL_NVIC_EnableIRQ(I2C3_EV_IRQn);
@@ -223,6 +224,7 @@ void HAL_I2C_MspDeInit(I2C_HandleTypeDef* hi2c)
 void HAL_I2C_Reset(I2C_HandleTypeDef* hi2c)
 {
 	int retry_count = 5;
+	int i;
 	while ( retry_count > 0 ) {
 		int is_busy = (__HAL_I2C_GET_FLAG(hi2c, I2C_FLAG_BUSY) == SET) ? 1 : 0;
 
@@ -248,13 +250,35 @@ void HAL_I2C_Reset(I2C_HandleTypeDef* hi2c)
 			GPIO_InitStruct.Pull = GPIO_NOPULL;
 			GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
 			HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
+#if 0
 			/* Detect if SDA is high, and if so toggle clock pin */
 			int max_retry_count = 1000;
 			while ( max_retry_count > 0 && (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) == GPIO_PIN_SET) ) {
 				HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_10);
 				HAL_Delay(1);
 				max_retry_count--;
+			}
+#endif
+            /* Algorithm taken from Analog Device AN-686, page 2*/
+			/* Up to 9 data bits may be pending transmission by the I2C slave */
+			for ( i = 0; i < 9; i++ ) {
+                /* Attempt to assert a Logic 1 on the SDA line */
+                HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_SET);
+                HAL_Delay(1);
+                /* Is SDA line at logic 0?  If so generate a clock pulse */
+                while ( (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) == GPIO_PIN_RESET)) {
+                    HAL_GPIO_WritePin(GPIOB,GPIO_PIN_10,GPIO_PIN_SET);
+                    HAL_Delay(1);
+                    HAL_GPIO_TogglePin(GPIOB,GPIO_PIN_10);
+                    HAL_Delay(1);
+                    HAL_GPIO_TogglePin(GPIOB,GPIO_PIN_10);
+                }
+                /* Once the SDA Line is High, generate a STOP condition */
+                HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(GPIOB,GPIO_PIN_10,GPIO_PIN_RESET);
+                HAL_Delay(1);
+                HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_SET);
+                HAL_GPIO_WritePin(GPIOB,GPIO_PIN_10,GPIO_PIN_SET);
 			}
 		}
 

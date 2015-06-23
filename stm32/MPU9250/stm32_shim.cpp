@@ -31,7 +31,7 @@ THE SOFTWARE.
 extern I2C_HandleTypeDef hi2c2; /* TODO:  Clean up this external reference. */
 #include "ext_interrupts.h"
 
-#define I2C_SHIM_TIMEOUT_MS 	100
+#define I2C_SHIM_TIMEOUT_MS 	50
 
 _EXTERN_ATTRIB int stm32_i2c_write(unsigned char slave_addr, unsigned char reg_addr,unsigned char length, unsigned char const *data)
 {
