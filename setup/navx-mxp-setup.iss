@@ -31,10 +31,9 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Icons]
 Name: "{group}\navXConfig"; Filename: "{app}\navXConfig\navXConfig.exe"; WorkingDir: "{app}\navXConfig"; IconFilename: "{app}\graphics\configuration.ico"
-Name: "{group}\navXMagCalibrator"; Filename: "{app}\navXMagCalibrator\navXMagCalibrator.exe"; WorkingDir: "{app}\navXMagCalibrator";
+Name: "{group}\navXMagCalibrator"; Filename: "{app}\navXMagCalibrator\navXMagCalibrator.exe"; WorkingDir: "{app}\navXMagCalibrator"
 Name: "{group}\navXFirmwareUpdater"; Filename: "{app}\navXFirmwareUpdater\navXFirmwareUpdater.exe"; WorkingDir: "{app}\navXFirmwareUpdater"; IconFilename: "{app}\graphics\download.ico"
-Name: "{group}\navXMXPUI (64-bit)"; Filename: "{app}\navXMXPUI_64\navXMXPUI"; WorkingDir: "{app}\navXMXPUI_64"; Check: IsWin64; IconFilename: "{app}\graphics\dashboard.ico"
-Name: "{group}\navXMXPUI (32-bit)"; Filename: "{app}\navXMXPUI_32\navXMXPUI"; WorkingDir: "{app}\navXMXPUI_32"; Check: not IsWin64; IconFilename: "{app}\graphics\dashboard.ico"
+Name: "{group}\navXMXPUI"; Filename: "{app}\navXMXPUI\navXMXPUI"; WorkingDir: "{app}\navXMXPUI"; IconFilename: "{app}\graphics\dashboard.ico"
 Name: "{group}\Online Documentation"; Filename: "{app}\navx-mxp-software.url"; IconFilename: "{app}\graphics\information.ico"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 
@@ -44,8 +43,7 @@ Source: "..\drivers\windows\dfu\*.*"; DestDir: "{app}\installers\dfu"; Flags: re
 Source: "..\c#\navXMagCalibrator\bin\Release\*.*"; DestDir: "{app}\navXMagCalibrator"; Flags: recursesubdirs
 Source: "..\c#\navXConfig\bin\Release\*.*"; DestDir: "{app}\navXConfig"; Flags: recursesubdirs
 Source: "..\c#\navXFirmwareUpdater\bin\Release\*.*"; DestDir: "{app}\navXFirmwareUpdater"; Flags: recursesubdirs
-Source: "..\processing\navXMXPUI\application.windows64\*.*"; DestDir: "{app}\navXMXPUI_64"; Flags: recursesubdirs; Check: IsJava64Installed
-Source: "..\processing\navXMXPUI\application.windows32\*.*"; DestDir: "{app}\navXMXPUI_32"; Flags: recursesubdirs; Check: IsJava32Installed
+Source: "..\processing_output\*.*"; DestDir: "{app}\navXMXPUI"; Flags: recursesubdirs;
 Source: "weblinks\navx-mxp-software.url"; DestDir: "{app}"
 
 Source: "graphics\*.*"; DestDir: "{app}\graphics"; Flags: recursesubdirs
@@ -67,20 +65,6 @@ Name: "{app}\navXMXPUI_64"; Flags: uninsalwaysuninstall
 Name: "{app}\navXMXPUI_32"; Flags: uninsalwaysuninstall
 
 [Code]
-var
-  java32Installed: boolean;
-  java64Installed: boolean;
-
-function IsJava32Installed(): boolean;
-begin
-  Result := java32Installed;
-end;
-
-function IsJava64Installed(): boolean;
-begin
-  Result := java64Installed;
-end;
-
 function InitializeSetup(): Boolean;
 var
  ErrorCode: Integer;
@@ -89,41 +73,34 @@ var
  Versions: TArrayOfString;
  I: Integer;
  regRoot: Integer;
- X: Integer;
 begin
-  java32Installed := false;
-  java64Installed := false;
  // Check which view of registry should be taken:
-  for X := 0 to 2 do
+ regRoot := HKLM
+ begin
+  if IsWin64 then
   begin
-  regRoot := HKLM
-  if ( X = 1 ) then
-    begin
-    regRoot := HKLM64
-    end;
-   if (RegGetSubkeyNames(regRoot, 'SOFTWARE\JavaSoft\Java Runtime Environment', Versions)) or (RegGetSubkeyNames(regRoot, 'SOFTWARE\JavaSoft\Java Development Kit', Versions)) then
+   regRoot := HKLM64
+  end;
+ end;
+ if (RegGetSubkeyNames(regRoot, 'SOFTWARE\JavaSoft\Java Runtime Environment', Versions)) or (RegGetSubkeyNames(regRoot, 'SOFTWARE\JavaSoft\Java Development Kit', Versions)) then
+ begin
+  for I := 0 to GetArrayLength(Versions)-1 do
+   if JavaInstalled = true then
    begin
-    for I := 0 to GetArrayLength(Versions)-1 do
-     begin
-      if ( Versions[I][2]='.' ) and ( ( StrToInt(Versions[I][1]) > 1 ) or ( ( StrToInt(Versions[I][1]) = 1 ) and ( StrToInt(Versions[I][3]) >= 7 ) ) ) then
-      begin
-       JavaInstalled := true;
-       if ( X = 0 ) then
-       begin
-        java32Installed := true;
-       end else
-       begin
-        java64Installed := true;
-       end;
-      end else
-      begin
-       JavaInstalled := false;
-      end;
-     end;
+    //do nothing
    end else
    begin
-    JavaInstalled := false;
- end;
+    if ( Versions[I][2]='.' ) and ( ( StrToInt(Versions[I][1]) > 1 ) or ( ( StrToInt(Versions[I][1]) = 1 ) and ( StrToInt(Versions[I][3]) >= 7 ) ) ) then
+    begin
+     JavaInstalled := true;
+    end else
+    begin
+     JavaInstalled := false;
+    end;
+   end;
+ end else
+ begin
+  JavaInstalled := false;
  end;
 
  if JavaInstalled then
@@ -131,7 +108,7 @@ begin
   Result := true;
  end else
     begin
-  ResultMsg := MsgBox('Oracle Java v1.7 or newer not found in the system. Java 1.7 or later is required to run the navXMXPUI application (NOTE:  Java can be installed after this installation too). Do you want to continue?',
+  ResultMsg := MsgBox('Oracle Java v1.7 or newer not found in the system. Java 1.7 or later is required to run this application (can be installed after this installation too). Do you want to continue?',
    mbConfirmation, MB_YESNO) = idYes;
   if ResultMsg = false then
   begin
