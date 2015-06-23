@@ -47,4 +47,11 @@ set REVISION_STRING=%VER_MAJOR%.%VER_MINOR%.%VER_REVISION%
 
 copy .\stm32\Debug\navx-mxp.hex .\stm32\bin\navx-mxp_%REVISION_STRING%.hex
 
+REM Build CSharp Components
+
+call buildcsharp.bat
+
+REM Build setup program
+
+call buildsetup.bat
 
