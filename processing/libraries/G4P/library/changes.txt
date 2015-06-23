@@ -1,0 +1,35 @@
+G4P changes incorporated into version
+
+V3.5.2 (20)
+Bug fixes for GTextField and GTextArea controls. My thanks to kowalski5233 for not only finding and reporting the problems, but also in testing the bug fixes prior to this release.
+
+V3.5.1 (19)
+Fixes bug in GPanel constructor without text parameter
+
+Fixes bug that alters font metrics in text controls on first use of setText
+
+Fixes bug in GTextField and GTextArea gains focus from mouse press and the text is a single space it will be selected and so replaced on first keypress.
+
+
+V3.5 (18)
+New control for entering password (GPassword)
+
+Support for displaying UTF8 characters added to GTextField and GTextArea controls
+
+Improved text rendering for controls with transparent background i.e. labels, sliders, radio buttons and checkboxes.
+
+GGroup objects allow controls to be grouped for common tasks e.g. enabling, visibility, transparency and fading. Group actions can executed immediately to after a user defined delay.
+
+GTextField & GTextArea - the setDefaultText method has been deprecated in favour of the setPromptText to make its purpose clearer.
+
+GTextArea - addStyle(...) methods added to set the text style of part or all of a display line. 
+
+GTextArea - insertText(...) methods added to insert text at a specified display line number/character position or at the current caret position.
+ 
+GTextArea - getCaretPos(...) methods added to retrieve the current caret position. 
+
+GImageToggleButton - the stateValue methods have been deprecated in favour of setState(...) and getState() methods.
+
+GDropList - it is now possible to remove, insert and add items to the control at runtime.
+
+GLabel, GButtom, GOption and GCheckbox - new method setHeightToFit() to change the controls height so it just surrounds the text and icon.
