@@ -657,15 +657,14 @@ void IMU::EnqueueIntegrationControlMessage(uint8_t action)
 
 uint8_t IMU::GetBoardYawAxis( bool& up)
 {
-	uint16_t yaw_axis_info = (flags >> 2) & 0x0007;
+	uint16_t yaw_axis_info = (flags >> 3) & 0x0007;
 	uint8_t yaw_axis;
 	if ( yaw_axis_info == OMNIMOUNT_DEFAULT) {
 		yaw_axis = YAW_AXIS_Z;
 		up = true;
 	} else {
 		yaw_axis = (uint8_t)yaw_axis_info;
-		yaw_axis -= 1;
-		up = ((yaw_axis & 0x01) ? false : true);
+		up = ((yaw_axis & 0x01) ? true : false);
 		yaw_axis >>= 1;
 	}
 	return yaw_axis;

@@ -192,15 +192,14 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
 
     public void getBoardYawAxis( BoardYawAxis info)
     {
-    	short yaw_axis_info = (short)(flags >> 2);
+    	short yaw_axis_info = (short)(flags >> 3);
     	yaw_axis_info &= 7;
      	if ( yaw_axis_info == AHRSProtocol.OMNIMOUNT_DEFAULT) {
     		info.board_axis = BoardAxis.BOARD_AXIS_Z;
     		info.up = true;
     	} else {
     		info.board_axis = (byte)yaw_axis_info;
-    		info.board_axis -= 1;
-    		info.up = (((info.board_axis & 0x01) != 0) ? false : true);
+    		info.up = (((info.board_axis & 0x01) != 0) ? true : false);
     		info.board_axis >>= 1;
     	}
     }
