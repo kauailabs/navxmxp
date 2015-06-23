@@ -24,8 +24,72 @@
 
 package com.kauailabs.navx_mxp;
 
+import com.kauailabs.nav6.IMUProtocol;
+
 public class AHRSProtocol extends IMUProtocol {
 
+	/* NAVX_CAL_STATUS */
+
+	static final byte NAVX_CAL_STATUS_IMU_CAL_STATE_MASK       	= 0x03;
+	static final byte NAVX_CAL_STATUS_IMU_CAL_INPROGRESS		= 0x00;
+	static final byte NAVX_CAL_STATUS_IMU_CAL_ACCUMULATE		= 0x01;
+	static final byte NAVX_CAL_STATUS_IMU_CAL_COMPLETE			= 0x02;
+
+	static final byte NAVX_CAL_STATUS_MAG_CAL_COMPLETE			= 0x04;
+	static final byte NAVX_CAL_STATUS_BARO_CAL_COMPLETE			= 0x08;
+
+	/* NAVX_SELFTEST_STATUS */
+
+	static final byte NAVX_SELFTEST_STATUS_COMPLETE				= (byte) 0x80;
+
+	static final byte NAVX_SELFTEST_RESULT_GYRO_PASSED			= 0x01;
+	static final byte NAVX_SELFTEST_RESULT_ACCEL_PASSED			= 0x02;
+	static final byte NAVX_SELFTEST_RESULT_MAG_PASSED			= 0x04;
+	static final byte NAVX_SELFTEST_RESULT_BARO_PASSED			= 0x08;
+
+	/* NAVX_OP_STATUS */
+
+	static final byte NAVX_OP_STATUS_INITIALIZING				= 0x00;
+	static final byte NAVX_OP_STATUS_SELFTEST_IN_PROGRESS       = 0x01;
+	static final byte NAVX_OP_STATUS_ERROR						= 0x02;
+	static final byte NAVX_OP_STATUS_IMU_AUTOCAL_IN_PROGRESS	= 0x03;
+	static final byte NAVX_OP_STATUS_NORMAL					 	= 0x04;
+
+	/* NAVX_SENSOR_STATUS */
+	static final byte NAVX_SENSOR_STATUS_MOVING 				= 0x01;
+	static final byte NAVX_SENSOR_STATUS_YAW_STABLE 			= 0x02;
+	static final byte NAVX_SENSOR_STATUS_MAG_DISTURBANCE 		= 0x04;
+	static final byte NAVX_SENSOR_STATUS_ALTITUDE_VALID			= 0x08;
+	static final byte NAVX_SENSOR_STATUS_SEALEVEL_PRESS_SET		= 0x10;
+	static final byte NAVX_SENSOR_STATUS_FUSED_HEADING_VALID 	= 0x20;
+	
+	/* NAVX_REG_CAPABILITY_FLAGS (Aligned w/NAV6 Flags, see IMUProtocol.h) */
+
+	public static final short NAVX_CAPABILITY_FLAG_OMNIMOUNT			= 0x0004;
+	public static final short NAVX_CAPABILITY_FLAG_OMNIMOUNT_CONFIG_MASK = 0x0038;
+	public static final short NAVX_CAPABILITY_FLAG_VEL_AND_DISP			= 0x0040;
+	public static final short NAVX_CAPABILITY_FLAG_YAW_RESET			= 0x0080;
+
+	/* NAVX_OMNIMOUNT_CONFIG */
+
+	public static final byte OMNIMOUNT_DEFAULT						= 0; /* Same as Y_Z_UP */
+	public static final byte OMNIMOUNT_YAW_X_UP						= 1;
+	public static final byte OMNIMOUNT_YAW_X_DOWN					= 2;
+	public static final byte OMNIMOUNT_YAW_Y_UP						= 3;
+	public static final byte OMNIMOUNT_YAW_Y_DOWN					= 4;
+	public static final byte OMNIMOUNT_YAW_Z_UP						= 5;
+	public static final byte OMNIMOUNT_YAW_Z_DOWN					= 6;
+
+	/* NAVX_INTEGRATION_CTL */
+
+	public static final byte NAVX_INTEGRATION_CTL_RESET_VEL_X		= 0x01;
+	public static final byte NAVX_INTEGRATION_CTL_RESET_VEL_Y		= 0x02;
+	public static final byte NAVX_INTEGRATION_CTL_RESET_VEL_Z		= 0x04;
+	public static final byte NAVX_INTEGRATION_CTL_RESET_DISP_X		= 0x08;
+	public static final byte NAVX_INTEGRATION_CTL_RESET_DISP_Y		= 0x10;
+	public static final byte NAVX_INTEGRATION_CTL_RESET_DISP_Z		= 0x20;
+	public static final byte NAVX_INTEGRATION_CTL_RESET_YAW			= (byte)0x80;
+	
     public class AHRS_TUNING_VAR_ID
     {
         public static final byte UNSPECIFIED = 0;
@@ -97,6 +161,37 @@ public class AHRSProtocol extends IMUProtocol {
     final static int AHRS_UPDATE_MESSAGE_TERMINATOR_INDEX = 64;
     final static int AHRS_UPDATE_MESSAGE_LENGTH = 66;
 
+ // AHRSAndPositioning Update Packet (similar to AHRS, but removes magnetometer and adds velocity/displacement) */
+
+    public final static byte MSGID_AHRSPOS_UPDATE = 'p';
+    final static int AHRSPOS_UPDATE_YAW_VALUE_INDEX = 4; /* Degrees.  Signed Hundredths */
+    final static int AHRSPOS_UPDATE_PITCH_VALUE_INDEX = 6; /* Degrees.  Signed Hundredeths */
+    final static int AHRSPOS_UPDATE_ROLL_VALUE_INDEX = 8; /* Degrees.  Signed Hundredths */
+    final static int AHRSPOS_UPDATE_HEADING_VALUE_INDEX = 10; /* Degrees.  Unsigned Hundredths */
+    final static int AHRSPOS_UPDATE_ALTITUDE_VALUE_INDEX = 12; /* Meters.   Signed 16:16 */
+    final static int AHRSPOS_UPDATE_FUSED_HEADING_VALUE_INDEX = 16; /* Degrees.  Unsigned Hundredths */
+    final static int AHRSPOS_UPDATE_LINEAR_ACCEL_X_VALUE_INDEX = 18; /* Inst. G.  Signed Thousandths */
+    final static int AHRSPOS_UPDATE_LINEAR_ACCEL_Y_VALUE_INDEX = 20; /* Inst. G.  Signed Thousandths */
+    final static int AHRSPOS_UPDATE_LINEAR_ACCEL_Z_VALUE_INDEX = 22; /* Inst. G.  Signed Thousandths */
+    final static int AHRSPOS_UPDATE_VEL_X_VALUE_INDEX = 24; /* Signed 16:16, in meters/sec */
+    final static int AHRSPOS_UPDATE_VEL_Y_VALUE_INDEX = 28; /* Signed 16:16, in meters/sec */
+    final static int AHRSPOS_UPDATE_VEL_Z_VALUE_INDEX = 32; /* Signed 16:16, in meters/sec */
+    final static int AHRSPOS_UPDATE_DISP_X_VALUE_INDEX = 36; /* Signed 16:16, in meters */
+    final static int AHRSPOS_UPDATE_DISP_Y_VALUE_INDEX = 40; /* Signed 16:16, in meters */
+    final static int AHRSPOS_UPDATE_DISP_Z_VALUE_INDEX = 44; /* Signed 16:16, in meters */
+    final static int AHRSPOS_UPDATE_QUAT_W_VALUE_INDEX = 48; /* INT16 */
+    final static int AHRSPOS_UPDATE_QUAT_X_VALUE_INDEX = 50; /* INT16 */
+    final static int AHRSPOS_UPDATE_QUAT_Y_VALUE_INDEX = 52; /* INT16 */
+    final static int AHRSPOS_UPDATE_QUAT_Z_VALUE_INDEX = 54; /* INT16 */
+    final static int AHRSPOS_UPDATE_MPU_TEMP_VAUE_INDEX = 56; /* Centigrade.  Signed Hundredths */
+    final static int AHRSPOS_UPDATE_OPSTATUS_VALUE_INDEX = 58; /* NAVX_OP_STATUS_XXX */
+    final static int AHRSPOS_UPDATE_SENSOR_STATUS_VALUE_INDEX = 59; /* NAVX_SENSOR_STATUS_XXX */
+    final static int AHRSPOS_UPDATE_CAL_STATUS_VALUE_INDEX = 60; /* NAVX_CAL_STATUS_XXX */
+    final static int AHRSPOS_UPDATE_SELFTEST_STATUS_VALUE_INDEX	= 61; /* NAVX_SELFTEST_STATUS_XXX */
+    final static int AHRSPOS_UPDATE_MESSAGE_CHECKSUM_INDEX = 62;
+    final static int AHRSPOS_UPDATE_MESSAGE_TERMINATOR_INDEX = 64;
+    final static int AHRSPOS_UPDATE_MESSAGE_LENGTH = 66;
+    
     // Data Get Request:  Tuning Variable, Mag Cal, Board Identity (Response message depends upon request type)
     public final static byte MSGID_DATA_REQUEST = 'D';
     final static int DATA_REQUEST_DATATYPE_VALUE_INDEX = 4;
@@ -114,6 +209,22 @@ public class AHRSProtocol extends IMUProtocol {
     final static int DATA_SET_RESPONSE_MESSAGE_TERMINATOR_INDEX = 9;
     final static int DATA_SET_RESPONSE_MESSAGE_LENGTH = 11;
 
+    /* Integration Control Command Packet */
+    public final static byte MSGID_INTEGRATION_CONTROL_CMD = 'I';
+    final static int INTEGRATION_CONTROL_CMD_ACTION_INDEX = 4;
+    final static int INTEGRATION_CONTROL_CMD_PARAMETER_INDEX = 5;
+    final static int INTEGRATION_CONTROL_CMD_MESSAGE_CHECKSUM_INDEX	= 9;
+    final static int INTEGRATION_CONTROL_CMD_MESSAGE_TERMINATOR_INDEX = 11;
+    final static int INTEGRATION_CONTROL_CMD_MESSAGE_LENGTH	= 13;
+
+    /* Integration Control Response Packet */
+    public final static byte MSGID_INTEGRATION_CONTROL_RESP = 'i';
+    final static int INTEGRATION_CONTROL_RESP_ACTION_INDEX = 4;
+    final static int INTEGRATION_CONTROL_RESP_PARAMETER_INDEX = 5;
+    final static int INTEGRATION_CONTROL_RESP_MESSAGE_CHECKSUM_INDEX = 9;
+    final static int INTEGRATION_CONTROL_RESP_MESSAGE_TERMINATOR_INDEX = 11;
+    final static int INTEGRATION_CONTROL_RESP_MESSAGE_LENGTH = 13;
+    
     // Magnetometer Calibration Packet - e.g., !m[x_bias][y_bias][z_bias][m1,1 ... m3,3][cr][lf]
     public final static byte MSGID_MAG_CAL_CMD = 'M';
     final static int MAG_CAL_DATA_ACTION_VALUE_INDEX = 4;
@@ -197,11 +308,46 @@ public class AHRSProtocol extends IMUProtocol {
         public byte  selftest_status;
     }
     
+    static public class AHRSPosUpdate {
+        public float yaw;
+        public float pitch;
+        public float roll;
+        public float compass_heading;
+        public float altitude;
+        public float fused_heading;
+        public float linear_accel_x;
+        public float linear_accel_y;
+        public float linear_accel_z;
+        public float vel_x;
+        public float vel_y;
+        public float vel_z;
+        public float disp_x;
+        public float disp_y;
+        public float disp_z;
+        public float mpu_temp;
+        public short quat_w;
+        public short quat_x;
+        public short quat_y;
+        public short quat_z;
+        public float barometric_pressure;
+        public float baro_temp;
+        public byte  op_status;
+        public byte  sensor_status;
+        public byte  cal_status;
+        public byte  selftest_status;
+    }
+    
     static public class DataSetResponse
     {
         public byte data_type;
         public byte var_id;       /* If type = TUNING_VARIABLE */
         public byte status;
+    };
+    
+    static public class IntegrationControl
+    {
+    	public byte action;
+    	public int  parameter;
     };
     
     static public class MagCalData
@@ -285,6 +431,50 @@ public class AHRSProtocol extends IMUProtocol {
         }
         return 0;
     }
+    
+    public static int decodeAHRSPosUpdate( byte[] buffer, 
+            int offset, 
+            int length, 
+            AHRSPosUpdate u) {
+		if (length < AHRSPOS_UPDATE_MESSAGE_LENGTH) {
+			return 0;
+		}
+		if ( (buffer[offset+0] == PACKET_START_CHAR) && 
+				(buffer[offset+1] == BINARY_PACKET_INDICATOR_CHAR) && 
+				(buffer[offset+2] == AHRSPOS_UPDATE_MESSAGE_LENGTH - 2) && 
+				(buffer[offset+3] == MSGID_AHRSPOS_UPDATE)) {
+		
+			if (!verifyChecksum(buffer, offset+AHRSPOS_UPDATE_MESSAGE_CHECKSUM_INDEX)) {
+				return 0;
+			}
+			u.yaw = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRSPOS_UPDATE_YAW_VALUE_INDEX);
+			u.pitch = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRSPOS_UPDATE_PITCH_VALUE_INDEX);
+			u.roll = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRSPOS_UPDATE_ROLL_VALUE_INDEX);
+			u.compass_heading = decodeProtocolUnsignedHundredthsFloat(buffer, offset+AHRSPOS_UPDATE_HEADING_VALUE_INDEX);
+			u.altitude = decodeProtocol1616Float(buffer, offset+AHRSPOS_UPDATE_ALTITUDE_VALUE_INDEX);
+			u.fused_heading = decodeProtocolUnsignedHundredthsFloat(buffer,offset+AHRSPOS_UPDATE_FUSED_HEADING_VALUE_INDEX);
+			u.linear_accel_x = decodeProtocolSignedThousandthsFloat(buffer,offset+AHRSPOS_UPDATE_LINEAR_ACCEL_X_VALUE_INDEX);
+			u.linear_accel_y = decodeProtocolSignedThousandthsFloat(buffer,offset+AHRSPOS_UPDATE_LINEAR_ACCEL_Y_VALUE_INDEX);
+			u.linear_accel_z = decodeProtocolSignedThousandthsFloat(buffer,offset+AHRSPOS_UPDATE_LINEAR_ACCEL_Z_VALUE_INDEX);
+			u.vel_x = decodeProtocol1616Float(buffer,offset+AHRSPOS_UPDATE_VEL_X_VALUE_INDEX);
+			u.vel_y = decodeProtocol1616Float(buffer,offset+AHRSPOS_UPDATE_VEL_Y_VALUE_INDEX);
+			u.vel_z = decodeProtocol1616Float(buffer,offset+AHRSPOS_UPDATE_VEL_Z_VALUE_INDEX);
+			u.disp_x = decodeProtocol1616Float(buffer,offset+AHRSPOS_UPDATE_DISP_X_VALUE_INDEX);
+			u.disp_y = decodeProtocol1616Float(buffer,offset+AHRSPOS_UPDATE_DISP_Y_VALUE_INDEX);
+			u.disp_z = decodeProtocol1616Float(buffer,offset+AHRSPOS_UPDATE_DISP_Z_VALUE_INDEX);
+			u.mpu_temp = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRSPOS_UPDATE_MPU_TEMP_VAUE_INDEX);
+			u.quat_w = decodeBinaryInt16(buffer,offset+AHRSPOS_UPDATE_QUAT_W_VALUE_INDEX);
+			u.quat_x = decodeBinaryInt16(buffer,offset+AHRSPOS_UPDATE_QUAT_X_VALUE_INDEX);
+			u.quat_y = decodeBinaryInt16(buffer,offset+AHRSPOS_UPDATE_QUAT_Y_VALUE_INDEX);
+			u.quat_z = decodeBinaryInt16(buffer,offset+AHRSPOS_UPDATE_QUAT_Z_VALUE_INDEX);
+			u.op_status = buffer[AHRSPOS_UPDATE_OPSTATUS_VALUE_INDEX];
+			u.sensor_status = buffer[AHRSPOS_UPDATE_SENSOR_STATUS_VALUE_INDEX];
+			u.cal_status = buffer[AHRSPOS_UPDATE_CAL_STATUS_VALUE_INDEX];
+			u.selftest_status = buffer[AHRSPOS_UPDATE_SELFTEST_STATUS_VALUE_INDEX];
+			return AHRSPOS_UPDATE_MESSAGE_LENGTH;
+		}
+		return 0;
+	}
     
     /* Mag Cal, Tuning Variable, or Board ID Retrieval Request */
     public static int encodeDataGetRequest( byte[] buffer, 
@@ -397,6 +587,39 @@ public class AHRSProtocol extends IMUProtocol {
         return 0;
     }
     
+    public static int encodeIntegrationControlCmd( byte[] buffer, IntegrationControl u )
+    {
+    	  // Header
+    	  buffer[0] = PACKET_START_CHAR;
+    	  buffer[1] = BINARY_PACKET_INDICATOR_CHAR;
+    	  buffer[2] = INTEGRATION_CONTROL_CMD_MESSAGE_LENGTH - 2;
+    	  buffer[3] = MSGID_INTEGRATION_CONTROL_CMD;
+    	  // Data
+    	  buffer[INTEGRATION_CONTROL_CMD_ACTION_INDEX] = u.action;
+    	  encodeBinaryUint32(u.parameter,buffer,INTEGRATION_CONTROL_CMD_PARAMETER_INDEX);
+    	  // Footer
+    	  encodeTermination( buffer, INTEGRATION_CONTROL_CMD_MESSAGE_LENGTH, INTEGRATION_CONTROL_CMD_MESSAGE_LENGTH - 4 );
+    	  return INTEGRATION_CONTROL_CMD_MESSAGE_LENGTH;
+    }
+    
+    public static int decodeIntegrationControlResponse( byte[] buffer, int offset, int length, IntegrationControl u)
+    {
+    	  if ( length < INTEGRATION_CONTROL_RESP_MESSAGE_LENGTH ) return 0;
+    	  if ( ( buffer[0] == PACKET_START_CHAR ) &&
+    		   ( buffer[1] == BINARY_PACKET_INDICATOR_CHAR ) &&
+    		   ( buffer[2] == INTEGRATION_CONTROL_RESP_MESSAGE_LENGTH - 2) &&
+    		   ( buffer[3] == MSGID_INTEGRATION_CONTROL_RESP ) )
+    	  {
+    	    if ( !verifyChecksum( buffer, INTEGRATION_CONTROL_RESP_MESSAGE_CHECKSUM_INDEX ) ) return 0;
+
+    		// Data
+    		u.action = buffer[INTEGRATION_CONTROL_RESP_ACTION_INDEX];
+    		u.parameter = decodeBinaryUint32(buffer, INTEGRATION_CONTROL_RESP_PARAMETER_INDEX);
+    	    return INTEGRATION_CONTROL_RESP_MESSAGE_LENGTH;
+    	  }
+    	  return 0;
+    }
+    
     /* MagCal or Tuning Variable Storage Response */
     public static int decodeDataSetResponse( byte[] buffer,
                                                 int offset,
@@ -443,12 +666,9 @@ public class AHRSProtocol extends IMUProtocol {
 	return 0;
     }
  
-    /* protocol data is encoded little endian */
+    /* protocol data is encoded little endian, convert to Java's big endian format */
     public static short decodeBinaryUint16( byte[] buffer, int offset ) {
-        short lowbyte = (short)buffer[offset];
-        if ( lowbyte < 0 ) {
-            lowbyte += 256;
-        }
+        short lowbyte = (short) (((short) buffer[offset]) & 0xff);        
         short highbyte = (short)buffer[offset+1];
         highbyte <<= 8;
         short decoded_value = (short)(highbyte + lowbyte);
@@ -456,13 +676,31 @@ public class AHRSProtocol extends IMUProtocol {
     }
     
     public static void encodeBinaryUint16( short val, byte[] buffer, int offset ) {
-        byte lowbyte = (byte)val;
-        val >>= 8;
-        byte highbyte = (byte)val;
-        buffer[offset] = lowbyte;
-        buffer[offset+1] = highbyte;
+        buffer[offset+0] = (byte) (val & 0xFF);   
+        buffer[offset+1] = (byte) ((val >> 8) & 0xFF);   
     }
 
+    public static int decodeBinaryUint32( byte[] buffer, int offset ) {
+        int lowlowbyte = (((int) buffer[offset]) & 0xff);        
+        int lowhighbyte = (((int) buffer[offset+1]) & 0xff);        
+        int highlowbyte = (((int) buffer[offset+2]) & 0xff);        
+        int highhighbyte = (((int) buffer[offset+3]));        
+   	
+        lowhighbyte <<= 8;
+        highlowbyte <<= 16;
+        highhighbyte <<= 24;
+        
+        int result = highhighbyte + highlowbyte + lowhighbyte + lowlowbyte;
+        return result;
+    }
+    
+    public static void encodeBinaryUint32( int val, byte[] buffer, int offset ) {
+        buffer[offset+0] = (byte) (val & 0xFF);   
+        buffer[offset+1] = (byte) ((val >> 8) & 0xFF);   
+        buffer[offset+2] = (byte) ((val >> 16) & 0xFF);   
+        buffer[offset+3] = (byte) ((val >> 24) & 0xFF);
+    }
+    
     public static short decodeBinaryInt16( byte[] buffer, int offset ) {
         return decodeBinaryUint16(buffer,offset);
     }
@@ -540,20 +778,13 @@ public class AHRSProtocol extends IMUProtocol {
 
     /* <int16>.<uint16> (-32768.9999 to 32767.9999) */
     public static float decodeProtocol1616Float( byte[] buffer, int offset ) {
-        float result = (float)decodeBinaryInt16(buffer,offset);
-        float decimal_portion = ((float)decodeProtocolUint16(buffer,offset+2)) / 65535; /* TODO:  IS this off by one? */
-        if ( result >= 0.0 ) {
-                result += decimal_portion;
-        } else {
-                result -= decimal_portion;
-        }
-        return result;
+        float result = (float)decodeBinaryUint32(buffer,offset);
+        result /= 65536;
+       return result;
     }
     public static void encodeProtocol1616Float( float val, byte[] buffer, int offset ) {
-        short int_portion = (short)val;
-        float decimal_portion = val - (float)int_portion;
-        short decimal_as_int = (short)(decimal_portion * 65535); /* TODO:  IS this off by one? */
-        encodeBinaryInt16(int_portion, buffer,offset);
-        encodeBinaryUint16(decimal_as_int, buffer, offset+2);
+    	val *= 65536;
+    	int int_val = (int)val;
+        encodeBinaryUint32(int_val, buffer, offset);
     }
 }
