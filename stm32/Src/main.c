@@ -72,6 +72,33 @@ static void MX_USART6_UART_Init(void);
 
 /* USER CODE BEGIN 0 */
 
+void USB_Soft_Reset()
+{
+    GPIO_InitTypeDef GPIO_InitStruct;
+    /* In case of soft reset, ensure the USB host    */
+    /* sees the D+ USB signal lines low.  Note that  */
+    /* the onboard EMI Filter has a 1.5K ohm pullup, */
+    /* therefore this causes 2.2mA of current to be  */
+    /* sunk into this pin.                           */
+
+    GPIO_InitStruct.Pin = GPIO_PIN_12;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    /* Wait a bit for the usb host to discover the reset */
+    HAL_Delay(2000);
+
+    GPIO_InitStruct.Pin = GPIO_PIN_12;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+
+}
+
 /* USER CODE END 0 */
 
 int main(void)
@@ -91,26 +118,7 @@ int main(void)
 	SystemClock_Config();
 	MX_GPIO_Init();
 
-	/* In case of soft reset, ensure the USB host    */
-	/* sees the D+ USB signal lines low.  Note that  */
-	/* the onboard EMI Filter has a 1.5K ohm pullup, */
-	/* therefore this causes 2.2mA of current to be  */
-	/* sunk into this pin.                           */
-
-	GPIO_InitStruct.Pin = GPIO_PIN_12;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-    /* Wait a bit for the usb host to discover the reset */
-	HAL_Delay(1000);
-
-	GPIO_InitStruct.Pin = GPIO_PIN_12;
-    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+	USB_Soft_Reset();
 
 	MX_DMA_Init();
     MX_I2C2_Init();
