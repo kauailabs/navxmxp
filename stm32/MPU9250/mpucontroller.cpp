@@ -1233,10 +1233,10 @@ _EXTERN_ATTRIB void reset_velocity_and_dispacement_integrator( struct mpu_data *
 	if ( axes_to_reset & 0x08 ) {
 		pdata->displacement[0] = 0.0f;
 	}
-	if ( axes_to_reset & 0x01 ) {
+	if ( axes_to_reset & 0x10 ) {
 		pdata->displacement[1] = 0.0f;
 	}
-	if ( axes_to_reset & 0x02 ) {
+	if ( axes_to_reset & 0x20 ) {
 		pdata->displacement[2] = 0.0f;
 	}
 }

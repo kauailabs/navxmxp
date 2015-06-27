@@ -223,10 +223,13 @@ static const uint8_t flash_off = 0b00000000;
 volatile int8_t cal_led_cycle_index = 7;
 volatile uint8_t cal_led_cycle = flash_on;
 float last_gyro_bias_load_temperature = 0.0;
+bool suspend_timer_led_updates = false;
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-	HAL_CAL_LED_On((cal_led_cycle & (1 << cal_led_cycle_index)) ? 1 : 0);
+    if ( !suspend_timer_led_updates ) {
+        HAL_CAL_LED_On((cal_led_cycle & (1 << cal_led_cycle_index)) ? 1 : 0);
+    }
 	cal_led_cycle_index--;
 	if (cal_led_cycle_index < 0) {
 		cal_led_cycle_index = 7;
@@ -278,11 +281,10 @@ void update_capability_flags()
     registers.capability_flags = get_capability_flags();
 }
 
-int sense_and_update_yaw_orientation() {
+int sense_current_yaw_orientation() {
 	uint8_t mpu_yaw_axis;
 	bool yaw_axis_up;
 	if ( !sense_current_mpu_yaw_orientation( &mpu_yaw_axis, &yaw_axis_up) ) {
-		set_current_mpu_to_board_xform(mpu_yaw_axis, yaw_axis_up);
 		((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis = mpu_yaw_axis;
 		((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up = yaw_axis_up;
 		return 0;
@@ -383,14 +385,14 @@ _EXTERN_ATTRIB void nav10_init()
 		registers.op_status = NAVX_OP_STATUS_SELFTEST_IN_PROGRESS;
 		uint8_t selftest_status = 0;
 		while ( selftest_status != 7 ) {
-			if ( !sense_and_update_yaw_orientation() ) {
+			if ( !sense_current_yaw_orientation() ) {
+                set_current_mpu_to_board_xform(((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis,
+                        ((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up);
 				selftest_status = run_mpu_self_test(&((struct flash_cal_data *)flashdata)->mpucaldata,
 													((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis,
 													((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up);
 				if ( selftest_status == 7 ) {
 					/* Self-test passed */
-		            set_current_mpu_to_board_xform(((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis,
-		                    ((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up);
 		            update_capability_flags();
 					mpu_apply_calibration_data(&((struct flash_cal_data *)flashdata)->mpucaldata);
 					/* Retrieve default magnetometer calibration data */
@@ -452,7 +454,7 @@ struct mpu_config mpuconfig;
 unsigned long last_scan = 0;
 bool calibration_active = false;
 unsigned long cal_button_pressed_timestamp = 0;
-unsigned long reset_imu_cal_buttonpress_period_ms = 3000;
+unsigned long reset_imu_cal_buttonpress_period_ms = 2000;
 
 #define BUTTON_DEBOUNCE_SAMPLES 10
 
@@ -477,10 +479,12 @@ static void cal_button_isr(void)
 		cal_button_pressed_timestamp = HAL_GetTick();
 	} else {
 		if ( (HAL_GetTick() - cal_button_pressed_timestamp) >= reset_imu_cal_buttonpress_period_ms) {
+		    suspend_timer_led_updates = true;
 			HAL_CAL_LED_On(1);
 			((struct flash_cal_data *)flashdata)->dmpcaldatavalid = false;
 			FlashStorage.commit();
 			HAL_CAL_LED_On(0);
+            suspend_timer_led_updates = false;
 		}
 	}
 }
@@ -856,6 +860,8 @@ _EXTERN_ATTRIB void nav10_main()
 						FlashStorage.commit();
 						registers.op_status = NAVX_OP_STATUS_NORMAL;
 						start_timestamp = HAL_GetTick();
+						/* Reset integration of velocity/displacement on all axes */
+			            reset_velocity_and_dispacement_integrator(&mpudata,0x3F);
 					}
 				}
 
@@ -882,6 +888,8 @@ _EXTERN_ATTRIB void nav10_main()
 								send_stream_response[0] = true;
 								send_stream_response[1] = true;
 								last_temp_compensation_check_timestamp = HAL_GetTick();
+		                        /* Reset integration of velocity/displacement on all axes */
+		                        reset_velocity_and_dispacement_integrator(&mpudata,0x3F);
 							}
 						} else {
 
@@ -900,6 +908,8 @@ _EXTERN_ATTRIB void nav10_main()
 								send_stream_response[0] = true;
 								send_stream_response[1] = true;
 								last_temp_compensation_check_timestamp = HAL_GetTick();
+                                /* Reset integration of velocity/displacement on all axes */
+                                reset_velocity_and_dispacement_integrator(&mpudata,0x3F);
 
 							} else {
 								yaw_offset_accumulator_count = 0;
