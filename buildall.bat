@@ -51,10 +51,6 @@ REM Build CSharp Components
 
 call buildcsharp.bat
 
-REM Build Processing components
-
-call buildprocessing.bat
-
 REM Build setup program
 
 call buildsetup.bat

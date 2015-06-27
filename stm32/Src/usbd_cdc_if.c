@@ -105,10 +105,9 @@ uint8_t UserLowLevelTxBufferFS[APP_TX_DATA_SIZE];
 
 /* USB handler declaration */
 /* Handle for USB Full Speed IP */
-USBD_HandleTypeDef  *hUsbDevice_0 = NULL;
+USBD_HandleTypeDef  *hUsbDevice_0;
 
 extern USBD_HandleTypeDef hUsbDeviceFS;
-extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
 /**
   * @}
@@ -146,13 +145,6 @@ static int8_t CDC_Init_FS(void)
   USBD_CDC_SetRxBuffer(hUsbDevice_0, UserLowLevelRxBufferFS);
   AppRxBufferHeadIndex = 0;
   AppRxBufferTailIndex = 0;
-  if ( hUsbDevice_0 == NULL ) return USBD_FAIL;
-  USBD_CDC_HandleTypeDef *pCDC =
-          (USBD_CDC_HandleTypeDef *)hUsbDevice_0->pClassData;
-  if ( pCDC->TxState != 0 ) {
-      pCDC->TxState = 0;
-      //pCDC->RxState = 0;
-  }
   return (USBD_OK);
   /* USER CODE END 4 */ 
 }
@@ -165,10 +157,6 @@ static int8_t CDC_Init_FS(void)
   */
 static int8_t CDC_DeInit_FS(void)
 {
-    if ( hUsbDevice_0 == NULL ) return USBD_FAIL;
-    USBD_CDC_HandleTypeDef *pCDC =
-            (USBD_CDC_HandleTypeDef *)hUsbDevice_0->pClassData;
-    hUsbDevice_0 = NULL;
   /* USER CODE BEGIN 5 */ 
   return (USBD_OK);
   /* USER CODE END 5 */ 
@@ -335,8 +323,6 @@ uint8_t CDC_Receive_Read() {
 	return character;
 }
 
-uint32_t last_tx_not_busy_timestamp = 0;
-
 /**
   * @brief  CDC_Transmit_FS
   *         Data send over USB IN endpoint are sent over CDC interface 
@@ -353,33 +339,10 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
   uint8_t result = USBD_OK;
 
   if ( hUsbDevice_0 == NULL ) return USBD_FAIL;
-  if ( hUsbDevice_0->dev_state != USBD_STATE_CONFIGURED ) return USBD_FAIL;
   USBD_CDC_HandleTypeDef *pCDC =
           (USBD_CDC_HandleTypeDef *)hUsbDevice_0->pClassData;
 
-  /* Determine if transfer is already in progress.   */
-  /* If transfer in progress is stuck in that state, */
-  /* then reset the interface and try again.         */
-
-  if ( pCDC->TxState != 0 ) {
-      if ( ( last_tx_not_busy_timestamp != 0 ) &&
-           ( HAL_GetTick() - last_tx_not_busy_timestamp > (uint32_t)1000) ) {
-
-          last_tx_not_busy_timestamp = 0;
-          /* Empirical evidence shows that in this state, the transmit     */
-          /* is stuck, and an endless "setup" interrupt is being received. */
-          /* As a result, we need to completely reinitialize the USB       */
-          /* circuitry/driver to get this working again.                   */
-          MX_USB_DEVICE_DeInit();
-          MX_USB_DEVICE_Init();
-          pCDC->TxState = 0;
-          return USBD_BUSY;
-      } else {
-          return USBD_BUSY;
-      }
-  }
-
-  last_tx_not_busy_timestamp = HAL_GetTick();
+  if ( pCDC->TxState != 0 ) return USBD_BUSY;
 
    /* USER CODE BEGIN 8 */
 	if (Len > APP_TX_DATA_SIZE)
@@ -400,15 +363,8 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
 	}
 
 	pCDC = (USBD_CDC_HandleTypeDef *)hUsbDevice_0->pClassData;
-
-	uint32_t tx_completion_wait_timestamp = HAL_GetTick();
-	while(pCDC->TxState)
-	{
-	    if ( HAL_GetTick() - tx_completion_wait_timestamp > (uint32_t)100 ) {
-	        /* Timeout */
-	        return USBD_BUSY;
-	    }
-	} //Wait for previous transfer to complete
+	/* TODO:  Consider a timeout in the following wait loop. */
+	while(pCDC->TxState) { } //Wait for previous transfer to complete
 
 	int i;
 	for ( i = 0; i < Len; i++ ) {
