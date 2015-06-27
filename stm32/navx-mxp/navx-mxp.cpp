@@ -223,16 +223,29 @@ static const uint8_t flash_off = 0b00000000;
 volatile int8_t cal_led_cycle_index = 7;
 volatile uint8_t cal_led_cycle = flash_on;
 float last_gyro_bias_load_temperature = 0.0;
-bool suspend_timer_led_updates = false;
+
+bool led_update_override = false;
+uint8_t old_cal_led_cycle = flash_off;
+
+void override_current_led_cycle( uint8_t new_cal_led_cycle )
+{
+    led_update_override = true;
+    old_cal_led_cycle = cal_led_cycle;
+    cal_led_cycle = new_cal_led_cycle;
+    cal_led_cycle_index = 7;
+}
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    if ( !suspend_timer_led_updates ) {
-        HAL_CAL_LED_On((cal_led_cycle & (1 << cal_led_cycle_index)) ? 1 : 0);
-    }
-	cal_led_cycle_index--;
+    HAL_CAL_LED_On((cal_led_cycle & (1 << cal_led_cycle_index)) ? 1 : 0);
+ 	cal_led_cycle_index--;
 	if (cal_led_cycle_index < 0) {
 		cal_led_cycle_index = 7;
+	    /* If override occurred, revert to previous */
+	    if ( led_update_override ) {
+	        led_update_override = false;
+	        cal_led_cycle = old_cal_led_cycle;
+	    }
 	}
 }
 
@@ -456,6 +469,8 @@ bool calibration_active = false;
 unsigned long cal_button_pressed_timestamp = 0;
 unsigned long reset_imu_cal_buttonpress_period_ms = 2000;
 
+bool schedule_caldata_clear = false;
+
 #define BUTTON_DEBOUNCE_SAMPLES 10
 
 static void cal_button_isr(void)
@@ -479,12 +494,7 @@ static void cal_button_isr(void)
 		cal_button_pressed_timestamp = HAL_GetTick();
 	} else {
 		if ( (HAL_GetTick() - cal_button_pressed_timestamp) >= reset_imu_cal_buttonpress_period_ms) {
-		    suspend_timer_led_updates = true;
-			HAL_CAL_LED_On(1);
-			((struct flash_cal_data *)flashdata)->dmpcaldatavalid = false;
-			FlashStorage.commit();
-			HAL_CAL_LED_On(0);
-            suspend_timer_led_updates = false;
+		    schedule_caldata_clear = true;
 		}
 	}
 }
@@ -649,6 +659,17 @@ _EXTERN_ATTRIB void nav10_main()
 			}
 			integration_control_update = false;
 		}
+
+		if ( schedule_caldata_clear ) {
+            /* Ensure that the CAL LED is lit for one second */
+	        HAL_CAL_LED_On(1);
+	        override_current_led_cycle( flash_on );
+	        /* clear the "valid calibration" flag, write to flash */
+	        ((struct flash_cal_data *)flashdata)->dmpcaldatavalid = false;
+	        FlashStorage.commit();
+	        schedule_caldata_clear = false;
+		}
+
 		if ( dmp_data_ready() ) {
 			HAL_LED1_On(1);
 			if ( get_dmp_data(&mpudata) == 0 ) {
