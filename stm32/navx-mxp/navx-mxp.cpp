@@ -469,7 +469,8 @@ bool calibration_active = false;
 unsigned long cal_button_pressed_timestamp = 0;
 unsigned long reset_imu_cal_buttonpress_period_ms = 2000;
 
-bool schedule_caldata_clear = false;
+bool schedule_caldata_clear = false;    /* Request by user to clear cal data */
+int caldata_clear_count = 0;            /* Protection against flash wear */
 
 #define BUTTON_DEBOUNCE_SAMPLES 10
 
@@ -494,7 +495,9 @@ static void cal_button_isr(void)
 		cal_button_pressed_timestamp = HAL_GetTick();
 	} else {
 		if ( (HAL_GetTick() - cal_button_pressed_timestamp) >= reset_imu_cal_buttonpress_period_ms) {
-		    schedule_caldata_clear = true;
+		    if ( registers.op_status == NAVX_OP_STATUS_NORMAL ) {
+		        schedule_caldata_clear = true;
+		    }
 		}
 	}
 }
@@ -660,7 +663,7 @@ _EXTERN_ATTRIB void nav10_main()
 			integration_control_update = false;
 		}
 
-		if ( schedule_caldata_clear ) {
+		if ( schedule_caldata_clear && ( caldata_clear_count == 0 ) ) {
             /* Ensure that the CAL LED is lit for one second */
 	        HAL_CAL_LED_On(1);
 	        override_current_led_cycle( flash_on );
@@ -668,6 +671,7 @@ _EXTERN_ATTRIB void nav10_main()
 	        ((struct flash_cal_data *)flashdata)->dmpcaldatavalid = false;
 	        FlashStorage.commit();
 	        schedule_caldata_clear = false;
+	        caldata_clear_count++;
 		}
 
 		if ( dmp_data_ready() ) {
