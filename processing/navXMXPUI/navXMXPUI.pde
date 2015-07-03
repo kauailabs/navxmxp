@@ -439,7 +439,7 @@ void setup() {
     G4P.setGlobalColorScheme(5);
     btnResetYaw = new GButton(this, 20, ((height-tray_height_px)+15), 120, 30, "ResetYaw");
     btnBoardInfo = new GButton(this, (width/2)-60, ((height-tray_height_px)+15), 120, 30, "BoardInfo...");
-    btnAdvanced = new GButton(this, width-140, ((height-tray_height_px)+15), 120, 30, "Advanced...");
+    btnAdvanced = new GButton(this, width-140, ((height-tray_height_px)+15), 120, 30, "Experimental...");
     
     dplComPorts = new GDropList(this,400,40,80,70);
     dplComPorts.setItems(new String[] {"<None>"}, 0 );
@@ -568,17 +568,13 @@ void draw() {
     fill(255,255,255);
 
     textAlign(LEFT);
-    text("Accel X:",20, (height-tray_height_px)-80);
+    text("Accel X:",20, (height-tray_height_px)-60);
     textAlign(RIGHT);
-    text(nfp(world_linear_acceleration_x,1,2),135,(height-tray_height_px)-80);
+    text(nfp(world_linear_acceleration_x,1,2),135,(height-tray_height_px)-60);
     textAlign(LEFT);
-    text("Accel Y:",20, (height-tray_height_px)-60);
+    text("Accel Y:",20, (height-tray_height_px)-40);
     textAlign(RIGHT);
-    text(nfp(world_linear_acceleration_y,1,2),135,(height-tray_height_px)-60);
-    textAlign(LEFT);
-    text("Accel Z:",20, (height-tray_height_px)-40);
-    textAlign(RIGHT);
-    text(nfp(world_linear_acceleration_z,1,2),135,(height-tray_height_px)-40);
+    text(nfp(world_linear_acceleration_y,1,2),135,(height-tray_height_px)-40);
     textAlign(LEFT);
     text("Temp:",20, (height-tray_height_px)-20);
     textAlign(RIGHT);
