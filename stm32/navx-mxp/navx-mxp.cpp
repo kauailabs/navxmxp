@@ -98,13 +98,13 @@ struct board_orientation_settings {
 
 /* nav10_cal_data is persisted to flash */
 struct flash_cal_data {
-    uint8_t									selfteststatus;
-    struct mpu_selftest_calibration_data 	mpucaldata;
-    struct mpu_dmp_calibration_data 		dmpcaldata;
-    bool   									dmpcaldatavalid;
-    struct mag_calibration_data				magcaldata;
-    struct fusion_settings					fusiondata;
-    struct board_orientation_settings		orientationdata;
+    uint8_t                                 selfteststatus;
+    struct mpu_selftest_calibration_data    mpucaldata;
+    struct mpu_dmp_calibration_data         dmpcaldata;
+    bool                                    dmpcaldatavalid;
+    struct mag_calibration_data             magcaldata;
+    struct fusion_settings                  fusiondata;
+    struct board_orientation_settings       orientationdata;
 };
 
 const float default_motion_detect_thresh_g = 0.02f;
@@ -130,55 +130,56 @@ unique_id chipid;
 
 struct __attribute__ ((__packed__)) nav10_protocol_registers {
     /* Constants */
-    uint8_t					identifier;
-    uint8_t					hw_rev;
-    uint8_t					fw_major;
-    uint8_t					fw_minor;
+    uint8_t                 identifier;
+    uint8_t                 hw_rev;
+    uint8_t                 fw_major;
+    uint8_t                 fw_minor;
     /* Read/Write registers */
-    uint8_t					update_rate_hz;
+    uint8_t                 update_rate_hz;
     /* Read-only Registers */
-    uint8_t					accel_fsr_g;
-    uint16_t				gyro_fsr_dps;
-    uint8_t					op_status;
-    uint8_t					cal_status;
-    uint8_t					selftest_status;
-    uint16_t				capability_flags;
+    uint8_t                 accel_fsr_g;
+    uint16_t                gyro_fsr_dps;
+    uint8_t                 op_status;
+    uint8_t                 cal_status;
+    uint8_t                 selftest_status;
+    uint16_t                capability_flags;
     /* Reserved */
-    uint8_t					reserved[3];
+    uint8_t                 reserved[3];
     /* Processed Data */
-    uint16_t				sensor_status;
-    uint32_t				timestamp;
-    s_short_hundred_float	yaw;
-    s_short_hundred_float	pitch;
-    s_short_hundred_float	roll;
-    u_short_hundred_float	heading;
-    u_short_hundred_float	fused_heading;
-    s_1616_float			altitude;
-    s_short_thousand_float	world_linear_accel[3];
-    s_short_ratio_float 	quat[4];
+    uint16_t                sensor_status;
+    uint32_t                timestamp;
+    s_short_hundred_float   yaw;
+    s_short_hundred_float   pitch;
+    s_short_hundred_float   roll;
+    u_short_hundred_float   heading;
+    u_short_hundred_float   fused_heading;
+    s_1616_float            altitude;
+    s_short_thousand_float  world_linear_accel[3];
+    s_short_ratio_float     quat[4];
     /* Raw Data */
-    s_short_hundred_float	mpu_temp_c;
-    int16_t 				gyro_raw[3];
-    int16_t 				accel_raw[3];
-    int16_t 				mag_raw[3];
-    s_1616_float			barometric_pressure;
-    s_short_hundred_float	pressure_sensor_temp_c;
-    s_short_hundred_float 	yaw_offset;
-    s_short_ratio_float 	quat_offset[4];
+    s_short_hundred_float   mpu_temp_c;
+    int16_t                 gyro_raw[3];
+    int16_t                 accel_raw[3];
+    int16_t                 mag_raw[3];
+    s_1616_float            barometric_pressure;
+    s_short_hundred_float   pressure_sensor_temp_c;
+    s_short_hundred_float   yaw_offset;
+    s_short_ratio_float     quat_offset[4];
     /* Integrated Values */
     /* - Read/Write Registers */
-    uint16_t				integration_control;
+uint16_t                    integration_control;
     /* - Read-only Registers */
-    s_1616_float			velocity[3];
-    s_1616_float			displacement[3];
+    s_1616_float            velocity[3];
+    s_1616_float            displacement[3];
 } registers, shadow_registers;
 
 /* Statistical Averages */
 
-#define YAW_HISTORY_PERIOD_MS 2000
-#define WORLD_ACCEL_NORM_HISTORY_PERIOD_MS 250
-#define WORLD_ACCEL_NORM_HISTORY_SIZE WORLD_ACCEL_NORM_HISTORY_PERIOD_MS / MIN_SAMPLE_PERIOD
-#define YAW_HISTORY_SIZE YAW_HISTORY_PERIOD_MS / MIN_SAMPLE_PERIOD
+#define YAW_HISTORY_PERIOD_MS                       2000
+#define WORLD_ACCEL_NORM_HISTORY_PERIOD_MS          250
+#define WORLD_ACCEL_NORM_HISTORY_SIZE               WORLD_ACCEL_NORM_HISTORY_PERIOD_MS / MIN_SAMPLE_PERIOD
+#define YAW_HISTORY_SIZE                            YAW_HISTORY_PERIOD_MS / MIN_SAMPLE_PERIOD
+
 float world_accel_norm_history[WORLD_ACCEL_NORM_HISTORY_SIZE];
 float yaw_history[YAW_HISTORY_SIZE];
 int world_acceleration_history_index = 0;
@@ -186,7 +187,7 @@ int yaw_history_index = 0;
 float world_acceleration_norm_current_avg = 0.0f;
 float yaw_current_average = 0.0f;
 
-#define DEFAULT_MPU_SAMPLE_PERIOD_MS (1000 / DEFAULT_MPU_HZ)
+#define DEFAULT_MPU_SAMPLE_PERIOD_MS                (1000 / DEFAULT_MPU_HZ)
 
 int current_yaw_history_size = YAW_HISTORY_PERIOD_MS
         / DEFAULT_MPU_SAMPLE_PERIOD_MS;
@@ -1269,9 +1270,8 @@ _EXTERN_ATTRIB void nav10_main()
             }
         }
 
-        /* Transmit Updates available serial interface(s) */
-        /* Transmit responses (if any) over the appropriate serial interface */
-
+        /* Transmit Updates over available serial interface(s)                  */
+        /* Transmit responses (if any) over the appropriate serial interface    */
         for ( int ifx = 0; ifx < num_serial_interfaces; ifx++ ) {
             if ( num_resp_bytes[ifx] > 0 ) {
                 memcpy(update_buffer[ifx] + num_update_bytes[ifx], response_buffer[ifx], num_resp_bytes[ifx]);
@@ -1281,8 +1281,8 @@ _EXTERN_ATTRIB void nav10_main()
             }
         }
 
+        /* Update shadow registers; disable i2c/spi interrupts around this access. */
         if ( num_update_bytes[0] > 0 ) {
-            /* Update shadow registers; disable i2c/spi interrupts around this access. */
             NVIC_DisableIRQ((IRQn_Type)I2C3_EV_IRQn);
             NVIC_DisableIRQ((IRQn_Type)SPI1_IRQn);
             memcpy(&shadow_registers, &registers, sizeof(registers));
@@ -1296,6 +1296,8 @@ _EXTERN_ATTRIB void nav10_main()
             }
             NVIC_EnableIRQ((IRQn_Type)I2C3_EV_IRQn);
         }
+
+        /* Peform I2C Glitch Detection/Correction */
         if ( i2c_rx_in_progress ) {
             if ( HAL_GetTick() - last_i2c_rx_start_timestamp > (uint32_t)40 ) {
                 if ( ( hi2c3.XferCount != 0 ) &&
