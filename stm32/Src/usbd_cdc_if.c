@@ -370,9 +370,9 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
           /* is stuck, and an endless "setup" interrupt is being received. */
           /* As a result, we need to completely reinitialize the USB       */
           /* circuitry/driver to get this working again.                   */
-          MX_USB_DEVICE_DeInit();
-          MX_USB_DEVICE_Init();
-          pCDC->TxState = 0;
+          //MX_USB_DEVICE_DeInit();
+          //MX_USB_DEVICE_Init();
+          //pCDC->TxState = 0;
           return USBD_BUSY;
       } else {
           return USBD_BUSY;
