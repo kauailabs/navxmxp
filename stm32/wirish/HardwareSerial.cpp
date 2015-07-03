@@ -101,18 +101,20 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
 
 	/* If another byte is already available, read it out now */
 	/* and place in buffer, rather than wait for interrupt.  */
-	uint32_t uart_status_reg = UartHandle->Instance->SR;
-	if ( ( uart_status_reg & 0x20 ) != 0 ) {
-		uint32_t rx_data_reg = UartHandle->Instance->DR;
-		uint8_t rx_data = (uint8_t)rx_data_reg & 0x000000FF;
-		Serial6.rx_buffer[Serial6.rx_buffer_index] = rx_data;
-		Serial6.rx_buffer_index++;
-		Serial6.rx_buffer_bytes_available++;
-	}
+    if ( Serial6.rx_buffer_bytes_available < UART_RX_BUFFER_SIZE ) {
+        uint32_t uart_status_reg = UartHandle->Instance->SR;
+        if ( ( uart_status_reg & 0x20 ) != 0 ) {
+            uint32_t rx_data_reg = UartHandle->Instance->DR;
+            uint8_t rx_data = (uint8_t)rx_data_reg & 0x000000FF;
+            Serial6.rx_buffer[Serial6.rx_buffer_index] = rx_data;
+            Serial6.rx_buffer_index++;
+            Serial6.rx_buffer_bytes_available++;
+        }
+    }
 
 	if ( Serial6.rx_buffer_bytes_available < UART_RX_BUFFER_SIZE ) {
 		status = HAL_UART_Receive_IT(UartHandle, &Serial6.rx_buffer[Serial6.rx_buffer_index], 1);
-		if ( status == HAL_BUSY ) {
+		if ( status != HAL_OK ) {
 			/* This case can occur if busy transmitting and rx complete interrupt occurs. */
 			/* Pend the receive request for later processing.                             */
 			Serial6.receive_request_pending = true;
@@ -141,8 +143,12 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *UartHandle)
 
 }
 
-int error_count = 0;
-int overrun_error_count = 0;
+uint32_t error_count = 0;
+uint32_t overrun_error_count = 0;
+uint32_t parity_error_count = 0;
+uint32_t noise_error_count = 0;
+uint32_t framing_error_count = 0;
+uint32_t dma_transfer_error_count = 0;
 
 static void ResetUart()
 {
@@ -155,10 +161,45 @@ static void ResetUart()
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *UartHandle)
 {
-	if ( HAL_UART_ERROR_NONE != UartHandle->ErrorCode ) {
-		error_count++;
-		ResetUart();
-	}
+
+    HAL_StatusTypeDef status;
+    error_count++;
+    if ( UartHandle->ErrorCode & HAL_UART_ERROR_PE ) {
+        parity_error_count++;
+    }
+    if ( UartHandle->ErrorCode & HAL_UART_ERROR_NE ) {
+        noise_error_count++;
+    }
+    if ( UartHandle->ErrorCode & HAL_UART_ERROR_FE ) {
+        framing_error_count++;
+    }
+    if ( UartHandle->ErrorCode & HAL_UART_ERROR_ORE ) {
+        overrun_error_count++;
+    }
+    if ( UartHandle->ErrorCode & HAL_UART_ERROR_DMA ) {
+        dma_transfer_error_count++;
+    }
+
+    // Since whenever the error callback is invoked, the
+    // uart state is set to ready, this means any transfers
+    // in progress were aborted.  The packet that was
+    // being transferred was likely not completely sent.
+    // In any case, clear the tx_in_progress flag.
+
+    Serial6.tx_in_progress = false;
+
+    // Additonally, unless the receive buffer was already full,
+    // a new receive must be posted each time an error occurs.
+
+    if ( Serial6.rx_buffer_bytes_available < UART_RX_BUFFER_SIZE ) {
+        status = HAL_UART_Receive_IT(UartHandle, &Serial6.rx_buffer[Serial6.rx_buffer_index], 1);
+        if ( status != HAL_OK ) {
+            /* This case can occur if busy transmitting and rx complete interrupt occurs. */
+            /* Pend the receive request for later processing.                             */
+            Serial6.receive_request_pending = true;
+        }
+    }
+    //ResetUart();
 }
 
 
@@ -194,6 +235,7 @@ uint8_t HardwareSerial::read(void) {
 		if ( HAL_OK == status ) {
 			full_buffer = false;
 		} else {
+		    receive_request_pending = true;
 			failed_posted_read = false;
 		}
 	}
