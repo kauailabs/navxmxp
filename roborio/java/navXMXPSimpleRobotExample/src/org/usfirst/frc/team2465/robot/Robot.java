@@ -6,7 +6,7 @@
 /*----------------------------------------------------------------------------*/
 package org.usfirst.frc.team2465.robot;
 
-import com.kauailabs.navx_mxp.AHRS;
+import com.kauailabs.navx.frc.AHRS;
 
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.SerialPort;
@@ -24,7 +24,6 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
  */
 public class Robot extends SampleRobot {
     
-    SerialPort serial_port;
     AHRS imu;			// This class can only be used w/the navX MXP.
     boolean first_iteration;
     
@@ -33,10 +32,8 @@ public class Robot extends SampleRobot {
     	try {
     	
     	// Use SerialPort.Port.kMXP if connecting navX MXP to the RoboRio MXP port
-    	// Use SerialPort.Port.kUSB if connecting nav6 or navX MXP to the RoboRio USB port
+    	// Use SerialPort.Port.kUSB if connecting navX MXP to the RoboRio USB port
     		
-    	serial_port = new SerialPort(57600,SerialPort.Port.kMXP);
-		
 		// You can add a second parameter to modify the 
 		// update rate (in hz) from.  The minimum is 4.  
     	// The maximum (and the default) is 60 on a navX MXP.
@@ -51,7 +48,7 @@ public class Robot extends SampleRobot {
     	// navX MXP Aero.
 		
 		byte update_rate_hz = 50;
-		imu = new AHRS(serial_port,update_rate_hz);
+		imu = new AHRS(SerialPort.Port.kMXP, update_rate_hz);
     	} catch( Exception ex ) {
     		
     	}
