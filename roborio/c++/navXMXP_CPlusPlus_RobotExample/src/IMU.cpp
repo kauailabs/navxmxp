@@ -47,6 +47,7 @@ static void imuTask(IMU *imu)
     uint16_t flags;
     bool stream_response_received = false;
     double last_valid_packet_time = 0.0;
+#ifdef DEBUG_IMU_RX  // Comment out to disable receive debugging
     int partial_binary_packet_count = 0;
     int stream_config_request_count = 0;
     int stream_response_receive_count = 0;
@@ -54,6 +55,7 @@ static void imuTask(IMU *imu)
     int timeout_count = 0;
     int discarded_bytes_count = 0;
     int port_reset_count = 0;
+#endif
     double last_stream_command_sent_timestamp = 0.0;
     int updates_in_last_second = 0;
     double last_second_start_time = 0;
