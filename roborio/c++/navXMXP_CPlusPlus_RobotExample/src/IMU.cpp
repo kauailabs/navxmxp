@@ -334,6 +334,15 @@ IMU::IMU( SerialPort::Port port, uint8_t update_rate_hz, char stream_type ) {
     InternalInit(port,update_rate_hz,stream_type);
 }
 
+/**
+ * The IMU class provides a simplified interface to the KauaiLabs navX IMU.
+ *
+ * The IMU class enables access to basic connectivity and state information,
+ * as well as key orientation information (yaw, pitch, roll, compass heading).
+ *
+ * Advanced capabilities of the navX IMU may be accessed via the AHRS class.
+ * @author Scott
+ */
 IMU::IMU( SerialPort::Port port, uint8_t update_rate_hz )
 {
     InternalInit(port,update_rate_hz,STREAM_CMD_STREAM_TYPE_YPR);
@@ -385,21 +394,57 @@ void IMU::Restart()
     m_task->Restart();
 }
 
+/**
+ * Indicates whether the navX MXP is currently connected
+ * to the host computer.  A connection is considered established
+ * whenever a value update packet has been received from the
+ * navX MXP within the last second.
+ * @return Returns true if a valid update has been received within the last second.
+ */
 bool IMU::IsConnected()
 {
     double time_since_last_update = Timer::GetFPGATimestamp() - this->last_update_time;
     return time_since_last_update <= 1.0;
 }
 
+/**
+ * Returns the count in bytes of data received from the
+ * navX MXP.  This could can be useful for diagnosing
+ * connectivity issues.
+ *
+ * If the byte count is increasing, but the update count
+ * (see getUpdateCount()) is not, this indicates a software
+ * misconfiguration.
+ * @return The number of bytes received from the navX MXP.
+ */
 double IMU::GetByteCount()
 {
     return byte_count;
 }
+/**
+ * Returns the count of valid update packets which have
+ * been received from the navX MXP.  This count should increase
+ * at the same rate indicated by the configured update rate.
+ * @return The number of valid updates received from the navX MXP.
+ */
 double IMU::GetUpdateCount()
 {
     return update_count;
 }
 
+/**
+ * Returns true if the navX MXP is currently performing automatic
+ * calibration.  Automatic calibration occurs when the navX MXP
+ * is initially powered on, during which time the navX MXP should
+ * be held still.
+ *
+ * During this automatically calibration, the yaw, pitch and roll
+ * values returned may not be accurate.
+ *
+ * Once complete, the navX MXP will automatically remove an internal
+ * yaw offset value from all reported values.
+ * @return Returns true if the navX MXP is currently calibrating.
+ */
 bool IMU::IsCalibrating()
 {
     Synchronized sync(cIMUStateSemaphore);
@@ -407,6 +452,14 @@ bool IMU::IsCalibrating()
     return (calibration_state != NAV6_CALIBRATION_STATE_COMPLETE);
 }
 
+/**
+ * Sets the user-specified yaw offset to the current
+ * yaw value reported by the navX MXP.
+ *
+ * This user-specified yaw offset is automatically
+ * subtracted from subsequent yaw values reported by
+ * the getYaw() method.
+ */
 void IMU::ZeroYaw()
 {
     if ( this->IsBoardYawResetSupported() ) {
@@ -415,6 +468,18 @@ void IMU::ZeroYaw()
     } else {
         yaw_offset = GetAverageFromYawHistory();
     }
+}
+
+
+/**
+ * Reset the gyro.
+ *
+ * Resets the gyro Z (Yaw) axis to a heading of zero. This can be used if there is significant
+ * drift in the gyro and it needs to be recalibrated after it has been running.
+ */
+
+void IMU::reset() {
+    ZeroYaw();
 }
 
 float IMU::GetYawUnsynchronized()
@@ -443,15 +508,16 @@ float IMU::GetYaw( void )
  * Returns the total accumulated yaw angle (Z Axis, in degrees)
  * reported by the navX MXP.
  *
- * The angle is continuous, that is can go beyond 360 degrees. This make algorithms that wouldn't
- * want to see a discontinuity in the gyro output as it sweeps past 0 on the second time around.
+ * NOTE: The angle is continuous, that is can go beyond 360 degrees. This ensure that
+ * algorithms that wouldn't want to see a discontinuity in the gyro output as it sweeps
+ * past 0 on the second time around.
  *
  * Note that the returned yaw value will be offset by a user-specified
  * offset value; this user-specified offset value is set by
  * invoking the zeroYaw() method.
  *
- * Returns the current heading of the robot in degrees. This heading is based on integration
- * of the returned rate from the gyro.
+ * @return The current heading of the robot in degrees. This heading is based on integration
+ * of the returned rate from the Z-axis (yaw) gyro.
  */
 
 double IMU::GetAngle()
@@ -466,11 +532,11 @@ double IMU::GetAngle()
 }
 
 /**
- * Return the rate of rotation of the gyro.
+ * Return the rate of rotation of the yaw (Z-axis) gyro, in degrees per second.
  *
- * The rate is based on the most recent reading of the gyro analog value.
+ * The rate is based on the most recent reading of the yaw gyro angle.
  *
- * Returns the current rate in degrees per second
+ * @return the current rate in degrees per second
  */
 
 double IMU::GetRate()
@@ -478,18 +544,37 @@ double IMU::GetRate()
     return last_yaw_rate * (float)update_rate_hz;
 }
 
+/**
+ * Returns the current pitch value (in degrees, from -180 to 180)
+ * reported by the navX MXP.
+ * @return The current pitch value in degrees (-180 to 180).
+ */
 float IMU::GetPitch( void )
 {
     Synchronized sync(cIMUStateSemaphore);
     return this->pitch;
 }
 
+/**
+ * Returns the current roll value (in degrees, from -180 to 180)
+ * reported by the navX MXP.
+ * @return The current roll value in degrees (-180 to 180).
+ */
 float IMU::GetRoll( void )
 {
     Synchronized sync(cIMUStateSemaphore);
     return this->roll;
 }
 
+/**
+ * Returns the current tilt-compensated compass heading
+ * value (in degrees, from 0 to 360) reported by the navX MXP IMU.
+ *
+ * Note that this value is sensed by the navX MXP magnetometer,
+ * which can be affected by nearby magnetic fields (e.g., the
+ * magnetic fields generated by nearby motors).
+ * @return The current tilt-compensated compass heading, in degrees (0-360).
+ */
 float IMU::GetCompassHeading( void )
 {
     Synchronized sync(cIMUStateSemaphore);

@@ -12,15 +12,13 @@
 #include "AHRSProtocol.h"
 
 /**
- * The AHRS class provides an interface to AHRS capabilities
- * of the KauaiLabs navX MXP Robotics Navigation Sensor.
+ * The AHRS class provides an interface to AHRS (Attitude & Heading Reference
+ * System) capabilities of the KauaiLabs navX MXP Robotics Navigation Sensor.
  * 
- * The AHRS class enables access to basic connectivity and state information, 
- * as well as key 6-axis and 9-axis orientation information (yaw, pitch, roll, 
- * compass heading, fused (9-axis) heading and magnetic disturbance detection.
- * Additionally, the ARHS class also provides access to extended information
- * including linear acceleration, motion detection, rotation detection and sensor 
- * temperature.
+ * The AHRS class extends the IMU class adding fused (9-axis) heading and
+ * magnetic disturbance detection.  Additionally, the ARHS class also provides
+ * access to extended information including linear acceleration and the
+ * (experimental) velocity and displacment estimation
  * 
  * If used with the navX MXP Aero, the AHRS class also provides access to 
  * altitude, barometric pressure and pressure sensor temperature data

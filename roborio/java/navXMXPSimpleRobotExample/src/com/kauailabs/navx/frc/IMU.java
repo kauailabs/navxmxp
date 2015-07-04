@@ -29,8 +29,7 @@ import edu.wpi.first.wpilibj.tables.ITable;
  * The IMU class enables access to basic connectivity and state information, 
  * as well as key orientation information (yaw, pitch, roll, compass heading).
  * 
- * Advanced capabilities of the navX IMU may be accessed via the IMUAdvanced 
- * class.
+ * Advanced capabilities of the navX IMU may be accessed via the AHRS class.
  * @author Scott
  */
 public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Runnable {
@@ -353,15 +352,16 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
      * Returns the total accumulated yaw angle (Z Axis, in degrees)
      * reported by the navX MXP.
      * 
-     * The angle is continuous, that is can go beyond 360 degrees. This make algorithms that wouldn't
-     * want to see a discontinuity in the gyro output as it sweeps past 0 on the second time around.
+     * NOTE: The angle is continuous, that is can go beyond 360 degrees. This ensure that
+     * algorithms that wouldn't want to see a discontinuity in the gyro output as it sweeps 
+     * past 0 on the second time around.
      *
      * Note that the returned yaw value will be offset by a user-specified
      * offset value; this user-specified offset value is set by 
      * invoking the zeroYaw() method.
      *
-     * @return the current heading of the robot in degrees. This heading is based on integration
-     * of the returned rate from the gyro.
+     * @return The current heading of the robot in degrees. This heading is based on integration
+     * of the returned rate from the Z-axis (yaw) gyro.
      */
 
     public double getAngle() {
@@ -375,9 +375,9 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
     }
 
     /**
-     * Return the rate of rotation of the gyro.
+     * Return the rate of rotation of the yaw (Z-axis) gyro, in degrees per second.
      * 
-     * The rate is based on the most recent reading of the gyro analog value.
+     * The rate is based on the most recent reading of the yaw gyro angle.
      * 
      * @return the current rate in degrees per second
      */

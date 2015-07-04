@@ -50,7 +50,7 @@ public:
 
     bool IsConnected();
     void ZeroYaw();
-
+    void reset();
     // PIDSource interface, returns yaw component in units of degrees (-180 to 180)
     double PIDGet();
 
