@@ -34,8 +34,7 @@ import processing.serial.*;
 import processing.opengl.*; // Import not needed if compiling w/Processing 3.0.
 import toxi.geom.*;
 import toxi.processing.*;
-import com.kauailabs.navx_mxp.*;
-import com.kauailabs.nav6.*;
+import com.kauailabs.navx.*;
 
 import java.util.*;
 import g4p_controls.*;
