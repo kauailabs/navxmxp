@@ -27,7 +27,7 @@ class AHRS : public IMU
 {
 public:
 
-    AHRS( SerialPort::Port port, uint8_t update_rate_hz = 60 );
+    AHRS( SerialPort::Port port, uint8_t update_rate_hz = 50 );
     virtual ~AHRS();
 
     float GetWorldLinearAccelX();

@@ -41,7 +41,7 @@ protected:
     void InternalInit( SerialPort::Port port, uint8_t update_rate_hz, char stream_type );
 public:
 
-    IMU( SerialPort::Port port, uint8_t update_rate_hz = 100 );
+    IMU( SerialPort::Port port, uint8_t update_rate_hz = 50 );
     virtual ~IMU();
     virtual float GetPitch();	// Pitch, in units of degrees (-180 to 180)
     virtual float GetRoll();	// Roll, in units of degrees (-180 to 180)
