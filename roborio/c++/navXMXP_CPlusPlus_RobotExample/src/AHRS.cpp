@@ -477,7 +477,7 @@ void AHRS::UpdateDisplacement( float accel_x_g, float accel_y_g,
  * NOTE:  This feature is experimental.  Velocity measures rely on integration
  * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
  * resulting velocities are not known to be very accurate.
- * @return none.
+ * @return Current Velocity (in meters/sec).
  */
 float AHRS::GetVelocityX()
 {
@@ -490,7 +490,7 @@ float AHRS::GetVelocityX()
  * NOTE:  This feature is experimental.  Velocity measures rely on integration
  * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
  * resulting velocities are not known to be very accurate.
- * @return none.
+ * @return Current Velocity (in meters/sec).
  */
 float AHRS::GetVelocityY()
 {
@@ -505,7 +505,7 @@ float AHRS::GetVelocityY()
  * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
  * resulting displacement are not known to be very accurate, and the amount of error
  * increases quickly as time progresses.
- * @return none.
+ * @return Displacement since last reset (in meters).
  */
 float AHRS::GetDisplacementX()
 {
@@ -520,7 +520,7 @@ float AHRS::GetDisplacementX()
  * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
  * resulting displacement are not known to be very accurate, and the amount of error
  * increases quickly as time progresses.
- * @return none.
+ * @return Displacement since last reset (in meters).
  */
 float AHRS::GetDisplacementY()
 {

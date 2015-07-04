@@ -468,7 +468,7 @@ public class AHRS extends IMU {
      * NOTE:  This feature is experimental.  Velocity measures rely on integration
      * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
      * resulting velocities are not known to be very accurate.
-     * @return none.
+     * @return Current Velocity (in meters/squared).
      */
     public float getVelocityX() {
         return last_velocity[0];
@@ -480,7 +480,7 @@ public class AHRS extends IMU {
      * NOTE:  This feature is experimental.  Velocity measures rely on integration
      * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
      * resulting velocities are not known to be very accurate.
-     * @return none.
+     * @return Current Velocity (in meters/squared).
      */
     public float getVelocityY() {
         return last_velocity[1];
@@ -492,7 +492,7 @@ public class AHRS extends IMU {
      * NOTE:  This feature is experimental.  Velocity measures rely on integration
      * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
      * resulting velocities are not known to be very accurate.
-     * @return none.
+     * @return Current Velocity (in meters/squared).
      */
     public float getVelocityZ() {
         return last_velocity[2];
@@ -506,7 +506,7 @@ public class AHRS extends IMU {
      * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
      * resulting displacement are not known to be very accurate, and the amount of error 
      * increases quickly as time progresses.
-     * @return none.
+     * @return Displacement since last reset (in meters).
      */
     public float getDisplacementX() {
         return displacement[0];
@@ -520,7 +520,7 @@ public class AHRS extends IMU {
      * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
      * resulting displacement are not known to be very accurate, and the amount of error 
      * increases quickly as time progresses.
-     * @return none.
+     * @return Displacement since last reset (in meters).
      */
     public float getDisplacementY() {
         return displacement[1];
@@ -534,7 +534,7 @@ public class AHRS extends IMU {
      * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
      * resulting displacement are not known to be very accurate, and the amount of error 
      * increases quickly as time progresses.
-     * @return none.
+     * @return Displacement since last reset (in meters).
      */
     public float getDisplacementZ() {
         return displacement[2];
