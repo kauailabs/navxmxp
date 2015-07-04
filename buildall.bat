@@ -1,30 +1,45 @@
 REM Build all binaries
 
 REM
-REM Begin a command-line "clean build" of the CRio java libraries
+REM Begin a command-line "clean build" of the navx protocol java library
 REM
 
-pushd .\crio\java\nav6
-call ant clean jar
+pushd .\java\navx
+call ant clean build
 popd
 
-copy .\crio\java\nav6\build\*.jar .\processing\libraries\nav6\library\
-
 REM
-REM Begin a command-line "clean build" of the Roborio java libraries
+REM Copy navx protocol java library file to project folders that need it.
 REM
 
-pushd .\roborio\java\navx-mxp
-call ant clean jar
-popd
+mkdir .\processing\libraries\navx\library\
+copy .\java\navx\bin\*.jar .\processing\libraries\navx\library\ /Y
 
-copy .\roborio\java\navx-mxp\build\*.jar .\processing\libraries\navx_mxp\library\
+REM
+REM Regrettably, adding a non-WPI java library to a WPI Library Java Project
+REM is precluded, since the WPI build.xml uses ANT immutable variables
+REM for the classpath.  Therefore, the navx protocol library sources must be copied
+REM into the Java sample projects.
+REM 
+
+cp -r ./java/navx/src/* ./roborio/java/navXMXPSimpleRobotExample/src/
+
+REM
+REM Copy the navX protocol library .h files to the 
+REM projects that need them.
+REM
+
+cp ./stm32/navx-mxp/IMU*.h ./arduino/navXTestJig/
+cp ./stm32/navx-mxp/AHRS*.h ./arduino/navXTestJig/
+cp ./stm32/navx-mxp/IMU*.h ./roborio/c++/navXMXP_CPlusPlus_RobotExample/src/
+cp ./stm32/navx-mxp/AHRS*.h ./roborio/c++/navXMXP_CPlusPlus_RobotExample/src/
+
 
 REM
 REM Begin a command-line "clean build" of the Debug version of the navx-mxp firmware
 REM
 
-REM Use the GIT checkin count as the revision number 
+REM Use the GIT checkin count as the firmware revision number 
 
 pushd .\stm32\navx-mxp
 echo|set /p=#define NAVX_MXP_REVISION  > revision.h

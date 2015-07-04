@@ -9,12 +9,14 @@ mkdir roborio\java\bin
 mkdir roborio\java\doc
 mkdir roborio\c++
 mkdir roborio\labview
+mkdir arduino
 mkdir enclosure
 mkdir firmware
 
 cp -r ../roborio/java/navXMXPSimpleRobotExample ./roborio/java/
 cp -r ../roborio/c++/* ./roborio/c++/
-cp -r ../roborio/labview/* ./roborio/labview
+cp -r ../roborio/labview/* ./roborio/labview/
+cp -r ../arduino/* ./arduino/
 cp -r ../enclosure/* ./enclosure
 cp ../setup/Output/* .
 cp ../stm32/bin/*.hex ./firmware
