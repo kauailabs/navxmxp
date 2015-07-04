@@ -1,6 +1,5 @@
 #include "WPILib.h"
 #include "IMU.h"
-#include "IMUAdvanced.h"
 #include "AHRS.h"
 
 /**
@@ -24,9 +23,25 @@ public:
     void RobotInit() {
 
         table = NetworkTable::GetTable("datatable");
-        serial_port = new SerialPort(57600,SerialPort::kMXP);
+
+        // Use SerialPort::kMXP if connecting navX MXP to the RoboRio MXP port
+        // Use SerialPort::kUSB if connecting navX MXP to the RoboRio USB port
+
+        // You can add a second parameter to modify the
+        // update rate (in hz).  The minimum is 4.
+        // The maximum (and the default) is 60 on a navX MXP.
+        // If you need to minimize CPU load, you can set it to a
+        // lower value, as shown here, depending upon your needs.
+        // The recommended update rate is 50Hz
+
+        // The AHRS class provides access to advanced features on
+        // a navX MXP, including 9-axis headings
+        // and magnetic disturbance detection.  This class also offers
+        // access to altitude/barometric pressure data from a
+        // navX MXP Aero.
+
         uint8_t update_rate_hz = 50;
-        imu = new AHRS(serial_port,update_rate_hz);
+        imu = new AHRS(SerialPort::kMXP,update_rate_hz);
         if ( imu ) {
             LiveWindow::GetInstance()->AddSensor("IMU", "Gyro", imu);
         }

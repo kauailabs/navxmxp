@@ -39,7 +39,7 @@
  * @param serial_port SerialPort object to use
  * @param update_rate_hz Custom Update Rate (Hz)
  */
-AHRS::AHRS(SerialPort *pport, uint8_t update_rate_hz) : IMU(pport,update_rate_hz)
+AHRS::AHRS(SerialPort::Port port, uint8_t update_rate_hz) : IMU(port,update_rate_hz)
 {
     this->current_stream_type = MSGID_AHRSPOS_UPDATE;
     world_linear_accel_x =

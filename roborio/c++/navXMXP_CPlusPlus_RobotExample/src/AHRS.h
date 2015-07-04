@@ -25,12 +25,9 @@
 
 class AHRS : public IMU
 {
-protected:
-    SerialPort *pserial_port;
-    void InternalInit( SerialPort *pport, uint8_t update_rate_hz, char stream_type );
 public:
 
-    AHRS( SerialPort *pport, uint8_t update_rate_hz = 60 );
+    AHRS( SerialPort::Port port, uint8_t update_rate_hz = 60 );
     virtual ~AHRS();
 
     float GetWorldLinearAccelX();

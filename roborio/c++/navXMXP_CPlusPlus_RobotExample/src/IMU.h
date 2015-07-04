@@ -35,12 +35,13 @@ enum YAW_AXIS {
 class IMU : public SensorBase, public PIDSource, public LiveWindowSendable
 {
 protected:
+    SerialPort::Port serial_port_id;
     SerialPort *pserial_port;
-    IMU( SerialPort *pport, uint8_t update_rate_hz, char stream_type );
-    void InternalInit( SerialPort *pport, uint8_t update_rate_hz, char stream_type );
+    IMU( SerialPort::Port port, uint8_t update_rate_hz, char stream_type );
+    void InternalInit( SerialPort::Port port, uint8_t update_rate_hz, char stream_type );
 public:
 
-    IMU( SerialPort *pport, uint8_t update_rate_hz = 100 );
+    IMU( SerialPort::Port port, uint8_t update_rate_hz = 100 );
     virtual ~IMU();
     virtual float GetPitch();	// Pitch, in units of degrees (-180 to 180)
     virtual float GetRoll();	// Roll, in units of degrees (-180 to 180)
@@ -115,6 +116,6 @@ protected:
     uint16_t    gyro_fsr_dps;
     uint16_t    flags;
 
-    ITable *m_table;
+    ITable *    m_table;
 };
 #endif

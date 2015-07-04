@@ -36,7 +36,7 @@ static bool signal_transmit_integration_control = false;
 static uint8_t next_integration_control_action = 0;
 static bool signal_retransmit_stream_config = false;
 
-#define DEBUG_IMU_RX  // Comment out to disable receive debugging
+//#define DEBUG_IMU_RX  // Comment out to disable receive debugging
 
 static void imuTask(IMU *imu)
 {
@@ -307,7 +307,9 @@ int IMU::DecodePacketHandler( char *received_data, int bytes_remaining ) {
     return packet_length;
 }
 
-void IMU::InternalInit( SerialPort *pport, uint8_t update_rate_hz, char stream_type ) {
+void IMU::InternalInit( SerialPort::Port port, uint8_t update_rate_hz, char stream_type ) {
+    serial_port_id = port;
+    pserial_port = new SerialPort(57600,serial_port_id);
     current_stream_type = stream_type;
     yaw_offset_degrees = 0;
     accel_fsr_g = 2;
@@ -321,19 +323,18 @@ void IMU::InternalInit( SerialPort *pport, uint8_t update_rate_hz, char stream_t
     yaw_crossing_count = 0;
     yaw_last_direction = 0;
     last_yaw_rate = 0.0f;
-    pserial_port = pport;
     pserial_port->Reset();
     InitIMU();
     m_task->Start((uint32_t)this);
 }
 
-IMU::IMU( SerialPort *pport, uint8_t update_rate_hz, char stream_type ) {
-    InternalInit(pport,update_rate_hz,stream_type);
+IMU::IMU( SerialPort::Port port, uint8_t update_rate_hz, char stream_type ) {
+    InternalInit(port,update_rate_hz,stream_type);
 }
 
-IMU::IMU( SerialPort *pport, uint8_t update_rate_hz )
+IMU::IMU( SerialPort::Port port, uint8_t update_rate_hz )
 {
-    InternalInit(pport,update_rate_hz,STREAM_CMD_STREAM_TYPE_YPR);
+    InternalInit(port,update_rate_hz,STREAM_CMD_STREAM_TYPE_YPR);
 }
 
 /**
