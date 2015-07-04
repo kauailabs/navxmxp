@@ -70,8 +70,6 @@ public class Robot extends SampleRobot {
      */
     public void operatorControl() {
 
-        int reset_yaw_count = 0;
-        int reset_displacement_count = 0;
         AHRS.BoardYawAxis yaw_axis = new AHRS.BoardYawAxis();
         while (isOperatorControl() && isEnabled()) {
 
@@ -98,18 +96,8 @@ public class Robot extends SampleRobot {
             boolean reset_yaw_button_pressed = DriverStation.getInstance().getStickButton(0,(byte)1);
             if ( reset_yaw_button_pressed ) {
                 imu.zeroYaw();
-                reset_yaw_count++;
             }
             
-            boolean reset_displacement_button_pressed = DriverStation.getInstance().getStickButton(0,(byte)2);
-            if ( reset_displacement_button_pressed ) {
-                imu.resetDisplacement();
-                reset_displacement_count++;
-            }
-
-            SmartDashboard.putInt(      "Reset_Yaw_Count",          reset_yaw_count);
-            SmartDashboard.putInt(      "Reset_Displacement_Count", reset_displacement_count);
-
             SmartDashboard.putBoolean(  "IMU_Connected",        imu.isConnected());
             SmartDashboard.putBoolean(  "IMU_IsCalibrating",    imu.isCalibrating());
             SmartDashboard.putNumber(   "IMU_Yaw",              imu.getYaw());
