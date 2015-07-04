@@ -29,80 +29,80 @@ public class AHRSProtocol extends IMUProtocol {
 
 	/* NAVX_CAL_STATUS */
 
-	public static final byte NAVX_CAL_STATUS_IMU_CAL_STATE_MASK			= 0x03;
-	public static final byte NAVX_CAL_STATUS_IMU_CAL_INPROGRESS			= 0x00;
-	public static final byte NAVX_CAL_STATUS_IMU_CAL_ACCUMULATE			= 0x01;
-	public static final byte NAVX_CAL_STATUS_IMU_CAL_COMPLETE			= 0x02;
+	public static final byte NAVX_CAL_STATUS_IMU_CAL_STATE_MASK =          0x03;
+	public static final byte NAVX_CAL_STATUS_IMU_CAL_INPROGRESS =          0x00;
+	public static final byte NAVX_CAL_STATUS_IMU_CAL_ACCUMULATE =          0x01;
+	public static final byte NAVX_CAL_STATUS_IMU_CAL_COMPLETE =            0x02;
 
-	public static final byte NAVX_CAL_STATUS_MAG_CAL_COMPLETE			= 0x04;
-	public static final byte NAVX_CAL_STATUS_BARO_CAL_COMPLETE			= 0x08;
+	public static final byte NAVX_CAL_STATUS_MAG_CAL_COMPLETE =            0x04;
+	public static final byte NAVX_CAL_STATUS_BARO_CAL_COMPLETE =           0x08;
 
 	/* NAVX_SELFTEST_STATUS */
 
-	public static final byte NAVX_SELFTEST_STATUS_COMPLETE				= (byte) 0x80;
+	public static final byte NAVX_SELFTEST_STATUS_COMPLETE = (byte) 0x80;
 
-	public static final byte NAVX_SELFTEST_RESULT_GYRO_PASSED			= 0x01;
-	public static final byte NAVX_SELFTEST_RESULT_ACCEL_PASSED			= 0x02;
-	public static final byte NAVX_SELFTEST_RESULT_MAG_PASSED			= 0x04;
-	public static final byte NAVX_SELFTEST_RESULT_BARO_PASSED			= 0x08;
+	public static final byte NAVX_SELFTEST_RESULT_GYRO_PASSED =            0x01;
+	public static final byte NAVX_SELFTEST_RESULT_ACCEL_PASSED =           0x02;
+	public static final byte NAVX_SELFTEST_RESULT_MAG_PASSED =             0x04;
+	public static final byte NAVX_SELFTEST_RESULT_BARO_PASSED =            0x08;
 
 	/* NAVX_OP_STATUS */
 
-	public static final byte NAVX_OP_STATUS_INITIALIZING				= 0x00;
-	public static final byte NAVX_OP_STATUS_SELFTEST_IN_PROGRESS       	= 0x01;
-	public static final byte NAVX_OP_STATUS_ERROR						= 0x02;
-	public static final byte NAVX_OP_STATUS_IMU_AUTOCAL_IN_PROGRESS		= 0x03;
-	public static final byte NAVX_OP_STATUS_NORMAL					 	= 0x04;
+	public static final byte NAVX_OP_STATUS_INITIALIZING =                 0x00;
+	public static final byte NAVX_OP_STATUS_SELFTEST_IN_PROGRESS =         0x01;
+	public static final byte NAVX_OP_STATUS_ERROR =                        0x02;
+	public static final byte NAVX_OP_STATUS_IMU_AUTOCAL_IN_PROGRESS =      0x03;
+	public static final byte NAVX_OP_STATUS_NORMAL =                       0x04;
 
 	/* NAVX_SENSOR_STATUS */
-	public static final byte NAVX_SENSOR_STATUS_MOVING 					= 0x01;
-	public static final byte NAVX_SENSOR_STATUS_YAW_STABLE 				= 0x02;
-	public static final byte NAVX_SENSOR_STATUS_MAG_DISTURBANCE 		= 0x04;
-	public static final byte NAVX_SENSOR_STATUS_ALTITUDE_VALID			= 0x08;
-	public static final byte NAVX_SENSOR_STATUS_SEALEVEL_PRESS_SET		= 0x10;
-	public static final byte NAVX_SENSOR_STATUS_FUSED_HEADING_VALID 	= 0x20;
+	public static final byte NAVX_SENSOR_STATUS_MOVING =                   0x01;
+	public static final byte NAVX_SENSOR_STATUS_YAW_STABLE =               0x02;
+	public static final byte NAVX_SENSOR_STATUS_MAG_DISTURBANCE =          0x04;
+	public static final byte NAVX_SENSOR_STATUS_ALTITUDE_VALID =           0x08;
+	public static final byte NAVX_SENSOR_STATUS_SEALEVEL_PRESS_SET =       0x10;
+	public static final byte NAVX_SENSOR_STATUS_FUSED_HEADING_VALID =      0x20;
 	
 	/* NAVX_REG_CAPABILITY_FLAGS (Aligned w/NAV6 Flags, see IMUProtocol.h) */
 
-	public static final short NAVX_CAPABILITY_FLAG_OMNIMOUNT				= 0x0004;
-	public static final short NAVX_CAPABILITY_FLAG_OMNIMOUNT_CONFIG_MASK 	= 0x0038;
-	public static final short NAVX_CAPABILITY_FLAG_VEL_AND_DISP				= 0x0040;
-	public static final short NAVX_CAPABILITY_FLAG_YAW_RESET				= 0x0080;
+	public static final short NAVX_CAPABILITY_FLAG_OMNIMOUNT =             0x0004;
+	public static final short NAVX_CAPABILITY_FLAG_OMNIMOUNT_CONFIG_MASK = 0x0038;
+	public static final short NAVX_CAPABILITY_FLAG_VEL_AND_DISP =          0x0040;
+	public static final short NAVX_CAPABILITY_FLAG_YAW_RESET =             0x0080;
 
 	/* NAVX_OMNIMOUNT_CONFIG */
 
-	public static final byte OMNIMOUNT_DEFAULT						= 0; /* Same as Y_Z_UP */
-	public static final byte OMNIMOUNT_YAW_X_UP						= 1;
-	public static final byte OMNIMOUNT_YAW_X_DOWN					= 2;
-	public static final byte OMNIMOUNT_YAW_Y_UP						= 3;
-	public static final byte OMNIMOUNT_YAW_Y_DOWN					= 4;
-	public static final byte OMNIMOUNT_YAW_Z_UP						= 5;
-	public static final byte OMNIMOUNT_YAW_Z_DOWN					= 6;
+	public static final byte OMNIMOUNT_DEFAULT =                       0; /* Same as Y_Z_UP */
+	public static final byte OMNIMOUNT_YAW_X_UP =                      1;
+	public static final byte OMNIMOUNT_YAW_X_DOWN =                    2;
+	public static final byte OMNIMOUNT_YAW_Y_UP =                      3;
+	public static final byte OMNIMOUNT_YAW_Y_DOWN =                    4;
+	public static final byte OMNIMOUNT_YAW_Z_UP =                      5;
+	public static final byte OMNIMOUNT_YAW_Z_DOWN =                    6;
 
 	/* NAVX_INTEGRATION_CTL */
 
-	public static final byte NAVX_INTEGRATION_CTL_RESET_VEL_X		= 0x01;
-	public static final byte NAVX_INTEGRATION_CTL_RESET_VEL_Y		= 0x02;
-	public static final byte NAVX_INTEGRATION_CTL_RESET_VEL_Z		= 0x04;
-	public static final byte NAVX_INTEGRATION_CTL_RESET_DISP_X		= 0x08;
-	public static final byte NAVX_INTEGRATION_CTL_RESET_DISP_Y		= 0x10;
-	public static final byte NAVX_INTEGRATION_CTL_RESET_DISP_Z		= 0x20;
-	public static final byte NAVX_INTEGRATION_CTL_RESET_YAW			= (byte)0x80;
+	public static final byte NAVX_INTEGRATION_CTL_RESET_VEL_X =        0x01;
+	public static final byte NAVX_INTEGRATION_CTL_RESET_VEL_Y =        0x02;
+	public static final byte NAVX_INTEGRATION_CTL_RESET_VEL_Z =        0x04;
+	public static final byte NAVX_INTEGRATION_CTL_RESET_DISP_X =       0x08;
+	public static final byte NAVX_INTEGRATION_CTL_RESET_DISP_Y =       0x10;
+	public static final byte NAVX_INTEGRATION_CTL_RESET_DISP_Z =       0x20;
+	public static final byte NAVX_INTEGRATION_CTL_RESET_YAW =    (byte)0x80;
 	
     public class AHRS_TUNING_VAR_ID
     {
-        public static final byte UNSPECIFIED = 0;
-        public static final byte MOTION_THRESHOLD = 1;           /* In G */
-        public static final byte YAW_STABLE_THRESHOLD = 2;       /* In Degrees */
-        public static final byte MAG_DISTURBANCE_THRESHOLD = 3;  /* Ratio */
-        public static final byte SEA_LEVEL_PRESSURE = 4;         /* Millibars */
+        public static final byte UNSPECIFIED =                  0;
+        public static final byte MOTION_THRESHOLD =             1; /* In G */
+        public static final byte YAW_STABLE_THRESHOLD =         2; /* In Degrees */
+        public static final byte MAG_DISTURBANCE_THRESHOLD =    3; /* Ratio */
+        public static final byte SEA_LEVEL_PRESSURE =           4; /* Millibars */
     };    
     
     public class AHRS_DATA_TYPE
     {
-        public static final byte TUNING_VARIABLE = 0;
-        public static final byte MAG_CALIBRATION = 1;
-        public static final byte BOARD_IDENTITY = 2;
+        public static final byte TUNING_VARIABLE =  0;
+        public static final byte MAG_CALIBRATION =  1;
+        public static final byte BOARD_IDENTITY =   2;
     };
 
     public class AHRS_DATA_ACTION
@@ -162,119 +162,119 @@ public class AHRSProtocol extends IMUProtocol {
 
  // AHRSAndPositioning Update Packet (similar to AHRS, but removes magnetometer and adds velocity/displacement) */
 
-    public final static byte MSGID_AHRSPOS_UPDATE = 'p';
-    final static int AHRSPOS_UPDATE_YAW_VALUE_INDEX = 4; /* Degrees.  Signed Hundredths */
-    final static int AHRSPOS_UPDATE_PITCH_VALUE_INDEX = 6; /* Degrees.  Signed Hundredeths */
-    final static int AHRSPOS_UPDATE_ROLL_VALUE_INDEX = 8; /* Degrees.  Signed Hundredths */
-    final static int AHRSPOS_UPDATE_HEADING_VALUE_INDEX = 10; /* Degrees.  Unsigned Hundredths */
-    final static int AHRSPOS_UPDATE_ALTITUDE_VALUE_INDEX = 12; /* Meters.   Signed 16:16 */
+    public final static byte MSGID_AHRSPOS_UPDATE =             'p';
+    final static int AHRSPOS_UPDATE_YAW_VALUE_INDEX =           4; /* Degrees.  Signed Hundredths */
+    final static int AHRSPOS_UPDATE_PITCH_VALUE_INDEX =         6; /* Degrees.  Signed Hundredeths */
+    final static int AHRSPOS_UPDATE_ROLL_VALUE_INDEX =          8; /* Degrees.  Signed Hundredths */
+    final static int AHRSPOS_UPDATE_HEADING_VALUE_INDEX =       10; /* Degrees.  Unsigned Hundredths */
+    final static int AHRSPOS_UPDATE_ALTITUDE_VALUE_INDEX =      12; /* Meters.   Signed 16:16 */
     final static int AHRSPOS_UPDATE_FUSED_HEADING_VALUE_INDEX = 16; /* Degrees.  Unsigned Hundredths */
     final static int AHRSPOS_UPDATE_LINEAR_ACCEL_X_VALUE_INDEX = 18; /* Inst. G.  Signed Thousandths */
     final static int AHRSPOS_UPDATE_LINEAR_ACCEL_Y_VALUE_INDEX = 20; /* Inst. G.  Signed Thousandths */
     final static int AHRSPOS_UPDATE_LINEAR_ACCEL_Z_VALUE_INDEX = 22; /* Inst. G.  Signed Thousandths */
-    final static int AHRSPOS_UPDATE_VEL_X_VALUE_INDEX = 24; /* Signed 16:16, in meters/sec */
-    final static int AHRSPOS_UPDATE_VEL_Y_VALUE_INDEX = 28; /* Signed 16:16, in meters/sec */
-    final static int AHRSPOS_UPDATE_VEL_Z_VALUE_INDEX = 32; /* Signed 16:16, in meters/sec */
-    final static int AHRSPOS_UPDATE_DISP_X_VALUE_INDEX = 36; /* Signed 16:16, in meters */
-    final static int AHRSPOS_UPDATE_DISP_Y_VALUE_INDEX = 40; /* Signed 16:16, in meters */
-    final static int AHRSPOS_UPDATE_DISP_Z_VALUE_INDEX = 44; /* Signed 16:16, in meters */
-    final static int AHRSPOS_UPDATE_QUAT_W_VALUE_INDEX = 48; /* INT16 */
-    final static int AHRSPOS_UPDATE_QUAT_X_VALUE_INDEX = 50; /* INT16 */
-    final static int AHRSPOS_UPDATE_QUAT_Y_VALUE_INDEX = 52; /* INT16 */
-    final static int AHRSPOS_UPDATE_QUAT_Z_VALUE_INDEX = 54; /* INT16 */
-    final static int AHRSPOS_UPDATE_MPU_TEMP_VAUE_INDEX = 56; /* Centigrade.  Signed Hundredths */
-    final static int AHRSPOS_UPDATE_OPSTATUS_VALUE_INDEX = 58; /* NAVX_OP_STATUS_XXX */
+    final static int AHRSPOS_UPDATE_VEL_X_VALUE_INDEX =         24; /* Signed 16:16, in meters/sec */
+    final static int AHRSPOS_UPDATE_VEL_Y_VALUE_INDEX =         28; /* Signed 16:16, in meters/sec */
+    final static int AHRSPOS_UPDATE_VEL_Z_VALUE_INDEX =         32; /* Signed 16:16, in meters/sec */
+    final static int AHRSPOS_UPDATE_DISP_X_VALUE_INDEX =        36; /* Signed 16:16, in meters */
+    final static int AHRSPOS_UPDATE_DISP_Y_VALUE_INDEX =        40; /* Signed 16:16, in meters */
+    final static int AHRSPOS_UPDATE_DISP_Z_VALUE_INDEX =        44; /* Signed 16:16, in meters */
+    final static int AHRSPOS_UPDATE_QUAT_W_VALUE_INDEX =        48; /* INT16 */
+    final static int AHRSPOS_UPDATE_QUAT_X_VALUE_INDEX =        50; /* INT16 */
+    final static int AHRSPOS_UPDATE_QUAT_Y_VALUE_INDEX =        52; /* INT16 */
+    final static int AHRSPOS_UPDATE_QUAT_Z_VALUE_INDEX =        54; /* INT16 */
+    final static int AHRSPOS_UPDATE_MPU_TEMP_VAUE_INDEX =       56; /* Centigrade.  Signed Hundredths */
+    final static int AHRSPOS_UPDATE_OPSTATUS_VALUE_INDEX =      58; /* NAVX_OP_STATUS_XXX */
     final static int AHRSPOS_UPDATE_SENSOR_STATUS_VALUE_INDEX = 59; /* NAVX_SENSOR_STATUS_XXX */
-    final static int AHRSPOS_UPDATE_CAL_STATUS_VALUE_INDEX = 60; /* NAVX_CAL_STATUS_XXX */
+    final static int AHRSPOS_UPDATE_CAL_STATUS_VALUE_INDEX =    60; /* NAVX_CAL_STATUS_XXX */
     final static int AHRSPOS_UPDATE_SELFTEST_STATUS_VALUE_INDEX	= 61; /* NAVX_SELFTEST_STATUS_XXX */
-    final static int AHRSPOS_UPDATE_MESSAGE_CHECKSUM_INDEX = 62;
-    final static int AHRSPOS_UPDATE_MESSAGE_TERMINATOR_INDEX = 64;
-    final static int AHRSPOS_UPDATE_MESSAGE_LENGTH = 66;
+    final static int AHRSPOS_UPDATE_MESSAGE_CHECKSUM_INDEX =    62;
+    final static int AHRSPOS_UPDATE_MESSAGE_TERMINATOR_INDEX =  64;
+    final static int AHRSPOS_UPDATE_MESSAGE_LENGTH =            66;
     
     // Data Get Request:  Tuning Variable, Mag Cal, Board Identity (Response message depends upon request type)
-    public final static byte MSGID_DATA_REQUEST = 'D';
-    final static int DATA_REQUEST_DATATYPE_VALUE_INDEX = 4;
-    final static int DATA_REQUEST_VARIABLEID_VALUE_INDEX = 5;
-    final static int DATA_REQUEST_CHECKSUM_INDEX = 6;
-    final static int DATA_REQUEST_TERMINATOR_INDEX = 8;
-    final static int DATA_REQUEST_MESSAGE_LENGTH = 10;
+    public final static byte MSGID_DATA_REQUEST =               'D';
+    final static int DATA_REQUEST_DATATYPE_VALUE_INDEX =        4;
+    final static int DATA_REQUEST_VARIABLEID_VALUE_INDEX =      5;
+    final static int DATA_REQUEST_CHECKSUM_INDEX =              6;
+    final static int DATA_REQUEST_TERMINATOR_INDEX =            8;
+    final static int DATA_REQUEST_MESSAGE_LENGTH =              10;
     
     // Data Set Response Packet
-    public final static byte MSGID_DATA_SET_RESPONSE = 'v';
-    final static int DATA_SET_RESPONSE_DATATYPE_VALUE_INDEX = 4;
-    final static int DATA_SET_RESPONSE_VARID_VALUE_INDEX = 5;
-    final static int DATA_SET_RESPONSE_STATUS_VALUE_INDEX = 6;
+    public final static byte MSGID_DATA_SET_RESPONSE =          'v';
+    final static int DATA_SET_RESPONSE_DATATYPE_VALUE_INDEX =   4;
+    final static int DATA_SET_RESPONSE_VARID_VALUE_INDEX =      5;
+    final static int DATA_SET_RESPONSE_STATUS_VALUE_INDEX =     6;
     final static int DATA_SET_RESPONSE_MESSAGE_CHECKSUM_INDEX = 7;
     final static int DATA_SET_RESPONSE_MESSAGE_TERMINATOR_INDEX = 9;
-    final static int DATA_SET_RESPONSE_MESSAGE_LENGTH = 11;
+    final static int DATA_SET_RESPONSE_MESSAGE_LENGTH =         11;
 
     /* Integration Control Command Packet */
-    public final static byte MSGID_INTEGRATION_CONTROL_CMD = 'I';
-    final static int INTEGRATION_CONTROL_CMD_ACTION_INDEX = 4;
-    final static int INTEGRATION_CONTROL_CMD_PARAMETER_INDEX = 5;
+    public final static byte MSGID_INTEGRATION_CONTROL_CMD =    'I';
+    final static int INTEGRATION_CONTROL_CMD_ACTION_INDEX =     4;
+    final static int INTEGRATION_CONTROL_CMD_PARAMETER_INDEX =  5;
     final static int INTEGRATION_CONTROL_CMD_MESSAGE_CHECKSUM_INDEX	= 9;
     final static int INTEGRATION_CONTROL_CMD_MESSAGE_TERMINATOR_INDEX = 11;
-    final static int INTEGRATION_CONTROL_CMD_MESSAGE_LENGTH	= 13;
+    final static int INTEGRATION_CONTROL_CMD_MESSAGE_LENGTH	=   13;
 
     /* Integration Control Response Packet */
-    public final static byte MSGID_INTEGRATION_CONTROL_RESP = 'i';
-    final static int INTEGRATION_CONTROL_RESP_ACTION_INDEX = 4;
+    public final static byte MSGID_INTEGRATION_CONTROL_RESP =   'i';
+    final static int INTEGRATION_CONTROL_RESP_ACTION_INDEX =    4;
     final static int INTEGRATION_CONTROL_RESP_PARAMETER_INDEX = 5;
     final static int INTEGRATION_CONTROL_RESP_MESSAGE_CHECKSUM_INDEX = 9;
     final static int INTEGRATION_CONTROL_RESP_MESSAGE_TERMINATOR_INDEX = 11;
-    final static int INTEGRATION_CONTROL_RESP_MESSAGE_LENGTH = 13;
+    final static int INTEGRATION_CONTROL_RESP_MESSAGE_LENGTH =  13;
     
     // Magnetometer Calibration Packet - e.g., !m[x_bias][y_bias][z_bias][m1,1 ... m3,3][cr][lf]
-    public final static byte MSGID_MAG_CAL_CMD = 'M';
-    final static int MAG_CAL_DATA_ACTION_VALUE_INDEX = 4;
-    final static int MAG_X_BIAS_VALUE_INDEX = 5; /* signed short */
-    final static int MAG_Y_BIAS_VALUE_INDEX = 7;
-    final static int MAG_Z_BIAS_VALUE_INDEX = 9;
-    final static int MAG_XFORM_1_1_VALUE_INDEX = 11; /* signed 16:16 */
-    final static int MAG_XFORM_1_2_VALUE_INDEX = 15;
-    final static int MAG_XFORM_1_3_VALUE_INDEX = 19;
-    final static int MAG_XFORM_2_1_VALUE_INDEX = 23;
-    final static int MAG_XFORM_2_2_VALUE_INDEX = 25;
-    final static int MAG_XFORM_2_3_VALUE_INDEX = 31;
-    final static int MAG_XFORM_3_1_VALUE_INDEX = 35;
-    final static int MAG_XFORM_3_2_VALUE_INDEX = 39;
-    final static int MAG_XFORM_3_3_VALUE_INDEX = 43;
+    public final static byte MSGID_MAG_CAL_CMD =                'M';
+    final static int MAG_CAL_DATA_ACTION_VALUE_INDEX =          4;
+    final static int MAG_X_BIAS_VALUE_INDEX =                   5; /* signed short */
+    final static int MAG_Y_BIAS_VALUE_INDEX =                   7;
+    final static int MAG_Z_BIAS_VALUE_INDEX =                   9;
+    final static int MAG_XFORM_1_1_VALUE_INDEX =                11; /* signed 16:16 */
+    final static int MAG_XFORM_1_2_VALUE_INDEX =                15;
+    final static int MAG_XFORM_1_3_VALUE_INDEX =                19;
+    final static int MAG_XFORM_2_1_VALUE_INDEX =                23;
+    final static int MAG_XFORM_2_2_VALUE_INDEX =                25;
+    final static int MAG_XFORM_2_3_VALUE_INDEX =                31;
+    final static int MAG_XFORM_3_1_VALUE_INDEX =                35;
+    final static int MAG_XFORM_3_2_VALUE_INDEX =                39;
+    final static int MAG_XFORM_3_3_VALUE_INDEX =                43;
     final static int MAG_CAL_EARTH_MAG_FIELD_NORM_VALUE_INDEX = 47;
-    final static int MAG_CAL_CMD_MESSAGE_CHECKSUM_INDEX  = 51;
-    final static int MAG_CAL_CMD_MESSAGE_TERMINATOR_INDEX = 53;
-    final static int MAG_CAL_CMD_MESSAGE_LENGTH = 55;
+    final static int MAG_CAL_CMD_MESSAGE_CHECKSUM_INDEX  =      51;
+    final static int MAG_CAL_CMD_MESSAGE_TERMINATOR_INDEX =     53;
+    final static int MAG_CAL_CMD_MESSAGE_LENGTH =               55;
 
     // Tuning Variable Packet
-    public final static byte MSGID_FUSION_TUNING_CMD  = 'T';
-    final static int FUSION_TUNING_DATA_ACTION_VALUE_INDEX = 4;
-    final static int FUSION_TUNING_CMD_VAR_ID_VALUE_INDEX = 5;
-    final static int FUSION_TUNING_CMD_VAR_VALUE_INDEX = 6;
+    public final static byte MSGID_FUSION_TUNING_CMD  =         'T';
+    final static int FUSION_TUNING_DATA_ACTION_VALUE_INDEX =    4;
+    final static int FUSION_TUNING_CMD_VAR_ID_VALUE_INDEX =     5;
+    final static int FUSION_TUNING_CMD_VAR_VALUE_INDEX =        6;
     final static int FUSION_TUNING_CMD_MESSAGE_CHECKSUM_INDEX = 10;
     final static int FUSION_TUNING_CMD_MESSAGE_TERMINATOR_INDEX = 12;
-    final static int FUSION_TUNING_CMD_MESSAGE_LENGTH = 14;
+    final static int FUSION_TUNING_CMD_MESSAGE_LENGTH =         14;
 
     // Board Identity Response Packet- e.g., !c[type][hw_rev][fw_major][fw_minor][unique_id[12]]
-    public final static byte MSGID_BOARD_IDENTITY_RESPONSE = 'i';
-    final static int BOARD_IDENTITY_BOARDTYPE_VALUE_INDEX = 4;
-    final static int BOARD_IDENTITY_HWREV_VALUE_INDEX = 5;
-    final static int BOARD_IDENTITY_FW_VER_MAJOR = 6;
-    final static int BOARD_IDENTITY_FW_VER_MINOR = 7;
+    public final static byte MSGID_BOARD_IDENTITY_RESPONSE =    'i';
+    final static int BOARD_IDENTITY_BOARDTYPE_VALUE_INDEX =     4;
+    final static int BOARD_IDENTITY_HWREV_VALUE_INDEX =         5;
+    final static int BOARD_IDENTITY_FW_VER_MAJOR =              6;
+    final static int BOARD_IDENTITY_FW_VER_MINOR =              7;
     final static int BOARD_IDENTITY_FW_VER_REVISION_VALUE_INDEX = 8;
-    final static int BOARD_IDENTITY_UNIQUE_ID_0 = 10;
-    final static int BOARD_IDENTITY_UNIQUE_ID_1 = 11;
-    final static int BOARD_IDENTITY_UNIQUE_ID_2 = 12;
-    final static int BOARD_IDENTITY_UNIQUE_ID_3 = 13;
-    final static int BOARD_IDENTITY_UNIQUE_ID_4 = 14;
-    final static int BOARD_IDENTITY_UNIQUE_ID_5 = 15;
-    final static int BOARD_IDENTITY_UNIQUE_ID_6 = 16;
-    final static int BOARD_IDENTITY_UNIQUE_ID_7 = 17;
-    final static int BOARD_IDENTITY_UNIQUE_ID_8 = 18;
-    final static int BOARD_IDENTITY_UNIQUE_ID_9 = 19;
-    final static int BOARD_IDENTITY_UNIQUE_ID_10 = 20;
-    final static int BOARD_IDENTITY_UNIQUE_ID_11 = 21;
-    final static int BOARD_IDENTITY_RESPONSE_CHECKSUM_INDEX = 22;
+    final static int BOARD_IDENTITY_UNIQUE_ID_0 =               10;
+    final static int BOARD_IDENTITY_UNIQUE_ID_1 =               11;
+    final static int BOARD_IDENTITY_UNIQUE_ID_2 =               12;
+    final static int BOARD_IDENTITY_UNIQUE_ID_3 =               13;
+    final static int BOARD_IDENTITY_UNIQUE_ID_4 =               14;
+    final static int BOARD_IDENTITY_UNIQUE_ID_5 =               15;
+    final static int BOARD_IDENTITY_UNIQUE_ID_6 =               16;
+    final static int BOARD_IDENTITY_UNIQUE_ID_7 =               17;
+    final static int BOARD_IDENTITY_UNIQUE_ID_8 =               18;
+    final static int BOARD_IDENTITY_UNIQUE_ID_9 =               19;
+    final static int BOARD_IDENTITY_UNIQUE_ID_10 =              20;
+    final static int BOARD_IDENTITY_UNIQUE_ID_11 =              21;
+    final static int BOARD_IDENTITY_RESPONSE_CHECKSUM_INDEX =   22;
     final static int BOARD_IDENTITY_RESPONSE_TERMINATOR_INDEX = 24;
-    final static int BOARD_IDENTITY_RESPONSE_MESSAGE_LENGTH = 26;
+    final static int BOARD_IDENTITY_RESPONSE_MESSAGE_LENGTH =   26;
 
     public final static int MAX_BINARY_MESSAGE_LENGTH = AHRSPOS_UPDATE_MESSAGE_LENGTH;
     

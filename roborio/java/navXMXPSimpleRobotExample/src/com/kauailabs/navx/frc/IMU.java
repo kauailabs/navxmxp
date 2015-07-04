@@ -39,7 +39,7 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
     static final byte   DEFAULT_UPDATE_RATE_HZ  = 100;
     static final short  DEFAULT_ACCEL_FSR_G     = 2;
     static final short  DEFAULT_GYRO_FSR_DPS    = 2000;
-    
+
     SerialPort.Port serial_port_id;
     SerialPort serial_port;
     float yaw_history[];
@@ -67,24 +67,24 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
     boolean stop = false;
     private IMUProtocol.YPRUpdate ypr_update_data;
     protected byte update_type = IMUProtocol.MSGID_YPR_UPDATE;
-    
-	private byte next_integration_control_action = 0;
-	private boolean signal_transmit_integration_control = false;
+
+    private byte next_integration_control_action = 0;
+    private boolean signal_transmit_integration_control = false;
     private boolean signal_retransmit_stream_config = false;
-	
+
     static public class BoardAxis
     {
-    	public static final byte BOARD_AXIS_X = 0;
-    	public static final byte BOARD_AXIS_Y = 1;
-    	public static final byte BOARD_AXIS_Z = 2;
+        public static final byte BOARD_AXIS_X = 0;
+        public static final byte BOARD_AXIS_Y = 1;
+        public static final byte BOARD_AXIS_Z = 2;
     }
-    
+
     static public class BoardYawAxis
     {
-    	public byte board_axis;
-    	public boolean up;
+        public byte board_axis;
+        public boolean up;
     };
-    
+
     protected SerialPort resetSerialPort()
     {
         if (serial_port != null) {
@@ -98,7 +98,7 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
         serial_port = getMaybeCreateSerialPort();
         return serial_port;
     }
-    
+
     protected SerialPort getMaybeCreateSerialPort()
     {
         if (serial_port == null) {
@@ -115,7 +115,7 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
         }
         return serial_port;
     }
-    
+
     /**
      * Constructs the IMU class, overriding the default update rate
      * with a custom rate which may be from 4 to 100, representing
@@ -141,17 +141,17 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
         yaw_last_direction = 0;
         last_yaw_rate = 0.0f;
         try {
-        	serial_port = getMaybeCreateSerialPort();    		
+            serial_port = getMaybeCreateSerialPort();    		
             serial_port.reset();
         } catch (RuntimeException ex) {
-        	serial_port = null;
+            serial_port = null;
             ex.printStackTrace();
         }
         initIMU();
         m_thread = new Thread(this);
         m_thread.start();        
     }
-    
+
     /**
      * Constructs the IMU class, using the default update rate.  
      * 
@@ -162,7 +162,7 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
     }
 
     protected void initIMU() {
-        
+
         // The navX serial port configuration is 8 data bits, no parity, one stop bit. 
         // No flow control is used.
         // Conveniently, these are the defaults used by the WPILib's SerialPort class.
@@ -182,7 +182,7 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
         try {
             serial_port.write( stream_command_buffer, packet_length );
         } catch (RuntimeException ex) {
-        	ex.printStackTrace();
+            ex.printStackTrace();
         }
     }
 
@@ -196,48 +196,48 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
         /* If AHRSPOS is update type is request, but board doesn't support it, */
         /* retransmit the stream config, falling back to AHRS Update mode.     */
         if ( this.update_type == AHRSProtocol.MSGID_AHRSPOS_UPDATE ) {
-        	if ( !isDisplacementSupported() ) {
-        		this.update_type = AHRSProtocol.MSGID_AHRS_UPDATE;
-        		signal_retransmit_stream_config = true;
-        	}
+            if ( !isDisplacementSupported() ) {
+                this.update_type = AHRSProtocol.MSGID_AHRS_UPDATE;
+                signal_retransmit_stream_config = true;
+            }
         }
     }
-     
+
     protected boolean isOmniMountSupported()
     {
-    	return (((flags & AHRSProtocol.NAVX_CAPABILITY_FLAG_OMNIMOUNT) !=0) ? true : false);
+        return (((flags & AHRSProtocol.NAVX_CAPABILITY_FLAG_OMNIMOUNT) !=0) ? true : false);
     }
 
     boolean isBoardYawResetSupported()
     {
-    	return (((flags & AHRSProtocol.NAVX_CAPABILITY_FLAG_YAW_RESET) != 0) ? true : false);
+        return (((flags & AHRSProtocol.NAVX_CAPABILITY_FLAG_YAW_RESET) != 0) ? true : false);
     }
 
     protected boolean isDisplacementSupported()
     {
-    	return (((flags & AHRSProtocol.NAVX_CAPABILITY_FLAG_VEL_AND_DISP) != 0) ? true : false);
+        return (((flags & AHRSProtocol.NAVX_CAPABILITY_FLAG_VEL_AND_DISP) != 0) ? true : false);
     }
-    
+
     protected void enqueueIntegrationControlMessage(byte action)
     {
-    	next_integration_control_action = action;
-    	signal_transmit_integration_control = true;
+        next_integration_control_action = action;
+        signal_transmit_integration_control = true;
     }
 
     public void getBoardYawAxis( BoardYawAxis info)
     {
-    	short yaw_axis_info = (short)(flags >> 3);
-    	yaw_axis_info &= 7;
-     	if ( yaw_axis_info == AHRSProtocol.OMNIMOUNT_DEFAULT) {
-    		info.board_axis = BoardAxis.BOARD_AXIS_Z;
-    		info.up = true;
-    	} else {
-    		info.board_axis = (byte)yaw_axis_info;
-    		info.up = (((info.board_axis & 0x01) != 0) ? true : false);
-    		info.board_axis >>= 1;
-    	}
+        short yaw_axis_info = (short)(flags >> 3);
+        yaw_axis_info &= 7;
+        if ( yaw_axis_info == AHRSProtocol.OMNIMOUNT_DEFAULT) {
+            info.board_axis = BoardAxis.BOARD_AXIS_Z;
+            info.up = true;
+        } else {
+            info.board_axis = (byte)yaw_axis_info;
+            info.up = (((info.board_axis & 0x01) != 0) ? true : false);
+            info.board_axis >>= 1;
+        }
     }
-    
+
     private void initializeYawHistory() {
 
         Arrays.fill(yaw_history,0);
@@ -247,48 +247,48 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
 
     protected void setYawPitchRoll(float yaw, float pitch, float roll, float compass_heading) {
 
-    	float last_offset_corrected_yaw = getYaw();
-    	
-    	float last_yaw = this.yaw + 180.0f;
-    	float curr_yaw = yaw + 180.0f;
+        float last_offset_corrected_yaw = getYaw();
+
+        float last_yaw = this.yaw + 180.0f;
+        float curr_yaw = yaw + 180.0f;
         float delta_yaw = curr_yaw - last_yaw;
         this.last_yaw_rate = delta_yaw;
-        
+
         yaw_last_direction = 0;
-    	if ( curr_yaw < last_yaw ) {
-    		if ( delta_yaw < 180.0f ) {
-    			yaw_last_direction = -1;
-    		} else {
-    			yaw_last_direction = 1;
-    		}
-    	} else if ( curr_yaw > last_yaw ) {
-    		if ( delta_yaw > 180.0f ) {
-    			yaw_last_direction = -1;
-    		} else {
-    			yaw_last_direction = 1;
-    		}
-    	}
-    	
+        if ( curr_yaw < last_yaw ) {
+            if ( delta_yaw < 180.0f ) {
+                yaw_last_direction = -1;
+            } else {
+                yaw_last_direction = 1;
+            }
+        } else if ( curr_yaw > last_yaw ) {
+            if ( delta_yaw > 180.0f ) {
+                yaw_last_direction = -1;
+            } else {
+                yaw_last_direction = 1;
+            }
+        }
+
         this.yaw = yaw;
         this.pitch = pitch;
         this.roll = roll;
         this.compass_heading = compass_heading;
-        
+
         updateYawHistory(this.yaw);
 
-    	float curr_offset_corrected_yaw = getYaw();
-    	
-    	if ( yaw_last_direction < 0 ) {
-			if ( ( curr_offset_corrected_yaw < 0.0f ) && ( last_offset_corrected_yaw >= 0.0f ) ) {
-				yaw_crossing_count--;
-			}    		
-    	} else if ( yaw_last_direction > 0 ) {
-			if ( ( curr_offset_corrected_yaw >= 0.0f ) && ( last_offset_corrected_yaw < 0.0f ) ) {
-				yaw_crossing_count++;
-			}    		
-    	}
-    	
-    
+        float curr_offset_corrected_yaw = getYaw();
+
+        if ( yaw_last_direction < 0 ) {
+            if ( ( curr_offset_corrected_yaw < 0.0f ) && ( last_offset_corrected_yaw >= 0.0f ) ) {
+                yaw_crossing_count--;
+            }    		
+        } else if ( yaw_last_direction > 0 ) {
+            if ( ( curr_offset_corrected_yaw >= 0.0f ) && ( last_offset_corrected_yaw < 0.0f ) ) {
+                yaw_crossing_count++;
+            }    		
+        }
+
+
     }
 
     protected void updateYawHistory(float curr_yaw) {
@@ -316,7 +316,7 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
      * reported by the navX MXP.
      * @return The current pitch value in degrees (-180 to 180).
      */
-        public float getPitch() {
+    public float getPitch() {
         return pitch;
     }
 
@@ -363,17 +363,17 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
      * @return the current heading of the robot in degrees. This heading is based on integration
      * of the returned rate from the gyro.
      */
-    
+
     public double getAngle() {
         double accumulated_yaw_angle = (double)yaw_crossing_count * 360.0f;
         double curr_yaw = getYaw();
         if ( curr_yaw < 0.0f ) {
-        	curr_yaw += 360.0f;
+            curr_yaw += 360.0f;
         }
         accumulated_yaw_angle += curr_yaw;
-    	return accumulated_yaw_angle;
+        return accumulated_yaw_angle;
     }
-    
+
     /**
      * Return the rate of rotation of the gyro.
      * 
@@ -381,11 +381,11 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
      * 
      * @return the current rate in degrees per second
      */
-    
+
     public double getRate() {
-    	return last_yaw_rate * (float)update_rate_hz;    	
+        return last_yaw_rate * (float)update_rate_hz;    	
     }
-    
+
     /**
      * Returns the current tilt-compensated compass heading 
      * value (in degrees, from 0 to 360) reported by the navX MXP IMU.
@@ -408,27 +408,27 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
      * the getYaw() method.
      */
     public void zeroYaw() {
-    	
-    	if ( isBoardYawResetSupported() ) {
-    		/* navX MXP supports on-board yaw offset reset */
-    		enqueueIntegrationControlMessage( AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_YAW );
-    	} else {
-    		user_yaw_offset = getAverageFromYawHistory();
-    	}
+
+        if ( isBoardYawResetSupported() ) {
+            /* navX MXP supports on-board yaw offset reset */
+            enqueueIntegrationControlMessage( AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_YAW );
+        } else {
+            user_yaw_offset = getAverageFromYawHistory();
+        }
         yaw_crossing_count = 0;
     }
 
-   /**
-    * Reset the gyro.
-    *
-    * Resets the gyro Z (Yaw) axis to a heading of zero. This can be used if there is significant 
-    * drift in the gyro and it needs to be recalibrated after it has been running.
-    */
-    
+    /**
+     * Reset the gyro.
+     *
+     * Resets the gyro Z (Yaw) axis to a heading of zero. This can be used if there is significant 
+     * drift in the gyro and it needs to be recalibrated after it has been running.
+     */
+
     public void reset() {
-    	zeroYaw();
+        zeroYaw();
     }
-    
+
     /**
      * Indicates whether the navX MXP is currently connected
      * to the host computer.  A connection is considered established
@@ -520,18 +520,18 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
 
     // Invoked when a new packet is received; returns the packet length if the packet 
     // is valid, based upon IMU Protocol definitions; otherwise, returns 0
-    
+
     protected int decodePacketHandler(byte[] received_data, int offset, int bytes_remaining) {
-        
+
         int packet_length = IMUProtocol.decodeYPRUpdate(received_data, offset, bytes_remaining, ypr_update_data);
         if (packet_length > 0) {
             setYawPitchRoll(ypr_update_data.yaw,ypr_update_data.pitch,ypr_update_data.roll,ypr_update_data.compass_heading);
         }
         return packet_length;
     }
-    
+
     // IMU Class thread run method
-    
+
     public void run() {
 
         stop = false;
@@ -547,7 +547,7 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
         double last_data_received_timestamp = 0;
         int integration_response_receive_count = 0;
         double last_second_start_time = 0;
-        
+
         try {
             serial_port.setReadBufferSize(256);
             serial_port.setTimeout(1.0);
@@ -557,35 +557,35 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
         } catch (RuntimeException ex) {
             ex.printStackTrace();
         }
-                
+
         IMUProtocol.StreamResponse response = new IMUProtocol.StreamResponse();
 
         byte[] stream_command = new byte[256];
         byte[] integration_control_command = new byte[256];
         AHRSProtocol.IntegrationControl integration_control = new AHRSProtocol.IntegrationControl();
         AHRSProtocol.IntegrationControl integration_control_response = new AHRSProtocol.IntegrationControl();
-        
+
         int cmd_packet_length = IMUProtocol.encodeStreamCommand( stream_command, update_type, update_rate_hz ); 
         try {
             serial_port.reset();
             serial_port.write( stream_command, cmd_packet_length );
             serial_port.flush();
             port_reset_count++;
-	        SmartDashboard.putNumber("navX_PortResets", (double)port_reset_count);
+            SmartDashboard.putNumber("navX_PortResets", (double)port_reset_count);
             last_stream_command_sent_timestamp = Timer.getFPGATimestamp();
         } catch (RuntimeException ex) {
-        	ex.printStackTrace();
+            ex.printStackTrace();
         }
-        
+
         int remainder_bytes = 0;
         byte[] remainder_data = null;
-        
+
         while (!stop) {
             try {
 
                 // Wait, with delays to conserve CPU resources, until
                 // bytes have arrived.
-                
+
                 if ( signal_transmit_integration_control ) {
                     integration_control.action = next_integration_control_action;
                     signal_transmit_integration_control = false;
@@ -606,29 +606,29 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
                 byte[] received_data = serial_port.read(256);
                 int bytes_read = received_data.length;
                 byte_count += bytes_read;
-               
+
                 /* If a partial packet remains from last iteration, place that at  */
                 /* the start of the data buffer, and append any new data available */
                 /* at the serial port.                                             */
-                
+
                 if ( remainder_bytes > 0 ) {
-                	byte[] resized_array = new byte[remainder_bytes + bytes_read];
-                	System.arraycopy(remainder_data, 0, resized_array, 0, remainder_bytes);
-                	System.arraycopy(received_data, 0, resized_array, remainder_bytes, bytes_read);
-                	received_data = resized_array;
-                	bytes_read += remainder_bytes;
-                	remainder_bytes = 0;
-                	remainder_data = null;
+                    byte[] resized_array = new byte[remainder_bytes + bytes_read];
+                    System.arraycopy(remainder_data, 0, resized_array, 0, remainder_bytes);
+                    System.arraycopy(received_data, 0, resized_array, remainder_bytes, bytes_read);
+                    received_data = resized_array;
+                    bytes_read += remainder_bytes;
+                    remainder_bytes = 0;
+                    remainder_data = null;
                 }
-                
+
                 if (bytes_read > 0) {
-                	last_data_received_timestamp = Timer.getFPGATimestamp();
+                    last_data_received_timestamp = Timer.getFPGATimestamp();
                     int i = 0;
                     // Scan the buffer looking for valid packets
                     while (i < bytes_read) {
-                                                
+
                         // Attempt to decode a packet
-                        
+
                         int bytes_remaining = bytes_read - i;
 
                         if ( received_data[i] != IMUProtocol.PACKET_START_CHAR ) {
@@ -669,7 +669,7 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
                                 }
                             }
                         }
-                        
+
                         int packet_length = decodePacketHandler(received_data,i,bytes_remaining);
                         if (packet_length > 0) {
                             packets_received++;
@@ -677,9 +677,9 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
                             last_valid_packet_time = Timer.getFPGATimestamp();
                             updates_in_last_second++;
                             if ((last_valid_packet_time - last_second_start_time ) > 1.0 ) {
-                            	SmartDashboard.putNumber("navX UpdatesPerSec", (double)updates_in_last_second);
-                            	updates_in_last_second = 0;
-                            	last_second_start_time = last_valid_packet_time;
+                                SmartDashboard.putNumber("navX UpdatesPerSec", (double)updates_in_last_second);
+                                updates_in_last_second = 0;
+                                last_second_start_time = last_valid_packet_time;
                             }
                             i += packet_length;
                         } 
@@ -692,7 +692,7 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
                                 stream_response_received = true;
                                 i += packet_length;
                                 stream_response_receive_count++;
-                            	SmartDashboard.putNumber("navX Stream Responses", (double)stream_response_receive_count);                                
+                                SmartDashboard.putNumber("navX Stream Responses", (double)stream_response_receive_count);                                
                             }
                             else {
                                 packet_length = AHRSProtocol.decodeIntegrationControlResponse( received_data, i, bytes_remaining,
@@ -734,7 +734,7 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
                                             /* This occurs when packets are received that are not decoded.   */
                                             /* Bump over this packet and prepare for the next.               */
                                             if ( ( bytes_remaining > 2 ) && 
-                                                 ( received_data[i+1] == AHRSProtocol.BINARY_PACKET_INDICATOR_CHAR ) ) {
+                                                    ( received_data[i+1] == AHRSProtocol.BINARY_PACKET_INDICATOR_CHAR ) ) {
                                                 /* Binary packet received; next byte is packet length-2 */
                                                 int pkt_len = received_data[i+2];
                                                 pkt_len += 2;
@@ -805,37 +805,37 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
                             }
                         }
                     }
-                
+
                     if ( ( packets_received == 0 ) && ( bytes_read == 256 ) ) {
                         // Workaround for issue found in SerialPort implementation:
                         // No packets received and 256 bytes received; this
                         // condition occurs in the SerialPort.  In this case,
                         // reset the serial port.
                         serial_port.flush();
-                    	serial_port.reset();
+                        serial_port.reset();
                         port_reset_count++;                        
-        		        SmartDashboard.putNumber("navX_PortResets", (double)port_reset_count);
+                        SmartDashboard.putNumber("navX_PortResets", (double)port_reset_count);
                     }
-                    
+
                     boolean retransmit_stream_config = false;
                     if ( signal_retransmit_stream_config ) {
-                    	retransmit_stream_config = true;
-                    	signal_retransmit_stream_config = false;
+                        retransmit_stream_config = true;
+                        signal_retransmit_stream_config = false;
                     }
-                    
+
                     // If a stream configuration response has not been received within three seconds
                     // of operation, (re)send a stream configuration request
-                    
+
                     if ( retransmit_stream_config ||
-                    		(!stream_response_received && ((Timer.getFPGATimestamp() - last_stream_command_sent_timestamp ) > 3.0 ) ) ) {
+                            (!stream_response_received && ((Timer.getFPGATimestamp() - last_stream_command_sent_timestamp ) > 3.0 ) ) ) {
                         cmd_packet_length = IMUProtocol.encodeStreamCommand( stream_command, update_type, update_rate_hz ); 
                         try {
-                        	resetSerialPort();
+                            resetSerialPort();
                             last_stream_command_sent_timestamp = Timer.getFPGATimestamp();
                             serial_port.write( stream_command, cmd_packet_length );
                             serial_port.flush();
                         } catch (RuntimeException ex2) {
-                        	ex2.printStackTrace();
+                            ex2.printStackTrace();
                         }                                                    
                     }
                     else {                        
@@ -844,15 +844,15 @@ public class IMU extends SensorBase implements PIDSource, LiveWindowSendable, Ru
                             Timer.delay(1.0/update_rate_hz);
                         }        
                     }
-                    
+
                     /* If receiving data, but no valid packets have been received in the last second */
                     /* the navX MXP may have been reset, but no exception has been detected.         */
                     /* In this case , trigger transmission of a new stream_command, to ensure the    */
                     /* streaming packet type is configured correctly.                                */
-                    
+
                     if ( ( Timer.getFPGATimestamp() - last_valid_packet_time ) > 1.0 ) {
-                    	last_stream_command_sent_timestamp = 0.0;
-                    	stream_response_received = false;
+                        last_stream_command_sent_timestamp = 0.0;
+                        stream_response_received = false;
                     }
                 } else {
                     /* No data received this time around */
