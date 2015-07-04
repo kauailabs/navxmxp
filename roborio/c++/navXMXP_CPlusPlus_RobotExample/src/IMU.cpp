@@ -478,7 +478,7 @@ void IMU::ZeroYaw()
  * drift in the gyro and it needs to be recalibrated after it has been running.
  */
 
-void IMU::reset() {
+void IMU::Reset() {
     ZeroYaw();
 }
 
