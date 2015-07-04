@@ -36,37 +36,37 @@ class IMUAdvanced : public IMU
 {
 public:
 
-	IMUAdvanced( SerialPort *pport, uint8_t update_rate_hz = 100 );
-	virtual ~IMUAdvanced();
-	
-	virtual float GetWorldLinearAccelX();
-	virtual float GetWorldLinearAccelY();
-	virtual float GetWorldLinearAccelZ();
-	virtual bool  IsMoving();
-	virtual float GetTempC();
-		
-	void SetQuaternion( int16_t q1, int16_t q2, int16_t q3, int16_t q4,
-						int16_t accel_x, int16_t accel_y, int16_t accel_z,
-						int16_t mag_x, int16_t mag_y, int16_t mag_z,
-						float temp_c);
+    IMUAdvanced( SerialPort *pport, uint8_t update_rate_hz = 100 );
+    virtual ~IMUAdvanced();
+
+    virtual float GetWorldLinearAccelX();
+    virtual float GetWorldLinearAccelY();
+    virtual float GetWorldLinearAccelZ();
+    virtual bool  IsMoving();
+    virtual float GetTempC();
+
+    void SetQuaternion( int16_t q1, int16_t q2, int16_t q3, int16_t q4,
+            int16_t accel_x, int16_t accel_y, int16_t accel_z,
+            int16_t mag_x, int16_t mag_y, int16_t mag_z,
+            float temp_c);
 
 protected:
-	
-	int DecodePacketHandler( char *received_data, int bytes_remaining );
-	
-private:
-	void InitIMU();
-	void InitWorldLinearAccelHistory();
-	void UpdateWorldLinearAccelHistory( float x, float y, float z );
-	float GetAverageFromWorldLinearAccelHistory();
 
-	float   world_linear_accel_x;
-	float   world_linear_accel_y;
-	float   world_linear_accel_z;
-	float   temp_c;
-	float 	world_linear_accel_history[WORLD_LINEAR_ACCEL_HISTORY_LENGTH];
-	int 	next_world_linear_accel_history_index;
-	float	world_linear_acceleration_recent_avg;
+    int DecodePacketHandler( char *received_data, int bytes_remaining );
+
+private:
+    void InitIMU();
+    void InitWorldLinearAccelHistory();
+    void UpdateWorldLinearAccelHistory( float x, float y, float z );
+    float GetAverageFromWorldLinearAccelHistory();
+
+    float   world_linear_accel_x;
+    float   world_linear_accel_y;
+    float   world_linear_accel_z;
+    float   temp_c;
+    float 	world_linear_accel_history[WORLD_LINEAR_ACCEL_HISTORY_LENGTH];
+    int 	next_world_linear_accel_history_index;
+    float	world_linear_acceleration_recent_avg;
 
 };
 #endif

@@ -26,38 +26,38 @@
 class AHRS : public IMU
 {
 protected:
-	SerialPort *pserial_port;
-	void InternalInit( SerialPort *pport, uint8_t update_rate_hz, char stream_type );
+    SerialPort *pserial_port;
+    void InternalInit( SerialPort *pport, uint8_t update_rate_hz, char stream_type );
 public:
 
-	AHRS( SerialPort *pport, uint8_t update_rate_hz = 60 );
-	virtual ~AHRS();
+    AHRS( SerialPort *pport, uint8_t update_rate_hz = 60 );
+    virtual ~AHRS();
 
-	float GetWorldLinearAccelX();
-	float GetWorldLinearAccelY();
-	float GetWorldLinearAccelZ();
-	bool  IsMoving();
-	bool  IsRotating();
-	float GetBarometricPressure();
-	float GetAltitude();
-	bool  IsAltitudeValid();
-	float GetFusedHeading();
-	bool  IsMagneticDisturbance();
-	bool  IsMagnetometerCalibrated();
-	float GetTempC();
-	short GetCalibratedMagnetometerX();
-	short GetCalibratedMagnetometerY();
-	short GetCalibratedMagnetometerZ();
+    float GetWorldLinearAccelX();
+    float GetWorldLinearAccelY();
+    float GetWorldLinearAccelZ();
+    bool  IsMoving();
+    bool  IsRotating();
+    float GetBarometricPressure();
+    float GetAltitude();
+    bool  IsAltitudeValid();
+    float GetFusedHeading();
+    bool  IsMagneticDisturbance();
+    bool  IsMagnetometerCalibrated();
+    float GetTempC();
+    short GetCalibratedMagnetometerX();
+    short GetCalibratedMagnetometerY();
+    short GetCalibratedMagnetometerZ();
 
-	void  ResetDisplacement();
-	float GetVelocityX();
-	float GetVelocityY();
-	float GetDisplacementX();
-	float GetDisplacementY();
+    void  ResetDisplacement();
+    float GetVelocityX();
+    float GetVelocityY();
+    float GetDisplacementX();
+    float GetDisplacementY();
 
 protected:
 
-	virtual int DecodePacketHandler( char *received_data, int bytes_remaining );
+    virtual int DecodePacketHandler( char *received_data, int bytes_remaining );
 
     volatile float world_linear_accel_x;
     volatile float world_linear_accel_y;
@@ -78,7 +78,7 @@ protected:
     volatile bool magnetic_disturbance;
 
     void UpdateDisplacement( float accel_x_g, float accel_y_g,
-    							int update_rate_hz, bool is_moving );
+            int update_rate_hz, bool is_moving );
 
     float last_velocity[3];
     float displacement[3];

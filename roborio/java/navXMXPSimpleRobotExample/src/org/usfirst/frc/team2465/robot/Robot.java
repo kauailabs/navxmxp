@@ -23,46 +23,46 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
  * directory.
  */
 public class Robot extends SampleRobot {
-    
+
     AHRS imu;			// This class can only be used w/the navX MXP.
     boolean first_iteration;
-    
+
     public Robot() {
-    	
-    	try {
-    	
-    	// Use SerialPort.Port.kMXP if connecting navX MXP to the RoboRio MXP port
-    	// Use SerialPort.Port.kUSB if connecting navX MXP to the RoboRio USB port
-    		
-		// You can add a second parameter to modify the 
-		// update rate (in hz) from.  The minimum is 4.  
-    	// The maximum (and the default) is 60 on a navX MXP.
-		// If you need to minimize CPU load, you can set it to a
-		// lower value, as shown here, depending upon your needs.
-    	// The recommended update rate is 50Hz
-		
-    	// The AHRS class provides access to advanced features on 
-    	// a navX MXP, including 9-axis headings
-    	// and magnetic disturbance detection.  This class also offers
-    	// access to altitude/barometric pressure data from a
-    	// navX MXP Aero.
-		
-		byte update_rate_hz = 50;
-		imu = new AHRS(SerialPort.Port.kMXP, update_rate_hz);
-    	} catch( Exception ex ) {
-    		
-    	}
+
+        try {
+
+            // Use SerialPort.Port.kMXP if connecting navX MXP to the RoboRio MXP port
+            // Use SerialPort.Port.kUSB if connecting navX MXP to the RoboRio USB port
+
+            // You can add a second parameter to modify the 
+            // update rate (in hz).  The minimum is 4.      
+            // The maximum (and the default) is 60 on a navX MXP.
+            // If you need to minimize CPU load, you can set it to a
+            // lower value, as shown here, depending upon your needs.
+            // The recommended update rate is 50Hz
+
+            // The AHRS class provides access to advanced features on 
+            // a navX MXP, including 9-axis headings
+            // and magnetic disturbance detection.  This class also offers
+            // access to altitude/barometric pressure data from a
+            // navX MXP Aero.
+
+            byte update_rate_hz = 50;
+            imu = new AHRS(SerialPort.Port.kMXP, update_rate_hz);
+        } catch( Exception ex ) {
+            ex.printStackTrace();
+        }
         if ( imu != null ) {
             LiveWindow.addSensor("IMU", "Gyro", imu);
         }
         first_iteration = true;
     }
-    
+
     /**
      * This function is called once each time the robot enters autonomous mode.
      */
     public void autonomous() {
-        
+
     }
 
     /**
@@ -70,44 +70,46 @@ public class Robot extends SampleRobot {
      */
     public void operatorControl() {
 
-    	int reset_yaw_count = 0;
-    	int reset_displacement_count = 0;
-    	AHRS.BoardYawAxis yaw_axis = new AHRS.BoardYawAxis();
+        int reset_yaw_count = 0;
+        int reset_displacement_count = 0;
+        AHRS.BoardYawAxis yaw_axis = new AHRS.BoardYawAxis();
         while (isOperatorControl() && isEnabled()) {
-            
+
             // When calibration has completed, zero the yaw
             // Calibration is complete approximately 20 seconds
             // after the robot is powered on.  During calibration,
-            // the robot should be still
-            
+            // the robot should be still.
+
             boolean is_calibrating = imu.isCalibrating();
             if ( first_iteration && !is_calibrating ) {
                 Timer.delay( 0.3 );
                 imu.zeroYaw();
                 first_iteration = false;
             }
-            
+
             // Update the dashboard with status and orientation
             // data from the navX MXP
-            
+
             imu.getBoardYawAxis(yaw_axis);  
+
+            SmartDashboard.putBoolean("Yaw_Axis_Up",        yaw_axis.up);
+            SmartDashboard.putNumber( "Yaw_Axis",           yaw_axis.board_axis);            
             
-            SmartDashboard.putBoolean("Yaw_Axis_Up",       yaw_axis.up);
-            SmartDashboard.putNumber( "Yaw_Axis", 			yaw_axis.board_axis);            
             boolean reset_yaw_button_pressed = DriverStation.getInstance().getStickButton(0,(byte)1);
             if ( reset_yaw_button_pressed ) {
-            	imu.zeroYaw();
-            	reset_yaw_count++;
+                imu.zeroYaw();
+                reset_yaw_count++;
             }
+            
             boolean reset_displacement_button_pressed = DriverStation.getInstance().getStickButton(0,(byte)2);
             if ( reset_displacement_button_pressed ) {
-            	imu.resetDisplacement();
-            	reset_displacement_count++;
+                imu.resetDisplacement();
+                reset_displacement_count++;
             }
-            
-            SmartDashboard.putInt(      "Reset_Yaw_Count", reset_yaw_count);
-            SmartDashboard.putInt("Reset_Displacement_Count", reset_displacement_count);
-            
+
+            SmartDashboard.putInt(      "Reset_Yaw_Count",          reset_yaw_count);
+            SmartDashboard.putInt(      "Reset_Displacement_Count", reset_displacement_count);
+
             SmartDashboard.putBoolean(  "IMU_Connected",        imu.isConnected());
             SmartDashboard.putBoolean(  "IMU_IsCalibrating",    imu.isCalibrating());
             SmartDashboard.putNumber(   "IMU_Yaw",              imu.getYaw());
@@ -120,25 +122,20 @@ public class Robot extends SampleRobot {
             /* These functions are compatible w/the WPI Gyro Class */
             SmartDashboard.putNumber(   "IMU_TotalYaw", 		imu.getAngle());
             SmartDashboard.putNumber(   "IMU_YawRateDPS",		imu.getRate());
-            
+
             SmartDashboard.putNumber(   "IMU_Accel_X",          imu.getWorldLinearAccelX());
             SmartDashboard.putNumber(   "IMU_Accel_Y",          imu.getWorldLinearAccelY());
             SmartDashboard.putBoolean(  "IMU_IsMoving",         imu.isMoving());
             SmartDashboard.putNumber(   "IMU_Temp_C",           imu.getTempC());
-            
-            SmartDashboard.putNumber(   "Velocity_X",       	imu.getVelocityX() );
-            SmartDashboard.putNumber(   "Velocity_Y",       	imu.getVelocityY() );
-            SmartDashboard.putNumber(   "Displacement_X",       imu.getDisplacementX() );
-            SmartDashboard.putNumber(   "Displacement_Y",       imu.getDisplacementY() );
-            
+
             Timer.delay(0.1);
         }
-     }
-    
+    }
+
     /**
      * This function is called once each time the robot enters test mode.
      */
     public void test() {
-    
+
     }
 }

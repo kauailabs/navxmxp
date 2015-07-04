@@ -27,94 +27,94 @@
 #define YAW_HISTORY_LENGTH 10
 
 enum YAW_AXIS {
-	YAW_AXIS_X = 0,
-	YAW_AXIS_Y = 1,
-	YAW_AXIS_Z = 2,
+    YAW_AXIS_X = 0,
+    YAW_AXIS_Y = 1,
+    YAW_AXIS_Z = 2,
 };
 
 class IMU : public SensorBase, public PIDSource, public LiveWindowSendable
 {
 protected:
-	SerialPort *pserial_port;
-	IMU( SerialPort *pport, uint8_t update_rate_hz, char stream_type );
-	void InternalInit( SerialPort *pport, uint8_t update_rate_hz, char stream_type );
+    SerialPort *pserial_port;
+    IMU( SerialPort *pport, uint8_t update_rate_hz, char stream_type );
+    void InternalInit( SerialPort *pport, uint8_t update_rate_hz, char stream_type );
 public:
 
-	IMU( SerialPort *pport, uint8_t update_rate_hz = 100 );
-	virtual ~IMU();
-	virtual float GetPitch();	// Pitch, in units of degrees (-180 to 180)
-	virtual float GetRoll();	// Roll, in units of degrees (-180 to 180)
-	virtual float GetYaw();		// Yaw, in units of degrees (-180 to 180)
-	virtual float GetCompassHeading(); // CompassHeading, in units of degrees (0 to 360)
-	
-	bool IsConnected();
-	void ZeroYaw();
-	
-	// PIDSource interface, returns yaw component in units of degrees (-180 to 180)
-	double PIDGet();
-	
-	void UpdateTable();
-	void StartLiveWindowMode();
-	void StopLiveWindowMode();
-	std::string GetSmartDashboardType();
-	void InitTable(ITable *subTable);
-	ITable * GetTable();
+    IMU( SerialPort *pport, uint8_t update_rate_hz = 100 );
+    virtual ~IMU();
+    virtual float GetPitch();	// Pitch, in units of degrees (-180 to 180)
+    virtual float GetRoll();	// Roll, in units of degrees (-180 to 180)
+    virtual float GetYaw();		// Yaw, in units of degrees (-180 to 180)
+    virtual float GetCompassHeading(); // CompassHeading, in units of degrees (0 to 360)
 
-	SerialPort *GetSerialPort() { return pserial_port; }
-	void SetYawPitchRoll(float yaw, float pitch, float roll, float compass_heading);
-	void SetStreamResponse( char stream_type, 
-							uint16_t gyro_fsr_dps, uint16_t accel_fsr_g, uint16_t update_rate_hz,
-							float yaw_offset_degrees, 
-							uint16_t q1_offset, uint16_t q2_offset, uint16_t q3_offset, uint16_t q4_offset,
-							uint16_t flags );
-	double GetYawOffset() { return yaw_offset; }
-	double GetByteCount();
-	double GetUpdateCount();
-	void Restart();
-	bool  IsCalibrating();
-	/* The following functions added for compatibility w/the WPI Gyro Class */
-	double GetAngle();
-	double GetRate();
+    bool IsConnected();
+    void ZeroYaw();
 
-	uint8_t GetBoardYawAxis( bool& up);
+    // PIDSource interface, returns yaw component in units of degrees (-180 to 180)
+    double PIDGet();
 
-	uint8_t update_rate_hz;	
-	char current_stream_type;
-	virtual int DecodePacketHandler( char *received_data, int bytes_remaining );
-	
+    void UpdateTable();
+    void StartLiveWindowMode();
+    void StopLiveWindowMode();
+    std::string GetSmartDashboardType();
+    void InitTable(ITable *subTable);
+    ITable * GetTable();
+
+    SerialPort *GetSerialPort() { return pserial_port; }
+    void SetYawPitchRoll(float yaw, float pitch, float roll, float compass_heading);
+    void SetStreamResponse( char stream_type,
+            uint16_t gyro_fsr_dps, uint16_t accel_fsr_g, uint16_t update_rate_hz,
+            float yaw_offset_degrees,
+            uint16_t q1_offset, uint16_t q2_offset, uint16_t q3_offset, uint16_t q4_offset,
+            uint16_t flags );
+    double GetYawOffset() { return yaw_offset; }
+    double GetByteCount();
+    double GetUpdateCount();
+    void Restart();
+    bool  IsCalibrating();
+    /* The following functions added for compatibility w/the WPI Gyro Class */
+    double GetAngle();
+    double GetRate();
+
+    uint8_t GetBoardYawAxis( bool& up);
+
+    uint8_t update_rate_hz;
+    char current_stream_type;
+    virtual int DecodePacketHandler( char *received_data, int bytes_remaining );
+
 private:
-	void InitializeYawHistory();
-	double GetAverageFromYawHistory();
-	void InitIMU();
-	
+    void InitializeYawHistory();
+    double GetAverageFromYawHistory();
+    void InitIMU();
+
 
 protected:
 
-	void UpdateYawHistory(float curr_yaw );
-	float GetYawUnsynchronized();
-	bool IsOmniMountSupported();
-	bool IsBoardYawResetSupported();
-	bool IsDisplacementSupported();
-	
-	void EnqueueIntegrationControlMessage(uint8_t action);
+    void UpdateYawHistory(float curr_yaw );
+    float GetYawUnsynchronized();
+    bool IsOmniMountSupported();
+    bool IsBoardYawResetSupported();
+    bool IsDisplacementSupported();
 
-	Task *	m_task;
-	float 	yaw;
-	float 	pitch; 
-	float 	roll;
-	float   compass_heading;
+    void EnqueueIntegrationControlMessage(uint8_t action);
+
+    Task *	m_task;
+    float 	yaw;
+    float 	pitch;
+    float 	roll;
+    float   compass_heading;
     int yaw_crossing_count;
     int yaw_last_direction;
     float last_yaw_rate;
-	float 	yaw_history[YAW_HISTORY_LENGTH];
-	int 	next_yaw_history_index;
-	double 	last_update_time;
-	double 	yaw_offset;
-	float   yaw_offset_degrees;
-	uint16_t accel_fsr_g;
-	uint16_t gyro_fsr_dps;
-	uint16_t flags;
-    
-	ITable *m_table;
+    float 	yaw_history[YAW_HISTORY_LENGTH];
+    int 	next_yaw_history_index;
+    double 	last_update_time;
+    double 	yaw_offset;
+    float   yaw_offset_degrees;
+    uint16_t accel_fsr_g;
+    uint16_t gyro_fsr_dps;
+    uint16_t flags;
+
+    ITable *m_table;
 };
 #endif

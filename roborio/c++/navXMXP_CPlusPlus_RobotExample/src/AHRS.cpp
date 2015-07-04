@@ -29,37 +29,37 @@
 
 #define NAVX_MXP_DEFAULT_UPDATE_RATE_HZ 60
 
-    /**
-     * Constructs the AHRS class, overriding the default update rate
-     * with a custom rate which may be from 4 to 60, representing
-     * the number of updates per second sent by the navX MXP.  
-     * 
-     * Note that increasing the update rate may increase the 
-     * CPU utilization.
-     * @param serial_port SerialPort object to use
-     * @param update_rate_hz Custom Update Rate (Hz)
-     */
+/**
+ * Constructs the AHRS class, overriding the default update rate
+ * with a custom rate which may be from 4 to 60, representing
+ * the number of updates per second sent by the navX MXP.
+ *
+ * Note that increasing the update rate may increase the
+ * CPU utilization.
+ * @param serial_port SerialPort object to use
+ * @param update_rate_hz Custom Update Rate (Hz)
+ */
 AHRS::AHRS(SerialPort *pport, uint8_t update_rate_hz) : IMU(pport,update_rate_hz)
 {
-		this->current_stream_type = MSGID_AHRSPOS_UPDATE;
-		world_linear_accel_x =
-			world_linear_accel_y =
-			world_linear_accel_z =
-			mpu_temp_c =
-			fused_heading =
-			altitude =
-			barometric_pressure =
-			baro_sensor_temp_c =
-			mag_field_norm_ratio = 0.0f;
-        cal_mag_x = 
-        		cal_mag_y =
-        		cal_mag_z = 0;
-        is_moving =
-        		is_rotating =
-        		altitude_valid =
-        		is_magnetometer_calibrated =
-        		magnetic_disturbance = false;
-        ResetDisplacement();
+    this->current_stream_type = MSGID_AHRSPOS_UPDATE;
+    world_linear_accel_x =
+            world_linear_accel_y =
+                    world_linear_accel_z =
+                            mpu_temp_c =
+                                    fused_heading =
+                                            altitude =
+                                                    barometric_pressure =
+                                                            baro_sensor_temp_c =
+                                                                    mag_field_norm_ratio = 0.0f;
+    cal_mag_x =
+            cal_mag_y =
+                    cal_mag_z = 0;
+    is_moving =
+            is_rotating =
+                    altitude_valid =
+                            is_magnetometer_calibrated =
+                                    magnetic_disturbance = false;
+    ResetDisplacement();
 }
 
 AHRS::~AHRS()
@@ -68,147 +68,147 @@ AHRS::~AHRS()
 
 int AHRS::DecodePacketHandler( char *received_data, int bytes_remaining )
 {
-	float yaw, pitch, roll, compass_heading;
-	float altitude, fused_heading, linear_accel_x, linear_accel_y, linear_accel_z;
-	float mpu_temp;
-	int16_t raw_mag_x, raw_mag_y, raw_mag_z;
-	int16_t cal_mag_x = 0, cal_mag_y = 0, cal_mag_z = 0;
-	float mag_norm_ratio = 0.0f, mag_norm_scalar = 0.0f;
-	int16_t quat_w, quat_x, quat_y, quat_z;
-	float baro_pressure, baro_temp;
-	uint8_t op_status, sensor_status;
-	uint8_t cal_status, selftest_status;
-	float vel_x, vel_y, vel_z;
-	float disp_x, disp_y, disp_z;
-	bool perform_integration = true;
+    float yaw, pitch, roll, compass_heading;
+    float altitude, fused_heading, linear_accel_x, linear_accel_y, linear_accel_z;
+    float mpu_temp;
+    int16_t raw_mag_x, raw_mag_y, raw_mag_z;
+    int16_t cal_mag_x = 0, cal_mag_y = 0, cal_mag_z = 0;
+    float mag_norm_ratio = 0.0f, mag_norm_scalar = 0.0f;
+    int16_t quat_w, quat_x, quat_y, quat_z;
+    float baro_pressure, baro_temp;
+    uint8_t op_status, sensor_status;
+    uint8_t cal_status, selftest_status;
+    float vel_x, vel_y, vel_z;
+    float disp_x, disp_y, disp_z;
+    bool perform_integration = true;
 
-	int packet_length = AHRSProtocol::decodeAHRSUpdate(	received_data, bytes_remaining,
-														yaw,
-														pitch,
-														roll,
-														compass_heading,
-														altitude,
-														fused_heading,
-														linear_accel_x,
-														linear_accel_y,
-														linear_accel_z,
-														mpu_temp,
-														raw_mag_x,
-														raw_mag_y,
-														raw_mag_z,
-														cal_mag_x,
-														cal_mag_y,
-														cal_mag_z,
-														mag_norm_ratio,
-														mag_norm_scalar,
-														quat_w,
-														quat_x,
-														quat_y,
-														quat_z,
-														baro_pressure,
-														baro_temp,
-														op_status,
-														sensor_status,
-														cal_status,
-														selftest_status);
-	if (packet_length == 0) {
-		packet_length = AHRSProtocol::decodeAHRSPosUpdate(	received_data, bytes_remaining,
-															yaw,
-															pitch,
-															roll,
-															compass_heading,
-															altitude,
-															fused_heading,
-															linear_accel_x,
-															linear_accel_y,
-															linear_accel_z,
-															mpu_temp,
-															quat_w,
-															quat_x,
-															quat_y,
-															quat_z,
-															vel_x,
-															vel_y,
-															vel_z,
-															disp_x,
-															disp_y,
-															disp_z,
-															op_status,
-															sensor_status,
-															cal_status,
-															selftest_status);
-		if ( packet_length > 0 ) {
-			perform_integration = false;
-		}
-	}
-	if (packet_length > 0) {
-		/* Update base IMU class variables */
+    int packet_length = AHRSProtocol::decodeAHRSUpdate(	received_data, bytes_remaining,
+            yaw,
+            pitch,
+            roll,
+            compass_heading,
+            altitude,
+            fused_heading,
+            linear_accel_x,
+            linear_accel_y,
+            linear_accel_z,
+            mpu_temp,
+            raw_mag_x,
+            raw_mag_y,
+            raw_mag_z,
+            cal_mag_x,
+            cal_mag_y,
+            cal_mag_z,
+            mag_norm_ratio,
+            mag_norm_scalar,
+            quat_w,
+            quat_x,
+            quat_y,
+            quat_z,
+            baro_pressure,
+            baro_temp,
+            op_status,
+            sensor_status,
+            cal_status,
+            selftest_status);
+    if (packet_length == 0) {
+        packet_length = AHRSProtocol::decodeAHRSPosUpdate(	received_data, bytes_remaining,
+                yaw,
+                pitch,
+                roll,
+                compass_heading,
+                altitude,
+                fused_heading,
+                linear_accel_x,
+                linear_accel_y,
+                linear_accel_z,
+                mpu_temp,
+                quat_w,
+                quat_x,
+                quat_y,
+                quat_z,
+                vel_x,
+                vel_y,
+                vel_z,
+                disp_x,
+                disp_y,
+                disp_z,
+                op_status,
+                sensor_status,
+                cal_status,
+                selftest_status);
+        if ( packet_length > 0 ) {
+            perform_integration = false;
+        }
+    }
+    if (packet_length > 0) {
+        /* Update base IMU class variables */
 
-		SetYawPitchRoll(yaw,pitch,roll,compass_heading);
+        SetYawPitchRoll(yaw,pitch,roll,compass_heading);
 
-		/* Update AHRS class variables */
+        /* Update AHRS class variables */
 
-		// 9-axis data
-		this->fused_heading			= fused_heading;
+        // 9-axis data
+        this->fused_heading			= fused_heading;
 
-		// Gravity-corrected linear acceleration (world-frame)
-		this->world_linear_accel_x	= linear_accel_x;
-		this->world_linear_accel_y	= linear_accel_y;
-		this->world_linear_accel_z	= linear_accel_z;
+        // Gravity-corrected linear acceleration (world-frame)
+        this->world_linear_accel_x	= linear_accel_x;
+        this->world_linear_accel_y	= linear_accel_y;
+        this->world_linear_accel_z	= linear_accel_z;
 
-		// Gyro/Accelerometer Die Temperature
-		this->mpu_temp_c			= mpu_temp;
+        // Gyro/Accelerometer Die Temperature
+        this->mpu_temp_c			= mpu_temp;
 
-		// Barometric Pressure/Altitude
-		this->altitude				= altitude;
-		this->barometric_pressure	= baro_pressure;
-		this->baro_sensor_temp_c	= baro_temp;
+        // Barometric Pressure/Altitude
+        this->altitude				= altitude;
+        this->barometric_pressure	= baro_pressure;
+        this->baro_sensor_temp_c	= baro_temp;
 
-		// Magnetometer Data
-		this->cal_mag_x				= cal_mag_x;
-		this->cal_mag_y				= cal_mag_y;
-		this->cal_mag_z				= cal_mag_z;
-		this->mag_field_norm_ratio	= mag_field_norm_ratio;
+        // Magnetometer Data
+        this->cal_mag_x				= cal_mag_x;
+        this->cal_mag_y				= cal_mag_y;
+        this->cal_mag_z				= cal_mag_z;
+        this->mag_field_norm_ratio	= mag_field_norm_ratio;
 
-		// Status/Motion Detection
-		this->is_moving						=
-				(((sensor_status &
-						NAVX_SENSOR_STATUS_MOVING) != 0)
-						? true : false);
-		this->is_rotating					=
-				(((sensor_status &
-						NAVX_SENSOR_STATUS_YAW_STABLE) != 0)
-						? true : false);
-		this->altitude_valid				=
-				(((sensor_status &
-						NAVX_SENSOR_STATUS_ALTITUDE_VALID) != 0)
-						? true : false);
-		this->is_magnetometer_calibrated	=
-				(((cal_status &
-						NAVX_CAL_STATUS_MAG_CAL_COMPLETE) != 0)
-						? true : false);
-		this->magnetic_disturbance			=
-				(((sensor_status &
-						NAVX_SENSOR_STATUS_MAG_DISTURBANCE) != 0)
-						? true : false);
+        // Status/Motion Detection
+        this->is_moving						=
+                (((sensor_status &
+                        NAVX_SENSOR_STATUS_MOVING) != 0)
+                        ? true : false);
+        this->is_rotating					=
+                (((sensor_status &
+                        NAVX_SENSOR_STATUS_YAW_STABLE) != 0)
+                        ? true : false);
+        this->altitude_valid				=
+                (((sensor_status &
+                        NAVX_SENSOR_STATUS_ALTITUDE_VALID) != 0)
+                        ? true : false);
+        this->is_magnetometer_calibrated	=
+                (((cal_status &
+                        NAVX_CAL_STATUS_MAG_CAL_COMPLETE) != 0)
+                        ? true : false);
+        this->magnetic_disturbance			=
+                (((sensor_status &
+                        NAVX_SENSOR_STATUS_MAG_DISTURBANCE) != 0)
+                        ? true : false);
 
-		if ( perform_integration ) {
-			UpdateDisplacement( this->world_linear_accel_x,
-					this->world_linear_accel_y,
-					update_rate_hz,
-					this->is_moving);
-		} else {
-			this->last_velocity[0] = vel_x;
-			this->last_velocity[1] = vel_y;
-			this->last_velocity[2] = vel_z;
-			this->displacement[0]  = disp_x;
-			this->displacement[1]  = disp_y;
-			this->displacement[2]  = disp_z;
-		}
-	}
-	return packet_length;
+        if ( perform_integration ) {
+            UpdateDisplacement( this->world_linear_accel_x,
+                    this->world_linear_accel_y,
+                    update_rate_hz,
+                    this->is_moving);
+        } else {
+            this->last_velocity[0] = vel_x;
+            this->last_velocity[1] = vel_y;
+            this->last_velocity[2] = vel_z;
+            this->displacement[0]  = disp_x;
+            this->displacement[1]  = disp_y;
+            this->displacement[2]  = disp_z;
+        }
+    }
+    return packet_length;
 }
-        
+
 /**
  * Returns the current linear acceleration in the x-axis (in g).
  *
@@ -222,7 +222,7 @@ int AHRS::DecodePacketHandler( char *received_data, int bytes_remaining )
  */
 float AHRS::GetWorldLinearAccelX()
 {
-	return world_linear_accel_x;
+    return world_linear_accel_x;
 }
 
 /**
@@ -238,7 +238,7 @@ float AHRS::GetWorldLinearAccelX()
  */
 float AHRS::GetWorldLinearAccelY()
 {
-	return world_linear_accel_y;
+    return world_linear_accel_y;
 }
 
 /**
@@ -254,7 +254,7 @@ float AHRS::GetWorldLinearAccelY()
  */
 float AHRS::GetWorldLinearAccelZ()
 {
-	return world_linear_accel_z;
+    return world_linear_accel_z;
 }
 
 /**
@@ -266,7 +266,7 @@ float AHRS::GetWorldLinearAccelZ()
  */
 bool AHRS::IsMoving()
 {
-	return is_moving;
+    return is_moving;
 }
 
 /**
@@ -281,7 +281,7 @@ bool AHRS::IsMoving()
  */
 bool AHRS::IsRotating()
 {
-	return is_rotating;
+    return is_rotating;
 }
 
 /**
@@ -294,7 +294,7 @@ bool AHRS::IsRotating()
  */
 float AHRS::GetBarometricPressure()
 {
-	return barometric_pressure;
+    return barometric_pressure;
 }
 
 /**
@@ -308,7 +308,7 @@ float AHRS::GetBarometricPressure()
  */
 float AHRS::GetAltitude()
 {
-	return altitude;
+    return altitude;
 }
 
 /**
@@ -321,7 +321,7 @@ float AHRS::GetAltitude()
  */
 bool AHRS::IsAltitudeValid()
 {
-	return this->altitude_valid;
+    return this->altitude_valid;
 }
 
 /**
@@ -341,7 +341,7 @@ bool AHRS::IsAltitudeValid()
  */
 float AHRS::GetFusedHeading()
 {
-	return fused_heading;
+    return fused_heading;
 }
 
 /**
@@ -355,7 +355,7 @@ float AHRS::GetFusedHeading()
  */
 bool AHRS::IsMagneticDisturbance()
 {
-	return magnetic_disturbance;
+    return magnetic_disturbance;
 }
 
 /**
@@ -370,7 +370,7 @@ bool AHRS::IsMagneticDisturbance()
  */
 bool AHRS::IsMagnetometerCalibrated()
 {
-	return is_magnetometer_calibrated;
+    return is_magnetometer_calibrated;
 }
 
 /**
@@ -383,7 +383,7 @@ bool AHRS::IsMagnetometerCalibrated()
  */
 float AHRS::GetTempC()
 {
-	return this->mpu_temp_c;
+    return this->mpu_temp_c;
 }
 
 /**
@@ -392,7 +392,7 @@ float AHRS::GetTempC()
  */
 short AHRS::GetCalibratedMagnetometerX()
 {
-	return this->cal_mag_x;
+    return this->cal_mag_x;
 }
 
 /**
@@ -401,7 +401,7 @@ short AHRS::GetCalibratedMagnetometerX()
  */
 short AHRS::GetCalibratedMagnetometerY()
 {
-	return this->cal_mag_y;
+    return this->cal_mag_y;
 }
 
 /**
@@ -410,7 +410,7 @@ short AHRS::GetCalibratedMagnetometerY()
  */
 short AHRS::GetCalibratedMagnetometerZ()
 {
-	return this->cal_mag_z;
+    return this->cal_mag_z;
 }
 
 /**
@@ -420,20 +420,20 @@ short AHRS::GetCalibratedMagnetometerZ()
  */
 void AHRS::ResetDisplacement()
 {
-	if ( this->IsDisplacementSupported() ) {
-		/* navX MXP supports on-board integration of velocity/displacement */
-		EnqueueIntegrationControlMessage(	NAVX_INTEGRATION_CTL_RESET_VEL_X |
-											NAVX_INTEGRATION_CTL_RESET_VEL_Y |
-											NAVX_INTEGRATION_CTL_RESET_VEL_Z |
-											NAVX_INTEGRATION_CTL_RESET_DISP_X |
-											NAVX_INTEGRATION_CTL_RESET_DISP_Y |
-											NAVX_INTEGRATION_CTL_RESET_DISP_Z );
-	} else {
-		for ( int i = 0; i < 2; i++ ) {
-			last_velocity[i] = 0.0f;
-			displacement[i] = 0.0f;
-		}
-	}
+    if ( this->IsDisplacementSupported() ) {
+        /* navX MXP supports on-board integration of velocity/displacement */
+        EnqueueIntegrationControlMessage(	NAVX_INTEGRATION_CTL_RESET_VEL_X |
+                NAVX_INTEGRATION_CTL_RESET_VEL_Y |
+                NAVX_INTEGRATION_CTL_RESET_VEL_Z |
+                NAVX_INTEGRATION_CTL_RESET_DISP_X |
+                NAVX_INTEGRATION_CTL_RESET_DISP_Y |
+                NAVX_INTEGRATION_CTL_RESET_DISP_Z );
+    } else {
+        for ( int i = 0; i < 2; i++ ) {
+            last_velocity[i] = 0.0f;
+            displacement[i] = 0.0f;
+        }
+    }
 }
 
 /**
@@ -445,25 +445,25 @@ void AHRS::ResetDisplacement()
  */
 
 void AHRS::UpdateDisplacement( float accel_x_g, float accel_y_g,
-								int update_rate_hz, bool is_moving )
+        int update_rate_hz, bool is_moving )
 {
-	if ( is_moving ) {
-		float accel_g[2];
-		float accel_m_s2[2];
-		float curr_velocity_m_s[2];
-		float sample_time = (1.0f / update_rate_hz);
-		accel_g[0] = accel_x_g;
-		accel_g[1] = accel_y_g;
-		for ( int i = 0; i < 2; i++ ) {
-			accel_m_s2[i] = accel_g[i] * 9.80665f;
-			curr_velocity_m_s[i] = last_velocity[i] + (accel_m_s2[i] * sample_time);
-			displacement[i] += last_velocity[i] + (0.5f * accel_m_s2[i] * sample_time * sample_time);
-			last_velocity[i] = curr_velocity_m_s[i];
-		}
-	} else {
-		last_velocity[0] = 0.0f;
-		last_velocity[1] = 0.0f;
-	}
+    if ( is_moving ) {
+        float accel_g[2];
+        float accel_m_s2[2];
+        float curr_velocity_m_s[2];
+        float sample_time = (1.0f / update_rate_hz);
+        accel_g[0] = accel_x_g;
+        accel_g[1] = accel_y_g;
+        for ( int i = 0; i < 2; i++ ) {
+            accel_m_s2[i] = accel_g[i] * 9.80665f;
+            curr_velocity_m_s[i] = last_velocity[i] + (accel_m_s2[i] * sample_time);
+            displacement[i] += last_velocity[i] + (0.5f * accel_m_s2[i] * sample_time * sample_time);
+            last_velocity[i] = curr_velocity_m_s[i];
+        }
+    } else {
+        last_velocity[0] = 0.0f;
+        last_velocity[1] = 0.0f;
+    }
 }
 
 /**
@@ -472,7 +472,7 @@ void AHRS::UpdateDisplacement( float accel_x_g, float accel_y_g,
  */
 float AHRS::GetVelocityX()
 {
-	return last_velocity[0];
+    return last_velocity[0];
 }
 
 /**
@@ -481,7 +481,7 @@ float AHRS::GetVelocityX()
  */
 float AHRS::GetVelocityY()
 {
-	return last_velocity[1];
+    return last_velocity[1];
 }
 
 /**
@@ -491,7 +491,7 @@ float AHRS::GetVelocityY()
  */
 float AHRS::GetDisplacementX()
 {
-	return displacement[0];
+    return displacement[0];
 }
 
 /**
@@ -501,7 +501,7 @@ float AHRS::GetDisplacementX()
  */
 float AHRS::GetDisplacementY()
 {
-	return displacement[1];
+    return displacement[1];
 }
 
 
