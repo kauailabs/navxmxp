@@ -98,22 +98,22 @@ protected:
 
     void EnqueueIntegrationControlMessage(uint8_t action);
 
-    Task *	m_task;
-    float 	yaw;
-    float 	pitch;
-    float 	roll;
-    float   compass_heading;
-    int yaw_crossing_count;
-    int yaw_last_direction;
-    float last_yaw_rate;
-    float 	yaw_history[YAW_HISTORY_LENGTH];
-    int 	next_yaw_history_index;
-    double 	last_update_time;
-    double 	yaw_offset;
-    float   yaw_offset_degrees;
-    uint16_t accel_fsr_g;
-    uint16_t gyro_fsr_dps;
-    uint16_t flags;
+    Task *      m_task;
+    float       yaw;
+    float       pitch;
+    float       roll;
+    float       compass_heading;
+    int         yaw_crossing_count;
+    int         yaw_last_direction;
+    float       last_yaw_rate;
+    float       yaw_history[YAW_HISTORY_LENGTH];
+    int         next_yaw_history_index;
+    double      last_update_time;
+    double      yaw_offset;
+    float       yaw_offset_degrees;
+    uint16_t    accel_fsr_g;
+    uint16_t    gyro_fsr_dps;
+    uint16_t    flags;
 
     ITable *m_table;
 };
