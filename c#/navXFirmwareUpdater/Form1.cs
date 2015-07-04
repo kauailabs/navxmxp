@@ -40,6 +40,7 @@ namespace navXFirmwareUpdater
 
         bool port_open_in_progress = false;
         bool dialog_in_progress = false;
+        bool firmware_update_registered = false;
 
         public Form1()
         {
@@ -491,7 +492,11 @@ namespace navXFirmwareUpdater
 
         private void button1_Click(object sender, EventArgs e)
         {
-            firmwareUpdate.OnFirmwareUpdateProgress += new FirmwareUpdateProgressEventHandler(firmwareUpdate_OnFirmwareUpdateProgress);
+            if (!firmware_update_registered)
+            {
+                firmwareUpdate.OnFirmwareUpdateProgress += new FirmwareUpdateProgressEventHandler(firmwareUpdate_OnFirmwareUpdateProgress);
+                firmware_update_registered = true;
+            }
             FirmwareUpdateProgressEventArgs fupea;
             progressBar1.Maximum = 100;
             progressBar1.Step = 1;
