@@ -433,6 +433,11 @@ public class AHRS extends IMU {
      * This function transforms acceleration in G to meters/sec^2, then converts this value to
      * Velocity in meters/sec (based upon velocity in the previous sample).  Finally, this value
      * is converted to displacement in meters, and integrated.
+     * 
+     * NOTE:  This feature is experimental.  Displacement measures rely on double-integration
+     * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
+     * resulting displacement are not known to be very accurate, and the amount of error 
+     * increases quickly as time progresses.
      * @return none.
      */
 
@@ -459,6 +464,10 @@ public class AHRS extends IMU {
 
     /**
      * Returns the velocity (in meters/sec) of the X axis.
+     *
+     * NOTE:  This feature is experimental.  Velocity measures rely on integration
+     * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
+     * resulting velocities are not known to be very accurate.
      * @return none.
      */
     public float getVelocityX() {
@@ -467,6 +476,10 @@ public class AHRS extends IMU {
 
     /**
      * Returns the velocity (in meters/sec) of the Y axis.
+     *
+     * NOTE:  This feature is experimental.  Velocity measures rely on integration
+     * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
+     * resulting velocities are not known to be very accurate.
      * @return none.
      */
     public float getVelocityY() {
@@ -475,6 +488,10 @@ public class AHRS extends IMU {
 
     /**
      * Returns the velocity (in meters/sec) of the Z axis.
+     *
+     * NOTE:  This feature is experimental.  Velocity measures rely on integration
+     * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
+     * resulting velocities are not known to be very accurate.
      * @return none.
      */
     public float getVelocityZ() {
@@ -484,6 +501,11 @@ public class AHRS extends IMU {
     /**
      * Returns the displacement (in meters) of the X axis since resetDisplacement()
      * was last invoked.
+     * 
+     * NOTE:  This feature is experimental.  Displacement measures rely on double-integration
+     * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
+     * resulting displacement are not known to be very accurate, and the amount of error 
+     * increases quickly as time progresses.
      * @return none.
      */
     public float getDisplacementX() {
@@ -493,6 +515,11 @@ public class AHRS extends IMU {
     /**
      * Returns the displacement (in meters) of the Y axis since resetDisplacement()
      * was last invoked.
+     *
+     * NOTE:  This feature is experimental.  Displacement measures rely on double-integration
+     * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
+     * resulting displacement are not known to be very accurate, and the amount of error 
+     * increases quickly as time progresses.
      * @return none.
      */
     public float getDisplacementY() {
@@ -502,6 +529,11 @@ public class AHRS extends IMU {
     /**
      * Returns the displacement (in meters) of the Z axis since resetDisplacement()
      * was last invoked.
+     *
+     * NOTE:  This feature is experimental.  Displacement measures rely on double-integration
+     * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
+     * resulting displacement are not known to be very accurate, and the amount of error 
+     * increases quickly as time progresses.
      * @return none.
      */
     public float getDisplacementZ() {

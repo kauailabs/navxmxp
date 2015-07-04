@@ -441,6 +441,11 @@ void AHRS::ResetDisplacement()
  * This function transforms acceleration in G to meters/sec^2, then converts this value to
  * Velocity in meters/sec (based upon velocity in the previous sample).  Finally, this value
  * is converted to displacement in meters, and integrated.
+ *
+ * NOTE:  This feature is experimental.  Displacement measures rely on double-integration
+ * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
+ * resulting displacement are not known to be very accurate, and the amount of error
+ * increases quickly as time progresses.
  * @return none.
  */
 
@@ -468,6 +473,10 @@ void AHRS::UpdateDisplacement( float accel_x_g, float accel_y_g,
 
 /**
  * Returns the velocity (in meters/sec) of the X axis.
+ *
+ * NOTE:  This feature is experimental.  Velocity measures rely on integration
+ * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
+ * resulting velocities are not known to be very accurate.
  * @return none.
  */
 float AHRS::GetVelocityX()
@@ -477,6 +486,10 @@ float AHRS::GetVelocityX()
 
 /**
  * Returns the velocity (in meters/sec) of the Y axis.
+ *
+ * NOTE:  This feature is experimental.  Velocity measures rely on integration
+ * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
+ * resulting velocities are not known to be very accurate.
  * @return none.
  */
 float AHRS::GetVelocityY()
@@ -487,6 +500,11 @@ float AHRS::GetVelocityY()
 /**
  * Returns the displacement (in meters) of the X axis since resetDisplacement()
  * was invoked.
+ *
+ * NOTE:  This feature is experimental.  Displacement measures rely on double-integration
+ * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
+ * resulting displacement are not known to be very accurate, and the amount of error
+ * increases quickly as time progresses.
  * @return none.
  */
 float AHRS::GetDisplacementX()
@@ -497,6 +515,11 @@ float AHRS::GetDisplacementX()
 /**
  * Returns the displacement (in meters) of the Y axis since resetDisplacement()
  * was invoked.
+ *
+ * NOTE:  This feature is experimental.  Displacement measures rely on double-integration
+ * of acceleration values from MEMS accelerometers which yield "noisy" values.  The
+ * resulting displacement are not known to be very accurate, and the amount of error
+ * increases quickly as time progresses.
  * @return none.
  */
 float AHRS::GetDisplacementY()

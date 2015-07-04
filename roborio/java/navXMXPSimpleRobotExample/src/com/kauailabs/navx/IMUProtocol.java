@@ -25,85 +25,85 @@ package com.kauailabs.navx;
 
 public class IMUProtocol {
 
-    public final static byte PACKET_START_CHAR = '!';
-    final static int PROTOCOL_FLOAT_LENGTH = 7;
-    final static int CHECKSUM_LENGTH = 2;
-    final static int TERMINATOR_LENGTH = 2;
+    public final static byte PACKET_START_CHAR =        '!';
+    final static int PROTOCOL_FLOAT_LENGTH =            7;
+    final static int CHECKSUM_LENGTH =                  2;
+    final static int TERMINATOR_LENGTH =                2;
 
-    // Yaw/Pitch/Roll (YPR) Update Packet - e.g., !y[yaw][pitch][roll][checksum][cr][lf]
-    public final static byte MSGID_YPR_UPDATE = 'y';
-    final static int YPR_UPDATE_MESSAGE_LENGTH = 34;
-    final static int YPR_UPDATE_YAW_VALUE_INDEX = 2;
-    final static int YPR_UPDATE_PITCH_VALUE_INDEX = 9;
-    final static int YPR_UPDATE_ROLL_VALUE_INDEX = 16;
-    final static int YPR_UPDATE_COMPASS_VALUE_INDEX = 23;
-    final static int YPR_UPDATE_CHECKSUM_INDEX = 30;
-    final static int YPR_UPDATE_TERMINATOR_INDEX = 32;
+    // Yaw/Pitch/Roll (YPR) Update Packet - e.g., !y[yaw][pitch][roll][compass_heading]
+    public final static byte MSGID_YPR_UPDATE =                 'y';
+    final static int YPR_UPDATE_YAW_VALUE_INDEX =               2;
+    final static int YPR_UPDATE_PITCH_VALUE_INDEX =             9;
+    final static int YPR_UPDATE_ROLL_VALUE_INDEX =              16;
+    final static int YPR_UPDATE_COMPASS_VALUE_INDEX =           23;
+    final static int YPR_UPDATE_CHECKSUM_INDEX =                30;
+    final static int YPR_UPDATE_TERMINATOR_INDEX =              32;
+    final static int YPR_UPDATE_MESSAGE_LENGTH =                34;
 
-    // Quaternion Data Update Packet - e.g., !r[q1][q2][q3][q4][accelx][accely][accelz][magx][magy][magz][checksum][cr][lf]
-    public final static byte MSGID_QUATERNION_UPDATE = 'q';
-    final static int QUATERNION_UPDATE_MESSAGE_LENGTH = 53;
-    final static int QUATERNION_UPDATE_QUAT1_VALUE_INDEX = 2;
-    final static int QUATERNION_UPDATE_QUAT2_VALUE_INDEX = 6;
-    final static int QUATERNION_UPDATE_QUAT3_VALUE_INDEX = 10;
-    final static int QUATERNION_UPDATE_QUAT4_VALUE_INDEX = 14;
-    final static int QUATERNION_UPDATE_ACCEL_X_VALUE_INDEX = 18;
-    final static int QUATERNION_UPDATE_ACCEL_Y_VALUE_INDEX = 22;
-    final static int QUATERNION_UPDATE_ACCEL_Z_VALUE_INDEX = 26;
-    final static int QUATERNION_UPDATE_MAG_X_VALUE_INDEX = 30;
-    final static int QUATERNION_UPDATE_MAG_Y_VALUE_INDEX = 34;
-    final static int QUATERNION_UPDATE_MAG_Z_VALUE_INDEX = 38;
-    final static int QUATERNION_UPDATE_TEMP_VALUE_INDEX = 42;
-    final static int QUATERNION_UPDATE_CHECKSUM_INDEX = 49;
-    final static int QUATERNION_UPDATE_TERMINATOR_INDEX = 51;
+    // Quaternion Data Update Packet - e.g., !r[q1][q2][q3][q4][accelx][accely][accelz][magx][magy][magz]
+    public final static byte MSGID_QUATERNION_UPDATE =          'q';
+    final static int QUATERNION_UPDATE_MESSAGE_LENGTH =         53;
+    final static int QUATERNION_UPDATE_QUAT1_VALUE_INDEX =      2;
+    final static int QUATERNION_UPDATE_QUAT2_VALUE_INDEX =      6;
+    final static int QUATERNION_UPDATE_QUAT3_VALUE_INDEX =      10;
+    final static int QUATERNION_UPDATE_QUAT4_VALUE_INDEX =      14;
+    final static int QUATERNION_UPDATE_ACCEL_X_VALUE_INDEX =    18;
+    final static int QUATERNION_UPDATE_ACCEL_Y_VALUE_INDEX =    22;
+    final static int QUATERNION_UPDATE_ACCEL_Z_VALUE_INDEX =    26;
+    final static int QUATERNION_UPDATE_MAG_X_VALUE_INDEX =      30;
+    final static int QUATERNION_UPDATE_MAG_Y_VALUE_INDEX =      34;
+    final static int QUATERNION_UPDATE_MAG_Z_VALUE_INDEX =      38;
+    final static int QUATERNION_UPDATE_TEMP_VALUE_INDEX =       42;
+    final static int QUATERNION_UPDATE_CHECKSUM_INDEX =         49;
+    final static int QUATERNION_UPDATE_TERMINATOR_INDEX =       51;
 
 // Gyro/Raw Data Update packet - e.g., !g[gx][gy][gz][accelx][accely][accelz][magx][magy][magz][temp_c][cr][lf]
 
-    public final static byte MSGID_GYRO_UPDATE = 'g';
-    final static int GYRO_UPDATE_MESSAGE_LENGTH = 46;
-    final static int GYRO_UPDATE_GYRO_X_VALUE_INDEX = 2;
-    final static int GYRO_UPDATE_GYRO_Y_VALUE_INDEX = 6;
-    final static int GYRO_UPDATE_GYRO_Z_VALUE_INDEX = 10;
-    final static int GYRO_UPDATE_ACCEL_X_VALUE_INDEX = 14;
-    final static int GYRO_UPDATE_ACCEL_Y_VALUE_INDEX = 18;
-    final static int GYRO_UPDATE_ACCEL_Z_VALUE_INDEX = 22;
-    final static int GYRO_UPDATE_MAG_X_VALUE_INDEX = 26;
-    final static int GYRO_UPDATE_MAG_Y_VALUE_INDEX = 30;
-    final static int GYRO_UPDATE_MAG_Z_VALUE_INDEX = 34;
-    final static int GYRO_UPDATE_TEMP_VALUE_INDEX = 38;
-    final static int GYRO_UPDATE_CHECKSUM_INDEX = 42;
-    final static int GYRO_UPDATE_TERMINATOR_INDEX = 44;    
+    public final static byte MSGID_GYRO_UPDATE =                'g';
+    final static int GYRO_UPDATE_GYRO_X_VALUE_INDEX =           2;
+    final static int GYRO_UPDATE_GYRO_Y_VALUE_INDEX =           6;
+    final static int GYRO_UPDATE_GYRO_Z_VALUE_INDEX =           10;
+    final static int GYRO_UPDATE_ACCEL_X_VALUE_INDEX =          14;
+    final static int GYRO_UPDATE_ACCEL_Y_VALUE_INDEX =          18;
+    final static int GYRO_UPDATE_ACCEL_Z_VALUE_INDEX =          22;
+    final static int GYRO_UPDATE_MAG_X_VALUE_INDEX =            26;
+    final static int GYRO_UPDATE_MAG_Y_VALUE_INDEX =            30;
+    final static int GYRO_UPDATE_MAG_Z_VALUE_INDEX =            34;
+    final static int GYRO_UPDATE_TEMP_VALUE_INDEX =             38;
+    final static int GYRO_UPDATE_CHECKSUM_INDEX =               42;
+    final static int GYRO_UPDATE_TERMINATOR_INDEX =             44;
+    final static int GYRO_UPDATE_MESSAGE_LENGTH =               46;
     
     // EnableStream Command Packet - e.g., !S[stream type][checksum][cr][lf]
-    public final static byte MSGID_STREAM_CMD = 'S';
-    final static int STREAM_CMD_MESSAGE_LENGTH = 9;
-    public final static int STREAM_CMD_STREAM_TYPE_YPR = MSGID_YPR_UPDATE;
+    public final static byte MSGID_STREAM_CMD =                 'S';
+    public final static int STREAM_CMD_STREAM_TYPE_YPR =        MSGID_YPR_UPDATE;
     public final static int STREAM_CMD_STREAM_TYPE_QUATERNION = MSGID_QUATERNION_UPDATE;
-    public final static int STREAM_CMD_STREAM_TYPE_GYRO = MSGID_GYRO_UPDATE;
-    final static int STREAM_CMD_STREAM_TYPE_INDEX = 2;
-    final static int STREAM_CMD_UPDATE_RATE_HZ_INDEX = 3;
-    final static int STREAM_CMD_CHECKSUM_INDEX = 5;
-    final static int STREAM_CMD_TERMINATOR_INDEX = 7;
+    public final static int STREAM_CMD_STREAM_TYPE_GYRO =       MSGID_GYRO_UPDATE;
+    final static int STREAM_CMD_STREAM_TYPE_INDEX =             2;
+    final static int STREAM_CMD_UPDATE_RATE_HZ_INDEX =          3;
+    final static int STREAM_CMD_CHECKSUM_INDEX =                5;
+    final static int STREAM_CMD_TERMINATOR_INDEX =              7;
+    final static int STREAM_CMD_MESSAGE_LENGTH =                9;
 
     // EnableStream Response Packet - e.g., !s[stream type][gyro full scale range][accel full scale range][update rate hz][yaw_offset_degrees][flags][checksum][cr][lf]
-    public final static byte MSG_ID_STREAM_RESPONSE = 's';
-    final static int STREAM_RESPONSE_MESSAGE_LENGTH = 46;
-    final static int STREAM_RESPONSE_STREAM_TYPE_INDEX = 2;
+    public final static byte MSG_ID_STREAM_RESPONSE =           's';
+    final static int STREAM_RESPONSE_MESSAGE_LENGTH =           46;
+    final static int STREAM_RESPONSE_STREAM_TYPE_INDEX =        2;
     final static int STREAM_RESPONSE_GYRO_FULL_SCALE_DPS_RANGE = 3;
     final static int STREAM_RESPONSE_ACCEL_FULL_SCALE_G_RANGE = 7;
-    final static int STREAM_RESPONSE_UPDATE_RATE_HZ = 11;
-    final static int STREAM_RESPONSE_YAW_OFFSET_DEGREES = 15;
-    final static int STREAM_RESPONSE_QUAT1_OFFSET = 22;
-    final static int STREAM_RESPONSE_QUAT2_OFFSET = 26;
-    final static int STREAM_RESPONSE_QUAT3_OFFSET = 30;
-    final static int STREAM_RESPONSE_QUAT4_OFFSET = 34;
-    final static int STREAM_RESPONSE_FLAGS        = 38;
-    final static int STREAM_RESPONSE_CHECKSUM_INDEX = 42;
-    final static int STREAM_RESPONSE_TERMINATOR_INDEX = 44;
+    final static int STREAM_RESPONSE_UPDATE_RATE_HZ =           11;
+    final static int STREAM_RESPONSE_YAW_OFFSET_DEGREES =       15;
+    final static int STREAM_RESPONSE_QUAT1_OFFSET =             22;
+    final static int STREAM_RESPONSE_QUAT2_OFFSET =             26;
+    final static int STREAM_RESPONSE_QUAT3_OFFSET =             30;
+    final static int STREAM_RESPONSE_QUAT4_OFFSET =             34;
+    final static int STREAM_RESPONSE_FLAGS        =             38;
+    final static int STREAM_RESPONSE_CHECKSUM_INDEX =           42;
+    final static int STREAM_RESPONSE_TERMINATOR_INDEX =         44;
     
     public final static byte STREAM_MSG_TERMINATION_CHAR = (byte)'\n';
     
-    public final static short NAV6_FLAG_MASK_CALIBRATION_STATE = 0x03;
+    public final static short NAV6_FLAG_MASK_CALIBRATION_STATE =    0x03;
     
     public final static short NAV6_CALIBRATION_STATE_WAIT =         0x00;
     public final static short NAV6_CALIBRATION_STATE_ACCUMULATE =   0x01;
