@@ -130,6 +130,15 @@ USBD_CDC_ItfTypeDef USBD_Interface_fops_FS =
   CDC_Receive_FS
 };
 
+/* USB init/deinit/reinit debugging counters */
+
+uint32_t usb_init_count = 0;
+uint32_t usb_deinit_count = 0;
+uint32_t usb_deinit_while_tx_count = 0;
+uint32_t usb_set_line_coding_count = 0;
+uint32_t usb_reset_count = 0;
+uint32_t usb_last_tx_not_busy_timestamp = 0;
+
 /* Private functions ---------------------------------------------------------*/
 /**
   * @brief  CDC_Init_FS
@@ -147,12 +156,7 @@ static int8_t CDC_Init_FS(void)
   AppRxBufferHeadIndex = 0;
   AppRxBufferTailIndex = 0;
   if ( hUsbDevice_0 == NULL ) return USBD_FAIL;
-  USBD_CDC_HandleTypeDef *pCDC =
-          (USBD_CDC_HandleTypeDef *)hUsbDevice_0->pClassData;
-  if ( pCDC->TxState != 0 ) {
-      pCDC->TxState = 0;
-      //pCDC->RxState = 0;
-  }
+  usb_init_count++;
   return (USBD_OK);
   /* USER CODE END 4 */ 
 }
@@ -168,7 +172,14 @@ static int8_t CDC_DeInit_FS(void)
     if ( hUsbDevice_0 == NULL ) return USBD_FAIL;
     USBD_CDC_HandleTypeDef *pCDC =
             (USBD_CDC_HandleTypeDef *)hUsbDevice_0->pClassData;
+    if ( pCDC->TxState != 0 ) {
+        pCDC->TxState = 0;
+        usb_deinit_while_tx_count++;
+        MX_USB_DEVICE_DeInit();
+        MX_USB_DEVICE_Init();
+    }
     hUsbDevice_0 = NULL;
+    usb_deinit_count++;
   /* USER CODE BEGIN 5 */ 
   return (USBD_OK);
   /* USER CODE END 5 */ 
@@ -230,6 +241,7 @@ static int8_t CDC_Control_FS  (uint8_t cmd, uint8_t* pbuf, uint16_t length)
     LineCoding.format     = pbuf[4];
     LineCoding.paritytype = pbuf[5];
     LineCoding.datatype   = pbuf[6];
+    usb_set_line_coding_count++;
     break;
 
   case CDC_GET_LINE_CODING:
@@ -280,33 +292,33 @@ uint32_t CDC_Receive_Available()
   */
 static int8_t CDC_Receive_FS (uint8_t* Buf, uint32_t *Len)
 {
-  /* USER CODE BEGIN 7 */
-	/* Transfer data into circular buffer */
-	uint32_t new_tail_index = AppRxBufferTailIndex + *Len;
-	uint32_t first_copy_len = *Len;
-	uint32_t second_copy_len = 0;
-	uint32_t buffer_bytes_available = APP_HIGHLEVEL_RX_BUFFER_SIZE - CDC_Receive_Available();
-	/* If more bytes have arrived than are in the buffer, */
-	/* discard extra bytes at the end of the receive buffer */
-	if ( first_copy_len > buffer_bytes_available ) {
-		first_copy_len = buffer_bytes_available;
-	}
-	/* Handle wrap */
-	if ( new_tail_index >= APP_HIGHLEVEL_RX_BUFFER_SIZE ) {
-		first_copy_len = APP_HIGHLEVEL_RX_BUFFER_SIZE - AppRxBufferTailIndex;
-		second_copy_len = *Len - first_copy_len;
-		new_tail_index = second_copy_len;
-	}
-	/* Copy data */
-	memcpy(&AppHighLevelRxBuffer[AppRxBufferTailIndex],Buf,first_copy_len);
-	AppRxBufferTailIndex += first_copy_len;
-	if ( second_copy_len > 0 ) {
-		memcpy(&AppHighLevelRxBuffer[0],Buf + first_copy_len, second_copy_len);
-		AppRxBufferTailIndex = second_copy_len;
-	}
-	/* Enable reception of next packet */
-	USBD_CDC_ReceivePacket(hUsbDevice_0);
-  return (USBD_OK);
+    /* USER CODE BEGIN 7 */
+    /* Transfer data into circular buffer */
+    uint32_t new_tail_index = AppRxBufferTailIndex + *Len;
+    uint32_t first_copy_len = *Len;
+    uint32_t second_copy_len = 0;
+    uint32_t buffer_bytes_available = APP_HIGHLEVEL_RX_BUFFER_SIZE - CDC_Receive_Available();
+    /* If more bytes have arrived than are in the buffer, */
+    /* discard extra bytes at the end of the receive buffer */
+    if ( first_copy_len > buffer_bytes_available ) {
+        first_copy_len = buffer_bytes_available;
+    }
+    /* Handle wrap */
+    if ( new_tail_index >= APP_HIGHLEVEL_RX_BUFFER_SIZE ) {
+        first_copy_len = APP_HIGHLEVEL_RX_BUFFER_SIZE - AppRxBufferTailIndex;
+        second_copy_len = *Len - first_copy_len;
+        new_tail_index = second_copy_len;
+    }
+    /* Copy data */
+    memcpy(&AppHighLevelRxBuffer[AppRxBufferTailIndex],Buf,first_copy_len);
+    AppRxBufferTailIndex += first_copy_len;
+    if ( second_copy_len > 0 ) {
+        memcpy(&AppHighLevelRxBuffer[0],Buf + first_copy_len, second_copy_len);
+        AppRxBufferTailIndex = second_copy_len;
+    }
+    /* Enable reception of next packet */
+    USBD_CDC_ReceivePacket(hUsbDevice_0);
+    return (USBD_OK);
   /* USER CODE END 7 */ 
 }
 
@@ -335,8 +347,6 @@ uint8_t CDC_Receive_Read() {
 	return character;
 }
 
-uint32_t last_tx_not_busy_timestamp = 0;
-
 /**
   * @brief  CDC_Transmit_FS
   *         Data send over USB IN endpoint are sent over CDC interface 
@@ -362,24 +372,10 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
   /* then reset the interface and try again.         */
 
   if ( pCDC->TxState != 0 ) {
-      if ( ( last_tx_not_busy_timestamp != 0 ) &&
-           ( HAL_GetTick() - last_tx_not_busy_timestamp > (uint32_t)1000) ) {
-
-          last_tx_not_busy_timestamp = 0;
-          /* Empirical evidence shows that in this state, the transmit     */
-          /* is stuck, and an endless "setup" interrupt is being received. */
-          /* As a result, we need to completely reinitialize the USB       */
-          /* circuitry/driver to get this working again.                   */
-          //MX_USB_DEVICE_DeInit();
-          //MX_USB_DEVICE_Init();
-          //pCDC->TxState = 0;
-          return USBD_BUSY;
-      } else {
-          return USBD_BUSY;
-      }
+      return USBD_BUSY;
   }
 
-  last_tx_not_busy_timestamp = HAL_GetTick();
+  usb_last_tx_not_busy_timestamp = HAL_GetTick();
 
    /* USER CODE BEGIN 8 */
 	if (Len > APP_TX_DATA_SIZE)
