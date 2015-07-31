@@ -89,6 +89,8 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
         /* USER CODE END I2C2_MspInit 0 */
         /* Peripheral clock enable */
         __I2C2_CLK_ENABLE();
+        __I2C2_FORCE_RESET();
+        __I2C2_RELEASE_RESET();
 
         /**I2C2 GPIO Configuration
     PB10     ------> I2C2_SCL
@@ -110,7 +112,6 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
 
         HAL_I2CEx_AnalogFilter_Config(hi2c,0); // Enable Analog Noise Filter
         HAL_I2CEx_DigitalFilter_Config(hi2c,12); // Enable Digital Noise Filter (Range 0 [none] - 15)
-
     }
     else if(hi2c->Instance==I2C3)
     {
@@ -119,6 +120,8 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
         /* USER CODE END I2C3_MspInit 0 */
         /* Peripheral clock enable */
         __I2C3_CLK_ENABLE();
+        __I2C3_FORCE_RESET();
+        __I2C3_RELEASE_RESET();
 
         /**I2C3 GPIO Configuration
     PA8     ------> I2C3_SCL
@@ -217,10 +220,16 @@ void HAL_I2C_MspDeInit(I2C_HandleTypeDef* hi2c)
     }
 }
 
+uint32_t successful_reset_count = 0;
+uint32_t failed_reset_count = 0;
+
 void HAL_I2C_Reset(I2C_HandleTypeDef* hi2c)
 {
     int retry_count = 5;
     int i;
+    int scl_busy = 0;
+    int sda_busy = 0;
+    GPIO_InitTypeDef GPIO_InitStruct;
     while ( retry_count > 0 ) {
         int is_busy = (__HAL_I2C_GET_FLAG(hi2c, I2C_FLAG_BUSY) == SET) ? 1 : 0;
 
@@ -232,20 +241,45 @@ void HAL_I2C_Reset(I2C_HandleTypeDef* hi2c)
         if ( is_busy ) {
 
             /* Reconfigure GPIO for direct IO */
-            GPIO_InitTypeDef GPIO_InitStruct;
-            HAL_I2C_MspDeInit(hi2c);
+            HAL_I2C_DeInit(hi2c);
 
+            HAL_GPIO_WritePin(GPIOB,GPIO_PIN_10,GPIO_PIN_SET);
+            HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_SET);
             GPIO_InitStruct.Pin = GPIO_PIN_10;
             GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-            GPIO_InitStruct.Pull = GPIO_PULLUP;
+            GPIO_InitStruct.Pull = GPIO_NOPULL;
             GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
             HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
             GPIO_InitStruct.Pin = GPIO_PIN_3;
-            GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+            GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
             GPIO_InitStruct.Pull = GPIO_NOPULL;
             GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
             HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+            HAL_GPIO_WritePin(GPIOB,GPIO_PIN_10,GPIO_PIN_SET);
+            HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_SET);
+
+            /* Try to send out a pseudo-stop bit.  */
+            if ( ( HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) == GPIO_PIN_SET ) &&
+                 ( HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_SET ) ) {
+                HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_RESET);
+                HAL_Delay(1);
+                HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_SET);
+                HAL_Delay(1);
+            } else {
+                /* One more clock in case device was trying to ack address */
+                HAL_GPIO_WritePin(GPIOB,GPIO_PIN_10,GPIO_PIN_RESET);
+                HAL_Delay(1);
+                HAL_GPIO_WritePin(GPIOB,GPIO_PIN_10,GPIO_PIN_SET);
+                HAL_Delay(1);
+                if ( ( HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) == GPIO_PIN_SET ) &&
+                     ( HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_SET ) ) {
+                    HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_RESET);
+                    HAL_Delay(1);
+                    HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_SET);
+                    HAL_Delay(1);
+                }
+            }
 #if 0
             /* Detect if SDA is high, and if so toggle clock pin */
             int max_retry_count = 1000;
@@ -258,25 +292,40 @@ void HAL_I2C_Reset(I2C_HandleTypeDef* hi2c)
             /* Algorithm taken from Analog Device AN-686, page 2*/
             /* Up to 9 data bits may be pending transmission by the I2C slave */
             for ( i = 0; i < 9; i++ ) {
-                /* Attempt to assert a Logic 1 on the SDA line */
-                HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_SET);
-                HAL_Delay(1);
-                /* Is SDA line at logic 0?  If so generate a clock pulse */
-                while ( (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) == GPIO_PIN_RESET)) {
                     HAL_GPIO_WritePin(GPIOB,GPIO_PIN_10,GPIO_PIN_SET);
                     HAL_Delay(1);
                     HAL_GPIO_TogglePin(GPIOB,GPIO_PIN_10);
                     HAL_Delay(1);
-                    HAL_GPIO_TogglePin(GPIOB,GPIO_PIN_10);
                 }
-                /* Once the SDA Line is High, generate a STOP condition */
+            }
+
+            if ( ( HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) == GPIO_PIN_SET ) &&
+                 ( HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_SET ) ) {
                 HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_RESET);
-                HAL_GPIO_WritePin(GPIOB,GPIO_PIN_10,GPIO_PIN_RESET);
                 HAL_Delay(1);
                 HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_SET);
-                HAL_GPIO_WritePin(GPIOB,GPIO_PIN_10,GPIO_PIN_SET);
+                HAL_Delay(1);
             }
-        }
+
+            HAL_GPIO_WritePin(GPIOB,GPIO_PIN_10,GPIO_PIN_SET);
+            HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_SET);
+
+
+        /* Set SDA Pin as INPUT */
+        GPIO_InitStruct.Pin = GPIO_PIN_3;
+        GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
+        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+        sda_busy = (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) == GPIO_PIN_RESET);
+
+        /* Set SCL Pin as INPUT */
+        GPIO_InitStruct.Pin = GPIO_PIN_10;
+        GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
+        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+        scl_busy = (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_RESET);
 
         /* Force a software reset */
         hi2c->Instance->CR1 &= 0x8000;
@@ -288,15 +337,20 @@ void HAL_I2C_Reset(I2C_HandleTypeDef* hi2c)
         hi2c->Instance->SR2 = 0;
         hi2c->Instance->OAR1 = 0;
         hi2c->Instance->OAR2 = 0;
+        HAL_Delay(1);
         /* Release software reset */
         hi2c->Instance->CR1 &= ~0x8000;
 
-        HAL_I2C_MspInit(hi2c);
+        HAL_I2C_Init(hi2c);
 
         if (__HAL_I2C_GET_FLAG(hi2c, I2C_FLAG_BUSY) != SET) {
+            successful_reset_count++;
             break;
         }
         retry_count--;
+    }
+    if ( retry_count == 0) {
+        failed_reset_count++;
     }
 }
 
