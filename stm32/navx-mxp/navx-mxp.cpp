@@ -874,7 +874,7 @@ _EXTERN_ATTRIB void nav10_main()
 
                     if ( ( ( registers.sensor_status & NAVX_SENSOR_STATUS_MOVING ) == 0 ) &&
                             ( ( registers.sensor_status & NAVX_SENSOR_STATUS_YAW_STABLE ) ) &&
-                            ( imu_cal_bias_change_count > 0 ) ) {
+                            ( imu_cal_bias_change_count > 2 ) ) {
 
                         /* Sensor is still, and DMP calibration constants have been accumulated */
                         /* Store to flash memory and begin accumulating yaw offsets.            */
