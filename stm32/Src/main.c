@@ -86,7 +86,7 @@ void USB_Soft_Disconnect()
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
     /* Wait a bit for the usb host to discover the reset */
-    HAL_Delay(1000);
+    HAL_Delay(2000);
 
     GPIO_InitStruct.Pin = GPIO_PIN_12;
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
