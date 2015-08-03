@@ -1,6 +1,6 @@
 REM Generate Java Public Class Library Documentation
 
-pushd roborio\java\navXMXPSimpleRobotExample\src
+pushd roborio\java\navx_frc\src
 javadoc -d ./docs com.kauailabs.navx.frc
 popd
 
