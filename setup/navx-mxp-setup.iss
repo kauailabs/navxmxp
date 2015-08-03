@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "navX MXP"
-#define MyAppVersion "1.1.37"
+#define MyAppVersion "1.2"
 #define MyAppPublisher "KauaiLabs, Inc."
 #define MyAppURL "http://navx-mxp.kauailabs.com"
 
@@ -36,6 +36,7 @@ Name: "{group}\navXFirmwareUpdater"; Filename: "{app}\navXFirmwareUpdater\navXFi
 Name: "{group}\navXMXPUI"; Filename: "{app}\navXMXPUI\navXMXPUI"; WorkingDir: "{app}\navXMXPUI"; IconFilename: "{app}\graphics\dashboard.ico"
 Name: "{group}\Online Documentation"; Filename: "{app}\navx-mxp-software.url"; IconFilename: "{app}\graphics\information.ico"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
+Name: "{group}\RoboRIO Libaries & Samples"; Filename: "{win}\explorer"; Parameters: "{%HOMEPATH}\navx-mxp"
 
 [Files]
 Source: "..\drivers\windows\vcp\*.*"; DestDir: "{app}\installers\vcp"; Flags: recursesubdirs
@@ -43,10 +44,29 @@ Source: "..\drivers\windows\dfu\*.*"; DestDir: "{app}\installers\dfu"; Flags: re
 Source: "..\c#\navXMagCalibrator\bin\Release\*.*"; DestDir: "{app}\navXMagCalibrator"; Flags: recursesubdirs
 Source: "..\c#\navXConfig\bin\Release\*.*"; DestDir: "{app}\navXConfig"; Flags: recursesubdirs
 Source: "..\c#\navXFirmwareUpdater\bin\Release\*.*"; DestDir: "{app}\navXFirmwareUpdater"; Flags: recursesubdirs
-Source: "..\processing_output\*.*"; DestDir: "{app}\navXMXPUI"; Flags: recursesubdirs;
+Source: "..\processing_output\*.*"; DestDir: "{app}\navXMXPUI"; Flags: recursesubdirs
 Source: "weblinks\navx-mxp-software.url"; DestDir: "{app}"
 
 Source: "graphics\*.*"; DestDir: "{app}\graphics"; Flags: recursesubdirs
+Source: "..\java\navx\src\*.*"; DestDir: "{%HOMEPATH}\navx\java\src"; Flags: createallsubdirs recursesubdirs
+Source: "..\roborio\java\navx_frc\src\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\java\src"; Flags: recursesubdirs
+Source: "..\roborio\java\navx_frc\jar\navx_frc.jar"; DestDir: "{%HOMEPATH}\navx-mxp\java\lib"
+Source: "..\roborio\java\navXMXP_Java_DataMonitor\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\DataMonitor"; Flags: createallsubdirs recursesubdirs
+Source: "..\roborio\java\navXMXP_Java_FieldCentricDrive\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\FieldCentricDrive"; Flags: createallsubdirs recursesubdirs
+Source: "..\roborio\java\navXMXP_Java_RotateToAngle\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\RotateToAngle"; Flags: createallsubdirs recursesubdirs
+Source: "..\roborio\java\navXMXP_Java_AutoBalance\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\AutoBalance"; Flags: createallsubdirs recursesubdirs
+
+Source: "..\roborio\c++\navx_frc_cpp\Debug\*.a"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\lib"
+Source: "..\roborio\c++\navx_frc_cpp\include\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\include"
+Source: "..\roborio\c++\navx_frc_cpp\src\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\src"; Flags: createallsubdirs recursesubdirs
+Source: "..\roborio\c++\navXMXP_CPP_DataMonitor\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\DataMonitor"; Flags: createallsubdirs recursesubdirs
+Source: "..\roborio\c++\navXMXP_CPP_FieldCentricDrive\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\FieldCentricDrive"; Flags: createallsubdirs recursesubdirs
+Source: "..\roborio\c++\navXMXP_CPP_RotateToAngle\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\RotateToAngle"; Flags: createallsubdirs recursesubdirs
+Source: "..\roborio\c++\navXMXP_CPP_AutoBalance\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\AutoBalance"; Flags: createallsubdirs recursesubdirs
+
+Source: "..\roborio\labview\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\labview"; Flags: createallsubdirs recursesubdirs
+
+Source: "..\stm32\bin\*.hex"; DestDir: "{%HOMEPATH}\navx-mxp\firmware"; Flags:
 
 [Run]
 Filename: "{app}\installers\vcp\Win7\dpinst_amd64.exe"; Parameters: "/SW"; Flags: 64bit; OnlyBelowVersion: 0,6.2; Check: IsWin64
