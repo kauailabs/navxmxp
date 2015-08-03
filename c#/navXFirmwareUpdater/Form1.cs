@@ -472,6 +472,9 @@ namespace navXFirmwareUpdater
             // Create an instance of the open file dialog box.
             OpenFileDialog openFileDialog1 = new OpenFileDialog();
             // Set filter options and filter index.
+            String default_firmware_dir = System.Environment.GetFolderPath(System.Environment.SpecialFolder.Personal) + "\\navx-mxp\\firmware\\";
+            openFileDialog1.InitialDirectory = default_firmware_dir;
+            openFileDialog1.RestoreDirectory = false;
             openFileDialog1.Filter = "Hex Files (.hex)|*.hex";
             openFileDialog1.FilterIndex = 1;
 
@@ -532,10 +535,11 @@ namespace navXFirmwareUpdater
                 progressBar1.Visible = false;
                 Application.DoEvents();
                 dialog_in_progress = true;
-                MessageBox.Show("navX Board must be in DFU mode to download firmware.\n\n" +
-                                "1. Unplug the board from your PC's USB port.\n" +
-                                "2. While holding down the 'CAL' button, press the 'RESET' button.\n" +
-                                "3. Then re-connect the board to the PC USB port.\n\n" +
+                MessageBox.Show("To update navX Firmware, the navX board must be in Firmware Update Mode.\n\n" +
+                                "1. Disconnect the board from the PC USB port.\n" +
+                                "2. Ensure the board has completely powered down (the RED 3.3V LED must be off).\n" +
+                                "3. While holding down the 'CAL' button, re-connect the board to the PC USB port.\n\n" +
+                                "4. After the board has powered up, release the 'CAL' button.\n" + 
                                 "When in DFU mode, only the RED power LED will be ON.",
                                 "navX Firmware Update",
                                 MessageBoxButtons.OK,

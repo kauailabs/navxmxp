@@ -124,18 +124,15 @@
     <value>91, 17</value>
   </metadata>
   <data name="label_NotReadyToUpdate.Text" xml:space="preserve">
-    <value>To Update navX Firmware, the navX board must be in Firmware Update Mode.
+    <value>To update navX Firmware, the navX board must be in Firmware Update Mode.
 
-While navX is powered on:
-  * Press and Hold the navX 'CAL' button
-  * While still holding down the 'CAL' button, press and release the 'RESET' button
-  * After the reset completes, disconnect then re-connect the board to the PC's USB port.
+1. Disconnect the board from the PC USB port.
+2. Ensure the board has completely powered down (the RED "3.3V LED must be off).
+3. While holding down the 'CAL' button, re-connect the board to the PC USB port.
+4. After the board has powered up, release the 'CAL' button.
 
 When in Firmware Update Mode, only the navX RED '3.3V" LED will be on.</value>
   </data>
-  <metadata name="timer2.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-    <value>178, 17</value>
-  </metadata>
   <data name="label_ReadyToUpdate.Text" xml:space="preserve">
     <value>navX board is currenlty in Firmware Update Mode.
 
@@ -146,6 +143,9 @@ Do not disconnect the navX from the PC USB port until the firmware update is com
 Once completed, the navX board will automatically restart and enter Operational Mode.
 At that time, you can verify the Currently-loaded navX Firmware Version.</value>
   </data>
+  <metadata name="timer2.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+    <value>178, 17</value>
+  </metadata>
   <assembly alias="System.Drawing" name="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
   <data name="$this.Icon" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>

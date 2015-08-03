@@ -55,11 +55,11 @@
             this.progressBar1 = new System.Windows.Forms.ProgressBar();
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tabPage1 = new System.Windows.Forms.TabPage();
+            this.label_ReadyToUpdate = new System.Windows.Forms.Label();
             this.tabPage2 = new System.Windows.Forms.TabPage();
+            this.label_VCP_Mode_Not_Ready = new System.Windows.Forms.Label();
             this.label_VCP_Open_Ready = new System.Windows.Forms.Label();
             this.timer2 = new System.Windows.Forms.Timer(this.components);
-            this.label_ReadyToUpdate = new System.Windows.Forms.Label();
-            this.label_VCP_Mode_Not_Ready = new System.Windows.Forms.Label();
             this.groupBox2.SuspendLayout();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
@@ -233,7 +233,7 @@
             this.label_NotReadyToUpdate.AutoSize = true;
             this.label_NotReadyToUpdate.Location = new System.Drawing.Point(26, 47);
             this.label_NotReadyToUpdate.Name = "label_NotReadyToUpdate";
-            this.label_NotReadyToUpdate.Size = new System.Drawing.Size(424, 104);
+            this.label_NotReadyToUpdate.Size = new System.Drawing.Size(408, 104);
             this.label_NotReadyToUpdate.TabIndex = 24;
             this.label_NotReadyToUpdate.Text = resources.GetString("label_NotReadyToUpdate.Text");
             this.label_NotReadyToUpdate.Click += new System.EventHandler(this.label5_Click);
@@ -303,6 +303,16 @@
             this.tabPage1.UseVisualStyleBackColor = true;
             this.tabPage1.Click += new System.EventHandler(this.tabPage1_Click);
             // 
+            // label_ReadyToUpdate
+            // 
+            this.label_ReadyToUpdate.AutoSize = true;
+            this.label_ReadyToUpdate.Location = new System.Drawing.Point(25, 47);
+            this.label_ReadyToUpdate.Name = "label_ReadyToUpdate";
+            this.label_ReadyToUpdate.Size = new System.Drawing.Size(421, 104);
+            this.label_ReadyToUpdate.TabIndex = 24;
+            this.label_ReadyToUpdate.Text = resources.GetString("label_ReadyToUpdate.Text");
+            this.label_ReadyToUpdate.Click += new System.EventHandler(this.label5_Click);
+            // 
             // tabPage2
             // 
             this.tabPage2.Controls.Add(this.label_VCP_Mode_Not_Ready);
@@ -319,6 +329,17 @@
             this.tabPage2.Text = "Currently-loaded navX Firmware Version";
             this.tabPage2.UseVisualStyleBackColor = true;
             // 
+            // label_VCP_Mode_Not_Ready
+            // 
+            this.label_VCP_Mode_Not_Ready.AutoSize = true;
+            this.label_VCP_Mode_Not_Ready.Location = new System.Drawing.Point(20, 196);
+            this.label_VCP_Mode_Not_Ready.Name = "label_VCP_Mode_Not_Ready";
+            this.label_VCP_Mode_Not_Ready.Size = new System.Drawing.Size(432, 39);
+            this.label_VCP_Mode_Not_Ready.TabIndex = 25;
+            this.label_VCP_Mode_Not_Ready.Text = "navX board must be in Operational Mode to retrieve the currently-loaded Firmware " +
+    "Version.\r\n\r\nWhen in Operational Mode, the GREEN navX S1 and S2 LEDs should be ON" +
+    ".";
+            // 
             // label_VCP_Open_Ready
             // 
             this.label_VCP_Open_Ready.AutoSize = true;
@@ -334,27 +355,6 @@
             this.timer2.Enabled = true;
             this.timer2.Interval = 1000;
             this.timer2.Tick += new System.EventHandler(this.timer2_Tick);
-            // 
-            // label_ReadyToUpdate
-            // 
-            this.label_ReadyToUpdate.AutoSize = true;
-            this.label_ReadyToUpdate.Location = new System.Drawing.Point(27, 47);
-            this.label_ReadyToUpdate.Name = "label_ReadyToUpdate";
-            this.label_ReadyToUpdate.Size = new System.Drawing.Size(421, 104);
-            this.label_ReadyToUpdate.TabIndex = 24;
-            this.label_ReadyToUpdate.Text = resources.GetString("label_ReadyToUpdate.Text");
-            this.label_ReadyToUpdate.Click += new System.EventHandler(this.label5_Click);
-            // 
-            // label_VCP_Mode_Not_Ready
-            // 
-            this.label_VCP_Mode_Not_Ready.AutoSize = true;
-            this.label_VCP_Mode_Not_Ready.Location = new System.Drawing.Point(20, 196);
-            this.label_VCP_Mode_Not_Ready.Name = "label_VCP_Mode_Not_Ready";
-            this.label_VCP_Mode_Not_Ready.Size = new System.Drawing.Size(432, 39);
-            this.label_VCP_Mode_Not_Ready.TabIndex = 25;
-            this.label_VCP_Mode_Not_Ready.Text = "navX board must be in Operational Mode to retrieve the currently-loaded Firmware " +
-    "Version.\r\n\r\nWhen in Operational Mode, the GREEN navX S1 and S2 LEDs should be ON" +
-    ".";
             // 
             // Form1
             // 
