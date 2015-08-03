@@ -3,14 +3,10 @@ REM Batch file to create the navX MXP distributable package
 md dist
 pushd dist
 
-mkdir arduino
 mkdir enclosure
-mkdir firmware
 
-cp -r ../arduino/* ./arduino/
 cp -r ../enclosure/* ./enclosure
 cp ../setup/Output/* .
-cp ../stm32/bin/*.hex ./firmware
 cp ../readme.txt ./
 cp ../wheres_the_source.txt ./
 cp ../getting_started.txt ./
