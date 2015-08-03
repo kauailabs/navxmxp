@@ -1,5 +1,5 @@
 #define NAVX_MXP_FIRMWARE_VERSION_MAJOR 	1
-#define NAVX_MXP_FIRMWARE_VERSION_MINOR		1
+#define NAVX_MXP_FIRMWARE_VERSION_MINOR		2
 
 #define NAVX_MXP_HARDWARE_VERSION_NUMBER    33 /* Revision 3.3 MXP IO */
 
@@ -18,5 +18,6 @@
 //        - Improved responsiveness of I2C and SPI Interfaces
 //        - Fixed an issue which could cause the UART received packet handling to hang
 //        - Improved performance of UART Transmit interface (buffered writes)
+// 1.2:  Third Release Version (8/2/2015)
 //        - Added recovery from internal I2C Bus Hangs when communicating w/MPU-9250
 //        - Added recovery from External I2C Bus stuck condition
