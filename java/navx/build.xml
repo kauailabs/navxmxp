@@ -48,6 +48,10 @@
         <antcall target="build"/>
     </target>
     <target description="build jar file" name="createjar">
-         <jar destfile="./bin/navx.jar" basedir="./bin"/>
+         <jar destfile="./jar/navx.jar" basedir="./bin"/>
+    	 <!-- Copy Source Files to Target Src Directory-->
+         <copy includeemptydirs="true" todir="${user.home}/navx-mxp/java/src">
+            <fileset dir="src" />
+         </copy>
     </target>
 </project>
