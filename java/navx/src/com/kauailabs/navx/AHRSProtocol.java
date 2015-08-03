@@ -788,4 +788,25 @@ public class AHRSProtocol extends IMUProtocol {
     	int int_val = (int)val;
         encodeBinaryUint32(int_val, buffer, offset);
     }
+    static final int CRC7_POLY = 0x0091;
+
+    public static byte getCRC(byte[] buffer, int length)
+    {
+      int i, j, crc = 0;
+
+      for (i = 0; i < length; i++)
+      {
+        crc ^= (int)(0x00ff & buffer[i]);
+        for (j = 0; j < 8; j++)
+        {
+          if ((crc & 0x0001)!=0) {
+              crc ^= CRC7_POLY;
+          }
+          crc >>= 1;
+        }
+      }
+      return (byte)crc;
+    }
+    
+    
 }
