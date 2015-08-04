@@ -12,21 +12,23 @@ import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.Timer;
 
 /**
- * This is a demo program showing the use of the RobotDrive class.
- * The SampleRobot class is the base of a robot application that will automatically call your
- * Autonomous and OperatorControl methods at the right time as controlled by the switches on
- * the driver station or the field controls.
+ * This is a demo program showing the use of the navX MXP to implement
+ * an automatic balance feature, which can be used to help avoid
+ * a robot tipping over when driving..
  *
- * The VM is configured to automatically run this class, and to call the
- * functions corresponding to each mode, as described in the SampleRobot
- * documentation. If you change the name of this class or the package after
- * creating this project, you must also update the manifest file in the resource
- * directory.
+ * The basic principle shown in the example is measurement of the
+ * Pitch (rotation about the X axis) and Roll (rotation about the
+ * Y axis) angles.  When these angles exceed the "off balance"
+ * threshold and until these angles fall below the "on balance"
+ * threshold, the drive system is automatically driven in the
+ * opposite direction at a magnitude proportional to the
+ * Pitch or Roll angle.
  *
- * WARNING: While it may look like a good choice to use for your code if you're inexperienced,
- * don't. Unless you know what you are doing, complex code will be much more difficult under
- * this system. Use IterativeRobot or Command-Based instead if you're new.
+ * Note that this is just a starting point for automatic balancing,
+ * and will likely require a reasonable amount of tuning in order
+ * to work well with your robot.
  */
+
 public class Robot extends SampleRobot {
     AHRS ahrs;
     RobotDrive myRobot;

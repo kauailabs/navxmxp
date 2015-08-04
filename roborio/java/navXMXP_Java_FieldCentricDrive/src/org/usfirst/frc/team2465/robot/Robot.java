@@ -12,21 +12,18 @@ import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.Timer;
 
 /**
- * This is a demo program showing the use of the RobotDrive class.
- * The SampleRobot class is the base of a robot application that will automatically call your
- * Autonomous and OperatorControl methods at the right time as controlled by the switches on
- * the driver station or the field controls.
+ * This is a demo program showing the use of the navX MXP to implement
+ * field-centric ("field-oriented") drive system control of a Mecanum-
+ * based drive system.  Note that field-centric drive can also be used
+ * with other Holonomic drive systems (e.g., OmniWheel, Swerve).
  *
- * The VM is configured to automatically run this class, and to call the
- * functions corresponding to each mode, as described in the SampleRobot
- * documentation. If you change the name of this class or the package after
- * creating this project, you must also update the manifest file in the resource
- * directory.
- *
- * WARNING: While it may look like a good choice to use for your code if you're inexperienced,
- * don't. Unless you know what you are doing, complex code will be much more difficult under
- * this system. Use IterativeRobot or Command-Based instead if you're new.
+ * This example also includes a feature allowing the driver to "reset"
+ * the "yaw" angle.  When the reset occurs, the new gyro angle will be
+ * 0 degrees.  This can be useful in cases when the gyro drifts, which
+ * doesn't typically happen during a FRC match, but can occur during
+ * long practice sessions.
  */
+
 public class Robot extends SampleRobot {
     AHRS ahrs;
     RobotDrive myRobot;

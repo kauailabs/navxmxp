@@ -2,7 +2,21 @@
 #include "AHRS.h"
 #include <math.h>
 /**
- * This is a demo program showing how to use Mecanum control with the RobotDrive class.
+ * This is a demo program showing the use of the navX MXP to implement
+ * an automatic balance feature, which can be used to help avoid
+ * a robot tipping over when driving..
+ *
+ * The basic principle shown in the example is measurement of the
+ * Pitch (rotation about the X axis) and Roll (rotation about the
+ * Y axis) angles.  When these angles exceed the "off balance"
+ * threshold and until these angles fall below the "on balance"
+ * threshold, the drive system is automatically driven in the
+ * opposite direction at a magnitude proportional to the
+ * Pitch or Roll angle.
+ *
+ * Note that this is just a starting point for automatic balancing,
+ * and will likely require a reasonable amount of tuning in order
+ * to work well with your robot.
  */
 
 static const double kOffBalanceAngleThresholdDegrees = 10;
@@ -19,21 +33,21 @@ class Robot: public SampleRobot
 
     const static int joystickChannel	= 0;
 
-	RobotDrive robotDrive;	// robot drive system
-	Joystick stick;			// only joystick
-	AHRS *ahrs;
+    RobotDrive robotDrive;	// robot drive system
+    Joystick stick;			// only joystick
+    AHRS *ahrs;
     bool autoBalanceXMode;
     bool autoBalanceYMode;
 
 public:
-	Robot() :
-			robotDrive(frontLeftChannel, rearLeftChannel,
-					   frontRightChannel, rearRightChannel),	// these must be initialized in the same order
-			stick(joystickChannel)								// as they are declared above.
-	{
-		robotDrive.SetExpiration(0.1);
-		robotDrive.SetInvertedMotor(RobotDrive::kFrontLeftMotor, true);	// invert the left side motors
-		robotDrive.SetInvertedMotor(RobotDrive::kRearLeftMotor, true);	// you may need to change or remove this to match your robot
+    Robot() :
+            robotDrive(frontLeftChannel, rearLeftChannel,
+                       frontRightChannel, rearRightChannel),	// these must be initialized in the same order
+            stick(joystickChannel)								// as they are declared above.
+    {
+        robotDrive.SetExpiration(0.1);
+        robotDrive.SetInvertedMotor(RobotDrive::kFrontLeftMotor, true);	// invert the left side motors
+        robotDrive.SetInvertedMotor(RobotDrive::kRearLeftMotor, true);	// you may need to change or remove this to match your robot
         try {
             /* Communicate w/navX MXP via the MXP SPI Bus.                                       */
             /* Alternatively:  I2C::Port::kMXP, SerialPort::Port::kMXP or SerialPort::Port::kUSB */
@@ -47,20 +61,20 @@ public:
         if ( ahrs ) {
             LiveWindow::GetInstance()->AddSensor("IMU", "Gyro", ahrs);
         }
-	}
+    }
 
-	/**
-	 * Runs the motors with Mecanum drive.
-	 */
-	void OperatorControl()
-	{
-		robotDrive.SetSafetyEnabled(false);
-		while (IsOperatorControl() && IsEnabled())
-		{
-	        bool reset_yaw_button_pressed = stick.GetRawButton(1);
-	        if ( reset_yaw_button_pressed ) {
-	            ahrs->ZeroYaw();
-	        }
+    /**
+     * Runs the motors with Mecanum drive.
+     */
+    void OperatorControl()
+    {
+        robotDrive.SetSafetyEnabled(false);
+        while (IsOperatorControl() && IsEnabled())
+        {
+            bool reset_yaw_button_pressed = stick.GetRawButton(1);
+            if ( reset_yaw_button_pressed ) {
+                ahrs->ZeroYaw();
+            }
             double xAxisRate = stick.GetX();
             double yAxisRate = stick.GetY();
             double pitchAngleDegrees = ahrs->GetPitch();
@@ -99,9 +113,9 @@ public:
                 err_string += ex.what();
                 DriverStation::ReportError(err_string.c_str());
             }
-			Wait(0.005); // wait 5ms to avoid hogging CPU cycles
-		}
-	}
+            Wait(0.005); // wait 5ms to avoid hogging CPU cycles
+        }
+    }
 
 };
 

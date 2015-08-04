@@ -14,31 +14,25 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 /**
- * This is a demo program showing the use of the navX MXP Robotics Navigation Sensor.
- * 
- * The Robot constructor instantiates the "AHRS" class (Attitude/Heading Reference System).
- * 
- * Several constructors exist, one for each of the communication types (SPI, I2C and Serial).
- * Additionally, the sensor update rate can be customized if the default (50Hz) is not
- * desired.
- * 
- * Once instantiated, the AHRS class will periodically retrieve sensor data from the navX
- * sensor.
- * 
- * In the operatorControl() method, all data from the navX sensor is retrieved and output
- * to the SmartDashboard.
- * 
- * Additionally, the joystick trigger button is used to initiate "zeroing" (resetting)
- * the "Yaw" (Z axis) angle.  This technique is often used in Field-Centric (Field-Oriented)
- * drive systems to allow the driver to deal with drift, which may accumulate over long
- * periods of time (e.g., in a practice match).
- * 
- * In addition to the "processed data" (yaw, pitch, roll, compass heading, fused heading),
- * this sample demonstrates access to advanced features including Quaternion data,
- * Velocity/Displacement Estimates, and Raw Sensor Data.
- * 
- * As well, Board Information is also retrieved; this can be useful for debugging connectivity
- * issues after initial installation of the navX sensor.
+ * This is a demo program providing a real-time display of navX
+ * MXP values.
+ *
+ * In the operatorControl() method, all data from the navX sensor is retrieved
+ * and output to the SmartDashboard.
+ *
+ * The output data values include:
+ *
+ * - Yaw, Pitch and Roll angles
+ * - Compass Heading and 9-Axis Fused Heading (requires Magnetometer calibration)
+ * - Linear Acceleration Data
+ * - Motion Indicators
+ * - Estimated Velocity and Displacement
+ * - Quaternion Data
+ * - Raw Gyro, Accelerometer and Magnetometer Data
+ *
+ * As well, Board Information is also retrieved; this can be useful for debugging
+ * connectivity issues after initial installation of the navX MXP sensor.
+ *
  */
 public class Robot extends SampleRobot {
     AHRS ahrs;

@@ -1,28 +1,51 @@
 #include "WPILib.h"
 #include "AHRS.h"
+
+
+/**
+ * This is a demo program providing a real-time display of navX
+ * MXP values.
+ *
+ * In the operatorControl() method, all data from the navX sensor is retrieved
+ * and output to the SmartDashboard.
+ *
+ * The output data values include:
+ *
+ * - Yaw, Pitch and Roll angles
+ * - Compass Heading and 9-Axis Fused Heading (requires Magnetometer calibration)
+ * - Linear Acceleration Data
+ * - Motion Indicators
+ * - Estimated Velocity and Displacement
+ * - Quaternion Data
+ * - Raw Gyro, Accelerometer and Magnetometer Data
+ *
+ * As well, Board Information is also retrieved; this can be useful for debugging
+ * connectivity issues after initial installation of the navX MXP sensor.
+ *
+ */
 class Robot: public IterativeRobot
 {
     NetworkTable *table;
-	Joystick stick; // only joystick
-	AHRS *ahrs;
-	LiveWindow *lw;
-	int autoLoopCounter;
+    Joystick stick; // only joystick
+    AHRS *ahrs;
+    LiveWindow *lw;
+    int autoLoopCounter;
 
 public:
-	Robot() :
-	    table(NULL),
-	    stick(0),		// as they are declared above.
-		ahrs(NULL),
-	    lw(NULL),
-		autoLoopCounter(0)
-	{
-	}
+    Robot() :
+        table(NULL),
+        stick(0),		// as they are declared above.
+        ahrs(NULL),
+        lw(NULL),
+        autoLoopCounter(0)
+    {
+    }
 
 private:
-	void RobotInit()
-	{
+    void RobotInit()
+    {
         table = NetworkTable::GetTable("datatable");
-		lw = LiveWindow::GetInstance();
+        lw = LiveWindow::GetInstance();
         try {
             /* Communicate w/navX MXP via the MXP SPI Bus.                                       */
             /* Alternatively:  I2C::Port::kMXP, SerialPort::Port::kMXP or SerialPort::Port::kUSB */
@@ -38,26 +61,26 @@ private:
         }
 	}
 
-	void AutonomousInit()
-	{
-		autoLoopCounter = 0;
-	}
+    void AutonomousInit()
+    {
+        autoLoopCounter = 0;
+    }
 
-	void AutonomousPeriodic()
-	{
-		if(autoLoopCounter < 100) //Check if we've completed 100 loops (approximately 2 seconds)
-		{
-			autoLoopCounter++;
-		}
-	}
+    void AutonomousPeriodic()
+    {
+        if(autoLoopCounter < 100) //Check if we've completed 100 loops (approximately 2 seconds)
+        {
+            autoLoopCounter++;
+        }
+    }
 
-	void TeleopInit()
-	{
+    void TeleopInit()
+    {
 
-	}
+    }
 
-	void TeleopPeriodic()
-	{
+    void TeleopPeriodic()
+    {
         if ( !ahrs ) return;
 
         bool reset_yaw_button_pressed = DriverStation::GetInstance()->GetStickButton(0,1);
@@ -122,12 +145,12 @@ private:
         SmartDashboard::PutNumber(  "QuaternionY",          ahrs->GetQuaternionY());
         SmartDashboard::PutNumber(  "QuaternionZ",          ahrs->GetQuaternionZ());
 
-	}
+    }
 
-	void TestPeriodic()
-	{
-		lw->Run();
-	}
+    void TestPeriodic()
+    {
+        lw->Run();
+    }
 };
 
 START_ROBOT_CLASS(Robot);

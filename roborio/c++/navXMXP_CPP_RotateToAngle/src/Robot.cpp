@@ -9,8 +9,27 @@ const static double kF = 0.00f;
 const static double kToleranceDegrees = 2.0f;
 
 /**
- * This is a demo program showing how to use Mecanum control with the RobotDrive class.
+ * This is a demo program showing the use of the navX MXP to implement
+ * a "rotate to angle" feature.
+ *
+ * This example will automatically rotate the robot to one of four
+ * angles (0, 90, 180 and 270 degrees).
+ *
+ * This rotation can occur when the robot is still, but can also occur
+ * when the robot is driving.  When using field-oriented control, this
+ * will cause the robot to drive in a straight line, in whathever direction
+ * is selected.
+ *
+ * This example also includes a feature allowing the driver to "reset"
+ * the "yaw" angle.  When the reset occurs, the new gyro angle will be
+ * 0 degrees.  This can be useful in cases when the gyro drifts, which
+ * doesn't typically happen during a FRC match, but can occur during
+ * long practice sessions.
+ *
+ * Note that the PID Controller coefficients defined below will need to
+ * be tuned for your drive system.
  */
+
 class Robot: public SampleRobot, public PIDOutput
 {
 
@@ -22,9 +41,9 @@ class Robot: public SampleRobot, public PIDOutput
 
     const static int joystickChannel	= 0;
 
-	RobotDrive robotDrive;	// robot drive system
-	Joystick stick;			// only joystick
-	AHRS *ahrs;
+    RobotDrive robotDrive;	// robot drive system
+    Joystick stick;			// only joystick
+    AHRS *ahrs;
     PIDController *turnController;
     double rotateToAngleRate;
 
@@ -36,13 +55,13 @@ class Robot: public SampleRobot, public PIDOutput
 
 public:
 	Robot() :
-			robotDrive(frontLeftChannel, rearLeftChannel,
-					   frontRightChannel, rearRightChannel),	// these must be initialized in the same order
-			stick(joystickChannel)								// as they are declared above.
-	{
-		robotDrive.SetExpiration(0.1);
-		robotDrive.SetInvertedMotor(RobotDrive::kFrontLeftMotor, true);	// invert the left side motors
-		robotDrive.SetInvertedMotor(RobotDrive::kRearLeftMotor, true);	// you may need to change or remove this to match your robot
+            robotDrive(frontLeftChannel, rearLeftChannel,
+                       frontRightChannel, rearRightChannel),	// these must be initialized in the same order
+            stick(joystickChannel)								// as they are declared above.
+    {
+        robotDrive.SetExpiration(0.1);
+        robotDrive.SetInvertedMotor(RobotDrive::kFrontLeftMotor, true);	// invert the left side motors
+        robotDrive.SetInvertedMotor(RobotDrive::kRearLeftMotor, true);	// you may need to change or remove this to match your robot
         try {
             /* Communicate w/navX MXP via the MXP SPI Bus.                                       */
             /* Alternatively:  I2C::Port::kMXP, SerialPort::Port::kMXP or SerialPort::Port::kUSB */
@@ -66,21 +85,21 @@ public:
         if ( ahrs ) {
             LiveWindow::GetInstance()->AddSensor("IMU", "Gyro", ahrs);
         }
-	}
+    }
 
-	/**
-	 * Runs the motors with Mecanum drive.
-	 */
-	void OperatorControl()
-	{
-		robotDrive.SetSafetyEnabled(false);
-		while (IsOperatorControl() && IsEnabled())
-		{
-	        bool reset_yaw_button_pressed = stick.GetRawButton(1);
-	        if ( reset_yaw_button_pressed ) {
-	            ahrs->ZeroYaw();
-	        }
-	        bool rotateToAngle = false;
+    /**
+     * Runs the motors with Mecanum drive.
+     */
+    void OperatorControl()
+    {
+        robotDrive.SetSafetyEnabled(false);
+        while (IsOperatorControl() && IsEnabled())
+        {
+            bool reset_yaw_button_pressed = stick.GetRawButton(1);
+            if ( reset_yaw_button_pressed ) {
+                ahrs->ZeroYaw();
+            }
+            bool rotateToAngle = false;
             if ( stick.GetRawButton(2)) {
                 turnController->SetSetpoint(0.0f);
                 rotateToAngle = true;
@@ -110,9 +129,9 @@ public:
                 err_string += ex.what();
                 DriverStation::ReportError(err_string.c_str());
             }
-			Wait(0.005); // wait 5ms to avoid hogging CPU cycles
-		}
-	}
+            Wait(0.005); // wait 5ms to avoid hogging CPU cycles
+        }
+    }
     void PIDWrite(float output) {
         rotateToAngleRate = output;
     }
