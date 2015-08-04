@@ -4,6 +4,7 @@ package org.usfirst.frc.team2465.robot;
 
 import com.kauailabs.navx.frc.AHRS;
 
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.SampleRobot;
 import edu.wpi.first.wpilibj.RobotDrive;
@@ -35,7 +36,14 @@ public class Robot extends SampleRobot {
         myRobot = new RobotDrive(0, 1);
         myRobot.setExpiration(0.1);
         stick = new Joystick(0);
-        ahrs = new AHRS(SPI.Port.kMXP);
+        try {
+            /* Communicate w/navX MXP via the MXP SPI Bus.                                     */
+            /* Alternatively:  I2C.Port.kMXP, SerialPort.Port.kMXP or SerialPort.Port.kUSB     */
+            /* See http://navx-mxp.kauailabs.com/guidance/selecting-an-interface/ for details. */
+            ahrs = new AHRS(SPI.Port.kMXP); 
+        } catch (RuntimeException ex ) {
+            DriverStation.reportError("Error instantiating navX MXP:  " + ex.getMessage(), true);
+        }
     }
 
     /**
@@ -57,7 +65,11 @@ public class Robot extends SampleRobot {
             if ( stick.getRawButton(0)) {
                 ahrs.reset();
             }
-            myRobot.mecanumDrive_Cartesian(stick.getX(), stick.getY(), stick.getTwist(), ahrs.getAngle());
+            try {
+                myRobot.mecanumDrive_Cartesian(stick.getX(), stick.getY(), stick.getTwist(), ahrs.getAngle());
+            } catch( RuntimeException ex ) {
+                DriverStation.reportError("Error communicating with drive system:  " + ex.getMessage(), true);
+            }
             Timer.delay(0.005);		// wait for a motor update time
         }
     }

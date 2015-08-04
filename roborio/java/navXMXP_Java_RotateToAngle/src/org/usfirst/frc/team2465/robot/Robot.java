@@ -56,7 +56,10 @@ public class Robot extends SampleRobot implements PIDOutput {
         myRobot.setExpiration(0.1);
         stick = new Joystick(0);
         try {
-            ahrs = new AHRS(SPI.Port.kMXP);
+            /* Communicate w/navX MXP via the MXP SPI Bus.                                     */
+            /* Alternatively:  I2C.Port.kMXP, SerialPort.Port.kMXP or SerialPort.Port.kUSB     */
+            /* See http://navx-mxp.kauailabs.com/guidance/selecting-an-interface/ for details. */
+            ahrs = new AHRS(SPI.Port.kMXP); 
         } catch (RuntimeException ex ) {
             DriverStation.reportError("Error instantiating navX MXP:  " + ex.getMessage(), true);
         }

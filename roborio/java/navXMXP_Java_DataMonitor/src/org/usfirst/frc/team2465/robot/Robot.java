@@ -4,6 +4,7 @@ package org.usfirst.frc.team2465.robot;
 
 import com.kauailabs.navx.frc.AHRS;
 
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.I2C;
@@ -45,12 +46,14 @@ public class Robot extends SampleRobot {
  
     public Robot() {
         stick = new Joystick(0);
-        byte update_rate_hz = 60;
-        //ahrs = new AHRS(SPI.Port.kMXP,update_rate_hz);
-        //ahrs = new AHRS(I2C.Port.kMXP,update_rate_hz);
-        //ahrs = new AHRS(SerialPort.Port.kMXP,AHRS.SerialDataType.kProcessedData, update_rate_hz);
-        //ahrs = new AHRS(SerialPort.Port.kMXP,AHRS.SerialDataType.kRawData, update_rate_hz);
-        ahrs = new AHRS(SerialPort.Port.kUSB,AHRS.SerialDataType.kProcessedData,update_rate_hz);
+        try {
+            /* Communicate w/navX MXP via the MXP SPI Bus.                                     */
+            /* Alternatively:  I2C.Port.kMXP, SerialPort.Port.kMXP or SerialPort.Port.kUSB     */
+            /* See http://navx-mxp.kauailabs.com/guidance/selecting-an-interface/ for details. */
+            ahrs = new AHRS(SPI.Port.kMXP); 
+        } catch (RuntimeException ex ) {
+            DriverStation.reportError("Error instantiating navX MXP:  " + ex.getMessage(), true);
+        }
     }
 
     /**

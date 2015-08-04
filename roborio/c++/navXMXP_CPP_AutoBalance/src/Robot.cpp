@@ -34,7 +34,16 @@ public:
 		robotDrive.SetExpiration(0.1);
 		robotDrive.SetInvertedMotor(RobotDrive::kFrontLeftMotor, true);	// invert the left side motors
 		robotDrive.SetInvertedMotor(RobotDrive::kRearLeftMotor, true);	// you may need to change or remove this to match your robot
-        ahrs = new AHRS(SerialPort::Port::kUSB);
+        try {
+            /* Communicate w/navX MXP via the MXP SPI Bus.                                       */
+            /* Alternatively:  I2C::Port::kMXP, SerialPort::Port::kMXP or SerialPort::Port::kUSB */
+            /* See http://navx-mxp.kauailabs.com/guidance/selecting-an-interface/ for details.   */
+            ahrs = new AHRS(SPI::Port::kMXP);
+        } catch (std::exception ex ) {
+            std::string err_string = "Error instantiating navX MXP:  ";
+            err_string += ex.what();
+            DriverStation::ReportError(err_string.c_str());
+        }
         if ( ahrs ) {
             LiveWindow::GetInstance()->AddSensor("IMU", "Gyro", ahrs);
         }
@@ -82,8 +91,14 @@ public:
                 yAxisRate = sin(rollAngleRadians) * -1;
             }
 
-		    // Use the joystick X axis for lateral movement, Y axis for forward movement, and Z axis for rotation.
- 			robotDrive.MecanumDrive_Cartesian(xAxisRate, yAxisRate, stick.GetZ(),ahrs->GetAngle());
+            try {
+                // Use the joystick X axis for lateral movement, Y axis for forward movement, and Z axis for rotation.
+                robotDrive.MecanumDrive_Cartesian(xAxisRate, yAxisRate, stick.GetZ(),ahrs->GetAngle());
+            } catch (std::exception ex ) {
+                std::string err_string = "Error communicating with Drive System:  ";
+                err_string += ex.what();
+                DriverStation::ReportError(err_string.c_str());
+            }
 			Wait(0.005); // wait 5ms to avoid hogging CPU cycles
 		}
 	}
