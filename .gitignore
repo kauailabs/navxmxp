@@ -1,1 +1,4 @@
 stm32/navx-mxp/revision.h
+*.class
+*.class
+roborio/java/navXMXP_Java_RotateToAngle/build/org/usfirst/frc/team2465/robot/Robot.class

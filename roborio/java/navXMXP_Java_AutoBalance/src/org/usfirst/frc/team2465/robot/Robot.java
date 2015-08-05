@@ -72,20 +72,29 @@ public class Robot extends SampleRobot {
         myRobot.setSafetyEnabled(true);
         while (isOperatorControl() && isEnabled()) {
 
-            double xAxisRate = stick.getX();
-            double yAxisRate = stick.getY();
-            double pitchAngleDegrees = ahrs.getPitch();
-            double rollAngleDegrees = ahrs.getRoll();
-            if ( !autoBalanceXMode && ( pitchAngleDegrees >= kOffBalanceAngleThresholdDegrees ) ) {
+            double xAxisRate            = stick.getX();
+            double yAxisRate            = stick.getY();
+            double pitchAngleDegrees    = ahrs.getPitch();
+            double rollAngleDegrees     = ahrs.getRoll();
+            
+            if ( !autoBalanceXMode && 
+                 (Math.abs(pitchAngleDegrees) >= 
+                  Math.abs(kOffBalanceAngleThresholdDegrees))) {
                 autoBalanceXMode = true;
             }
-            else if ( autoBalanceXMode && ( pitchAngleDegrees <= (-kOonBalanceAngleThresholdDegrees))) {
+            else if ( autoBalanceXMode && 
+                      (Math.abs(pitchAngleDegrees) <= 
+                       Math.abs(kOonBalanceAngleThresholdDegrees))) {
                 autoBalanceXMode = false;
             }
-            if ( !autoBalanceYMode && ( pitchAngleDegrees >= kOffBalanceAngleThresholdDegrees ) ) {
+            if ( !autoBalanceYMode && 
+                 (Math.abs(pitchAngleDegrees) >= 
+                  Math.abs(kOffBalanceAngleThresholdDegrees))) {
                 autoBalanceYMode = true;
             }
-            else if ( autoBalanceYMode && ( pitchAngleDegrees <= (-kOonBalanceAngleThresholdDegrees))) {
+            else if ( autoBalanceYMode && 
+                      (Math.abs(pitchAngleDegrees) <= 
+                       Math.abs(kOonBalanceAngleThresholdDegrees))) {
                 autoBalanceYMode = false;
             }
             
@@ -103,9 +112,10 @@ public class Robot extends SampleRobot {
             }
             
             try {
-                myRobot.mecanumDrive_Cartesian(xAxisRate, yAxisRate, stick.getTwist(), ahrs.getAngle());
+                myRobot.mecanumDrive_Cartesian(xAxisRate, yAxisRate, stick.getTwist(),0);
             } catch( RuntimeException ex ) {
-                DriverStation.reportError("Error communicating with drive system:  " + ex.getMessage(), true);
+                String err_string = "Drive system error:  " + ex.getMessage();
+                DriverStation.reportError(err_string, true);
             }
             Timer.delay(0.005);		// wait for a motor update time
         }

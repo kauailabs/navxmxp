@@ -19,8 +19,8 @@
  * to work well with your robot.
  */
 
-static const double kOffBalanceAngleThresholdDegrees = 10;
-static const double kOonBalanceAngleThresholdDegrees  = 5;
+static const double kOffBalanceThresholdDegrees = 10.0f;
+static const double kOnBalanceThresholdDegrees  = 5.0f;
 
 class Robot: public SampleRobot
 {
@@ -41,13 +41,13 @@ class Robot: public SampleRobot
 
 public:
     Robot() :
-            robotDrive(frontLeftChannel, rearLeftChannel,
-                       frontRightChannel, rearRightChannel),	// these must be initialized in the same order
-            stick(joystickChannel)								// as they are declared above.
+            robotDrive(frontLeftChannel,  rearLeftChannel,
+                       frontRightChannel, rearRightChannel),	// these must be initialized in the
+            stick(joystickChannel)								// same order as they are declared above.
     {
         robotDrive.SetExpiration(0.1);
         robotDrive.SetInvertedMotor(RobotDrive::kFrontLeftMotor, true);	// invert the left side motors
-        robotDrive.SetInvertedMotor(RobotDrive::kRearLeftMotor, true);	// you may need to change or remove this to match your robot
+        robotDrive.SetInvertedMotor(RobotDrive::kRearLeftMotor, true);	// (remove/modify to match your robot)
         try {
             /* Communicate w/navX MXP via the MXP SPI Bus.                                       */
             /* Alternatively:  I2C::Port::kMXP, SerialPort::Port::kMXP or SerialPort::Port::kUSB */
@@ -64,31 +64,37 @@ public:
     }
 
     /**
-     * Runs the motors with Mecanum drive.
+     * Drive based upon joystick inputs, and automatically control
+     * motors if the robot begins tipping.
      */
     void OperatorControl()
     {
         robotDrive.SetSafetyEnabled(false);
-        while (IsOperatorControl() && IsEnabled())
-        {
-            bool reset_yaw_button_pressed = stick.GetRawButton(1);
-            if ( reset_yaw_button_pressed ) {
-                ahrs->ZeroYaw();
-            }
+        while (IsOperatorControl() && IsEnabled()) {
+
             double xAxisRate = stick.GetX();
             double yAxisRate = stick.GetY();
             double pitchAngleDegrees = ahrs->GetPitch();
             double rollAngleDegrees = ahrs->GetRoll();
-            if ( !autoBalanceXMode && ( pitchAngleDegrees >= kOffBalanceAngleThresholdDegrees ) ) {
+
+            if ( !autoBalanceXMode &&
+                 (fabs(pitchAngleDegrees) >=
+                  fabs(kOffBalanceThresholdDegrees))) {
                 autoBalanceXMode = true;
             }
-            else if ( autoBalanceXMode && ( pitchAngleDegrees <= (-kOonBalanceAngleThresholdDegrees))) {
+            else if ( autoBalanceXMode &&
+                      (fabs(pitchAngleDegrees) <=
+                       fabs(kOnBalanceThresholdDegrees))) {
                 autoBalanceXMode = false;
             }
-            if ( !autoBalanceYMode && ( pitchAngleDegrees >= kOffBalanceAngleThresholdDegrees ) ) {
+            if ( !autoBalanceYMode &&
+                 (fabs(pitchAngleDegrees) >=
+                  fabs(kOffBalanceThresholdDegrees))) {
                 autoBalanceYMode = true;
             }
-            else if ( autoBalanceYMode && ( pitchAngleDegrees <= (-kOonBalanceAngleThresholdDegrees))) {
+            else if ( autoBalanceYMode &&
+                      (fabs(pitchAngleDegrees) <=
+                       fabs(kOnBalanceThresholdDegrees))) {
                 autoBalanceYMode = false;
             }
 
@@ -107,9 +113,9 @@ public:
 
             try {
                 // Use the joystick X axis for lateral movement, Y axis for forward movement, and Z axis for rotation.
-                robotDrive.MecanumDrive_Cartesian(xAxisRate, yAxisRate, stick.GetZ(),ahrs->GetAngle());
+                robotDrive.MecanumDrive_Cartesian(xAxisRate, yAxisRate,stick.GetZ());
             } catch (std::exception ex ) {
-                std::string err_string = "Error communicating with Drive System:  ";
+                std::string err_string = "Drive system error:  ";
                 err_string += ex.what();
                 DriverStation::ReportError(err_string.c_str());
             }
