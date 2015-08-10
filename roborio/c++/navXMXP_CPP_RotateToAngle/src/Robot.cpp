@@ -1,10 +1,19 @@
 #include "WPILib.h"
 #include "AHRS.h"
 
+/* The following PID Controller coefficients will need to be tuned */
+/* to match the dynamics of your drive system.  Note that the      */
+/* SmartDashboard in Test mode has support for helping you tune    */
+/* controllers by displaying a form where you can enter new P, I,  */
+/* and D constants and test the mechanism.                         */
+
 const static double kP = 0.03f;
 const static double kI = 0.00f;
 const static double kD = 0.00f;
 const static double kF = 0.00f;
+
+/* This tuning parameter indicates how close to "on target" the    */
+/* PID Controller will attempt to get.                             */
 
 const static double kToleranceDegrees = 2.0f;
 
@@ -17,7 +26,7 @@ const static double kToleranceDegrees = 2.0f;
  *
  * This rotation can occur when the robot is still, but can also occur
  * when the robot is driving.  When using field-oriented control, this
- * will cause the robot to drive in a straight line, in whathever direction
+ * will cause the robot to drive in a straight line, in whatever direction
  * is selected.
  *
  * This example also includes a feature allowing the driver to "reset"
@@ -41,27 +50,22 @@ class Robot: public SampleRobot, public PIDOutput
 
     const static int joystickChannel	= 0;
 
-    RobotDrive robotDrive;	// robot drive system
-    Joystick stick;			// only joystick
-    AHRS *ahrs;
-    PIDController *turnController;
-    double rotateToAngleRate;
-
-    /* The following PID Controller coefficients will need to be tuned */
-    /* to match the dynamics of your drive system.  Note that the      */
-    /* SmartDashboard in Test mode has support for helping you tune    */
-    /* controllers by displaying a form where you can enter new P, I,  */
-    /* and D constants and test the mechanism.                         */
+    RobotDrive robotDrive;	            // Robot drive system
+    Joystick stick;			            // Driver Joystick
+    AHRS *ahrs;                         // navX MXP
+    PIDController *turnController;      // PID Controller
+    double rotateToAngleRate;           // Current rotation rate
 
 public:
 	Robot() :
             robotDrive(frontLeftChannel, rearLeftChannel,
-                       frontRightChannel, rearRightChannel),	// these must be initialized in the same order
-            stick(joystickChannel)								// as they are declared above.
+                       frontRightChannel, rearRightChannel), // initialize variables in same
+            stick(joystickChannel)                           // order as declared above.
     {
+	    rotateToAngleRate = 0.0f;
         robotDrive.SetExpiration(0.1);
-        robotDrive.SetInvertedMotor(RobotDrive::kFrontLeftMotor, true);	// invert the left side motors
-        robotDrive.SetInvertedMotor(RobotDrive::kRearLeftMotor, true);	// you may need to change or remove this to match your robot
+        robotDrive.SetInvertedMotor(RobotDrive::kFrontLeftMotor, true);	// invert left side motors
+        robotDrive.SetInvertedMotor(RobotDrive::kRearLeftMotor, true);	// change to match your robot
         try {
             /* Communicate w/navX MXP via the MXP SPI Bus.                                       */
             /* Alternatively:  I2C::Port::kMXP, SerialPort::Port::kMXP or SerialPort::Port::kUSB */
@@ -122,8 +126,12 @@ public:
                 currentRotationRate = stick.GetTwist();
             }
             try {
-                // Use the joystick X axis for lateral movement, Y axis for forward movement, and Z axis for rotation.
-                robotDrive.MecanumDrive_Cartesian(stick.GetX(), stick.GetY(), currentRotationRate ,ahrs->GetAngle());
+                /* Use the joystick X axis for lateral movement,          */
+                /* Y axis for forward movement, and the current           */
+                /* calculated rotation rate (or joystick Z axis),         */
+                /* depending upon whether "rotate to angle" is active.    */
+                robotDrive.MecanumDrive_Cartesian(stick.GetX(), stick.GetY(),
+                                                  currentRotationRate ,ahrs->GetAngle());
             } catch (std::exception ex ) {
                 std::string err_string = "Error communicating with Drive System:  ";
                 err_string += ex.what();
@@ -132,10 +140,11 @@ public:
             Wait(0.005); // wait 5ms to avoid hogging CPU cycles
         }
     }
+    /* This function is invoked periodically by the PID Controller, */
+    /* based upon navX MXP yaw angle input and PID Coefficients.    */
     void PIDWrite(float output) {
         rotateToAngleRate = output;
     }
-
 };
 
 START_ROBOT_CLASS(Robot);

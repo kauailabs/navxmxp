@@ -1,6 +1,4 @@
-
 package org.usfirst.frc.team2465.robot;
-
 
 import com.kauailabs.navx.frc.AHRS;
 
@@ -13,7 +11,6 @@ import edu.wpi.first.wpilibj.RobotDrive;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.livewindow.LiveWindow;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 /**
  * This is a demo program showing the use of the navX MXP to implement
@@ -87,7 +84,7 @@ public class Robot extends SampleRobot implements PIDOutput {
     public void autonomous() {
         myRobot.setSafetyEnabled(false);
         myRobot.drive(0.0, 0.0);    // stop robot
-        Timer.delay(2.0);		//    for 2 seconds
+        Timer.delay(2.0);		    //    for 2 seconds
         myRobot.drive(0.0, 0.0);	// stop robot
     }
 
@@ -132,7 +129,12 @@ public class Robot extends SampleRobot implements PIDOutput {
                 currentRotationRate = stick.getTwist();
             }
             try {
-                myRobot.mecanumDrive_Cartesian(stick.getX(), stick.getY(), currentRotationRate, ahrs.getAngle());
+                /* Use the joystick X axis for lateral movement,          */
+                /* Y axis for forward movement, and the current           */
+                /* calculated rotation rate (or joystick Z axis),         */
+                /* depending upon whether "rotate to angle" is active.    */
+                myRobot.mecanumDrive_Cartesian(stick.getX(), stick.getY(), 
+                                               currentRotationRate, ahrs.getAngle());
             } catch( RuntimeException ex ) {
                 DriverStation.reportError("Error communicating with drive system:  " + ex.getMessage(), true);
             }
@@ -147,6 +149,8 @@ public class Robot extends SampleRobot implements PIDOutput {
     }
 
     @Override
+    /* This function is invoked periodically by the PID Controller, */
+    /* based upon navX MXP yaw angle input and PID Coefficients.    */
     public void pidWrite(double output) {
         rotateToAngleRate = output;
     }

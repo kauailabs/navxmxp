@@ -25,19 +25,19 @@ class Robot: public SampleRobot
 
     const static int joystickChannel	= 0;
 
-    RobotDrive robotDrive;	// robot drive system
-    Joystick stick;			// only joystick
-    AHRS *ahrs;
+    RobotDrive robotDrive;	// Robot drive system
+    Joystick stick;			// Driver Joystick
+    AHRS *ahrs;             // navX MXP
 
 public:
     Robot() :
             robotDrive(frontLeftChannel, rearLeftChannel,
-                       frontRightChannel, rearRightChannel),	// these must be initialized in the same order
-            stick(joystickChannel)								// as they are declared above.
+                       frontRightChannel, rearRightChannel),	// initialize variables in
+            stick(joystickChannel)								// same order declared above
     {
         robotDrive.SetExpiration(0.1);
-        robotDrive.SetInvertedMotor(RobotDrive::kFrontLeftMotor, true);	// invert the left side motors
-        robotDrive.SetInvertedMotor(RobotDrive::kRearLeftMotor, true);	// you may need to change or remove this to match your robot
+        robotDrive.SetInvertedMotor(RobotDrive::kFrontLeftMotor, true);	// invert left side motors
+        robotDrive.SetInvertedMotor(RobotDrive::kRearLeftMotor, true);	// change to match your robot
         try {
             /* Communicate w/navX MXP via the MXP SPI Bus.                                       */
             /* Alternatively:  I2C::Port::kMXP, SerialPort::Port::kMXP or SerialPort::Port::kUSB */
@@ -66,8 +66,11 @@ public:
                 ahrs->ZeroYaw();
             }
             try {
-                // Use the joystick X axis for lateral movement, Y axis for forward movement, and Z axis for rotation.
-                robotDrive.MecanumDrive_Cartesian(stick.GetX(), stick.GetY(), stick.GetZ(),ahrs->GetAngle());
+                /* Use the joystick X axis for lateral movement,            */
+                /* Y axis for forward movement, and Z axis for rotation.    */
+                /* Use navX MXP yaw angle to define Field-centric transform */
+                robotDrive.MecanumDrive_Cartesian(stick.GetX(), stick.GetY(),
+                                                  stick.GetZ(),ahrs->GetAngle());
             } catch (std::exception ex ) {
                 std::string err_string = "Error communicating with Drive System:  ";
                 err_string += ex.what();

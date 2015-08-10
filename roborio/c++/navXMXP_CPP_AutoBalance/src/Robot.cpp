@@ -61,6 +61,8 @@ public:
         if ( ahrs ) {
             LiveWindow::GetInstance()->AddSensor("IMU", "Gyro", ahrs);
         }
+        autoBalanceXMode = false;
+        autoBalanceYMode = false;
     }
 
     /**

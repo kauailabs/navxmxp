@@ -1,6 +1,4 @@
-
 package org.usfirst.frc.team2465.robot;
-
 
 import com.kauailabs.navx.frc.AHRS;
 
@@ -48,9 +46,9 @@ public class Robot extends SampleRobot {
      */
     public void autonomous() {
         myRobot.setSafetyEnabled(false);
-        myRobot.drive(-0.5, 0.0);	// drive forwards half speed
-        Timer.delay(2.0);		//    for 2 seconds
-        myRobot.drive(0.0, 0.0);	// stop robot
+        myRobot.drive(-0.5, 0.0);	 // drive forwards half speed
+        Timer.delay(2.0);		     //  for 2 seconds
+        myRobot.drive(0.0, 0.0);	 // stop robot
     }
 
     /**
@@ -63,7 +61,11 @@ public class Robot extends SampleRobot {
                 ahrs.reset();
             }
             try {
-                myRobot.mecanumDrive_Cartesian(stick.getX(), stick.getY(), stick.getTwist(), ahrs.getAngle());
+                /* Use the joystick X axis for lateral movement,            */
+                /* Y axis for forward movement, and Z axis for rotation.    */
+                /* Use navX MXP yaw angle to define Field-centric transform */
+                myRobot.mecanumDrive_Cartesian(stick.getX(), stick.getY(), 
+                                               stick.getTwist(), ahrs.getAngle());
             } catch( RuntimeException ex ) {
                 DriverStation.reportError("Error communicating with drive system:  " + ex.getMessage(), true);
             }
