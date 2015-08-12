@@ -1,6 +1,4 @@
-
 package org.usfirst.frc.team2465.robot;
-
 
 import com.kauailabs.navx.frc.AHRS;
 
@@ -10,31 +8,35 @@ import edu.wpi.first.wpilibj.SampleRobot;
 import edu.wpi.first.wpilibj.RobotDrive;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 /**
  * This is a demo program showing the use of the navX MXP to implement
- * an automatic balance feature, which can be used to help avoid
- * a robot tipping over when driving..
+ * a collision detection feature, which can be used to detect events
+ * while driving a robot, such as bumping into a wall or being hit
+ * by another robot.
  *
- * The basic principle shown in the example is measurement of the
- * Pitch (rotation about the X axis) and Roll (rotation about the
- * Y axis) angles.  When these angles exceed the "off balance"
- * threshold and until these angles fall below the "on balance"
- * threshold, the drive system is automatically driven in the
- * opposite direction at a magnitude proportional to the
- * Pitch or Roll angle.
- *
- * Note that this is just a starting point for automatic balancing,
- * and will likely require a reasonable amount of tuning in order
- * to work well with your robot.
+ * The basic principle used within the Collision Detection example 
+ * is the calculation of Jerk (which is defined as the change in 
+ * acceleration).  In the sample code shown below, both the X axis and 
+ * the Y axis jerk are calculated, and if either exceeds a threshold, 
+ * then a collision has occurred.
+ * 
+ * The “collision threshold” used in these samples will likely need to 
+ * be tuned for your robot, since the amount of jerk which constitutes 
+ * a collision will be dependent upon the robot mass and expected 
+ * maximum velocity of either the robot, or any object which may strike 
+ * the robot.
  */
 
 public class Robot extends SampleRobot {
     AHRS ahrs;
     RobotDrive myRobot;
     Joystick stick;
-    boolean autoBalanceXMode;
-    boolean autoBalanceYMode;
+    double last_world_linear_accel_x;
+    double last_world_linear_accel_y;
+
+    final static double kCollisionThreshold_DeltaG = 0.5f;
 
     public Robot() {
         myRobot = new RobotDrive(0, 1);
@@ -64,55 +66,27 @@ public class Robot extends SampleRobot {
      * Runs the motors with arcade steering.
      */
 
-    static final double kOffBalanceAngleThresholdDegrees = 10;
-    static final double kOonBalanceAngleThresholdDegrees  = 5;
-
-    
     public void operatorControl() {
         myRobot.setSafetyEnabled(true);
         while (isOperatorControl() && isEnabled()) {
 
-            double xAxisRate            = stick.getX();
-            double yAxisRate            = stick.getY();
-            double pitchAngleDegrees    = ahrs.getPitch();
-            double rollAngleDegrees     = ahrs.getRoll();
+            boolean collisionDetected = false;
             
-            if ( !autoBalanceXMode && 
-                 (Math.abs(pitchAngleDegrees) >= 
-                  Math.abs(kOffBalanceAngleThresholdDegrees))) {
-                autoBalanceXMode = true;
-            }
-            else if ( autoBalanceXMode && 
-                      (Math.abs(pitchAngleDegrees) <= 
-                       Math.abs(kOonBalanceAngleThresholdDegrees))) {
-                autoBalanceXMode = false;
-            }
-            if ( !autoBalanceYMode && 
-                 (Math.abs(pitchAngleDegrees) >= 
-                  Math.abs(kOffBalanceAngleThresholdDegrees))) {
-                autoBalanceYMode = true;
-            }
-            else if ( autoBalanceYMode && 
-                      (Math.abs(pitchAngleDegrees) <= 
-                       Math.abs(kOonBalanceAngleThresholdDegrees))) {
-                autoBalanceYMode = false;
-            }
+            double curr_world_linear_accel_x = ahrs.getWorldLinearAccelX();
+            double currentJerkX = curr_world_linear_accel_x - last_world_linear_accel_x;
+            last_world_linear_accel_x = curr_world_linear_accel_x;
+            double curr_world_linear_accel_y = ahrs.getWorldLinearAccelY();
+            double currentJerkY = curr_world_linear_accel_y - last_world_linear_accel_y;
+            last_world_linear_accel_y = curr_world_linear_accel_y;
             
-            // Control drive system automatically, 
-            // driving in reverse direction of pitch/roll angle,
-            // with a magnitude based upon the angle
-            
-            if ( autoBalanceXMode ) {
-                double pitchAngleRadians = pitchAngleDegrees * (Math.PI / 180.0);
-                xAxisRate = Math.sin(pitchAngleRadians) * -1;
+            if ( ( Math.abs(currentJerkX) > kCollisionThreshold_DeltaG ) ||
+                 ( Math.abs(currentJerkY) > kCollisionThreshold_DeltaG) ) {
+                collisionDetected = true;
             }
-            if ( autoBalanceYMode ) {
-                double rollAngleRadians = rollAngleDegrees * (Math.PI / 180.0);
-                yAxisRate = Math.sin(rollAngleRadians) * -1;
-            }
+            SmartDashboard.putBoolean(  "CollisionDetected", collisionDetected);
             
             try {
-                myRobot.mecanumDrive_Cartesian(xAxisRate, yAxisRate, stick.getTwist(),0);
+                myRobot.mecanumDrive_Cartesian(stick.getX(), stick.getY(), stick.getTwist(),0);
             } catch( RuntimeException ex ) {
                 String err_string = "Drive system error:  " + ex.getMessage();
                 DriverStation.reportError(err_string, true);
