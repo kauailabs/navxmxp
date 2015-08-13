@@ -88,6 +88,12 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="TroubleshootingTips.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="TroubleshootingTips.Designer.cs">
+      <DependentUpon>TroubleshootingTips.cs</DependentUpon>
+    </Compile>
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
     </EmbeddedResource>
@@ -101,6 +107,9 @@
       <DependentUpon>Resources.resx</DependentUpon>
       <DesignTime>True</DesignTime>
     </Compile>
+    <EmbeddedResource Include="TroubleshootingTips.resx">
+      <DependentUpon>TroubleshootingTips.cs</DependentUpon>
+    </EmbeddedResource>
     <None Include="navXConfig_TemporaryKey.pfx" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>

@@ -693,6 +693,12 @@ namespace navXFirmwareUpdater
                 }
             }
         }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            Form frmTroubleshootingTips = new TroubleshootingTips();
+            frmTroubleshootingTips.ShowDialog();
+        }
     }
 
 }
