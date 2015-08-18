@@ -7,6 +7,7 @@
 
 #include <sstream>
 #include <string>
+#include <iomanip>
 #include <AHRS.h>
 #include "IIOProvider.h"
 #include "IIOCompleteNotification.h"
@@ -118,6 +119,7 @@ class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
         ahrs->cal_mag_x      = raw_data_update.mag_x;
         ahrs->cal_mag_y      = raw_data_update.mag_y;
         ahrs->cal_mag_z      = raw_data_update.mag_z;
+        ahrs->mpu_temp_c     = raw_data_update.temp_c;
     }
 
     void SetAHRSData(AHRSProtocol::AHRSUpdate& ahrs_update) {
@@ -1154,10 +1156,8 @@ AHRS::BoardYawAxis AHRS::GetBoardYawAxis() {
  * @return The firmware version in the format [MajorVersion].[MinorVersion]
  */
 std::string AHRS::GetFirmwareVersion() {
-    double version_number = (double)fw_ver_major;
-    version_number += ((double)fw_ver_minor / 10);
     std::ostringstream os;
-    os << version_number;
+    os << (int)fw_ver_major << "." << (int)fw_ver_minor;
     std::string fw_version = os.str();
     return fw_version;
 }

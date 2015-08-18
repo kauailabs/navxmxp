@@ -1203,6 +1203,7 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
                 AHRS.this.cal_mag_x      = raw_data_update.mag_x;
                 AHRS.this.cal_mag_y      = raw_data_update.mag_y;
                 AHRS.this.cal_mag_z      = raw_data_update.mag_z;
+                AHRS.this.mpu_temp_c     = raw_data_update.temp_c;
             }
         }
         

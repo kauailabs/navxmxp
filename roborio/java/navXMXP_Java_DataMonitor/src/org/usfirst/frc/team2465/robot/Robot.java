@@ -1,6 +1,4 @@
-
 package org.usfirst.frc.team2465.robot;
-
 
 import com.kauailabs.navx.frc.AHRS;
 
@@ -44,7 +42,7 @@ public class Robot extends SampleRobot {
             /* Communicate w/navX MXP via the MXP SPI Bus.                                     */
             /* Alternatively:  I2C.Port.kMXP, SerialPort.Port.kMXP or SerialPort.Port.kUSB     */
             /* See http://navx-mxp.kauailabs.com/guidance/selecting-an-interface/ for details. */
-            ahrs = new AHRS(SPI.Port.kMXP); 
+            ahrs = new AHRS(SPI.Port.kMXP);
         } catch (RuntimeException ex ) {
             DriverStation.reportError("Error instantiating navX MXP:  " + ex.getMessage(), true);
         }
@@ -147,19 +145,7 @@ public class Robot extends SampleRobot {
             /* Connectivity Debugging Support                                           */
             SmartDashboard.putNumber(   "IMU_Byte_Count",       ahrs.getByteCount());
             SmartDashboard.putNumber(   "IMU_Update_Count",     ahrs.getUpdateCount());
-        
-            /* Derived Motion Vector                                                    */
-/*            double motion_vector_direction_degrees = 0.0f;
-            double motion_vector_magnitude_g = 0.0f;
-            if ( ahrs.isMoving() ) {
-                double motion_vector_direction_radians = Math.atan2(ahrs.getVelocityX(), ahrs.getVelocityY());
-                motion_vector_direction_degrees = motion_vector_direction_radians * (180.0 / Math.PI);
-                motion_vector_magnitude_g = ((ahrs.getVelocityX() + ahrs.getVelocityY()) / 2);
-            }
-            SmartDashboard.putNumber(  "Motion_Direction", motion_vector_direction_degrees);
-            SmartDashboard.putNumber(  "Motion Magnitude", motion_vector_magnitude_g );
-*/
-            }
+        }
     }
 
     /**

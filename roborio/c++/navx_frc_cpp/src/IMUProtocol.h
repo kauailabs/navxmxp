@@ -237,7 +237,7 @@ public:
         encodeProtocolUint16( (uint16_t)mag_x,  &protocol_buffer[GYRO_UPDATE_MAG_X_VALUE_INDEX] );
         encodeProtocolUint16( (uint16_t)mag_y,  &protocol_buffer[GYRO_UPDATE_MAG_Y_VALUE_INDEX] );
         encodeProtocolUint16( (uint16_t)mag_z,  &protocol_buffer[GYRO_UPDATE_MAG_Z_VALUE_INDEX] );
-        encodeProtocolFloat(  temp_c,           &protocol_buffer[GYRO_UPDATE_TEMP_VALUE_INDEX] );
+        encodeProtocolUnsignedHundredthsFloat(  temp_c, &protocol_buffer[GYRO_UPDATE_TEMP_VALUE_INDEX] );
 
         // Footer
         encodeTermination( protocol_buffer, GYRO_UPDATE_MESSAGE_LENGTH, GYRO_UPDATE_MESSAGE_LENGTH - 4 );
@@ -382,7 +382,7 @@ public:
             update.mag_x   = (int16_t)decodeProtocolUint16( &buffer[GYRO_UPDATE_MAG_X_VALUE_INDEX] );
             update.mag_y   = (int16_t)decodeProtocolUint16( &buffer[GYRO_UPDATE_MAG_Y_VALUE_INDEX] );
             update.mag_z   = (int16_t)decodeProtocolUint16( &buffer[GYRO_UPDATE_MAG_Z_VALUE_INDEX] );
-            update.temp_c  = decodeProtocolFloat(  &buffer[GYRO_UPDATE_TEMP_VALUE_INDEX] );
+            update.temp_c  = decodeProtocolUnsignedHundredthsFloat(  &buffer[GYRO_UPDATE_TEMP_VALUE_INDEX] );
             return GYRO_UPDATE_MESSAGE_LENGTH;
         }
         return 0;
@@ -442,6 +442,16 @@ protected:
         return decoded_uint16;
     }
 
+    /* 0 to 655.35 */
+    static inline float decodeProtocolUnsignedHundredthsFloat( char *uint8_unsigned_hundredths_float ) {
+        float unsigned_float = (float)decodeProtocolUint16(uint8_unsigned_hundredths_float);
+        unsigned_float /= 100;
+        return unsigned_float;
+    }
+    static inline void encodeProtocolUnsignedHundredthsFloat( float input, char *uint8_unsigned_hundredths_float) {
+        uint16_t input_as_uint = (uint16_t)(input * 100.0f);
+        encodeProtocolUint16(input_as_uint,uint8_unsigned_hundredths_float);
+    }
 
     static bool verifyChecksum( char *buffer, int content_length )
     {

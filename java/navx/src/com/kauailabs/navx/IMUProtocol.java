@@ -286,7 +286,7 @@ public class IMUProtocol {
             u.mag_x = decodeProtocolUint16(buffer, offset+GYRO_UPDATE_MAG_X_VALUE_INDEX);
             u.mag_y = decodeProtocolUint16(buffer, offset+GYRO_UPDATE_MAG_Y_VALUE_INDEX);
             u.mag_z = decodeProtocolUint16(buffer, offset+GYRO_UPDATE_MAG_Z_VALUE_INDEX);
-            u.temp_c = decodeProtocolFloat(buffer, offset+GYRO_UPDATE_TEMP_VALUE_INDEX);
+            u.temp_c = decodeProtocolUnsignedHundredthsFloat(buffer, offset+GYRO_UPDATE_TEMP_VALUE_INDEX);
             return GYRO_UPDATE_MESSAGE_LENGTH;
         }
         return 0;
@@ -329,6 +329,13 @@ public class IMUProtocol {
             shift_left -= 4;
         }
         return decoded_uint16;
+    }
+
+    /* 0 to 655.35 */
+    public static float decodeProtocolUnsignedHundredthsFloat( byte[] uint8_unsigned_hundredths_float, int offset ) {
+        float unsigned_float = (float)decodeProtocolUint16(uint8_unsigned_hundredths_float, offset);
+        unsigned_float /= 100;
+        return unsigned_float;
     }
 
     public static boolean verifyChecksum(byte[] buffer, int offset, int content_length) {

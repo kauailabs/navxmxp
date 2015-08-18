@@ -191,6 +191,7 @@ void RegisterIO::GetCurrentData() {
         raw_data_update.accel_y     = IMURegisters::decodeProtocolInt16(curr_data +  NAVX_REG_ACC_Y_L-first_address);
         raw_data_update.accel_z     = IMURegisters::decodeProtocolInt16(curr_data +  NAVX_REG_ACC_Z_L-first_address);
         raw_data_update.mag_x       = IMURegisters::decodeProtocolInt16(curr_data +  NAVX_REG_MAG_X_L-first_address);
+        raw_data_update.temp_c      = ahrspos_update.mpu_temp;
         notify_sink->SetRawData(raw_data_update);
 
         this->last_update_time = Timer::GetFPGATimestamp();
