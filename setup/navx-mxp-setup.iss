@@ -57,6 +57,7 @@ Source: "..\roborio\java\navXMXP_Java_RotateToAngle\*.*"; Excludes: "build,dist,
 Source: "..\roborio\java\navXMXP_Java_AutoBalance\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\AutoBalance"; Flags: createallsubdirs recursesubdirs
 Source: "..\roborio\java\navXMXP_Java_CollisionDetection\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\CollisionDetection"; Flags: createallsubdirs recursesubdirs
 Source: "..\roborio\java\navXMXP_Java_MotionDetection\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\MotionDetection"; Flags: createallsubdirs recursesubdirs
+Source: "..\roborio\java\navXMXP_ExpansionIO\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\ExpansionIO"; Flags: createallsubdirs recursesubdirs
 
 Source: "..\roborio\c++\navx_frc_cpp\Debug\*.a"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\lib"
 Source: "..\roborio\c++\navx_frc_cpp\include\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\include"
@@ -67,6 +68,7 @@ Source: "..\roborio\c++\navXMXP_CPP_RotateToAngle\*.*"; Excludes: "build,dist,bi
 Source: "..\roborio\c++\navXMXP_CPP_AutoBalance\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\AutoBalance"; Flags: createallsubdirs recursesubdirs
 Source: "..\roborio\c++\navXMXP_CPP_CollisionDetection\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\CollisionDetection"; Flags: createallsubdirs recursesubdirs
 Source: "..\roborio\c++\navXMXP_CPP_MotionDetection\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\MotionDetection"; Flags: createallsubdirs recursesubdirs
+Source: "..\roborio\c++\navXMXP_CPP_ExpansionIO\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\ExpansionIO"; Flags: createallsubdirs recursesubdirs
 
 Source: "..\roborio\labview\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\labview"; Flags: createallsubdirs recursesubdirs
 
