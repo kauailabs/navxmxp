@@ -84,8 +84,8 @@ public class Robot extends SampleRobot {
                                            getChannelFromPin( PinType.DigitalIO, 0 ));
             
             /* Construct Analog I/O Objects */
-            /* NOTE:  Due to a board layout issue on the navX MXP, there is      */
-            /* noticeable crosstalk between AN IN pins 3, 2 and 1.               */
+            /* NOTE:  Due to a board layout issue on the navX MXP board revision */
+            /* 3.3, there is noticeable crosstalk between AN IN pins 3, 2 and 1. */
             /* For that reason, use of pin 3 and pin 2 is NOT RECOMMENDED.       */
             an_in_1   = new AnalogInput(   getChannelFromPin( PinType.AnalogIn,  1 ));
             an_trig_0 = new AnalogTrigger( getChannelFromPin( PinType.AnalogIn,  0 ));
