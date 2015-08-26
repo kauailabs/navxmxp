@@ -1,5 +1,6 @@
 REM Batch file to create the navX MXP distributable package
 
+pushd ..
 md dist
 pushd dist
 
@@ -26,7 +27,4 @@ REM Cleanup
 
 popd
 rm -r -f dist
-
-REM Copy build to the ftp server
-
-REM dosyncftp
+popd

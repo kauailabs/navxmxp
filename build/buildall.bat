@@ -1,9 +1,11 @@
 REM Build all binaries
 
+REM CD to Root Directory
+pushd ..
+
 REM
 REM Begin a command-line "clean build" of the navx protocol java library
 REM
-
 pushd .\java\navx
 call ant clean build
 popd
@@ -82,4 +84,6 @@ call buildprocessing.bat
 REM Build setup program
 
 call buildsetup.bat
+
+popd
 

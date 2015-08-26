@@ -4,6 +4,7 @@ REM
 REM Begin a command-line "clean" of the CRio java libraries
 REM
 
+pushd ..
 pushd .\crio\java\nav6
 call ant clean 
 popd
@@ -16,4 +17,4 @@ pushd .\stm32\
 del /S /Q Debug\*.*
 del /S /Q Release\*.*
 popd
-
+popd
