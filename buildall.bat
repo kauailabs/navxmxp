@@ -31,27 +31,17 @@ REM Copy navx protocol java library file to project folders that need it.
 REM
 
 mkdir .\processing\libraries\navx\library\
-copy .\java\navx\bin\*.jar .\processing\libraries\navx\library\ /Y
-
-REM
-REM Regrettably, adding a non-WPI java library to a WPI Library Java Project
-REM is precluded, since the WPI build.xml uses ANT immutable variables
-REM for the classpath.  Therefore, the navx protocol library sources must be copied
-REM into the Java sample projects.
-REM 
-
-cp -r ./java/navx/src/* ./roborio/java/navXMXPSimpleRobotExample/src/
+copy .\java\navx\jar\*.jar .\processing\libraries\navx\library\ /Y
 
 REM
 REM Copy the navX protocol library .h files to the 
 REM projects that need them.
 REM
 
-cp ./stm32/navx-mxp/IMU*.h ./arduino/navXTestJig/
+cp ./stm32/navx-mxp/IMU*.h  ./arduino/navXTestJig/
 cp ./stm32/navx-mxp/AHRS*.h ./arduino/navXTestJig/
-cp ./stm32/navx-mxp/IMU*.h ./roborio/c++/navXMXP_CPlusPlus_RobotExample/src/
-cp ./stm32/navx-mxp/AHRS*.h ./roborio/c++/navXMXP_CPlusPlus_RobotExample/src/
-
+cp ./stm32/navx-mxp/IMU*.h  ./roborio/c++/navx_frc_cpp/src
+cp ./stm32/navx-mxp/AHRS*.h ./roborio/c++/navx_frc_cpp/src
 
 REM
 REM Begin a command-line "clean build" of the Debug version of the navx-mxp firmware
