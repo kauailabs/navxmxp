@@ -48,8 +48,8 @@ Source: "..\processing_output\*.*"; DestDir: "{app}\navXMXPUI"; Flags: recursesu
 Source: "weblinks\navx-mxp-software.url"; DestDir: "{app}"
 
 Source: "graphics\*.*"; DestDir: "{app}\graphics"; Flags: recursesubdirs
-Source: "..\java\navx\src\*.*"; DestDir: "{%HOMEPATH}\navx\java\src"; Flags: createallsubdirs recursesubdirs
-Source: "..\roborio\java\navx_frc\src\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\java\src"; Flags: recursesubdirs
+Source: "..\roborio\java\navx_frc\src\com\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\java\src\com"; Flags: recursesubdirs
+Source: "..\roborio\java\navx_frc\src\docs\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\java\docs"; Flags: recursesubdirs
 Source: "..\roborio\java\navx_frc\jar\navx_frc.jar"; DestDir: "{%HOMEPATH}\navx-mxp\java\lib"
 Source: "..\roborio\java\navXMXP_Java_DataMonitor\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\DataMonitor"; Flags: createallsubdirs recursesubdirs
 Source: "..\roborio\java\navXMXP_Java_FieldCentricDrive\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\FieldCentricDrive"; Flags: createallsubdirs recursesubdirs
@@ -62,6 +62,7 @@ Source: "..\roborio\java\navXMXP_ExpansionIO\*.*"; Excludes: "build,dist,bin"; D
 Source: "..\roborio\c++\navx_frc_cpp\Debug\*.a"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\lib"
 Source: "..\roborio\c++\navx_frc_cpp\include\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\include"
 Source: "..\roborio\c++\navx_frc_cpp\src\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\src"; Flags: createallsubdirs recursesubdirs
+Source: "..\roborio\c++\doxygen\html\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\docs"; Flags: createallsubdirs recursesubdirs
 Source: "..\roborio\c++\navXMXP_CPP_DataMonitor\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\DataMonitor"; Flags: createallsubdirs recursesubdirs
 Source: "..\roborio\c++\navXMXP_CPP_FieldCentricDrive\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\FieldCentricDrive"; Flags: createallsubdirs recursesubdirs
 Source: "..\roborio\c++\navXMXP_CPP_RotateToAngle\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\RotateToAngle"; Flags: createallsubdirs recursesubdirs
