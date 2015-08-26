@@ -115,10 +115,58 @@ THE SOFTWARE.
 #include <stdio.h>
 #include <stdlib.h>
 
-#define IMU_PROTOCOL_MAX_MESSAGE_LENGTH RAW_UPDATE_MESSAGE_LENGTH
+#define IMU_PROTOCOL_MAX_MESSAGE_LENGTH QUATERNION_UPDATE_MESSAGE_LENGTH
 
 class IMUProtocol
 {
+public:
+
+    struct YPRUpdate {
+        float yaw;
+        float pitch;
+        float roll;
+        float compass_heading;
+    };
+
+    struct GyroUpdate {
+        int16_t gyro_x;
+        int16_t gyro_y;
+        int16_t gyro_z;
+        int16_t accel_x;
+        int16_t accel_y;
+        int16_t accel_z;
+        int16_t mag_x;
+        int16_t mag_y;
+        int16_t mag_z;
+        float   temp_c;
+    };
+
+    struct QuaternionUpdate {
+        int16_t q1;
+        int16_t q2;
+        int16_t q3;
+        int16_t q4;
+        int16_t accel_x;
+        int16_t accel_y;
+        int16_t accel_z;
+        int16_t mag_x;
+        int16_t mag_y;
+        int16_t mag_z;
+        float   temp_c;
+    };
+
+    struct StreamResponse {
+        uint8_t stream_type;
+        int16_t gyro_fsr_dps;
+        int16_t accel_fsr_g;
+        int16_t update_rate_hz;
+        float   yaw_offset_degrees;
+        int16_t q1_offset;
+        int16_t q2_offset;
+        int16_t q3_offset;
+        int16_t q4_offset;
+        int16_t flags;
+    };
 
 public:
 
@@ -189,7 +237,7 @@ public:
         encodeProtocolUint16( (uint16_t)mag_x,  &protocol_buffer[GYRO_UPDATE_MAG_X_VALUE_INDEX] );
         encodeProtocolUint16( (uint16_t)mag_y,  &protocol_buffer[GYRO_UPDATE_MAG_Y_VALUE_INDEX] );
         encodeProtocolUint16( (uint16_t)mag_z,  &protocol_buffer[GYRO_UPDATE_MAG_Z_VALUE_INDEX] );
-        encodeProtocolFloat(  temp_c,           &protocol_buffer[GYRO_UPDATE_TEMP_VALUE_INDEX] );
+        encodeProtocolUnsignedHundredthsFloat(  temp_c, &protocol_buffer[GYRO_UPDATE_TEMP_VALUE_INDEX] );
 
         // Footer
         encodeTermination( protocol_buffer, GYRO_UPDATE_MESSAGE_LENGTH, GYRO_UPDATE_MESSAGE_LENGTH - 4 );
@@ -242,32 +290,27 @@ public:
         return STREAM_RESPONSE_MESSAGE_LENGTH;
     }
 
-    static int decodeStreamResponse( char *buffer, int length,
-            char& stream_type, uint16_t& gyro_fsr_dps, uint16_t& accel_fsr_g, uint16_t& update_rate_hz,
-            float& yaw_offset_degrees,
-            uint16_t& q1_offset, uint16_t& q2_offset, uint16_t& q3_offset, uint16_t& q4_offset,
-            uint16_t& flags )
+    static int decodeStreamResponse( char *buffer, int length, struct StreamResponse& rsp )
     {
         if ( length < STREAM_RESPONSE_MESSAGE_LENGTH ) return 0;
         if ( ( buffer[0] == PACKET_START_CHAR ) && ( buffer[1] == MSG_ID_STREAM_RESPONSE ) )
         {
             if ( !verifyChecksum( buffer, STREAM_RESPONSE_CHECKSUM_INDEX ) ) return 0;
 
-            stream_type         = buffer[2];
-            gyro_fsr_dps        = decodeProtocolUint16( &buffer[STREAM_RESPONSE_GYRO_FULL_SCALE_DPS_RANGE] );
-            accel_fsr_g         = decodeProtocolUint16( &buffer[STREAM_RESPONSE_ACCEL_FULL_SCALE_G_RANGE] );
-            update_rate_hz      = decodeProtocolUint16( &buffer[STREAM_RESPONSE_UPDATE_RATE_HZ] );
-            yaw_offset_degrees  = decodeProtocolFloat(  &buffer[STREAM_RESPONSE_YAW_OFFSET_DEGREES] );
-            q1_offset           = decodeProtocolUint16( &buffer[STREAM_RESPONSE_QUAT1_OFFSET]);
-            q2_offset           = decodeProtocolUint16( &buffer[STREAM_RESPONSE_QUAT2_OFFSET]);
-            q3_offset           = decodeProtocolUint16( &buffer[STREAM_RESPONSE_QUAT3_OFFSET]);
-            q4_offset           = decodeProtocolUint16( &buffer[STREAM_RESPONSE_QUAT4_OFFSET]);
-            flags               = decodeProtocolUint16( &buffer[STREAM_RESPONSE_FLAGS] );
+            rsp.stream_type         = buffer[2];
+            rsp.gyro_fsr_dps        = decodeProtocolUint16( &buffer[STREAM_RESPONSE_GYRO_FULL_SCALE_DPS_RANGE] );
+            rsp.accel_fsr_g         = decodeProtocolUint16( &buffer[STREAM_RESPONSE_ACCEL_FULL_SCALE_G_RANGE] );
+            rsp.update_rate_hz      = decodeProtocolUint16( &buffer[STREAM_RESPONSE_UPDATE_RATE_HZ] );
+            rsp.yaw_offset_degrees  = decodeProtocolFloat(  &buffer[STREAM_RESPONSE_YAW_OFFSET_DEGREES] );
+            rsp.q1_offset           = decodeProtocolUint16( &buffer[STREAM_RESPONSE_QUAT1_OFFSET]);
+            rsp.q2_offset           = decodeProtocolUint16( &buffer[STREAM_RESPONSE_QUAT2_OFFSET]);
+            rsp.q3_offset           = decodeProtocolUint16( &buffer[STREAM_RESPONSE_QUAT3_OFFSET]);
+            rsp.q4_offset           = decodeProtocolUint16( &buffer[STREAM_RESPONSE_QUAT4_OFFSET]);
+            rsp.flags               = decodeProtocolUint16( &buffer[STREAM_RESPONSE_FLAGS] );
             return STREAM_RESPONSE_MESSAGE_LENGTH;
         }
         return 0;
     }
-
 
     static int decodeStreamCommand( char *buffer, int length, char& stream_type, unsigned char& update_rate_hz )
     {
@@ -284,70 +327,62 @@ public:
         return 0;
     }
 
-    static int decodeYPRUpdate( char *buffer, int length, float& yaw, float& pitch, float& roll, float& compass_heading )
+    static int decodeYPRUpdate( char *buffer, int length, struct YPRUpdate& update )
     {
         if ( length < YPR_UPDATE_MESSAGE_LENGTH ) return 0;
         if ( ( buffer[0] == '!' ) && ( buffer[1] == 'y' ) )
         {
             if ( !verifyChecksum( buffer, YPR_UPDATE_CHECKSUM_INDEX ) ) return 0;
 
-            yaw             = decodeProtocolFloat( &buffer[YPR_UPDATE_YAW_VALUE_INDEX] );
-            pitch           = decodeProtocolFloat( &buffer[YPR_UPDATE_PITCH_VALUE_INDEX] );
-            roll            = decodeProtocolFloat( &buffer[YPR_UPDATE_ROLL_VALUE_INDEX] );
-            compass_heading = decodeProtocolFloat( &buffer[YPR_UPDATE_COMPASS_VALUE_INDEX] );
+            update.yaw             = decodeProtocolFloat( &buffer[YPR_UPDATE_YAW_VALUE_INDEX] );
+            update.pitch           = decodeProtocolFloat( &buffer[YPR_UPDATE_PITCH_VALUE_INDEX] );
+            update.roll            = decodeProtocolFloat( &buffer[YPR_UPDATE_ROLL_VALUE_INDEX] );
+            update.compass_heading = decodeProtocolFloat( &buffer[YPR_UPDATE_COMPASS_VALUE_INDEX] );
             return YPR_UPDATE_MESSAGE_LENGTH;
         }
         return 0;
     }
 
-    static int decodeQuaternionUpdate( char *buffer, int length,
-            int16_t& q1, int16_t& q2, int16_t& q3, int16_t& q4,
-            int16_t& accel_x, int16_t& accel_y, int16_t& accel_z,
-            int16_t& mag_x, int16_t& mag_y, int16_t& mag_z,
-            float& temp_c )
+    static int decodeQuaternionUpdate( char *buffer, int length, struct QuaternionUpdate& update )
     {
         if ( length < QUATERNION_UPDATE_MESSAGE_LENGTH ) return 0;
         if ( ( buffer[0] == PACKET_START_CHAR ) && ( buffer[1] == MSGID_QUATERNION_UPDATE ) )
         {
             if ( !verifyChecksum( buffer, QUATERNION_UPDATE_CHECKSUM_INDEX ) ) return 0;
 
-            q1      = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_QUAT1_VALUE_INDEX] );
-            q2      = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_QUAT2_VALUE_INDEX] );
-            q3      = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_QUAT3_VALUE_INDEX] );
-            q4      = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_QUAT4_VALUE_INDEX] );
-            accel_x = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_ACCEL_X_VALUE_INDEX] );
-            accel_y = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_ACCEL_Y_VALUE_INDEX] );
-            accel_z = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_ACCEL_Z_VALUE_INDEX] );
-            mag_x   = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_MAG_X_VALUE_INDEX] );
-            mag_y   = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_MAG_Y_VALUE_INDEX] );
-            mag_z   = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_MAG_Z_VALUE_INDEX] );
-            temp_c  = decodeProtocolFloat(  &buffer[QUATERNION_UPDATE_TEMP_VALUE_INDEX] );
+            update.q1      = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_QUAT1_VALUE_INDEX] );
+            update.q2      = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_QUAT2_VALUE_INDEX] );
+            update.q3      = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_QUAT3_VALUE_INDEX] );
+            update.q4      = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_QUAT4_VALUE_INDEX] );
+            update.accel_x = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_ACCEL_X_VALUE_INDEX] );
+            update.accel_y = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_ACCEL_Y_VALUE_INDEX] );
+            update.accel_z = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_ACCEL_Z_VALUE_INDEX] );
+            update.mag_x   = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_MAG_X_VALUE_INDEX] );
+            update.mag_y   = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_MAG_Y_VALUE_INDEX] );
+            update.mag_z   = (int16_t)decodeProtocolUint16( &buffer[QUATERNION_UPDATE_MAG_Z_VALUE_INDEX] );
+            update.temp_c  = decodeProtocolFloat(  &buffer[QUATERNION_UPDATE_TEMP_VALUE_INDEX] );
             return QUATERNION_UPDATE_MESSAGE_LENGTH;
         }
         return 0;
     }
 
-    static int decodeGyroUpdate( char *buffer, int length,
-            uint16_t& gyro_x, uint16_t& gyro_y, uint16_t& gyro_z,
-            uint16_t& accel_x, uint16_t& accel_y, uint16_t& accel_z,
-            int16_t& mag_x, int16_t& mag_y, int16_t& mag_z,
-            float& temp_c )
+    static int decodeGyroUpdate( char *buffer, int length, struct GyroUpdate& update )
     {
         if ( length < GYRO_UPDATE_MESSAGE_LENGTH ) return 0;
         if ( ( buffer[0] == PACKET_START_CHAR ) && ( buffer[1] == MSGID_GYRO_UPDATE ) )
         {
             if ( !verifyChecksum( buffer, GYRO_UPDATE_CHECKSUM_INDEX ) ) return 0;
 
-            gyro_x  = decodeProtocolUint16( &buffer[GYRO_UPDATE_GYRO_X_VALUE_INDEX] );
-            gyro_y  = decodeProtocolUint16( &buffer[GYRO_UPDATE_GYRO_Y_VALUE_INDEX] );
-            gyro_z  = decodeProtocolUint16( &buffer[GYRO_UPDATE_GYRO_Z_VALUE_INDEX] );
-            accel_x = decodeProtocolUint16( &buffer[GYRO_UPDATE_ACCEL_X_VALUE_INDEX] );
-            accel_y = decodeProtocolUint16( &buffer[GYRO_UPDATE_ACCEL_Y_VALUE_INDEX] );
-            accel_z = decodeProtocolUint16( &buffer[GYRO_UPDATE_ACCEL_Z_VALUE_INDEX] );
-            mag_x   = (int16_t)decodeProtocolUint16( &buffer[GYRO_UPDATE_MAG_X_VALUE_INDEX] );
-            mag_y   = (int16_t)decodeProtocolUint16( &buffer[GYRO_UPDATE_MAG_Y_VALUE_INDEX] );
-            mag_z   = (int16_t)decodeProtocolUint16( &buffer[GYRO_UPDATE_MAG_Z_VALUE_INDEX] );
-            temp_c  = decodeProtocolFloat(  &buffer[GYRO_UPDATE_TEMP_VALUE_INDEX] );
+            update.gyro_x  = decodeProtocolUint16( &buffer[GYRO_UPDATE_GYRO_X_VALUE_INDEX] );
+            update.gyro_y  = decodeProtocolUint16( &buffer[GYRO_UPDATE_GYRO_Y_VALUE_INDEX] );
+            update.gyro_z  = decodeProtocolUint16( &buffer[GYRO_UPDATE_GYRO_Z_VALUE_INDEX] );
+            update.accel_x = decodeProtocolUint16( &buffer[GYRO_UPDATE_ACCEL_X_VALUE_INDEX] );
+            update.accel_y = decodeProtocolUint16( &buffer[GYRO_UPDATE_ACCEL_Y_VALUE_INDEX] );
+            update.accel_z = decodeProtocolUint16( &buffer[GYRO_UPDATE_ACCEL_Z_VALUE_INDEX] );
+            update.mag_x   = (int16_t)decodeProtocolUint16( &buffer[GYRO_UPDATE_MAG_X_VALUE_INDEX] );
+            update.mag_y   = (int16_t)decodeProtocolUint16( &buffer[GYRO_UPDATE_MAG_Y_VALUE_INDEX] );
+            update.mag_z   = (int16_t)decodeProtocolUint16( &buffer[GYRO_UPDATE_MAG_Z_VALUE_INDEX] );
+            update.temp_c  = decodeProtocolUnsignedHundredthsFloat(  &buffer[GYRO_UPDATE_TEMP_VALUE_INDEX] );
             return GYRO_UPDATE_MESSAGE_LENGTH;
         }
         return 0;
@@ -407,6 +442,16 @@ protected:
         return decoded_uint16;
     }
 
+    /* 0 to 655.35 */
+    static inline float decodeProtocolUnsignedHundredthsFloat( char *uint8_unsigned_hundredths_float ) {
+        float unsigned_float = (float)decodeProtocolUint16(uint8_unsigned_hundredths_float);
+        unsigned_float /= 100;
+        return unsigned_float;
+    }
+    static inline void encodeProtocolUnsignedHundredthsFloat( float input, char *uint8_unsigned_hundredths_float) {
+        uint16_t input_as_uint = (uint16_t)(input * 100.0f);
+        encodeProtocolUint16(input_as_uint,uint8_unsigned_hundredths_float);
+    }
 
     static bool verifyChecksum( char *buffer, int content_length )
     {
