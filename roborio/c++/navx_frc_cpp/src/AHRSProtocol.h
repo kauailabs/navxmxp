@@ -251,7 +251,85 @@ class AHRSProtocol : public IMUProtocol
 {
 public:
 
-    static int encodeIntegrationControlCmd( char *protocol_buffer, uint8_t action, int32_t parameter )
+    struct AHRSUpdate {
+        float   yaw;
+        float   pitch;
+        float   roll;
+        float   compass_heading;
+        float   altitude;
+        float   fused_heading;
+        float   linear_accel_x;
+        float   linear_accel_y;
+        float   linear_accel_z;
+        short   cal_mag_x;
+        short   cal_mag_y;
+        short   cal_mag_z;
+        float   mag_field_norm_ratio;
+        float   mag_field_norm_scalar;
+        float   mpu_temp;
+        short   raw_mag_x;
+        short   raw_mag_y;
+        short   raw_mag_z;
+        short   quat_w;
+        short   quat_x;
+        short   quat_y;
+        short   quat_z;
+        float   barometric_pressure;
+        float   baro_temp;
+        uint8_t op_status;
+        uint8_t sensor_status;
+        uint8_t cal_status;
+        uint8_t selftest_status;
+    };
+
+    struct AHRSPosUpdate {
+        float   yaw;
+        float   pitch;
+        float   roll;
+        float   compass_heading;
+        float   altitude;
+        float   fused_heading;
+        float   linear_accel_x;
+        float   linear_accel_y;
+        float   linear_accel_z;
+        float   vel_x;
+        float   vel_y;
+        float   vel_z;
+        float   disp_x;
+        float   disp_y;
+        float   disp_z;
+        float   mpu_temp;
+        short   quat_w;
+        short   quat_x;
+        short   quat_y;
+        short   quat_z;
+        float   barometric_pressure;
+        float   baro_temp;
+        uint8_t op_status;
+        uint8_t sensor_status;
+        uint8_t cal_status;
+        uint8_t selftest_status;
+    };
+
+    struct BoardID
+    {
+        uint8_t type;
+        uint8_t hw_rev;
+        uint8_t fw_ver_major;
+        uint8_t fw_ver_minor;
+        int16_t fw_revision;
+        uint8_t unique_id[12];
+    };
+
+    struct IntegrationControl
+    {
+        uint8_t action;
+        int     parameter;
+    };
+
+public:
+
+    static int encodeIntegrationControlCmd( char *protocol_buffer, struct IntegrationControl& cmd )
     {
         // Header
         protocol_buffer[0] = PACKET_START_CHAR;
@@ -259,8 +337,8 @@ public:
         protocol_buffer[2] = INTEGRATION_CONTROL_CMD_MESSAGE_LENGTH - 2;
         protocol_buffer[3] = MSGID_INTEGRATION_CONTROL_CMD;
         // Data
-        protocol_buffer[INTEGRATION_CONTROL_CMD_ACTION_INDEX] = action;
-        IMURegisters::encodeProtocolInt32(parameter,&protocol_buffer[INTEGRATION_CONTROL_CMD_PARAMETER_INDEX]);
+        protocol_buffer[INTEGRATION_CONTROL_CMD_ACTION_INDEX] = cmd.action;
+        IMURegisters::encodeProtocolInt32(cmd.parameter,&protocol_buffer[INTEGRATION_CONTROL_CMD_PARAMETER_INDEX]);
         // Footer
         encodeTermination( protocol_buffer, INTEGRATION_CONTROL_CMD_MESSAGE_LENGTH, INTEGRATION_CONTROL_CMD_MESSAGE_LENGTH - 4 );
         return INTEGRATION_CONTROL_CMD_MESSAGE_LENGTH;
@@ -299,7 +377,7 @@ public:
         return INTEGRATION_CONTROL_RESP_MESSAGE_LENGTH;
     }
 
-    static int decodeIntegrationControlResponse( char *buffer, int length, uint8_t& action, int32_t& parameter)
+    static int decodeIntegrationControlResponse( char *buffer, int length, struct IntegrationControl& rsp)
     {
         if ( length < INTEGRATION_CONTROL_RESP_MESSAGE_LENGTH ) return 0;
         if ( ( buffer[0] == PACKET_START_CHAR ) &&
@@ -310,8 +388,8 @@ public:
             if ( !verifyChecksum( buffer, INTEGRATION_CONTROL_RESP_MESSAGE_CHECKSUM_INDEX ) ) return 0;
 
             // Data
-            action = (uint8_t)buffer[INTEGRATION_CONTROL_RESP_ACTION_INDEX];
-            parameter = IMURegisters::decodeProtocolInt32(&buffer[INTEGRATION_CONTROL_RESP_PARAMETER_INDEX]);
+            rsp.action = (uint8_t)buffer[INTEGRATION_CONTROL_RESP_ACTION_INDEX];
+            rsp.parameter = IMURegisters::decodeProtocolInt32(&buffer[INTEGRATION_CONTROL_RESP_PARAMETER_INDEX]);
             return INTEGRATION_CONTROL_RESP_MESSAGE_LENGTH;
         }
         return 0;
@@ -405,16 +483,7 @@ public:
         return AHRS_UPDATE_MESSAGE_LENGTH;
     }
 
-    static int decodeAHRSUpdate( char *buffer, int length, float& yaw, float& pitch, float& roll, float& compass_heading,
-            float& altitude, float& fused_heading, float& linear_accel_x, float& linear_accel_y, float& linear_accel_z,
-            float& mpu_temp_c,
-            int16_t& raw_mag_x, int16_t& raw_mag_y, int16_t& raw_mag_z,
-            int16_t& cal_mag_x, int16_t& cal_mag_y, int16_t& cal_mag_z,
-            float& mag_norm_ratio, float& mag_norm_scalar,
-            int16_t& quat_w, int16_t& quat_x, int16_t& quat_y, int16_t& quat_z,
-            float& baro_pressure, float& baro_temp_c,
-            uint8_t& op_status, uint8_t& sensor_status,
-            uint8_t& cal_status, uint8_t& selftest_status)
+    static int decodeAHRSUpdate( char *buffer, int length, struct AHRSUpdate& update)
     {
         if ( length < AHRS_UPDATE_MESSAGE_LENGTH ) return 0;
         if ( ( buffer[0] == PACKET_START_CHAR ) &&
@@ -424,34 +493,34 @@ public:
 
             if ( !verifyChecksum( buffer, AHRS_UPDATE_MESSAGE_CHECKSUM_INDEX ) ) return 0;
 
-            yaw = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRS_UPDATE_YAW_VALUE_INDEX]);
-            pitch = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRS_UPDATE_PITCH_VALUE_INDEX]);
-            roll = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRS_UPDATE_ROLL_VALUE_INDEX]);
-            compass_heading = IMURegisters::decodeProtocolUnsignedHundredthsFloat(&buffer[AHRS_UPDATE_HEADING_VALUE_INDEX]);
-            altitude = IMURegisters::decodeProtocol1616Float(&buffer[AHRS_UPDATE_ALTITUDE_VALUE_INDEX]);
-            fused_heading = IMURegisters::decodeProtocolUnsignedHundredthsFloat(&buffer[AHRS_UPDATE_FUSED_HEADING_VALUE_INDEX]);
-            linear_accel_x = IMURegisters::decodeProtocolSignedThousandthsFloat(&buffer[AHRS_UPDATE_LINEAR_ACCEL_X_VALUE_INDEX]);
-            linear_accel_y = IMURegisters::decodeProtocolSignedThousandthsFloat(&buffer[AHRS_UPDATE_LINEAR_ACCEL_Y_VALUE_INDEX]);
-            linear_accel_z = IMURegisters::decodeProtocolSignedThousandthsFloat(&buffer[AHRS_UPDATE_LINEAR_ACCEL_Z_VALUE_INDEX]);
-            cal_mag_x = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_CAL_MAG_X_VALUE_INDEX]);
-            cal_mag_y = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_CAL_MAG_Y_VALUE_INDEX]);
-            cal_mag_z = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_CAL_MAG_Z_VALUE_INDEX]);
-            mag_norm_ratio = IMURegisters::decodeProtocolUnsignedHundredthsFloat(&buffer[AHRS_UPDATE_CAL_MAG_NORM_RATIO_VALUE_INDEX]);
-            mag_norm_scalar = IMURegisters::decodeProtocol1616Float(&buffer[AHRS_UPDATE_CAL_MAG_SCALAR_VALUE_INDEX]);
-            mpu_temp_c = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRS_UPDATE_MPU_TEMP_VAUE_INDEX]);
-            raw_mag_x = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_RAW_MAG_X_VALUE_INDEX]);
-            raw_mag_y = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_RAW_MAG_Y_VALUE_INDEX]);
-            raw_mag_z = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_RAW_MAG_Z_VALUE_INDEX]);
-            quat_w = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_QUAT_W_VALUE_INDEX]);
-            quat_x = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_QUAT_X_VALUE_INDEX]);
-            quat_y = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_QUAT_Y_VALUE_INDEX]);
-            quat_z = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_QUAT_Z_VALUE_INDEX]);
-            baro_pressure = IMURegisters::decodeProtocol1616Float(&buffer[AHRS_UPDATE_BARO_PRESSURE_VALUE_INDEX]);
-            baro_temp_c = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRS_UPDATE_BARO_TEMP_VAUE_INDEX]);
-            op_status = buffer[AHRS_UPDATE_OPSTATUS_VALUE_INDEX];
-            sensor_status = buffer[AHRS_UPDATE_SENSOR_STATUS_VALUE_INDEX];
-            cal_status = buffer[AHRS_UPDATE_CAL_STATUS_VALUE_INDEX];
-            selftest_status = buffer[AHRS_UPDATE_SELFTEST_STATUS_VALUE_INDEX];
+            update.yaw = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRS_UPDATE_YAW_VALUE_INDEX]);
+            update.pitch = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRS_UPDATE_PITCH_VALUE_INDEX]);
+            update.roll = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRS_UPDATE_ROLL_VALUE_INDEX]);
+            update.compass_heading = IMURegisters::decodeProtocolUnsignedHundredthsFloat(&buffer[AHRS_UPDATE_HEADING_VALUE_INDEX]);
+            update.altitude = IMURegisters::decodeProtocol1616Float(&buffer[AHRS_UPDATE_ALTITUDE_VALUE_INDEX]);
+            update.fused_heading = IMURegisters::decodeProtocolUnsignedHundredthsFloat(&buffer[AHRS_UPDATE_FUSED_HEADING_VALUE_INDEX]);
+            update.linear_accel_x = IMURegisters::decodeProtocolSignedThousandthsFloat(&buffer[AHRS_UPDATE_LINEAR_ACCEL_X_VALUE_INDEX]);
+            update.linear_accel_y = IMURegisters::decodeProtocolSignedThousandthsFloat(&buffer[AHRS_UPDATE_LINEAR_ACCEL_Y_VALUE_INDEX]);
+            update.linear_accel_z = IMURegisters::decodeProtocolSignedThousandthsFloat(&buffer[AHRS_UPDATE_LINEAR_ACCEL_Z_VALUE_INDEX]);
+            update.cal_mag_x = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_CAL_MAG_X_VALUE_INDEX]);
+            update.cal_mag_y = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_CAL_MAG_Y_VALUE_INDEX]);
+            update.cal_mag_z = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_CAL_MAG_Z_VALUE_INDEX]);
+            update.mag_field_norm_ratio = IMURegisters::decodeProtocolUnsignedHundredthsFloat(&buffer[AHRS_UPDATE_CAL_MAG_NORM_RATIO_VALUE_INDEX]);
+            update.mag_field_norm_scalar = IMURegisters::decodeProtocol1616Float(&buffer[AHRS_UPDATE_CAL_MAG_SCALAR_VALUE_INDEX]);
+            update.mpu_temp = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRS_UPDATE_MPU_TEMP_VAUE_INDEX]);
+            update.raw_mag_x = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_RAW_MAG_X_VALUE_INDEX]);
+            update.raw_mag_y = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_RAW_MAG_Y_VALUE_INDEX]);
+            update.raw_mag_z = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_RAW_MAG_Z_VALUE_INDEX]);
+            update.quat_w = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_QUAT_W_VALUE_INDEX]);
+            update.quat_x = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_QUAT_X_VALUE_INDEX]);
+            update.quat_y = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_QUAT_Y_VALUE_INDEX]);
+            update.quat_z = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_QUAT_Z_VALUE_INDEX]);
+            update.barometric_pressure = IMURegisters::decodeProtocol1616Float(&buffer[AHRS_UPDATE_BARO_PRESSURE_VALUE_INDEX]);
+            update.baro_temp = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRS_UPDATE_BARO_TEMP_VAUE_INDEX]);
+            update.op_status = buffer[AHRS_UPDATE_OPSTATUS_VALUE_INDEX];
+            update.sensor_status = buffer[AHRS_UPDATE_SENSOR_STATUS_VALUE_INDEX];
+            update.cal_status = buffer[AHRS_UPDATE_CAL_STATUS_VALUE_INDEX];
+            update.selftest_status = buffer[AHRS_UPDATE_SELFTEST_STATUS_VALUE_INDEX];
 
             return AHRS_UPDATE_MESSAGE_LENGTH;
         }
@@ -505,14 +574,7 @@ public:
         return AHRSPOS_UPDATE_MESSAGE_LENGTH;
     }
 
-    static int decodeAHRSPosUpdate( char *buffer, int length, float& yaw, float& pitch, float& roll, float& compass_heading,
-            float& altitude, float& fused_heading, float& linear_accel_x, float& linear_accel_y, float& linear_accel_z,
-            float& mpu_temp_c,
-            int16_t& quat_w, int16_t& quat_x, int16_t& quat_y, int16_t& quat_z,
-            float& vel_x, float& vel_y, float& vel_z,
-            float& disp_x, float& disp_y, float& disp_z,
-            uint8_t& op_status, uint8_t& sensor_status,
-            uint8_t& cal_status, uint8_t& selftest_status)
+    static int decodeAHRSPosUpdate( char *buffer, int length, struct AHRSPosUpdate& update)
     {
         if ( length < AHRSPOS_UPDATE_MESSAGE_LENGTH ) return 0;
         if ( ( buffer[0] == PACKET_START_CHAR ) &&
@@ -522,30 +584,30 @@ public:
 
             if ( !verifyChecksum( buffer, AHRSPOS_UPDATE_MESSAGE_CHECKSUM_INDEX ) ) return 0;
 
-            yaw = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRSPOS_UPDATE_YAW_VALUE_INDEX]);
-            pitch = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRSPOS_UPDATE_PITCH_VALUE_INDEX]);
-            roll = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRSPOS_UPDATE_ROLL_VALUE_INDEX]);
-            compass_heading = IMURegisters::decodeProtocolUnsignedHundredthsFloat(&buffer[AHRSPOS_UPDATE_HEADING_VALUE_INDEX]);
-            altitude = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_UPDATE_ALTITUDE_VALUE_INDEX]);
-            fused_heading = IMURegisters::decodeProtocolUnsignedHundredthsFloat(&buffer[AHRSPOS_UPDATE_FUSED_HEADING_VALUE_INDEX]);
-            linear_accel_x = IMURegisters::decodeProtocolSignedThousandthsFloat(&buffer[AHRSPOS_UPDATE_LINEAR_ACCEL_X_VALUE_INDEX]);
-            linear_accel_y = IMURegisters::decodeProtocolSignedThousandthsFloat(&buffer[AHRSPOS_UPDATE_LINEAR_ACCEL_Y_VALUE_INDEX]);
-            linear_accel_z = IMURegisters::decodeProtocolSignedThousandthsFloat(&buffer[AHRSPOS_UPDATE_LINEAR_ACCEL_Z_VALUE_INDEX]);
-            vel_x = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_UPDATE_VEL_X_VALUE_INDEX]);
-            vel_y = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_UPDATE_VEL_Y_VALUE_INDEX]);
-            vel_z = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_UPDATE_VEL_Z_VALUE_INDEX]);
-            disp_x = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_UPDATE_DISP_X_VALUE_INDEX]);
-            disp_y = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_UPDATE_DISP_Y_VALUE_INDEX]);
-            disp_z = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_UPDATE_DISP_Z_VALUE_INDEX]);
-            mpu_temp_c = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRSPOS_UPDATE_MPU_TEMP_VAUE_INDEX]);
-            quat_w = IMURegisters::decodeProtocolInt16(&buffer[AHRSPOS_UPDATE_QUAT_W_VALUE_INDEX]);
-            quat_x = IMURegisters::decodeProtocolInt16(&buffer[AHRSPOS_UPDATE_QUAT_X_VALUE_INDEX]);
-            quat_y = IMURegisters::decodeProtocolInt16(&buffer[AHRSPOS_UPDATE_QUAT_Y_VALUE_INDEX]);
-            quat_z = IMURegisters::decodeProtocolInt16(&buffer[AHRSPOS_UPDATE_QUAT_Z_VALUE_INDEX]);
-            op_status = buffer[AHRSPOS_UPDATE_OPSTATUS_VALUE_INDEX];
-            sensor_status = buffer[AHRSPOS_UPDATE_SENSOR_STATUS_VALUE_INDEX];
-            cal_status = buffer[AHRSPOS_UPDATE_CAL_STATUS_VALUE_INDEX];
-            selftest_status = buffer[AHRSPOS_UPDATE_SELFTEST_STATUS_VALUE_INDEX];
+            update.yaw = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRSPOS_UPDATE_YAW_VALUE_INDEX]);
+            update.pitch = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRSPOS_UPDATE_PITCH_VALUE_INDEX]);
+            update.roll = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRSPOS_UPDATE_ROLL_VALUE_INDEX]);
+            update.compass_heading = IMURegisters::decodeProtocolUnsignedHundredthsFloat(&buffer[AHRSPOS_UPDATE_HEADING_VALUE_INDEX]);
+            update.altitude = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_UPDATE_ALTITUDE_VALUE_INDEX]);
+            update.fused_heading = IMURegisters::decodeProtocolUnsignedHundredthsFloat(&buffer[AHRSPOS_UPDATE_FUSED_HEADING_VALUE_INDEX]);
+            update.linear_accel_x = IMURegisters::decodeProtocolSignedThousandthsFloat(&buffer[AHRSPOS_UPDATE_LINEAR_ACCEL_X_VALUE_INDEX]);
+            update.linear_accel_y = IMURegisters::decodeProtocolSignedThousandthsFloat(&buffer[AHRSPOS_UPDATE_LINEAR_ACCEL_Y_VALUE_INDEX]);
+            update.linear_accel_z = IMURegisters::decodeProtocolSignedThousandthsFloat(&buffer[AHRSPOS_UPDATE_LINEAR_ACCEL_Z_VALUE_INDEX]);
+            update.vel_x = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_UPDATE_VEL_X_VALUE_INDEX]);
+            update.vel_y = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_UPDATE_VEL_Y_VALUE_INDEX]);
+            update.vel_z = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_UPDATE_VEL_Z_VALUE_INDEX]);
+            update.disp_x = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_UPDATE_DISP_X_VALUE_INDEX]);
+            update.disp_y = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_UPDATE_DISP_Y_VALUE_INDEX]);
+            update.disp_z = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_UPDATE_DISP_Z_VALUE_INDEX]);
+            update.mpu_temp = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRSPOS_UPDATE_MPU_TEMP_VAUE_INDEX]);
+            update.quat_w = IMURegisters::decodeProtocolInt16(&buffer[AHRSPOS_UPDATE_QUAT_W_VALUE_INDEX]);
+            update.quat_x = IMURegisters::decodeProtocolInt16(&buffer[AHRSPOS_UPDATE_QUAT_X_VALUE_INDEX]);
+            update.quat_y = IMURegisters::decodeProtocolInt16(&buffer[AHRSPOS_UPDATE_QUAT_Y_VALUE_INDEX]);
+            update.quat_z = IMURegisters::decodeProtocolInt16(&buffer[AHRSPOS_UPDATE_QUAT_Z_VALUE_INDEX]);
+            update.op_status = buffer[AHRSPOS_UPDATE_OPSTATUS_VALUE_INDEX];
+            update.sensor_status = buffer[AHRSPOS_UPDATE_SENSOR_STATUS_VALUE_INDEX];
+            update.cal_status = buffer[AHRSPOS_UPDATE_CAL_STATUS_VALUE_INDEX];
+            update.selftest_status = buffer[AHRSPOS_UPDATE_SELFTEST_STATUS_VALUE_INDEX];
 
             return AHRSPOS_UPDATE_MESSAGE_LENGTH;
         }
@@ -692,10 +754,7 @@ public:
         return BOARD_IDENTITY_RESPONSE_MESSAGE_LENGTH;
     }
 
-    static int decodeBoardIdentityResponse( char *buffer, int length,
-            uint8_t& type, uint8_t& hw_rev,
-            uint8_t& fw_ver_major, uint8_t& fw_ver_minor, uint16_t& fw_revision,
-            uint8_t *unique_id)
+    static int decodeBoardIdentityResponse( char *buffer, int length,  struct BoardID& update )
     {
         if ( length < BOARD_IDENTITY_RESPONSE_MESSAGE_LENGTH ) return 0;
         if ( ( buffer[0] == PACKET_START_CHAR ) &&
@@ -704,13 +763,13 @@ public:
                 ( buffer[3] == MSGID_BOARD_IDENTITY_RESPONSE ) ) {
             if ( !verifyChecksum( buffer, BOARD_IDENTITY_RESPONSE_CHECKSUM_INDEX ) ) return 0;
 
-            type = buffer[BOARD_IDENTITY_BOARDTYPE_VALUE_INDEX];
-            hw_rev = buffer[BOARD_IDENTITY_HWREV_VALUE_INDEX];
-            fw_ver_major = buffer[BOARD_IDENTITY_FW_VER_MAJOR];
-            fw_ver_minor = buffer[BOARD_IDENTITY_FW_VER_MINOR];
-            fw_revision = IMURegisters::decodeProtocolUint16(&buffer[BOARD_IDENTITY_FW_VER_REVISION_VALUE_INDEX]);
+            update.type = buffer[BOARD_IDENTITY_BOARDTYPE_VALUE_INDEX];
+            update.hw_rev = buffer[BOARD_IDENTITY_HWREV_VALUE_INDEX];
+            update.fw_ver_major = buffer[BOARD_IDENTITY_FW_VER_MAJOR];
+            update.fw_ver_minor = buffer[BOARD_IDENTITY_FW_VER_MINOR];
+            update.fw_revision = IMURegisters::decodeProtocolUint16(&buffer[BOARD_IDENTITY_FW_VER_REVISION_VALUE_INDEX]);
             for ( int i = 0; i < 12; i++ ) {
-                unique_id[i] = buffer[BOARD_IDENTITY_UNIQUE_ID_0 + i];
+                update.unique_id[i] = buffer[BOARD_IDENTITY_UNIQUE_ID_0 + i];
             }
             return BOARD_IDENTITY_RESPONSE_MESSAGE_LENGTH;
         }
