@@ -21,9 +21,10 @@ REM Begin a command-line "clean build" of the navx frc C++ library
 REM
 
 pushd .\roborio\c++
-rm -r -f ./build_workspace
-mkdir build_workspace
-C:\Eclipse_Luna\eclipsec.exe -nosplash -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data ./build_workspace -import ./navx_frc_cpp -cleanBuild navx_frc_cpp/Debug
+rm -r -f ./build_workspace_luna
+mkdir build_workspace_luna
+
+C:\Eclipse_Luna\eclipsec.exe -nosplash -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data ./build_workspace_luna -import ./navx_frc_cpp -cleanBuild navx_frc_cpp/Debug
 popd
 
 REM
