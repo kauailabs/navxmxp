@@ -93,7 +93,7 @@ Powershell -command "(get-content .\setup\navx-mxp-setup.iss) -replace ('0.0.000
 pushd build
 call buildsetup.bat
 popd
-copy .\setup\navx-mxp-setup-orig.iss .\setup\navx-mxp-setup.iss 
-
+copy .\setup\navx-mxp-setup-orig.iss .\setup\navx-mxp-setup.iss
+del .\setup\navx-mxp-setup-orig.iss
 popd
 
