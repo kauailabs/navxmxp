@@ -9,8 +9,8 @@ mkdir enclosure
 
 cp -r ../enclosure/* ./enclosure
 cp ../setup/Output/* .
-cp ../readme.txt ./
-cp ../wheres_the_source.txt ./
+cp ../setup/target/readme.txt ./
+cp ../setup/target/wheres_the_source.txt ./
 cp ../getting_started.txt ./
 cp ../LICENSE.txt ./
 
