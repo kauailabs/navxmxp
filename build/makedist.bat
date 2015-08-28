@@ -11,7 +11,7 @@ cp -r ../enclosure/* ./enclosure
 cp ../setup/Output/* .
 cp ../setup/target/readme.txt ./
 cp ../setup/target/wheres_the_source.txt ./
-cp ../getting_started.txt ./
+cp ../setup/getting_started.txt ./
 cp ../LICENSE.txt ./
 
 REM Delete any files copied to the dist directory which are not appropriate for distribution
