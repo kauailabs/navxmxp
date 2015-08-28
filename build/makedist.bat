@@ -1,3 +1,4 @@
+set ZIP_UTILITY="C:\Program Files\7-Zip\7z"
 REM Batch file to create the navX MXP distributable package
 
 pushd ..
@@ -21,7 +22,7 @@ rm  -r -f .\.svn
 REM Create the zip file
 
 rm ../navx-mxp.zip
-"C:\Program Files\7-Zip\7z" a ../navx-mxp.zip *
+%ZIP_UTILITY% a ../navx-mxp.zip *
 
 REM Cleanup
 

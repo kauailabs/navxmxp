@@ -1,3 +1,5 @@
+SET ECLIPSEC_LUNA=C:\Eclipse_Luna\eclipsec.exe
+SET ECLIPSEC_JUNO=C:\Eclipse\eclipsec.exe
 REM Build all binaries
 
 REM CD to Root Directory
@@ -26,7 +28,7 @@ pushd .\roborio\c++
 rm -r -f ./build_workspace_luna
 mkdir build_workspace_luna
 
-C:\Eclipse_Luna\eclipsec.exe -nosplash -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data ./build_workspace_luna -import ./navx_frc_cpp -cleanBuild navx_frc_cpp/Debug
+%ECLIPSEC_LUNA% -nosplash -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data ./build_workspace_luna -import ./navx_frc_cpp -cleanBuild navx_frc_cpp/Debug
 popd
 
 REM
@@ -60,7 +62,7 @@ popd
 rm -r -f ./build_workspace
 mkdir build_workspace
 
-C:\Eclipse\eclipsec.exe -nosplash -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data ./build_workspace -import ./stm32 -cleanBuild navx-mxp/Debug
+%ECLIPSEC_JUNO% -nosplash -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data ./build_workspace -import ./stm32 -cleanBuild navx-mxp/Debug
 rmdir /S /Q stm32\bin
 mkdir stm32\bin
 
@@ -69,21 +71,29 @@ for /f %%i in ('grep NAVX_MXP_FIRMWARE_VERSION_MAJOR stm32/navx-mxp/version.h ^|
 for /f %%i in ('grep NAVX_MXP_FIRMWARE_VERSION_MINOR stm32/navx-mxp/version.h ^| sed 's/#define NAVX_MXP_FIRMWARE_VERSION_MINOR/ /' ^| sed 's/^[ \t]*//'') do set VER_MINOR=%%i
 for /f %%i in ('git rev-list --count --first-parent HEAD') do set VER_REVISION=%%i
 set REVISION_STRING=%VER_MAJOR%.%VER_MINOR%.%VER_REVISION%
+REM Place version string into setup script 
 @echo on
 
 copy .\stm32\Debug\navx-mxp.hex .\stm32\bin\navx-mxp_%REVISION_STRING%.hex
 
 REM Build CSharp Components
 
+pushd .\build
 call buildcsharp.bat
 
 REM Build Processing components
 
 call buildprocessing.bat
+popd
 
 REM Build setup program
 
+copy .\setup\navx-mxp-setup.iss .\setup\navx-mxp-setup-orig.iss 
+Powershell -command "(get-content .\setup\navx-mxp-setup.iss) -replace ('0.0.000','%REVISION_STRING%') | out-file .\setup\navx-mxp-setup.iss -encoding ASCII"
+pushd build
 call buildsetup.bat
+popd
+copy .\setup\navx-mxp-setup-orig.iss .\setup\navx-mxp-setup.iss 
 
 popd
 
