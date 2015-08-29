@@ -29,7 +29,9 @@ public:
 
     struct BoardYawAxis
     {
+        /* Identifies one of the board axes */
         BoardAxis board_axis;
+        /* true if axis is pointing up (with respect to gravity); false if pointing down. */
         bool up;
     };
 

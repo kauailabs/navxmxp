@@ -224,7 +224,9 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
      *
      * This constructor allows the specification of a custom SPI bitrate, in bits/second.
      *
-     * @author Scott
+     * @param spi_port_id SPI Port to use
+     * @param spi_bitrate SPI bitrate (Maximum:  2,000,000)
+     * @param update_rate_hz Custom Update Rate (Hz)
      */
 
     public AHRS(SPI.Port spi_port_id, int spi_bitrate, byte update_rate_hz) {

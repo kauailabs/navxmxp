@@ -968,7 +968,7 @@ static const float DEV_UNITS_MAX = 32768.0f;
  * Returns the current raw (unprocessed) X-axis gyro rotation rate (in degrees/sec).  NOTE:  this
  * value is un-processed, and should only be accessed by advanced users.
  * Typically, rotation about the X Axis is referred to as "Pitch".  Calibrated
- * and Integrated Pitch data is accessible via the {@link #getPitch()} method.
+ * and Integrated Pitch data is accessible via the {@link #GetPitch()} method.
  *<p>
  * @return Returns the current rotation rate (in degrees/sec).
  */
@@ -980,7 +980,7 @@ float AHRS::GetRawGyroX() {
  * Returns the current raw (unprocessed) Y-axis gyro rotation rate (in degrees/sec).  NOTE:  this
  * value is un-processed, and should only be accessed by advanced users.
  * Typically, rotation about the T Axis is referred to as "Roll".  Calibrated
- * and Integrated Pitch data is accessible via the {@link #getRoll()} method.
+ * and Integrated Pitch data is accessible via the {@link #GetRoll()} method.
  *<p>
  * @return Returns the current rotation rate (in degrees/sec).
  */
@@ -992,7 +992,7 @@ float AHRS::GetRawGyroY() {
  * Returns the current raw (unprocessed) Z-axis gyro rotation rate (in degrees/sec).  NOTE:  this
  * value is un-processed, and should only be accessed by advanced users.
  * Typically, rotation about the T Axis is referred to as "Yaw".  Calibrated
- * and Integrated Pitch data is accessible via the {@link #getYaw()} method.
+ * and Integrated Pitch data is accessible via the {@link #GetYaw()} method.
  *<p>
  * @return Returns the current rotation rate (in degrees/sec).
  */
@@ -1005,7 +1005,7 @@ float AHRS::GetRawGyroZ() {
  * value is unprocessed, and should only be accessed by advanced users.  This raw value
  * has not had acceleration due to gravity removed from it, and has not been rotated to
  * the world reference frame.  Gravity-corrected, world reference frame-corrected
- * X axis acceleration data is accessible via the {@link #getWorldLinearAccelX()} method.
+ * X axis acceleration data is accessible via the {@link #GetWorldLinearAccelX()} method.
  *<p>
  * @return Returns the current acceleration rate (in G).
  */
@@ -1018,7 +1018,7 @@ float AHRS::GetRawAccelX() {
  * value is unprocessed, and should only be accessed by advanced users.  This raw value
  * has not had acceleration due to gravity removed from it, and has not been rotated to
  * the world reference frame.  Gravity-corrected, world reference frame-corrected
- * Y axis acceleration data is accessible via the {@link #getWorldLinearAccelY()} method.
+ * Y axis acceleration data is accessible via the {@link #GetWorldLinearAccelY()} method.
  *<p>
  * @return Returns the current acceleration rate (in G).
  */
@@ -1031,7 +1031,7 @@ float AHRS::GetRawAccelY() {
  * value is unprocessed, and should only be accessed by advanced users.  This raw value
  * has not had acceleration due to gravity removed from it, and has not been rotated to
  * the world reference frame.  Gravity-corrected, world reference frame-corrected
- * Z axis acceleration data is accessible via the {@link #getWorldLinearAccelZ()} method.
+ * Z axis acceleration data is accessible via the {@link #GetWorldLinearAccelZ()} method.
  *<p>
  * @return Returns the current acceleration rate (in G).
  */
@@ -1046,7 +1046,7 @@ static const float UTESLA_PER_DEV_UNIT = 0.15f;
  * this value is unprocessed, and should only be accessed by advanced users.  This raw value
  * has not been tilt-corrected, and has not been combined with the other magnetometer axis
  * data to yield a compass heading.  Tilt-corrected compass heading data is accessible
- * via the {@link #getCompassHeading()} method.
+ * via the {@link #GetCompassHeading()} method.
  *<p>
  * @return Returns the mag field strength (in uTesla).
  */
@@ -1059,7 +1059,7 @@ float AHRS::GetRawMagX() {
  * this value is unprocessed, and should only be accessed by advanced users.  This raw value
  * has not been tilt-corrected, and has not been combined with the other magnetometer axis
  * data to yield a compass heading.  Tilt-corrected compass heading data is accessible
- * via the {@link #getCompassHeading()} method.
+ * via the {@link #GetCompassHeading()} method.
  *<p>
  * @return Returns the mag field strength (in uTesla).
  */
@@ -1072,7 +1072,7 @@ float AHRS::GetRawMagY() {
  * this value is unprocessed, and should only be accessed by advanced users.  This raw value
  * has not been tilt-corrected, and has not been combined with the other magnetometer axis
  * data to yield a compass heading.  Tilt-corrected compass heading data is accessible
- * via the {@link #getCompassHeading()} method.
+ * via the {@link #GetCompassHeading()} method.
  *<p>
  * @return Returns the mag field strength (in uTesla).
  */
