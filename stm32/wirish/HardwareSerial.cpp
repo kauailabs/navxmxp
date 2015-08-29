@@ -223,7 +223,7 @@ uint8_t HardwareSerial::read(void) {
     this->rx_buffer_bytes_available--;
     int curr_buffer_index = Serial6.rx_buffer_index;
     Serial6.rx_buffer_next_readable_byte_index++;
-    if ( Serial6.rx_buffer_next_readable_byte_index >= sizeof(Serial6.rx_buffer)) {
+    if ( Serial6.rx_buffer_next_readable_byte_index >= int(sizeof(Serial6.rx_buffer))) {
         Serial6.rx_buffer_next_readable_byte_index = 0;
     }
     NVIC_EnableIRQ(USART6_IRQn);

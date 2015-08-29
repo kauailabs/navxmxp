@@ -101,7 +101,6 @@ int main(void)
 {
 
     /* USER CODE BEGIN 1 */
-    GPIO_InitTypeDef GPIO_InitStruct;
     int spi_slave_enabled = 0;
     int uart_slave_enabled = 0;
 
@@ -139,6 +138,8 @@ int main(void)
     /* USER CODE END 2 */
 
     nav10_main();
+
+    return 0; /* Note:  Control will never reach this point. */
 }
 
 /** System Clock Configuration

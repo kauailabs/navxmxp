@@ -101,6 +101,9 @@ volatile uint32_t AppRxBufferTailIndex; /* writer:  ISR; reader:  app */
 /* Send Data over USB CDC are stored in this buffer       */
 uint8_t UserLowLevelTxBufferFS[APP_TX_DATA_SIZE];
 
+void MX_USB_DEVICE_DeInit(void);
+void MX_USB_DEVICE_Init(void);
+
   /* USER CODE END 3 */
 
 /* USB handler declaration */
@@ -108,7 +111,6 @@ uint8_t UserLowLevelTxBufferFS[APP_TX_DATA_SIZE];
 USBD_HandleTypeDef  *hUsbDevice_0 = NULL;
 
 extern USBD_HandleTypeDef hUsbDeviceFS;
-extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
 /**
   * @}

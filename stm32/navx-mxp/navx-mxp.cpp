@@ -629,12 +629,12 @@ _EXTERN_ATTRIB void nav10_main()
         bool send_tuning_var_set_response[2] = { false, false };
         bool send_data_retrieval_response[2] = {false, false};
         bool send_integration_control_response[2] = {false,false};
-        uint8_t tuning_var_status;
-        AHRS_TUNING_VAR_ID tuning_var_id, retrieved_var_id;
-        AHRS_DATA_TYPE retrieved_data_type;
-        AHRS_DATA_ACTION data_action;
-        uint8_t integration_control_action;
-        int32_t integration_control_parameter;
+        uint8_t tuning_var_status = 0;
+        AHRS_TUNING_VAR_ID tuning_var_id = UNSPECIFIED, retrieved_var_id = UNSPECIFIED;
+        AHRS_DATA_TYPE retrieved_data_type = BOARD_IDENTITY;
+        AHRS_DATA_ACTION data_action = DATA_GET;
+        uint8_t integration_control_action = 0;
+        int32_t integration_control_parameter = 0;
         int num_update_bytes[2] = { 0, 0 };
         int num_resp_bytes[2] = { 0, 0 };
         periodic_compass_update();
@@ -1244,6 +1244,7 @@ _EXTERN_ATTRIB void nav10_main()
                         break;
                     default:
                         /* Invalid case - return error */
+                        value = 0;
                         tuning_var_status = DATA_GETSET_ERROR;
                         break;
                     }

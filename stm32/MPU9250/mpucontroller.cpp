@@ -92,30 +92,30 @@ struct platform_data_s {
 /* Defines the transform from mpu axes to board axes orientation */
 
 static struct platform_data_s mpu_to_board_orientation_matrices[NUM_LOGICAL_AXES * 2] = {
-        // MPU_X_AXIS_DOWN_YAW
-        {  0, -1,  0,   // x = chip y (inverted)
-                0,  0,  1,   // y = chip z
-                -1,  0,  0},  // z = chip x (inverted)
-                // MPU_Y_AXIS_DOWN_YAW
-                { -1,  0,  0,   // x = chip x (inverted)
-                        0,  0, -1,   // y = chip z (inverted)
-                        0, -1,  0},  // z = chip y (inverted)
-                        // MPU_Z_AXIS_DOWN_YAW
-                        { -1,  0,  0,   // x = chip x (inverted)
-                                0,  1,  0,   // y = chip y
-                                0,  0, -1},  // z = chip z (inverted)
-                                // MPU_X_AXIS_UP_YAW
-                                {  0, -1,  0,   // x = chip y (inverted)
-                                        0,  0, -1,   // y = chip z (inverted)
-                                        1,  0,  0},  // z = chip x
-                                        // MPU_Y_AXIS_UP_YAW
-                                        {  1,  0,  0,   // x = chip x
-                                                0,  0, -1,   // y = chip z (inverted)
-                                                0,  1,  0},  // z = chip y
-                                                // MPU_Z_AXIS_UP_YAW
-                                                {  1,  0,  0,   // x = chip x
-                                                        0,  1,  0,   // y = chip y
-                                                        0,  0,  1},  // z = chip z
+    // MPU_X_AXIS_DOWN_YAW
+    { {  0, -1,  0,     // x = chip y (inverted)
+         0,  0,  1,     // y = chip z
+        -1,  0,  0} },  // z = chip x (inverted)
+    // MPU_Y_AXIS_DOWN_YAW
+    { { -1,  0,  0,     // x = chip x (inverted)
+         0,  0, -1,     // y = chip z (inverted)
+         0, -1,  0} },  // z = chip y (inverted)
+    // MPU_Z_AXIS_DOWN_YAW
+    { { -1,  0,  0,     // x = chip x (inverted)
+         0,  1,  0,     // y = chip y
+         0,  0, -1} },  // z = chip z (inverted)
+    // MPU_X_AXIS_UP_YAW
+    { {  0, -1,  0,     // x = chip y (inverted)
+         0,  0, -1,     // y = chip z (inverted)
+         1,  0,  0} },  // z = chip x
+    // MPU_Y_AXIS_UP_YAW
+    { {  1,  0,  0,     // x = chip x
+         0,  0, -1,     // y = chip z (inverted)
+         0,  1,  0} },  // z = chip y
+    // MPU_Z_AXIS_UP_YAW
+    { {  1,  0,  0,     // x = chip x
+         0,  1,  0,     // y = chip y
+         0,  0,  1} }   // z = chip z
 };
 
 const int default_mpu_yaw_axis = MPU_LOGICAL_AXIS_Z;
@@ -1163,18 +1163,24 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
 
 uint8_t last_dmp_gyro_bias[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
 
+union GYRO_BIAS {
+    uint8_t     dmp_gyro_bias_bytes[12];
+    uint32_t    dmp_gyro_bias_big_endian[3];
+};
+
 _EXTERN_ATTRIB int mpu_did_dmp_gyro_biases_change(struct mpu_dmp_calibration_data *dmpcaldata) {
-    uint8_t curr_dmp_gyro_bias[12];
+    GYRO_BIAS curr_gyro_bias;
     int gyro_bias_cmp;
     int changed = 0;
-    mpu_read_mem(D_EXT_GYRO_BIAS_X,12,curr_dmp_gyro_bias);
-    gyro_bias_cmp = memcmp(curr_dmp_gyro_bias,last_dmp_gyro_bias,12);
+    mpu_read_mem(D_EXT_GYRO_BIAS_X,12,curr_gyro_bias.dmp_gyro_bias_bytes);
+    gyro_bias_cmp = memcmp(curr_gyro_bias.dmp_gyro_bias_bytes,last_dmp_gyro_bias,12);
     if ( gyro_bias_cmp != 0 ) {
         changed = 1;
-        memcpy(last_dmp_gyro_bias,curr_dmp_gyro_bias,12);
+        memcpy(last_dmp_gyro_bias,curr_gyro_bias.dmp_gyro_bias_bytes,12);
         for ( int i = 0; i < 3; i++ ) {
             /* Convert from big-endian to little-endian */
-            dmpcaldata->gyro_bias_q16[i] = (int32_t)__REV(*((uint32_t *)&(curr_dmp_gyro_bias[i*sizeof(long)])));
+            uint32_t big_endian_bias = curr_gyro_bias.dmp_gyro_bias_big_endian[i];
+            dmpcaldata->gyro_bias_q16[i] = (int32_t)__REV(big_endian_bias);
         }
         dmpcaldata->mpu_temp_c = last_temperature / 65536.0;
     }
@@ -1182,18 +1188,20 @@ _EXTERN_ATTRIB int mpu_did_dmp_gyro_biases_change(struct mpu_dmp_calibration_dat
 }
 
 _EXTERN_ATTRIB int mpu_apply_dmp_gyro_biases(struct mpu_dmp_calibration_data *dmpcaldata) {
-    uint8_t new_dmp_gyro_bias[12];
+    GYRO_BIAS new_gyro_bias;
     for ( int i = 0; i < 3; i++ ) {
         /* Convert from little-endian to big-endian */
-        *((uint32_t *)&(new_dmp_gyro_bias[i*sizeof(long)]))	 = __REV((uint32_t)dmpcaldata->gyro_bias_q16[i]);
+        new_gyro_bias.dmp_gyro_bias_big_endian[i] = __REV((uint32_t)dmpcaldata->gyro_bias_q16[i]);
     }
-    mpu_write_mem(D_EXT_GYRO_BIAS_X,12,new_dmp_gyro_bias);
+    mpu_write_mem(D_EXT_GYRO_BIAS_X,12,new_gyro_bias.dmp_gyro_bias_bytes);
     return 0;
 }
 
 _EXTERN_ATTRIB int mpu_set_new_sample_rate( uint8_t new_sample_rate ) {
     update_curr_sample_rate(new_sample_rate);
+#if 0
     long int mpl_rate_us = 1000000L / new_sample_rate;
+#endif
     if (hal.dmp_on) {
         dmp_set_fifo_rate(new_sample_rate);
 #if 0
