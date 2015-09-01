@@ -21,5 +21,5 @@
 set remote hardware-breakpoint-limit 6
 set remote hardware-watchpoint-limit 4
 target remote localhost:3333
-file C:\\Users\\Scott\\Documents\\navxmxp-read-only\\stm32\\Debug\\navx-mxp.elf
+file C:\\Users\\Scott\\GitHub\\navxmxp\\stm32\\Debug\\navx-mxp.elf
 monitor reset halt
