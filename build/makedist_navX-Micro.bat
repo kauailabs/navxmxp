@@ -7,11 +7,11 @@ pushd dist
 
 mkdir enclosure
 
-cp -r ../enclosure/navx-mxp/* ./enclosure
-cp ../setup/Output_navX-MXP/* .
-cp ../setup/target/readme.txt ./
-cp ../setup/target/wheres_the_source.txt ./
-cp ../setup/target/getting_started.txt ./
+cp -r ../enclosure/navx-micro/* ./enclosure
+cp ../setup/Output_navX-Micro/* .
+cp ../setup/target/navx-micro/readme.txt ./
+cp ../setup/target/navx-micro/wheres_the_source.txt ./
+cp ../setup/target/navx-micro/getting_started.txt ./
 cp ../LICENSE.txt ./
 
 REM Delete any files copied to the dist directory which are not appropriate for distribution
@@ -21,8 +21,8 @@ rm  -r -f .\.svn
 
 REM Create the zip file
 
-rm ../navx-mxp.zip
-%ZIP_UTILITY% a ../navx-mxp.zip *
+rm ../navx-micro.zip
+%ZIP_UTILITY% a ../navx-micro.zip *
 
 REM Cleanup
 

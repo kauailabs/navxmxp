@@ -59,10 +59,18 @@ echo|set /p=#define NAVX_MXP_REVISION  > revision.h
 git rev-list --count --first-parent HEAD >> revision.h
 popd
 
-rm -r -f ./build_workspace
-mkdir build_workspace
+REM Build navX-MXP and navX-Micro Firmware
 
-%ECLIPSEC_JUNO% -nosplash -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data ./build_workspace -import ./stm32 -cleanBuild navx-mxp/Debug
+rm -r -f ./build_workspace_navx-mxp
+mkdir build_workspace_navx-mxp
+
+%ECLIPSEC_JUNO% -nosplash -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data ./build_workspace_navx-mxp -import ./stm32 -cleanBuild navx-mxp/navX-MXP_Debug
+
+rm -r -f ./build_workspace_navx-micro
+mkdir build_workspace_navx-micro
+
+%ECLIPSEC_JUNO% -nosplash -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data ./build_workspace_navx-micro -import ./stm32 -cleanBuild navx-mxp/navX-Micro_Debug
+
 rmdir /S /Q stm32\bin
 mkdir stm32\bin
 
@@ -74,7 +82,8 @@ set REVISION_STRING=%VER_MAJOR%.%VER_MINOR%.%VER_REVISION%
 REM Place version string into setup script 
 @echo on
 
-copy .\stm32\Debug\navx-mxp.hex .\stm32\bin\navx-mxp_%REVISION_STRING%.hex
+copy .\stm32\navX-MXP_Debug\navx-mxp.hex .\stm32\bin\navx-mxp_%REVISION_STRING%.hex
+copy .\stm32\navX-Micro_Debug\navx-micro.hex .\stm32\bin\navx-micro_%REVISION_STRING%.hex
 
 REM Build CSharp Components
 
@@ -91,9 +100,17 @@ REM Build setup program
 copy .\setup\navx-mxp-setup.iss .\setup\navx-mxp-setup-orig.iss 
 Powershell -command "(get-content .\setup\navx-mxp-setup.iss) -replace ('0.0.000','%REVISION_STRING%') | out-file .\setup\navx-mxp-setup.iss -encoding ASCII"
 pushd build
-call buildsetup.bat
+call buildsetup_navx-mxp.bat
 popd
 copy .\setup\navx-mxp-setup-orig.iss .\setup\navx-mxp-setup.iss
 del .\setup\navx-mxp-setup-orig.iss
-popd
 
+copy .\setup\navx-micro-setup.iss .\setup\navx-micro-setup-orig.iss 
+Powershell -command "(get-content .\setup\navx-micro-setup.iss) -replace ('0.0.000','%REVISION_STRING%') | out-file .\setup\navx-micro-setup.iss -encoding ASCII"
+pushd build
+call buildsetup_navx-micro.bat
+popd
+copy .\setup\navx-micro-setup-orig.iss .\setup\navx-micro-setup.iss
+del .\setup\navx-micro-setup-orig.iss
+
+popd
