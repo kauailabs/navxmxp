@@ -37,8 +37,10 @@
 #include "stm32f4xx_hal.h"
 #include "usbd_def.h"
 #include "usbd_core.h"
+#include "navx-mxp_hal.h"
 
 PCD_HandleTypeDef hpcd_USB_OTG_FS;
+
 
 /*******************************************************************************
                        LL Driver Callbacks (PCD -> USB Device Library)
@@ -269,7 +271,11 @@ USBD_StatusTypeDef  USBD_LL_Init (USBD_HandleTypeDef *pdev)
   hpcd_USB_OTG_FS.Init.phy_itface = PCD_PHY_EMBEDDED;
   hpcd_USB_OTG_FS.Init.Sof_enable = DISABLE;
   hpcd_USB_OTG_FS.Init.low_power_enable = DISABLE;
+#ifdef ENABLE_USB_VBUS
+  hpcd_USB_OTG_FS.Init.vbus_sensing_enable = ENABLE;
+#else
   hpcd_USB_OTG_FS.Init.vbus_sensing_enable = DISABLE;
+#endif
   hpcd_USB_OTG_FS.Init.use_dedicated_ep1 = DISABLE;
   hpcd_USB_OTG_FS.Init.use_external_vbus = DISABLE;
   HAL_PCD_Init(&hpcd_USB_OTG_FS);

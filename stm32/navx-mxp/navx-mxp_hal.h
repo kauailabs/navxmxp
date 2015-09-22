@@ -27,7 +27,13 @@ THE SOFTWARE.
 
 #include <stdint.h>
 
-#define NAVX_MXP_HARDWARE_REV 33		/* v. 3.3 EXPIO */
+#if defined(NAVX_BOARDTYPE_MICRO_1_0)
+#   define NAVX_HARDWARE_REV 40
+#   define ENABLE_USB_VBUS
+#   define DISABLE_EXTERNAL_I2C_INTERFACE
+#else
+#   define NAVX_HARDWARE_REV 33         /* v. 3.3 EXPIO */
+#endif
 
 struct unique_id
 {
