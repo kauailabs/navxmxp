@@ -1,0 +1,11 @@
+The navX-Micro Github repository is at https://github.com/kauailabs/navxmxp.
+
+This repository includes:
+
+- navX-Micro firmware source code (C, C++) and project files for Eclipse
+- navX-Micro hardware schematics/layout files (Eagle PCB 6.5 format)
+- navXTools source code (C#)
+- navXUI source code (Processing)
+- navX-Micro Setup Program (Innosetup)
+
+For more information please also see the online guide to the sources in the "Advanced" section at http://navx-micro.kauailabs.com.

@@ -1,0 +1,3 @@
+If you are new to using navX-Micro, please visit the navX-Micro website at http://navx-micro.kauailabs.com.
+
+This site includes documentation on Installation and Software, as well as example code and much more.
