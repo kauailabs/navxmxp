@@ -348,12 +348,20 @@ namespace compass_calibrator
                                 {
                                     unique_id[i] = bytes[10 + i];
                                 }
-                                string msg = "Board type:  navx MXP (" + boardtype + ")\n" +
+                                string boardtype_string = "unknown";
+                                if (hwrev == 33)
+                                {
+                                    boardtype_string = "navX-MXP";
+                                }
+                                else if (hwrev == 40) {
+                                    boardtype_string = "navX-Micro";
+                                }
+                                string msg = "Board type:  " + boardtype_string + " (" + boardtype + ")\n" +
                                                  "H/W Rev:  " + hwrev + "\n" +
                                                  "F/W Rev:  " + fw_major + "." + fw_minor + "." + fw_revision + "\n" +
                                                  "Unique ID:  ";
                                 msg += BitConverter.ToString(unique_id);
-                                MessageBox.Show(msg, "Kauai Labs Sensor Board ID");
+                                MessageBox.Show(msg, "Kauai Labs navX-Model Board ID");
                              }
                             else
                             {

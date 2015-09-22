@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "navX-Micro"
-#define MyAppVersion "0.0.000"
+#define MyAppVersion "2.0.178"
 #define MyAppPublisher "KauaiLabs, Inc."
 #define MyAppURL "http://navx-micro.kauailabs.com"
 
@@ -35,7 +35,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "{group}\navXConfig"; Filename: "{app}\navXConfig\navXConfig.exe"; WorkingDir: "{app}\navXConfig"; IconFilename: "{app}\graphics\configuration.ico"
 Name: "{group}\navXMagCalibrator"; Filename: "{app}\navXMagCalibrator\navXMagCalibrator.exe"; WorkingDir: "{app}\navXMagCalibrator"
 Name: "{group}\navXFirmwareUpdater"; Filename: "{app}\navXFirmwareUpdater\navXFirmwareUpdater.exe"; WorkingDir: "{app}\navXFirmwareUpdater"; IconFilename: "{app}\graphics\download.ico"
-Name: "{group}\navXUI"; Filename: "{app}\navXUI\navXMXPUI"; WorkingDir: "{app}\navXUI"; IconFilename: "{app}\graphics\dashboard.ico"
+Name: "{group}\navXUI"; Filename: "{app}\navXUI\navXUI"; WorkingDir: "{app}\navXUI"; IconFilename: "{app}\graphics\dashboard.ico"
 Name: "{group}\Online Documentation"; Filename: "{app}\navx-micro-software.url"; IconFilename: "{app}\graphics\information.ico"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{group}\FTC Libaries & Samples"; Filename: "{win}\explorer"; Parameters: "{%HOMEPATH}\navx-micro"

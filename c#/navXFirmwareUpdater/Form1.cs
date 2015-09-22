@@ -400,7 +400,14 @@ namespace navXFirmwareUpdater
 
                                 if (boardtype == 50)
                                 {
-                                    boardType.Text = "navX MXP";
+                                    if (hwrev == 33)
+                                    {
+                                        boardType.Text = "navX-MXP";
+                                    }
+                                    else if (hwrev == 40)
+                                    {
+                                        boardType.Text = "navX-Micro";
+                                    }
                                 }
                                 else
                                 {
@@ -473,7 +480,18 @@ namespace navXFirmwareUpdater
             OpenFileDialog openFileDialog1 = new OpenFileDialog();
             // Set filter options and filter index.
             String default_firmware_dir = System.Environment.GetFolderPath(System.Environment.SpecialFolder.Personal) + "\\navx-mxp\\firmware\\";
-            openFileDialog1.InitialDirectory = default_firmware_dir;
+            if (Directory.Exists(default_firmware_dir))
+            {
+                openFileDialog1.InitialDirectory = default_firmware_dir;
+            }
+            else
+            {
+                default_firmware_dir = System.Environment.GetFolderPath(System.Environment.SpecialFolder.Personal) + "\\navx-micro\\firmware\\";
+                if (Directory.Exists(default_firmware_dir))
+                {
+                    openFileDialog1.InitialDirectory = default_firmware_dir;
+                }
+            }
             openFileDialog1.RestoreDirectory = false;
             openFileDialog1.Filter = "Hex Files (.hex)|*.hex";
             openFileDialog1.FilterIndex = 1;
@@ -535,13 +553,13 @@ namespace navXFirmwareUpdater
                 progressBar1.Visible = false;
                 Application.DoEvents();
                 dialog_in_progress = true;
-                MessageBox.Show("To update navX Firmware, the navX board must be in Firmware Update Mode.\n\n" +
-                                "1. Disconnect the board from the PC USB port.\n" +
-                                "2. Ensure the board has completely powered down (the RED 3.3V LED must be off).\n" +
-                                "3. While holding down the 'CAL' button, re-connect the board to the PC USB port.\n\n" +
-                                "4. After the board has powered up, release the 'CAL' button.\n" + 
+                MessageBox.Show("To update navX-Model Firmware, ensure the device is in Firmware Update Mode.\n\n" +
+                                "1. Disconnect the device from the PC USB port.\n" +
+                                "2. Ensure the device has completely powered down (the RED 3.3V LED must be off).\n" +
+                                "3. While holding down the 'CAL' button, re-connect the device to the PC USB port.\n\n" +
+                                "4. After the device has powered up, release the 'CAL' button.\n" + 
                                 "When in DFU mode, only the RED power LED will be ON.",
-                                "navX Firmware Update",
+                                "navX-Model Firmware Update",
                                 MessageBoxButtons.OK,
                                 MessageBoxIcon.Warning);
                 dialog_in_progress = false;
@@ -560,7 +578,7 @@ namespace navXFirmwareUpdater
                 Application.DoEvents();
                 dialog_in_progress = true;
                 MessageBox.Show("Error converting " + navXHexFilePath.Text + " to DFU format.",
-                                "navX Firmware Update",
+                                "navX-Model Firmware Update",
                                 MessageBoxButtons.OK,
                                 MessageBoxIcon.Error);
                 dialog_in_progress = false;
@@ -584,7 +602,7 @@ namespace navXFirmwareUpdater
                 firmwareUpdate_OnFirmwareUpdateProgress(this, fupea);
                 dialog_in_progress = true;
                 MessageBox.Show("Error parsing DFU file. " + ex.Message,
-                                "navX Firmware Update",
+                                "navX-Model Firmware Update",
                                 MessageBoxButtons.OK,
                                 MessageBoxIcon.Error);
                 dialog_in_progress = false;
@@ -610,7 +628,7 @@ namespace navXFirmwareUpdater
                 firmwareUpdate_OnFirmwareUpdateProgress(this,fupea);
                 dialog_in_progress = true;
                 MessageBox.Show("Error deploying DFU file. " + ex.Message,
-                                "navX Firmware Update",
+                                "navX-Model Firmware Update",
                                 MessageBoxButtons.OK,
                                 MessageBoxIcon.Error);
                 dialog_in_progress = false;
@@ -628,7 +646,7 @@ namespace navXFirmwareUpdater
             progressBar.Invoke(new Action(() => progressBar.Value = (int)e.Percentage));
             if (e.Percentage == 100)
             {
-                form1.Invoke(new Action(() => MessageBox.Show("Firmware Update Complete.\n\nYou can verify the version on the 'Currently-loaded Firmware Version' tab.","navX Firmware Updater",
+                form1.Invoke(new Action(() => MessageBox.Show("Firmware Update Complete.\n\nYou can verify the version on the 'Currently-loaded Firmware Version' tab.","navX-Model Firmware Updater",
                     MessageBoxButtons.OK, MessageBoxIcon.Information)));
             }
         }

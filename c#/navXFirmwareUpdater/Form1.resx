@@ -124,24 +124,24 @@
     <value>91, 17</value>
   </metadata>
   <data name="label_NotReadyToUpdate.Text" xml:space="preserve">
-    <value>To update navX Firmware, the navX board must be in Firmware Update Mode.
+    <value>To update navX-Model Firmware, the device must be in Firmware Update Mode.
 
-1. Disconnect the board from the PC USB port.
-2. Ensure the board has completely powered down (the RED "3.3V LED must be off).
+1. Disconnect the navX-Model device from the PC USB port.
+2. Ensure the device has completely powered down (the RED "3.3V LED must be off).
 3. While holding down the 'CAL' button, re-connect the board to the PC USB port.
 4. After the board has powered up, release the 'CAL' button.
 
-When in Firmware Update Mode, only the navX RED '3.3V" LED will be on.</value>
+When in Firmware Update Mode, only the RED '3.3V" LED will be on.</value>
   </data>
   <data name="label_ReadyToUpdate.Text" xml:space="preserve">
-    <value>navX board is currenlty in Firmware Update Mode.
+    <value>navX-Model device is currently in Firmware Update Mode.
 
-Press the 'Update navX Firmware' button to begin.
+Press the 'Update navX-Model Firmware' button to begin.
 
-Do not disconnect the navX from the PC USB port until the firmware update is complete.
+Do not disconnect the navX-Model device from the PC USB port until the firmware update is complete.
 
-Once completed, the navX board will automatically restart and enter Operational Mode.
-At that time, you can verify the Currently-loaded navX Firmware Version.</value>
+Once completed, the navX-Model device will automatically restart and enter Operational Mode.
+At that time, you can verify the Currently-loaded navX-Model Firmware Version.</value>
   </data>
   <metadata name="timer2.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
     <value>178, 17</value>

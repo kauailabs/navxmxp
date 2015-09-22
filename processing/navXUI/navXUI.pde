@@ -1,5 +1,5 @@
 
-// navX-MXP Open-Source Robotics Sensor
+// navX-MXP/navX-Micro Open-Source Robotics Sensors
 // User Interface/Demonstration software demonstration
 // 12/23/2014 by Kauai Labs (scott@kauailabs.com)
 // 
@@ -50,6 +50,8 @@ int num_curr_com_port_names = 0;
 GWindow windowBoardInfo = null;
 GWindow windowAdvanced = null;
 
+String g_boardtype = "Unknown";
+
 int tray_height_px = 60;
 
 // NOTE: requires ToxicLibs to be installed in order to run properly.
@@ -58,9 +60,9 @@ int tray_height_px = 60;
 //    (location may be different on Mac/Linux)
 // 3. Run and bask in awesomeness
 
-// NOTE:  Also requires the navX MXP library to be installed in order to run properly.
-// 1. Download from http://code.google.com/p/navx-mxp
-// 2. Place the navXMXP.jar library in the libraries subdirectory 
+// NOTE:  Also requires the navX-core library to be installed in order to run properly.
+// 1. Download from https://github.com/kauailabs/navxmxp/tree/master/java/navx/jar
+// 2. Place the navX.jar library in the libraries subdirectory 
 
 ToxiclibsSupport gfx;
 
@@ -104,9 +106,9 @@ float world_acceleration_history[] = new float[ACCEL_HISTORY_SIZE];
 int world_acceleration_history_index = 0;
 float world_acceleration_recent_avg = 0.0;
 
-/* navx-MXP AHRS Update-specific items */
+/* navx-Model AHRS Update-specific items */
 
-boolean navx_mxp_moving = false;
+boolean navx_device_moving = false;
 boolean yaw_stable = true;
 int last_update_ms = 0;
 
@@ -146,7 +148,7 @@ static public void main(String args[]) {
   /*********************************************************
   /* IMPORTANT: replace this with the name of your sketch  *
   /*********************************************************/
-  newArgs[0]="navXMXPUI";
+  newArgs[0]="navXUI";
  
   for(int i=0; i<args.length; i++) {
     newArgs[i+1]=args[i];
@@ -196,6 +198,7 @@ boolean reopen_serial_port( String portName )
       attempted_open_serial_port_name = portName;     
     }  
     port_open_in_progress = false;
+    requestBoardInfo();
     cursor(HAND);
     return success;
 }
@@ -449,10 +452,10 @@ void setup() {
       int lf=10;
       port.bufferUntil(lf);
       
-      // Give the navX MXP a few seconds to start up.
+      // Give the navX-Model device a few seconds to start up.
       delay(1000);
       
-      // Send command to navX MXP requesting streaming data in 'raw' format
+      // Send command to navX-Model device requesting streaming data in 'raw' format
       //enableRawUpdateMode(100);    
       enableAHRSUpdateMode(100);
       //enableAHRSUpdateMode(100);
@@ -552,7 +555,7 @@ void draw() {
     
     if ( largeTextFont != null ) textFont(largeTextFont); 
     textSize(32); 
-    text("navX MXP", 20, 30); 
+    text(g_boardtype, 20, 30); 
     if ( smallTextFont != null ) textFont(smallTextFont);
     textSize(16);
     text("Robotics Navigation Sensor",20,50);
@@ -619,7 +622,7 @@ void draw() {
     fill(0,255,0);
     textAlign(LEFT);    
     String motion_state = "";
-    if ( navx_mxp_moving || ( world_acceleration_recent_avg >= 0.01 ) ) {
+    if ( navx_device_moving || ( world_acceleration_recent_avg >= 0.01 ) ) {
       motion_state = "Moving";
     }
     text(motion_state,(width/2)-30,(height-tray_height_px)-20);
@@ -698,16 +701,25 @@ public void createAdvancedWindow()
     windowAdvanced.setActionOnClose(GWindow.CLOSE_WINDOW);
 }
 
+void updateBoardType( AHRSProtocol.BoardID board_id ) {
+    String board_type = "<Unknown>";
+    if ( board_id.type == 50 ) {
+      board_type = "navX-MXP";
+    }
+    if ( board_id.hw_rev == 33 ) {
+      board_type = "navX-MXP";
+    } else if ( board_id.hw_rev == 40 ) {
+      board_type = "navX-Micro";    
+    }
+    g_boardtype = board_type;
+}
+
 void boardInfoWindowDraw(GWinApplet appc, GWinData data) {
     appc.background(0);
     appc.textAlign(LEFT);
     if ( smallTextFont != null ) appc.textFont(smallTextFont); 
     appc.textSize(16); 
-    String board_type = "<Unknown>";
-    if ( board_id.type == 50 ) {
-      board_type = "navX MXP";
-    }
-    appc.text("BoardType:  " + board_type,20,20);
+    appc.text("BoardType:  " + g_boardtype,20,20);
     appc.text("Board Version:  " + Byte.toString(board_id.hw_rev),20,40);
     appc.text("Firmware Version:  " + Byte.toString(board_id.fw_ver_major)+ "." + Byte.toString(board_id.fw_ver_minor) + "." + Short.toString(board_id.fw_revision), 20,60);
     String board_yaw_axis_string = "Board Yaw Axis:  ";
@@ -779,7 +791,7 @@ public void handleButtonEvents(GButton button, GEvent event)
 
 // The serialEvent() method will be invoked whenever one or more
 // serial characters are received at the moment when a 
-// line feed character (which terminates a navX MXP message)
+// line feed character (which terminates a navX-Model device message)
 // is received.
 
 IMUProtocol.QuaternionUpdate raw_update = new IMUProtocol.QuaternionUpdate();
@@ -1091,7 +1103,7 @@ void serialEvent(MySerial port) {
                 
                 // set our toxilibs quaternion to new data
                 quat.set(q[0], q[1], q[2], q[3]);
-                navx_mxp_moving = (( ahrs_update.sensor_status & 0x01 ) != 0);
+                navx_device_moving = (( ahrs_update.sensor_status & 0x01 ) != 0);
                 initial_calibration_in_process = (( ahrs_update.cal_status & 0x02)==0);
                 compass_calibrated = (( ahrs_update.cal_status & 0x04)!=0);
                 fused_heading_valid = (( ahrs_update.sensor_status & 0x20)!=0);
@@ -1132,7 +1144,7 @@ void serialEvent(MySerial port) {
                   
                   // set our toxilibs quaternion to new data
                   quat.set(q[0], q[1], q[2], q[3]);
-                  navx_mxp_moving = (( ahrs_pos_update.sensor_status & 0x01 ) != 0);
+                  navx_device_moving = (( ahrs_pos_update.sensor_status & 0x01 ) != 0);
                   initial_calibration_in_process = (( ahrs_pos_update.cal_status & 0x02)==0);
                   compass_calibrated = (( ahrs_pos_update.cal_status & 0x04)!=0);
                   fused_heading_valid = (( ahrs_pos_update.sensor_status & 0x20)!=0);
@@ -1147,6 +1159,7 @@ void serialEvent(MySerial port) {
                   decode_length = AHRSProtocol.decodeBoardIDGetResponse(full_message, 0, full_message.length, board_id);
                   if (decode_length != 0) {
                     // Got new board id data
+                    updateBoardType(board_id);
                     if ( windowBoardInfo != null ) {
                       windowBoardInfo.invalidate();
                     }  

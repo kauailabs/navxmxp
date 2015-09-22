@@ -55,12 +55,12 @@
             this.progressBar1 = new System.Windows.Forms.ProgressBar();
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tabPage1 = new System.Windows.Forms.TabPage();
+            this.button2 = new System.Windows.Forms.Button();
             this.label_ReadyToUpdate = new System.Windows.Forms.Label();
             this.tabPage2 = new System.Windows.Forms.TabPage();
             this.label_VCP_Mode_Not_Ready = new System.Windows.Forms.Label();
             this.label_VCP_Open_Ready = new System.Windows.Forms.Label();
             this.timer2 = new System.Windows.Forms.Timer(this.components);
-            this.button2 = new System.Windows.Forms.Button();
             this.groupBox2.SuspendLayout();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
@@ -213,9 +213,9 @@
             // 
             this.selectHexFile.Location = new System.Drawing.Point(7, 12);
             this.selectHexFile.Name = "selectHexFile";
-            this.selectHexFile.Size = new System.Drawing.Size(163, 23);
+            this.selectHexFile.Size = new System.Drawing.Size(207, 23);
             this.selectHexFile.TabIndex = 22;
-            this.selectHexFile.Text = "Select navX Firmware to load...";
+            this.selectHexFile.Text = "Select navX-Model Firmware to load...";
             this.selectHexFile.UseVisualStyleBackColor = true;
             this.selectHexFile.Click += new System.EventHandler(this.selectHexFile_Click);
             // 
@@ -225,7 +225,7 @@
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(164, 23);
             this.button1.TabIndex = 23;
-            this.button1.Text = "Update navX Firmware";
+            this.button1.Text = "Update navX-Model Firmware";
             this.button1.UseVisualStyleBackColor = true;
             this.button1.Click += new System.EventHandler(this.button1_Click);
             // 
@@ -234,7 +234,7 @@
             this.label_NotReadyToUpdate.AutoSize = true;
             this.label_NotReadyToUpdate.Location = new System.Drawing.Point(26, 47);
             this.label_NotReadyToUpdate.Name = "label_NotReadyToUpdate";
-            this.label_NotReadyToUpdate.Size = new System.Drawing.Size(408, 104);
+            this.label_NotReadyToUpdate.Size = new System.Drawing.Size(413, 104);
             this.label_NotReadyToUpdate.TabIndex = 24;
             this.label_NotReadyToUpdate.Text = resources.GetString("label_NotReadyToUpdate.Text");
             this.label_NotReadyToUpdate.Click += new System.EventHandler(this.label5_Click);
@@ -242,7 +242,7 @@
             // navXHexFilePath
             // 
             this.navXHexFilePath.AutoSize = true;
-            this.navXHexFilePath.Location = new System.Drawing.Point(182, 18);
+            this.navXHexFilePath.Location = new System.Drawing.Point(220, 18);
             this.navXHexFilePath.Name = "navXHexFilePath";
             this.navXHexFilePath.Size = new System.Drawing.Size(0, 13);
             this.navXHexFilePath.TabIndex = 1;
@@ -305,12 +305,22 @@
             this.tabPage1.UseVisualStyleBackColor = true;
             this.tabPage1.Click += new System.EventHandler(this.tabPage1_Click);
             // 
+            // button2
+            // 
+            this.button2.Location = new System.Drawing.Point(400, 12);
+            this.button2.Name = "button2";
+            this.button2.Size = new System.Drawing.Size(116, 23);
+            this.button2.TabIndex = 27;
+            this.button2.Text = "Troubleshooting Tips";
+            this.button2.UseVisualStyleBackColor = true;
+            this.button2.Click += new System.EventHandler(this.button2_Click);
+            // 
             // label_ReadyToUpdate
             // 
             this.label_ReadyToUpdate.AutoSize = true;
             this.label_ReadyToUpdate.Location = new System.Drawing.Point(25, 47);
             this.label_ReadyToUpdate.Name = "label_ReadyToUpdate";
-            this.label_ReadyToUpdate.Size = new System.Drawing.Size(421, 104);
+            this.label_ReadyToUpdate.Size = new System.Drawing.Size(488, 104);
             this.label_ReadyToUpdate.TabIndex = 24;
             this.label_ReadyToUpdate.Text = resources.GetString("label_ReadyToUpdate.Text");
             this.label_ReadyToUpdate.Click += new System.EventHandler(this.label5_Click);
@@ -328,7 +338,7 @@
             this.tabPage2.Padding = new System.Windows.Forms.Padding(3);
             this.tabPage2.Size = new System.Drawing.Size(522, 337);
             this.tabPage2.TabIndex = 1;
-            this.tabPage2.Text = "Currently-loaded navX Firmware Version";
+            this.tabPage2.Text = "Currently-loaded navX-Model Firmware Version";
             this.tabPage2.UseVisualStyleBackColor = true;
             // 
             // label_VCP_Mode_Not_Ready
@@ -336,11 +346,11 @@
             this.label_VCP_Mode_Not_Ready.AutoSize = true;
             this.label_VCP_Mode_Not_Ready.Location = new System.Drawing.Point(20, 196);
             this.label_VCP_Mode_Not_Ready.Name = "label_VCP_Mode_Not_Ready";
-            this.label_VCP_Mode_Not_Ready.Size = new System.Drawing.Size(432, 39);
+            this.label_VCP_Mode_Not_Ready.Size = new System.Drawing.Size(469, 39);
             this.label_VCP_Mode_Not_Ready.TabIndex = 25;
-            this.label_VCP_Mode_Not_Ready.Text = "navX board must be in Operational Mode to retrieve the currently-loaded Firmware " +
-    "Version.\r\n\r\nWhen in Operational Mode, the GREEN navX S1 and S2 LEDs should be ON" +
-    ".";
+            this.label_VCP_Mode_Not_Ready.Text = "navX-Model device must be in Operational Mode to retrieve the currently-loaded Fi" +
+    "rmware Version.\r\n\r\nWhen in Operational Mode, the GREEN navX S1 and S2 LEDs shoul" +
+    "d be ON.";
             // 
             // label_VCP_Open_Ready
             // 
@@ -358,16 +368,6 @@
             this.timer2.Interval = 1000;
             this.timer2.Tick += new System.EventHandler(this.timer2_Tick);
             // 
-            // button2
-            // 
-            this.button2.Location = new System.Drawing.Point(400, 12);
-            this.button2.Name = "button2";
-            this.button2.Size = new System.Drawing.Size(116, 23);
-            this.button2.TabIndex = 27;
-            this.button2.Text = "Troubleshooting Tips";
-            this.button2.UseVisualStyleBackColor = true;
-            this.button2.Click += new System.EventHandler(this.button2_Click);
-            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -377,7 +377,7 @@
             this.Controls.Add(this.button_exit);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "Form1";
-            this.Text = "navX Firmware Updater";
+            this.Text = "navXFirmware Updater";
             this.Load += new System.EventHandler(this.Form1_Load);
             this.groupBox2.ResumeLayout(false);
             this.groupBox2.PerformLayout();

@@ -123,6 +123,8 @@
             this.buttonZminus_180 = new System.Windows.Forms.Button();
             this.buttonZminus_0 = new System.Windows.Forms.Button();
             this.MagnetometerDevice = new System.Windows.Forms.GroupBox();
+            this.label33 = new System.Windows.Forms.Label();
+            this.label32 = new System.Windows.Forms.Label();
             this.help_button = new System.Windows.Forms.Button();
             this.label19 = new System.Windows.Forms.Label();
             this.pitch = new System.Windows.Forms.Label();
@@ -158,8 +160,6 @@
             this.label20 = new System.Windows.Forms.Label();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.button15 = new System.Windows.Forms.Button();
-            this.label32 = new System.Windows.Forms.Label();
-            this.label33 = new System.Windows.Forms.Label();
             this.groupBoxXplus.SuspendLayout();
             this.groupBoxYplus.SuspendLayout();
             this.groupBoxZplus.SuspendLayout();
@@ -1157,7 +1157,25 @@
             this.MagnetometerDevice.Size = new System.Drawing.Size(610, 124);
             this.MagnetometerDevice.TabIndex = 5;
             this.MagnetometerDevice.TabStop = false;
-            this.MagnetometerDevice.Text = "navX MXP Device";
+            this.MagnetometerDevice.Text = "navX-Model Device";
+            // 
+            // label33
+            // 
+            this.label33.AutoSize = true;
+            this.label33.Location = new System.Drawing.Point(477, 91);
+            this.label33.Name = "label33";
+            this.label33.Size = new System.Drawing.Size(28, 13);
+            this.label33.TabIndex = 7;
+            this.label33.Text = "Roll:";
+            // 
+            // label32
+            // 
+            this.label32.AutoSize = true;
+            this.label32.Location = new System.Drawing.Point(282, 91);
+            this.label32.Name = "label32";
+            this.label32.Size = new System.Drawing.Size(34, 13);
+            this.label32.TabIndex = 6;
+            this.label32.Text = "Pitch:";
             // 
             // help_button
             // 
@@ -1326,17 +1344,17 @@
             // 
             this.button1.Location = new System.Drawing.Point(9, 19);
             this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(99, 35);
+            this.button1.Size = new System.Drawing.Size(99, 50);
             this.button1.TabIndex = 18;
-            this.button1.Text = "    Save to     navX MXP";
+            this.button1.Text = "Save to navX-Model Device";
             this.button1.UseVisualStyleBackColor = true;
             this.button1.Click += new System.EventHandler(this.button1_Click);
             // 
             // button2
             // 
-            this.button2.Location = new System.Drawing.Point(9, 60);
+            this.button2.Location = new System.Drawing.Point(9, 69);
             this.button2.Name = "button2";
-            this.button2.Size = new System.Drawing.Size(201, 35);
+            this.button2.Size = new System.Drawing.Size(201, 26);
             this.button2.TabIndex = 19;
             this.button2.Text = "How to Use the Program";
             this.button2.UseVisualStyleBackColor = true;
@@ -1508,29 +1526,11 @@
             // 
             this.button15.Location = new System.Drawing.Point(111, 19);
             this.button15.Name = "button15";
-            this.button15.Size = new System.Drawing.Size(99, 35);
+            this.button15.Size = new System.Drawing.Size(99, 50);
             this.button15.TabIndex = 18;
-            this.button15.Text = "Retrieve from navX MXP";
+            this.button15.Text = "Retrieve from navX-Model Device";
             this.button15.UseVisualStyleBackColor = true;
             this.button15.Click += new System.EventHandler(this.button15_Click);
-            // 
-            // label32
-            // 
-            this.label32.AutoSize = true;
-            this.label32.Location = new System.Drawing.Point(282, 91);
-            this.label32.Name = "label32";
-            this.label32.Size = new System.Drawing.Size(34, 13);
-            this.label32.TabIndex = 6;
-            this.label32.Text = "Pitch:";
-            // 
-            // label33
-            // 
-            this.label33.AutoSize = true;
-            this.label33.Location = new System.Drawing.Point(477, 91);
-            this.label33.Name = "label33";
-            this.label33.Size = new System.Drawing.Size(28, 13);
-            this.label33.TabIndex = 7;
-            this.label33.Text = "Roll:";
             // 
             // Form1
             // 

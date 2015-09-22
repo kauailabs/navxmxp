@@ -41,20 +41,21 @@
             this.label1.AutoSize = true;
             this.label1.Location = new System.Drawing.Point(15, 16);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(388, 13);
+            this.label1.Size = new System.Drawing.Size(420, 13);
             this.label1.TabIndex = 0;
-            this.label1.Text = "If you are having trouble getting your navX device into \"Firmware Update Mode\":";
+            this.label1.Text = "If you are having trouble getting your navX-Model device into \"Firmware Update Mo" +
+    "de\":";
             // 
             // label2
             // 
             this.label2.AutoSize = true;
             this.label2.Location = new System.Drawing.Point(29, 72);
             this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(444, 26);
+            this.label2.Size = new System.Drawing.Size(459, 26);
             this.label2.TabIndex = 0;
-            this.label2.Text = "- When in \"Firmware Update Mode\", the navX device will appear in the Device Manag" +
-    "er \r\n under \"Universal Serial Bus controllers\", with a device name of \"STM Devic" +
-    "e in DFU Mode\"";
+            this.label2.Text = "- When in \"Firmware Update Mode\", the navX-Model device will appear in the Device" +
+    " Manager \r\n under \"Universal Serial Bus controllers\", with a device name of \"STM" +
+    " Device in DFU Mode\"";
             this.label2.Click += new System.EventHandler(this.label2_Click);
             // 
             // label3
@@ -62,7 +63,7 @@
             this.label3.AutoSize = true;
             this.label3.Location = new System.Drawing.Point(29, 108);
             this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(464, 39);
+            this.label3.Size = new System.Drawing.Size(473, 39);
             this.label3.TabIndex = 0;
             this.label3.Text = resources.GetString("label3.Text");
             this.label3.Click += new System.EventHandler(this.label2_Click);
@@ -72,7 +73,7 @@
             this.label4.AutoSize = true;
             this.label4.Location = new System.Drawing.Point(29, 160);
             this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(461, 39);
+            this.label4.Size = new System.Drawing.Size(481, 39);
             this.label4.TabIndex = 0;
             this.label4.Text = resources.GetString("label4.Text");
             this.label4.Click += new System.EventHandler(this.label2_Click);
@@ -82,10 +83,10 @@
             this.label5.AutoSize = true;
             this.label5.Location = new System.Drawing.Point(29, 40);
             this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(363, 26);
+            this.label5.Size = new System.Drawing.Size(379, 26);
             this.label5.TabIndex = 0;
             this.label5.Text = "- In order to enter \"Firmware Update Mode\", the STM \"DFU\" Driver is used.\r\nThis d" +
-    "river is automatically installed with the navX device setup program.";
+    "river is automatically installed with the navX-Model device setup program.";
             this.label5.Click += new System.EventHandler(this.label2_Click);
             // 
             // TroubleshootingTips
