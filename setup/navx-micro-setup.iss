@@ -50,8 +50,8 @@ Source: "..\processing_output\*.*"; DestDir: "{app}\navXUI"; Flags: recursesubdi
 Source: "weblinks\navx-micro-software.url"; DestDir: "{app}"
 
 Source: "graphics\*.*"; DestDir: "{app}\graphics"; Flags: recursesubdirs
-Source: "..\roborio\java\navx_frc\src\com\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\java\src\com"; Flags: recursesubdirs
-Source: "..\roborio\java\navx_frc\src\docs\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\java\docs"; Flags: recursesubdirs
+;Source: "..\roborio\java\navx_frc\src\com\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\java\src\com"; Flags: recursesubdirs
+;Source: "..\roborio\java\navx_frc\src\docs\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\java\docs"; Flags: recursesubdirs
 ;Source: "..\roborio\java\navx_frc\jar\navx_frc.jar"; DestDir: "{%HOMEPATH}\navx-mxp\java\lib"
 ;Source: "..\roborio\java\navXMXP_Java_DataMonitor\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\DataMonitor"; Flags: createallsubdirs recursesubdirs
 ;Source: "..\roborio\java\navXMXP_Java_FieldCentricDrive\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\FieldCentricDrive"; Flags: createallsubdirs recursesubdirs
@@ -76,8 +76,7 @@ Name: "{app}\navXFirmwareUpdater"; Flags: uninsalwaysuninstall
 Name: "{app}\navXConfig"; Flags: uninsalwaysuninstall
 Name: "{app}\navXMagCalibrator"; Flags: uninsalwaysuninstall
 Name: "{app}\installers"
-Name: "{app}\navXUI_64"; Flags: uninsalwaysuninstall
-Name: "{app}\navXUI_32"; Flags: uninsalwaysuninstall
+Name: "{app}\navXUI"; Flags: uninsalwaysuninstall
 
 [Code]
 function InitializeSetup(): Boolean;
