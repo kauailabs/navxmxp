@@ -313,7 +313,7 @@ _EXTERN_ATTRIB void nav10_init()
     IMURegisters::buildCRCLookupTable(crc_lookup_table, sizeof(crc_lookup_table));
 
     registers.op_status		= NAVX_OP_STATUS_INITIALIZING;
-    registers.hw_rev		= NAVX_MXP_HARDWARE_REV;
+    registers.hw_rev		= NAVX_HARDWARE_REV;
     registers.identifier	= NAVX_MODEL_NAVX_MXP;
     registers.fw_major		= NAVX_MXP_FIRMWARE_VERSION_MAJOR;
     registers.fw_minor		= NAVX_MXP_FIRMWARE_VERSION_MINOR;
@@ -460,7 +460,9 @@ _EXTERN_ATTRIB void nav10_init()
     }
 
     /* Initiate Data Reception on slave I2C Interface */
+#ifndef DISABLE_EXTERNAL_I2C_INTERFACE
     prepare_next_i2c_receive();
+#endif
 }
 
 struct mpu_data mpudata;
@@ -1358,24 +1360,25 @@ void i2c_hard_reset()
 
 HAL_StatusTypeDef prepare_next_i2c_receive()
 {
-    HAL_StatusTypeDef status;
-    status = HAL_BUSY;
-    unsigned long prepare_i2c_receive_last_attempt_timestamp = HAL_GetTick();
-    while ( status == HAL_BUSY )
-    {
-        status = HAL_I2C_Slave_Receive_IT(&hi2c3, (uint8_t*)i2c3_RxBuffer, 2);
-        if ( (HAL_GetTick() - prepare_i2c_receive_last_attempt_timestamp) > I2C_PREPARE_RECEIVE_TIMEOUT_MS) {
-            HAL_I2C_DeInit(&hi2c3);
-            HAL_I2C_Init(&hi2c3);
+    HAL_StatusTypeDef status = HAL_I2C_Slave_Receive_IT(&hi2c3, (uint8_t*)i2c3_RxBuffer, 2);
+    if ( status == HAL_BUSY ) {
+        unsigned long prepare_i2c_receive_last_attempt_timestamp = HAL_GetTick();
+        while ( status == HAL_BUSY )
+        {
             status = HAL_I2C_Slave_Receive_IT(&hi2c3, (uint8_t*)i2c3_RxBuffer, 2);
-            if ( status != HAL_OK ) {
-                i2c_hard_reset();
+            if ( (HAL_GetTick() - prepare_i2c_receive_last_attempt_timestamp) > I2C_PREPARE_RECEIVE_TIMEOUT_MS) {
+                HAL_I2C_DeInit(&hi2c3);
+                HAL_I2C_Init(&hi2c3);
                 status = HAL_I2C_Slave_Receive_IT(&hi2c3, (uint8_t*)i2c3_RxBuffer, 2);
                 if ( status != HAL_OK ) {
-                    prepare_i2c_receive_timeout_count++;
+                    i2c_hard_reset();
+                    status = HAL_I2C_Slave_Receive_IT(&hi2c3, (uint8_t*)i2c3_RxBuffer, 2);
+                    if ( status != HAL_OK ) {
+                        prepare_i2c_receive_timeout_count++;
+                    }
                 }
+                break;
             }
-            break;
         }
     }
     if ( status == HAL_OK ) {
@@ -1445,7 +1448,7 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *I2cHandle)
                                 if ( prepare_i2c_tx_last_attempt_timestamp == 0 ) {
                                     prepare_i2c_tx_last_attempt_timestamp = HAL_GetTick();
                                 } else if ( HAL_GetTick() - prepare_i2c_tx_last_attempt_timestamp >
-                                I2C_PREPARE_TRANSMIT_TIMEOUT_MS) {
+                                            I2C_PREPARE_TRANSMIT_TIMEOUT_MS) {
                                     /* Transmit aborted, client will need to */
                                     /* timeout.                              */
                                     i2c_hard_reset();
@@ -1531,7 +1534,6 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
     uint8_t reg_count;
     uint8_t received_crc;
     uint8_t calculated_crc;
-    int i;
     bool write = false;
     if ( hspi->Instance == SPI1 ) {
         if ( !spi_transmitting ) {
@@ -1554,10 +1556,10 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                         } else {
                             spi_transmitting = true;
                             spi_bytes_to_be_transmitted = (reg_count > max_size) ? max_size : reg_count;
-                            for ( i = 0; i < spi_bytes_to_be_transmitted; i++ ) {
-                                spi_tx_buffer[i] = reg_addr[i];
-                            }
-                            spi_tx_buffer[spi_bytes_to_be_transmitted] = IMURegisters::getCRCWithTable(crc_lookup_table, spi_tx_buffer,(uint8_t)spi_bytes_to_be_transmitted);
+                            memcpy(spi_tx_buffer,reg_addr,spi_bytes_to_be_transmitted);
+                            spi_tx_buffer[spi_bytes_to_be_transmitted] =
+                                    IMURegisters::getCRCWithTable(crc_lookup_table, spi_tx_buffer,
+                                                                  (uint8_t)spi_bytes_to_be_transmitted);
                             HAL_SPI_Transmit_DMA(&hspi1, spi_tx_buffer, spi_bytes_to_be_transmitted+1);
                             last_spi_tx_start_timestamp = HAL_GetTick();
                         }
