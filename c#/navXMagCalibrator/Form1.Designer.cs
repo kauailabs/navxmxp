@@ -160,6 +160,8 @@
             this.label20 = new System.Windows.Forms.Label();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.button15 = new System.Windows.Forms.Button();
+            this.label34 = new System.Windows.Forms.Label();
+            this.mag_field_norm_ratio = new System.Windows.Forms.Label();
             this.groupBoxXplus.SuspendLayout();
             this.groupBoxYplus.SuspendLayout();
             this.groupBoxZplus.SuspendLayout();
@@ -1143,6 +1145,8 @@
             // MagnetometerDevice
             // 
             this.MagnetometerDevice.Controls.Add(this.label33);
+            this.MagnetometerDevice.Controls.Add(this.mag_field_norm_ratio);
+            this.MagnetometerDevice.Controls.Add(this.label34);
             this.MagnetometerDevice.Controls.Add(this.label32);
             this.MagnetometerDevice.Controls.Add(this.help_button);
             this.MagnetometerDevice.Controls.Add(this.label19);
@@ -1532,6 +1536,29 @@
             this.button15.UseVisualStyleBackColor = true;
             this.button15.Click += new System.EventHandler(this.button15_Click);
             // 
+            // label34
+            // 
+            this.label34.AutoSize = true;
+            this.label34.Location = new System.Drawing.Point(11, 92);
+            this.label34.Name = "label34";
+            this.label34.Size = new System.Drawing.Size(115, 13);
+            this.label34.TabIndex = 6;
+            this.label34.Text = "Mag. Field Norm Ratio:";
+            this.label34.Click += new System.EventHandler(this.label34_Click);
+            // 
+            // mag_field_norm_ratio
+            // 
+            this.mag_field_norm_ratio.BackColor = System.Drawing.Color.Black;
+            this.mag_field_norm_ratio.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Bold);
+            this.mag_field_norm_ratio.ForeColor = System.Drawing.Color.Lime;
+            this.mag_field_norm_ratio.ImeMode = System.Windows.Forms.ImeMode.NoControl;
+            this.mag_field_norm_ratio.Location = new System.Drawing.Point(126, 85);
+            this.mag_field_norm_ratio.Name = "mag_field_norm_ratio";
+            this.mag_field_norm_ratio.Size = new System.Drawing.Size(78, 23);
+            this.mag_field_norm_ratio.TabIndex = 6;
+            this.mag_field_norm_ratio.Text = "------";
+            this.mag_field_norm_ratio.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -1713,6 +1740,8 @@
         private System.Windows.Forms.Label roll;
         private System.Windows.Forms.Label label33;
         private System.Windows.Forms.Label label32;
+        private System.Windows.Forms.Label label34;
+        private System.Windows.Forms.Label mag_field_norm_ratio;
     }
 }
 

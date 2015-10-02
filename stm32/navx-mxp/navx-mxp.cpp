@@ -1171,7 +1171,7 @@ _EXTERN_ATTRIB void nav10_main()
                             float previous_mag_disturbance_ratio = ((struct flash_cal_data *)flashdata)->magcaldata.mag_disturbance_ratio;
                             memcpy(&((struct flash_cal_data *)flashdata)->magcaldata,&newcal,sizeof(newcal));
                             ((struct flash_cal_data *)flashdata)->magcaldata.mag_disturbance_ratio = previous_mag_disturbance_ratio;
-                            mpu_apply_mag_cal_data(&newcal);
+                            mpu_apply_mag_cal_data(&(((struct flash_cal_data *)flashdata)->magcaldata));
                             registers.cal_status |= NAVX_CAL_STATUS_MAG_CAL_COMPLETE;
                             FlashStorage.commit();
                         }

@@ -281,6 +281,7 @@ namespace compass_calibrator
 
                                 pitch.Text = pitchval.ToString();
                                 roll.Text = rollval.ToString();
+                                mag_field_norm_ratio.Text = mag_norm_ratio.ToString();
 
                                 if ((last_mag_x != raw_mag_x) ||
                                      (last_mag_y != raw_mag_y) ||
@@ -1214,6 +1215,11 @@ namespace compass_calibrator
         private void button15_Click(object sender, EventArgs e)
         {
             send_magcal_data_request();
+        }
+
+        private void label34_Click(object sender, EventArgs e)
+        {
+
         }
 
     }
