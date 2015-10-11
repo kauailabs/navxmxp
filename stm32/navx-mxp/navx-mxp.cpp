@@ -1403,6 +1403,11 @@ void process_writable_register_update( uint8_t requested_address, uint8_t *reg_a
 }
 
 int unexpected_receive_size_count = 0;
+int i2c_short_xfer_request_count = 0;
+int i2c_long_xfer_request_count = 0;
+int i2c_too_long_xfer_request_count = 0;
+int i2c_tx_complete_count = 0;
+int i2c_last_requested_read_address = 0;
 
 void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *I2cHandle)
 {
@@ -1417,10 +1422,34 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *I2cHandle)
     if ( I2cHandle->Instance == I2C3 ) {
         if ( I2cHandle->Instance->SR2 & I2C_SR2_TRA ) {
         } else {
-            /* Master Receive bit set:  1 byte is received, the address of the register to begin reading from */
-            if ( num_bytes_received == 2 ) {
-                uint8_t requested_address = rx_bytes_start[0];
-                uint8_t num_bytes = rx_bytes_start[1];
+            /* Master Receive bit set:  request from master received. */
+            bool valid_request;
+            uint8_t requested_address;
+            uint8_t num_bytes;
+            if ( num_bytes_received == 1 ) {
+                /* If 1 byte is received, the byte specifies the beginning address    */
+                /* Setup for a burst read of the maximum possible length.  If the     */
+                /* Master desires less, they will send a NAK (see I2C error handler). */
+                requested_address = rx_bytes_start[0];
+                i2c_last_requested_read_address = requested_address;
+                num_bytes = (NAVX_REG_LAST + 1) - requested_address;
+                valid_request = true;
+                i2c_short_xfer_request_count++;
+            }
+            else if ( num_bytes_received == 2 ) {
+                /* If two bytes are received, the first indicates the beginning address */
+                /* Setup for a burst read with a length specifed in the second byte.    */
+                requested_address = rx_bytes_start[0];
+                i2c_last_requested_read_address = requested_address;
+                num_bytes = rx_bytes_start[1];
+                valid_request = true;
+                i2c_long_xfer_request_count++;
+            } else {
+                /* Invalid request. */
+                valid_request = false;
+                i2c_too_long_xfer_request_count++;
+            }
+            if ( valid_request ) {
                 if ( requested_address & 0x80 ) {
                     write = true;
                     requested_address &= ~0x80;
@@ -1434,7 +1463,7 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *I2cHandle)
                         memcpy(i2c_tx_buffer,reg_addr,i2c_bytes_to_be_transmitted);
                         status = HAL_BUSY;
                         unsigned long prepare_i2c_tx_last_attempt_timestamp = 0;
-                        while ( status == HAL_BUSY ) /* Consider a timeout on this wait... */
+                        while ( status == HAL_BUSY )
                         {
                             status = HAL_I2C_Slave_Transmit_DMA(&hi2c3, i2c_tx_buffer, i2c_bytes_to_be_transmitted);
                             if ( status == HAL_OK ) {
@@ -1481,6 +1510,18 @@ void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *I2cHandle)
     }
 }
 
+int i2c_error_af_ignored_count = 0;
+int i2c_error_af_count = 0;
+int i2c_error_timeout_count = 0;
+int i2c_error_dma_count = 0;
+int i2c_error_arlo_count = 0;
+int i2c_error_berr_count = 0;
+int i2c_error_ovr_count = 0;
+int i2c_error_other_count = 0;
+int i2c_error_while_rx_in_progress_count = 0;
+int i2c_error_while_tx_in_progress_count = 0;
+int i2c_num_bytes_transferred_before_last_nack = 0;
+
 void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *I2cHandle)
 {
     /* The "AF" (Ack fail) error will occur in the case of a burst read */
@@ -1491,16 +1532,40 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *I2cHandle)
     {
         last_i2c_err_code = I2cHandle->ErrorCode;
         if ( I2cHandle->ErrorCode == HAL_I2C_ERROR_AF ) {
+            i2c_num_bytes_transferred_before_last_nack = I2cHandle->XferSize - I2cHandle->XferCount;
             I2cHandle->XferCount = 0;
             I2cHandle->XferSize = 0;
             I2cHandle->pBuffPtr = 0;
+            i2c_error_af_count++;
         } else {
+            if ( I2cHandle->ErrorCode == HAL_I2C_ERROR_TIMEOUT ) {
+                i2c_error_timeout_count++;
+            }
+            else if ( I2cHandle->ErrorCode == HAL_I2C_ERROR_DMA ) {
+                i2c_error_dma_count++;
+            }
+            else if ( I2cHandle->ErrorCode == HAL_I2C_ERROR_ARLO ) {
+                i2c_error_arlo_count++;
+            }
+            else if ( I2cHandle->ErrorCode == HAL_I2C_ERROR_BERR ) {
+                i2c_error_berr_count++;
+            }
+            else if ( I2cHandle->ErrorCode == HAL_I2C_ERROR_OVR ) {
+                i2c_error_ovr_count++;
+            }
             HAL_I2C_DeInit(I2cHandle);
             HAL_I2C_Init(I2cHandle);
+            i2c_error_other_count++;
         }
 
-        i2c_rx_in_progress = false;
-        i2c_tx_in_progress = false;
+        if ( i2c_rx_in_progress ) {
+            i2c_rx_in_progress = false;
+            i2c_error_while_rx_in_progress_count++;
+        }
+        if ( i2c_tx_in_progress ) {
+            i2c_tx_in_progress = false;
+            i2c_error_while_tx_in_progress_count++;
+        }
         prepare_next_i2c_receive();
         i2c_error_count++;
     }

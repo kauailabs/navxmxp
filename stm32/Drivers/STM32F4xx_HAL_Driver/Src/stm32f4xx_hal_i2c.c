@@ -1197,10 +1197,15 @@ HAL_StatusTypeDef HAL_I2C_Slave_Receive_IT(I2C_HandleTypeDef *hi2c, uint8_t *pDa
       return  HAL_ERROR;
     }
 
+    /*
+     * In case of repeated start, the I2C interface may be busy
+     * when the DMA transmit is initiated.  In this case, ignore
+     * the busy flag, as it's OK to proceed anyway.
     if(__HAL_I2C_GET_FLAG(hi2c, I2C_FLAG_BUSY) == SET)
     {
       return HAL_BUSY;
     }
+    */
 
     /* Process Locked */
     __HAL_LOCK(hi2c);
@@ -1412,12 +1417,15 @@ HAL_StatusTypeDef HAL_I2C_Slave_Transmit_DMA(I2C_HandleTypeDef *hi2c, uint8_t *p
     {
       return  HAL_ERROR;
     }
-
+    /*
+     * In case of repeated start, the I2C interface may be busy
+     * when the DMA transmit is initiated.  In this case, ignore
+     * the busy flag, as it's OK to proceed anyway.
     if(__HAL_I2C_GET_FLAG(hi2c, I2C_FLAG_BUSY) == SET)
     {
       return HAL_BUSY;
     }
-
+    */
     /* Process Locked */
     __HAL_LOCK(hi2c);
 
@@ -1472,6 +1480,11 @@ HAL_StatusTypeDef HAL_I2C_Slave_Transmit_DMA(I2C_HandleTypeDef *hi2c, uint8_t *p
 
     /* Process Unlocked */
     __HAL_UNLOCK(hi2c);
+
+    /* Enable I2C Errors, so that a NACK can be received  */
+    /* from the master, which will cause the DMA transfer */
+    /* to be aborted in the error handler if NACK occurs. */
+    __HAL_I2C_ENABLE_IT(hi2c, I2C_IT_ERR);
 
     return HAL_OK;
   }
@@ -2452,6 +2465,23 @@ void HAL_I2C_ER_IRQHandler(I2C_HandleTypeDef *hi2c)
       hi2c->ErrorCode |= HAL_I2C_ERROR_AF;
       /* Clear AF flag */
       __HAL_I2C_CLEAR_FLAG(hi2c, I2C_FLAG_AF);
+
+      /* If DMA transfer was in progress
+       * when the NACK was received, abort the DMA transfer,
+       * disable further I2C Error interrupts, and disable
+       * futher I2C ACKs.
+       */
+      if ( hi2c->State == HAL_I2C_STATE_BUSY_TX ) {
+          if ( hi2c->hdmatx->State == HAL_DMA_STATE_BUSY) {
+              __HAL_I2C_DISABLE_IT(hi2c, I2C_IT_ERR);
+              /* Get count of bytes still remaining, since transfer was partial. */
+              hi2c->XferCount = hi2c->hdmatx->Instance->NDTR;
+              HAL_DMA_Abort(hi2c->hdmatx);
+              /* Disable further Acknowledgements */
+              hi2c->Instance->CR1 &= ~I2C_CR1_ACK;
+              /* Disable further DMA interrupts */
+          }
+      }
     }
   }
 
@@ -3313,11 +3343,14 @@ static void I2C_DMASlaveTransmitCplt(DMA_HandleTypeDef *hdma)
   I2C_HandleTypeDef* hi2c = (I2C_HandleTypeDef*)((DMA_HandleTypeDef*)hdma)->Parent;
 
   /* Wait until AF flag is reset */
+  /* Scott Libert, remove this check, which is not needed in case of a repeated start condition */
+  /* or a i2c master who doesn't release the clock line immediately.                            */
+  /*
   if(I2C_WaitOnFlagUntilTimeout(hi2c, I2C_FLAG_AF, RESET, I2C_TIMEOUT_FLAG) != HAL_OK)
   {
     hi2c->ErrorCode |= HAL_I2C_ERROR_TIMEOUT;
   }
-
+  */
   /* Clear AF flag */
   __HAL_I2C_CLEAR_FLAG(hi2c, I2C_FLAG_AF);
 
@@ -3330,11 +3363,14 @@ static void I2C_DMASlaveTransmitCplt(DMA_HandleTypeDef *hdma)
   hi2c->XferCount = 0;
 
   /* Wait until BUSY flag is reset */
+  /* Scott Libert, remove this check, which is not needed in case of a repeated start condition */
+  /* or a i2c master who doesn't release the clock line immediately.                            */
+  /*
   if(I2C_WaitOnFlagUntilTimeout(hi2c, I2C_FLAG_BUSY, SET, I2C_TIMEOUT_FLAG) != HAL_OK)
   {
     hi2c->ErrorCode |= HAL_I2C_ERROR_TIMEOUT;
   }
-
+  */
   hi2c->State = HAL_I2C_STATE_READY;
 
   /* Check if Errors has been detected during transfer */
