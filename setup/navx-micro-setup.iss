@@ -61,6 +61,10 @@ Source: "graphics\*.*"; DestDir: "{app}\graphics"; Flags: recursesubdirs
 ;Source: "..\roborio\java\navXMXP_Java_MotionDetection\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\MotionDetection"; Flags: createallsubdirs recursesubdirs
 ;Source: "..\roborio\java\navXMXP_ExpansionIO\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\ExpansionIO"; Flags: createallsubdirs recursesubdirs
 
+Source: "..\android\navx_ftc\build\outputs\aar\*.aar"; DestDir: "{%HOMEPATH}\navx-micro\android\libs" 
+Source: "..\android\OpModes\*.*"; DestDir: "{%HOMEPATH}\navx-micro\android\examples"; Flags: createallsubdirs recursesubdirs
+Source: "..\android\navx_ftc\docs\*.*"; DestDir: "{%HOMEPATH}\navx-micro\android\docs"; Flags: recursesubdirs
+
 Source: "..\stm32\bin\navx-micro*.hex"; DestDir: "{%HOMEPATH}\navx-micro\firmware"; Flags:
 
 [Run]

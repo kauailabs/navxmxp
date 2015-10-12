@@ -74,6 +74,10 @@ Source: "..\roborio\c++\navXMXP_CPP_ExpansionIO\*.*"; Excludes: "build,dist,bin"
 
 Source: "..\roborio\labview\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\labview"; Flags: createallsubdirs recursesubdirs
 
+Source: "..\android\navx_ftc\build\outputs\aar\*.aar"; DestDir: "{%HOMEPATH}\navx-mxp\android\libs" 
+Source: "..\android\OpModes\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\android\examples"; Flags: createallsubdirs recursesubdirs
+Source: "..\android\navx_ftc\docs\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\android\docs"; Flags: recursesubdirs
+
 Source: "..\stm32\bin\navx-mxp*.hex"; DestDir: "{%HOMEPATH}\navx-mxp\firmware"; Flags:
 
 [Run]
