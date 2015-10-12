@@ -95,6 +95,13 @@ REM Build Processing components
 call buildprocessing.bat
 popd
 
+REM Build FTC Library
+pushd .\android\navx_ftc
+rmdir /S /Q build
+call gradlew.bat assembleDebug
+call gradlew.bat assembleRelease
+popd
+
 REM Build setup program
 
 copy .\setup\navx-mxp-setup.iss .\setup\navx-mxp-setup-orig.iss 
