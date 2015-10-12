@@ -178,6 +178,8 @@ class RegisterIO implements IIOProvider {
             raw_data_update.accel_y     = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_ACC_Y_L-first_address);
             raw_data_update.accel_z     = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_ACC_Z_L-first_address);
             raw_data_update.mag_x       = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_MAG_X_L-first_address);
+            raw_data_update.mag_y       = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_MAG_Y_L-first_address);
+            raw_data_update.mag_z       = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_MAG_Z_L-first_address);
             raw_data_update.temp_c      = ahrspos_update.mpu_temp;
             notify_sink.setRawData(raw_data_update);
             
