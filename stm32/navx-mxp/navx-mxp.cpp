@@ -1285,6 +1285,9 @@ _EXTERN_ATTRIB void nav10_main()
             }
         }
 
+        /* Shadow the calibration status into the upper 8-bits of the sensor status. */
+        registers.sensor_status &= 0x00FF;
+        registers.sensor_status |= ((uint16_t)registers.cal_status << 8);
         /* Update shadow registers; disable i2c/spi interrupts around this access. */
         if ( num_update_bytes[0] > 0 ) {
             NVIC_DisableIRQ((IRQn_Type)I2C3_EV_IRQn);
