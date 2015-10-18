@@ -23,6 +23,10 @@
  */
  package com.kauailabs.navx.ftc;
 
+import android.os.CountDownTimer;
+import android.os.Process;
+import android.os.SystemClock;
+
 import com.kauailabs.navx.AHRSProtocol;
 import com.kauailabs.navx.IMUProtocol;
 import com.kauailabs.navx.IMURegisters;
@@ -98,17 +102,21 @@ public class AHRS {
      */
     public enum DeviceDataType {
         /**
-         * (default):  6 and 9-axis processed data
+         * (default):  All 6 and 9-axis processed data, sensor status and timestamp
          */
         kProcessedData(0),
         /**
-         * unprocessed data from each individual sensor
+         * Unit Quaternions and unprocessed data from each individual sensor.  Note that
+         * this data does not include a timestamp.  If a timestamp is needed, use
+         * the kAll flag instead.
          */
-        kRawData(1),
+        kQuatAndRawData(1),
         /**
-         * Both processed and raw data
+         * All processed and raw data, sensor status and timestamps.  Note that on a
+         * Android-based FTC robot using the "Core Device Interface Module", acquiring
+         * all data requires to I2C transactions.
          */
-        kBoth(2);
+        kAll(3);
 
         private int value;
 
@@ -121,29 +129,71 @@ public class AHRS {
         }
     };
 
+    /**
+     * The AHRS Callback interface should be implemented if notifications
+     * when new data is available are desired.
+     *
+     * This callback is invoked by the AHRS class whenever new data is r
+     * eceived from the sensor.  Note that this callback is occurring
+     * within the context of the AHRS class IO thread, and it may
+     * interrupt the thread running this opMode.  Therefore, it is
+     * very important to use thread synchronization techniques when
+     * communicating between this callback and the rest of the
+     * code in this opMode.
+     *
+     * The sensor_timestamp is accurate to 1 millisecond, and reflects
+     * the time that the data was actually acquired.  This callback will
+     * only be invoked when a sensor data sample newer than the last
+     * is received, so it is guaranteed that the same data sample will
+     * not be delivered to this callback more than once.
+     *
+     * If the sensor is reset for some reason, the sensor timestamp
+     * will be reset to 0.  Therefore, if the sensor timestamp is ever
+     * less than the previous sample, this indicates the sensor has
+     * been reset.
+     *
+     * In order to be called back, the Callback interface must be registered
+     * via the AHRS registerCallback() method.
+     */
+    public interface Callback {
+        void newProcessedDataAvailable( long timestamp );
+        void newQuatAndRawDataAvailable();
+    };
+
+    interface IoCallback {
+        public boolean ioComplete( boolean read, int address, int len, byte[] data);
+    };
+
     private class BoardState {
         public short capability_flags;
         public byte  update_rate_hz;
         public short accel_fsr_g;
         public short gyro_fsr_dps;
+        public byte  op_status;
+        public byte  cal_status;
+        public byte  selftest_status;
     }
 
     private static AHRS instance = null;
-    private static final int NAVX_DEFAULT_UPDATE_RATE_HZ = 60;
+    private static final int NAVX_DEFAULT_UPDATE_RATE_HZ = 50;
 
     private DeviceInterfaceModule dim = null;
     private navXIOThread io_thread_obj;
     private Thread io_thread;
     private int update_rate_hz = NAVX_DEFAULT_UPDATE_RATE_HZ;
+    private Callback callback;
 
     AHRSProtocol.AHRSPosUpdate curr_data;
     BoardState board_state;
     AHRSProtocol.BoardID board_id;
     IMUProtocol.GyroUpdate raw_data_update;
 
-    final int NAVX_I2C_DEV_ADDRESS = 0x32;
+    final int NAVX_I2C_DEV_7BIT_ADDRESS = 0x32;
+    final int NAVX_I2C_DEV_8BIT_ADDRESS = NAVX_I2C_DEV_7BIT_ADDRESS << 1;
 
-    protected AHRS(DeviceInterfaceModule dim, int dim_i2c_port, DeviceDataType data_type, int update_rate_hz) {
+    protected AHRS(DeviceInterfaceModule dim, int dim_i2c_port,
+                   DeviceDataType data_type, int update_rate_hz) {
+        this.callback = null;
         this.dim = dim;
         this.update_rate_hz = update_rate_hz;
         this.curr_data = new AHRSProtocol.AHRSPosUpdate();
@@ -158,6 +208,31 @@ public class AHRS {
         io_thread.start();
     }
 
+    /**
+     * Registers a callback interface.  This interface
+     * will be called back when new data is available,
+     * based upon a change in the sensor timestamp.
+     *<p>
+     * Note that this callback will occur within the context of the
+     * device IO thread, which is not the same thread context the
+     * caller typically executes in.
+     */
+    public void registerCallback( Callback callback ) {
+        this.callback = callback;
+    }
+
+    /**
+     * Deregisters a previously registered callback interface.
+     *
+     * Be sure to deregister any callback which have been
+     * previously registered, to ensure that the object
+     * implementing the callback interface does not continue
+     * to be accessed when no longer necessary.
+     */
+    public void deregisterCallback() {
+        this.callback = null;
+    }
+
     public void close() {
         io_thread_obj.stop();
         try {
@@ -168,7 +243,8 @@ public class AHRS {
         instance = null;
     }
 
-    public static AHRS getInstance(DeviceInterfaceModule dim, int dim_i2c_port, DeviceDataType data_type) {
+    public static AHRS getInstance(DeviceInterfaceModule dim, int dim_i2c_port,
+                                   DeviceDataType data_type) {
         if (instance == null) {
             instance = new AHRS(dim, dim_i2c_port, data_type, NAVX_DEFAULT_UPDATE_RATE_HZ);
         }
@@ -357,9 +433,8 @@ public class AHRS {
      */
     public boolean isMoving()
     {
-        return (((curr_data.sensor_status &
-                AHRSProtocol.NAVX_SENSOR_STATUS_MOVING) != 0)
-                ? true : false);
+        return (curr_data.sensor_status &
+                AHRSProtocol.NAVX_SENSOR_STATUS_MOVING) != 0;
     }
 
     /**
@@ -375,9 +450,8 @@ public class AHRS {
      */
     public boolean isRotating()
     {
-        return (((curr_data.sensor_status &
-                AHRSProtocol.NAVX_SENSOR_STATUS_YAW_STABLE) != 0)
-                ? false : true);
+        return !((curr_data.sensor_status &
+                AHRSProtocol.NAVX_SENSOR_STATUS_YAW_STABLE) != 0);
     }
 
     /**
@@ -409,9 +483,8 @@ public class AHRS {
      */
     public boolean isAltitudeValid()
     {
-        return (((curr_data.sensor_status &
-                AHRSProtocol.NAVX_SENSOR_STATUS_ALTITUDE_VALID) != 0)
-                ? true : false);
+        return (curr_data.sensor_status &
+                AHRSProtocol.NAVX_SENSOR_STATUS_ALTITUDE_VALID) != 0;
     }
 
     /**
@@ -445,9 +518,9 @@ public class AHRS {
      */
     public boolean isMagneticDisturbance()
     {
-        return (((curr_data.sensor_status &
-                AHRSProtocol.NAVX_SENSOR_STATUS_MAG_DISTURBANCE) != 0)
-                ? true : false);    }
+        return (curr_data.sensor_status &
+                AHRSProtocol.NAVX_SENSOR_STATUS_MAG_DISTURBANCE) != 0;
+    }
 
     /**
      * Indicates whether the magnetometer has been calibrated.
@@ -462,9 +535,8 @@ public class AHRS {
      */
     public boolean isMagnetometerCalibrated()
     {
-        return (((curr_data.cal_status &
-                AHRSProtocol.NAVX_CAL_STATUS_MAG_CAL_COMPLETE) != 0)
-                ? true : false);
+        return (curr_data.cal_status &
+                AHRSProtocol.NAVX_CAL_STATUS_MAG_CAL_COMPLETE) != 0;
     }
 
     /* Unit Quaternions */
@@ -570,7 +642,7 @@ public class AHRS {
             yaw_axis.up = true;
             yaw_axis.board_axis = BoardAxis.kBoardAxisZ;
         } else {
-            yaw_axis.up = (((yaw_axis_info & 0x01) != 0) ? true : false);
+            yaw_axis.up = (yaw_axis_info & 0x01) != 0;
             yaw_axis_info >>= 1;
             switch ( (byte)yaw_axis_info ) {
                 case 0:
@@ -735,7 +807,7 @@ public class AHRS {
         return 0;
     }
 
-    class navXIOThread implements Runnable {
+    class navXIOThread implements Runnable, AHRS.IoCallback {
 
         int dim_port;
         int update_rate_hz;
@@ -746,6 +818,14 @@ public class AHRS {
         int update_count;
         DeviceDataType data_type;
         AHRSProtocol.AHRSPosUpdate ahrspos_update;
+        long curr_sensor_timestamp;
+        boolean cancel_all_reads;
+        boolean first_bank;
+
+        final int NAVX_REGISTER_FIRST           = IMURegisters.NAVX_REG_WHOAMI;
+        final int NAVX_REGISTER_PROC_FIRST      = IMURegisters.NAVX_REG_SENSOR_STATUS_L;
+        final int NAVX_REGISTER_RAW_FIRST       = IMURegisters.NAVX_REG_QUAT_W_L;
+        final int I2C_TIMEOUT_MS                = 500;
 
         public navXIOThread( int port, int update_rate_hz, DeviceDataType data_type,
                              AHRSProtocol.AHRSPosUpdate ahrspos_update) {
@@ -758,6 +838,10 @@ public class AHRS {
             this.update_count = 0;
             this.ahrspos_update = ahrspos_update;
             this.data_type = data_type;
+            this.cancel_all_reads = false;
+            this.first_bank = true;
+
+            android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_MORE_FAVORABLE);
         }
 
         public void start() {
@@ -775,184 +859,262 @@ public class AHRS {
             return byte_count;
         }
 
+        public void addToByteCount( int new_byte_count ) {
+            byte_count += new_byte_count;
+        }
+
         public int getUpdateCount() {
             return update_count;
+        }
+
+        public void incrementUpdateCount() {
+            update_count++;
         }
 
         public boolean isConnected() {
             return is_connected;
         }
 
+        public void setConnected( boolean new_connected ) {
+            is_connected = new_connected;
+        }
+
+        public boolean ioComplete( boolean read, int address, int len, byte[] data) {
+            boolean restart = false;
+            if ( address == NAVX_REGISTER_PROC_FIRST ) {
+                if (!decodeNavxProcessedData(data,
+                        NAVX_REGISTER_PROC_FIRST, data.length)) {
+                    setConnected(false);
+                } else {
+                    addToByteCount(len);
+                    incrementUpdateCount();
+                    if (callback != null) {
+                        callback.newProcessedDataAvailable(curr_sensor_timestamp);
+                    }
+                    if ( data_type == DeviceDataType.kProcessedData ) {
+                        if ( !cancel_all_reads) {
+                            restart = true;
+                        }
+                    }
+                    if ( data_type == DeviceDataType.kAll ) {
+                        first_bank = false;
+                    }
+                }
+             } else if ( address == this.NAVX_REGISTER_RAW_FIRST ) {
+                if ( !decodeNavxQuatAndRawData(data,
+                        NAVX_REGISTER_RAW_FIRST, len) ) {
+                    setConnected(false);
+                } else {
+                    addToByteCount(len);
+                    incrementUpdateCount();
+                    if (callback != null) {
+                        callback.newQuatAndRawDataAvailable();
+                    }
+                    if ( data_type == DeviceDataType.kQuatAndRawData) {
+                        if ( !cancel_all_reads) {
+                            restart = true;
+                        }
+                    } else if ( data_type == DeviceDataType.kAll ) {
+                        first_bank = true;
+                    }
+                }
+            }
+
+            return restart;
+        }
+
         @Override
         public void run() {
 
-            final int DIM_MAX_I2C_READ_LEN     = 26;
-            final int NAVX_REGISTER_FIRST      = IMURegisters.NAVX_REG_WHOAMI;
-            final int NAVX_REGISTER_RAW_FIRST  = IMURegisters.NAVX_REG_GYRO_X_L;
-            DimI2cDeviceReader navxReader[] = new DimI2cDeviceReader[3];
-            DimI2cDeviceWriter navxWriter  = null;
-            I2cDevice navXDevice        = null;
-            int iteration_count = 0;
+            final int DIM_MAX_I2C_READ_LEN          = 26;
+            final int NAVX_WRITE_COMMAND_BIT        = 0x80;
+            DimI2cDeviceReader navxReader[]         = new DimI2cDeviceReader[3];
+            I2cDevice navXDevice                    = null;
+            DimI2cDeviceWriter navxUpdateRateWriter = null;
+            DimI2cDeviceWriter navxZeroYawWriter    = null;
 
-            byte[][] navx_data = new byte[3][];
-            byte[] write_buffer = new byte[1];
-            byte[] empty_data = new byte[DIM_MAX_I2C_READ_LEN];
-            write_buffer[0] = (byte)update_rate_hz;
+            byte[] update_rate_command = new byte[1];
+            update_rate_command[0] = (byte)update_rate_hz;
+            byte[] zero_yaw_command = new byte[1];
+            zero_yaw_command[0] = AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_YAW;
 
             navXDevice = new I2cDevice(dim, dim_port);
-            navxWriter = new DimI2cDeviceWriter(navXDevice,NAVX_I2C_DEV_ADDRESS << 1,
-                                                0x80 | IMURegisters.NAVX_REG_UPDATE_RATE_HZ, write_buffer);
 
-            while (!navxWriter.isDone()) {
-                try {
-                    Thread.sleep(5);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+            navxReader[0] = new DimI2cDeviceReader(navXDevice, NAVX_I2C_DEV_8BIT_ADDRESS,
+                                                   NAVX_REGISTER_FIRST, DIM_MAX_I2C_READ_LEN);
+            navxReader[1] = new DimI2cDeviceReader(navXDevice, NAVX_I2C_DEV_8BIT_ADDRESS,
+                                                   NAVX_REGISTER_PROC_FIRST, DIM_MAX_I2C_READ_LEN);
+            navxReader[2] = new DimI2cDeviceReader(navXDevice, NAVX_I2C_DEV_8BIT_ADDRESS,
+                                                   NAVX_REGISTER_RAW_FIRST, DIM_MAX_I2C_READ_LEN);
+
+            /* The board state reader uses synchronous I/O.  The processed and raw data
+               readers use an asynchronous IO Completion mechanism.
+             */
+            navxReader[1].registerIoCallback(this);
+            navxReader[2].registerIoCallback(this);
+
+            setConnected(false);
 
             while ( keep_running ) {
                 try {
-                    int new_update_bytes = 0;
-                    if ( request_zero_yaw ) {
-                        write_buffer[0] = AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_YAW;
-                        navxWriter = new DimI2cDeviceWriter(navXDevice,NAVX_I2C_DEV_ADDRESS << 1,
-                                0x80 | IMURegisters.NAVX_REG_INTEGRATION_CTL, write_buffer);
-                        while (!navxWriter.isDone()) {
-                            try {
-                                Thread.sleep(5);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
+                    if ( !is_connected ) {
+                        byte[] board_data = navxReader[0].startAndWaitForCompletion(I2C_TIMEOUT_MS);
+                        if (board_data != null) {
+                            if (decodeNavxBoardData(board_data, NAVX_REGISTER_FIRST, board_data.length)) {
+                                setConnected(true);
+                                first_bank = true;
+                                /* To handle the case where the device is reset, reconfigure the
+                                   update rate whenever reconecting to the device.
+                                 */
+                                navxUpdateRateWriter = new DimI2cDeviceWriter(navXDevice,
+                                        NAVX_I2C_DEV_8BIT_ADDRESS,
+                                        NAVX_WRITE_COMMAND_BIT | IMURegisters.NAVX_REG_UPDATE_RATE_HZ,
+                                        update_rate_command);
+                                navxUpdateRateWriter.waitForCompletion(I2C_TIMEOUT_MS);
                             }
                         }
-                        request_zero_yaw = false;
-                    }
-                    while (!navXDevice.isI2cPortReady()) {
-                        Thread.sleep(5);
-                    }
-
-                    /* Read 1 Data (always) */
-
-                    navxReader[0] = new DimI2cDeviceReader(navXDevice, NAVX_I2C_DEV_ADDRESS << 1,
-                            NAVX_REGISTER_FIRST, DIM_MAX_I2C_READ_LEN);
-                    while (!navxReader[0].isDone()) {
-                        Thread.sleep(5);
-                    }
-                    navx_data[0] = navxReader[0].getReadBuffer();
-                    if ( navx_data[0] != null ) {
-                        new_update_bytes += navx_data[0].length;
-                    }
-
-                    if ( ( data_type == DeviceDataType.kProcessedData ) ||
-                            (data_type == DeviceDataType.kBoth )) {
-                        navxReader[1] = new DimI2cDeviceReader(navXDevice, NAVX_I2C_DEV_ADDRESS << 1,
-                                NAVX_REGISTER_FIRST + DIM_MAX_I2C_READ_LEN, DIM_MAX_I2C_READ_LEN);
-                        while (!navxReader[1].isDone()) {
-                            Thread.sleep(5);
-                        }
-                        navx_data[1] = navxReader[1].getReadBuffer();
-                        if (navx_data[1] != null) {
-                            new_update_bytes += navx_data[1].length;
-                        }
                     } else {
-                        navx_data[1] = empty_data;
-                    }
+                        /* If connected, read sensor data and optionally zero yaw if requested */
+                        if (request_zero_yaw) {
 
-                    if ( ( data_type == DeviceDataType.kRawData ) ||
-                            (data_type == DeviceDataType.kBoth )) {
-                        navxReader[2] = new DimI2cDeviceReader(navXDevice, NAVX_I2C_DEV_ADDRESS << 1,
-                                NAVX_REGISTER_RAW_FIRST, DIM_MAX_I2C_READ_LEN);
-                        while (!navxReader[2].isDone()) {
-                            Thread.sleep(5);
-                        }
-                        navx_data[2] = navxReader[2].getReadBuffer();
-                        if (navx_data[2] != null) {
-                            new_update_bytes += navx_data[2].length;
-                        }
-                    } else {
-                        navx_data[2] = empty_data;
-                    }
+                            /* if any reading is underway, wait for it to complete. */
+                            cancel_all_reads = true;
+                            while ( navxReader[1].isBusy() || navxReader[2].isBusy() ) {
+                                Thread.sleep(1);
+                            }
+                            cancel_all_reads = false;
 
-                    this.byte_count += new_update_bytes;
-                    if ( new_update_bytes > 0 ) {
-                        this.update_count++;
-                        if ( navx_data[0][IMURegisters.NAVX_REG_WHOAMI] == 50 ) {
-                            this.is_connected = true;
-                        } else {
-                            navx_data[0] =
-                                navx_data[1] =
-                                navx_data[2] = empty_data;
-                            this.is_connected = false;
+                            navxZeroYawWriter = new DimI2cDeviceWriter(navXDevice,
+                                    NAVX_I2C_DEV_8BIT_ADDRESS,
+                                    NAVX_WRITE_COMMAND_BIT | IMURegisters.NAVX_REG_INTEGRATION_CTL,
+                                    zero_yaw_command);
+                            navxZeroYawWriter.waitForCompletion(I2C_TIMEOUT_MS);
+                            request_zero_yaw = false;
                         }
-                        decodeNavxBank1Data(navx_data[0], 0, navx_data[0].length);
-                        decodeNavxBank2Data(navx_data[1], DIM_MAX_I2C_READ_LEN, navx_data[1].length);
-                        decodeNavxBank3Data(navx_data[2], NAVX_REGISTER_RAW_FIRST, navx_data[2].length);
+
+                        /* Read Processed Data (kProcessedData or kAll) */
+
+                        if ((data_type == DeviceDataType.kProcessedData) ||
+                                ((data_type == DeviceDataType.kAll) && first_bank)) {
+                            if ( !navxReader[1].isBusy() ) {
+                                navxReader[1].start(I2C_TIMEOUT_MS);
+                            }
+                        }
+
+                        /* Read Quaternion/Raw Data (kQuatAndRawData or kAll) */
+
+                        if ((data_type == DeviceDataType.kQuatAndRawData) ||
+                                ((data_type == DeviceDataType.kAll) && !first_bank)) {
+                            if ( !navxReader[2].isBusy() ) {
+                                 navxReader[2].start(I2C_TIMEOUT_MS);
+                            }
+                        }
+                        Thread.sleep(10);
                     }
                 } catch (Exception ex) {
-                    navx_data[0] = empty_data;
-                    navx_data[1] = empty_data;
-                    navx_data[2] = empty_data;
                 }
             }
+
+            navxReader[1].deregisterIoCallback(this);
+            navxReader[2].deregisterIoCallback(this);
 
             navXDevice.close();
         }
 
-        void decodeNavxBank1Data(byte[] curr_data, int first_address, int len) {
-            board_id.hw_rev                 = curr_data[IMURegisters.NAVX_REG_HW_REV - first_address];
-            board_id.fw_ver_major           = curr_data[IMURegisters.NAVX_REG_FW_VER_MAJOR - first_address];
-            board_id.fw_ver_minor           = curr_data[IMURegisters.NAVX_REG_FW_VER_MINOR - first_address];
-            board_id.type                   = curr_data[IMURegisters.NAVX_REG_WHOAMI - first_address];
+        boolean decodeNavxBoardData(byte[] curr_data, int first_address, int len) {
+            final int I2C_NAVX_DEVICE_TYPE = 50;
+            boolean valid_data;
+            if ( curr_data[IMURegisters.NAVX_REG_WHOAMI - first_address] == I2C_NAVX_DEVICE_TYPE ){
+                valid_data = true;
+                board_id.hw_rev = curr_data[IMURegisters.NAVX_REG_HW_REV - first_address];
+                board_id.fw_ver_major = curr_data[IMURegisters.NAVX_REG_FW_VER_MAJOR - first_address];
+                board_id.fw_ver_minor = curr_data[IMURegisters.NAVX_REG_FW_VER_MINOR - first_address];
+                board_id.type = curr_data[IMURegisters.NAVX_REG_WHOAMI - first_address];
 
-            board_state.gyro_fsr_dps        = AHRSProtocol.decodeBinaryUint16(curr_data,IMURegisters.NAVX_REG_GYRO_FSR_DPS_L - first_address);
-            board_state.accel_fsr_g         = (short)curr_data[IMURegisters.NAVX_REG_ACCEL_FSR_G - first_address];
-            board_state.update_rate_hz      = curr_data[IMURegisters.NAVX_REG_UPDATE_RATE_HZ - first_address];
-            board_state.capability_flags    = AHRSProtocol.decodeBinaryUint16(curr_data,IMURegisters.NAVX_REG_CAPABILITY_FLAGS_L - first_address);
+                board_state.gyro_fsr_dps = AHRSProtocol.decodeBinaryUint16(curr_data, IMURegisters.NAVX_REG_GYRO_FSR_DPS_L - first_address);
+                board_state.accel_fsr_g = (short) curr_data[IMURegisters.NAVX_REG_ACCEL_FSR_G - first_address];
+                board_state.update_rate_hz = curr_data[IMURegisters.NAVX_REG_UPDATE_RATE_HZ - first_address];
+                board_state.capability_flags = AHRSProtocol.decodeBinaryUint16(curr_data, IMURegisters.NAVX_REG_CAPABILITY_FLAGS_L - first_address);
+                board_state.op_status = curr_data[IMURegisters.NAVX_REG_OP_STATUS - first_address];
+                board_state.selftest_status = curr_data[IMURegisters.NAVX_REG_SELFTEST_STATUS - first_address];
+                board_state.cal_status = curr_data[IMURegisters.NAVX_REG_CAL_STATUS - first_address];
+            } else {
+                valid_data = false;
+            }
+            return valid_data;
+        }
 
+        boolean doesDataAppearValid( byte[] curr_data ) {
+            boolean data_valid = false;
+            boolean all_zeros = true;
+            boolean all_ones = true;
+            for ( int i = 0; i < curr_data.length; i++ ) {
+                if ( curr_data[i] != (byte)0 ) {
+                    all_zeros = false;
+                }
+                if ( curr_data[i] != (byte)0xFF) {
+                    all_ones = false;
+                }
+                if ( !all_zeros && !all_ones ) {
+                    data_valid = true;
+                    break;
+                }
+            }
+            return data_valid;
+        }
+
+        boolean decodeNavxProcessedData(byte[] curr_data, int first_address, int len) {
             long timestamp_low, timestamp_high;
-            long sensor_timestamp;
 
-            timestamp_low = (long)AHRSProtocol.decodeBinaryUint16(curr_data, IMURegisters.NAVX_REG_TIMESTAMP_L_L-first_address);
-            timestamp_high = (long)AHRSProtocol.decodeBinaryUint16(curr_data, IMURegisters.NAVX_REG_TIMESTAMP_H_L-first_address);
-            sensor_timestamp               = (timestamp_high << 16) + timestamp_low;
-            ahrspos_update.op_status       = curr_data[IMURegisters.NAVX_REG_OP_STATUS - first_address];
-            ahrspos_update.selftest_status = curr_data[IMURegisters.NAVX_REG_SELFTEST_STATUS - first_address];
-            ahrspos_update.cal_status      = curr_data[IMURegisters.NAVX_REG_CAL_STATUS - first_address];
-            ahrspos_update.sensor_status   = curr_data[IMURegisters.NAVX_REG_SENSOR_STATUS_L - first_address];
-            ahrspos_update.yaw             = AHRSProtocol.decodeProtocolSignedHundredthsFloat(curr_data, IMURegisters.NAVX_REG_YAW_L-first_address);
-            ahrspos_update.pitch           = AHRSProtocol.decodeProtocolSignedHundredthsFloat(curr_data, IMURegisters.NAVX_REG_PITCH_L-first_address);
+            boolean data_valid = doesDataAppearValid(curr_data);
+            if ( !data_valid ) {
+                Arrays.fill(curr_data, (byte)0);
+            }
+
+            timestamp_low = (long) AHRSProtocol.decodeBinaryUint16(curr_data, IMURegisters.NAVX_REG_TIMESTAMP_L_L - first_address);
+            timestamp_high = (long) AHRSProtocol.decodeBinaryUint16(curr_data, IMURegisters.NAVX_REG_TIMESTAMP_H_L - first_address);
+            curr_sensor_timestamp = (timestamp_high << 16) + timestamp_low;
+            ahrspos_update.sensor_status = curr_data[IMURegisters.NAVX_REG_SENSOR_STATUS_L - first_address];
+            /* Update calibration status from the "shadow" in the upper 8-bits of sensor status. */
+            ahrspos_update.cal_status = curr_data[IMURegisters.NAVX_REG_SENSOR_STATUS_H - first_address];
+            ahrspos_update.yaw = AHRSProtocol.decodeProtocolSignedHundredthsFloat(curr_data, IMURegisters.NAVX_REG_YAW_L - first_address);
+            ahrspos_update.pitch = AHRSProtocol.decodeProtocolSignedHundredthsFloat(curr_data, IMURegisters.NAVX_REG_PITCH_L - first_address);
+            ahrspos_update.roll = AHRSProtocol.decodeProtocolSignedHundredthsFloat(curr_data, IMURegisters.NAVX_REG_ROLL_L - first_address);
+            ahrspos_update.compass_heading = AHRSProtocol.decodeProtocolUnsignedHundredthsFloat(curr_data, IMURegisters.NAVX_REG_HEADING_L - first_address);
+            ahrspos_update.fused_heading = AHRSProtocol.decodeProtocolUnsignedHundredthsFloat(curr_data, IMURegisters.NAVX_REG_FUSED_HEADING_L - first_address);
+            ahrspos_update.altitude = AHRSProtocol.decodeProtocol1616Float(curr_data, IMURegisters.NAVX_REG_ALTITUDE_I_L - first_address);
+            ahrspos_update.linear_accel_x = AHRSProtocol.decodeProtocolSignedThousandthsFloat(curr_data, IMURegisters.NAVX_REG_LINEAR_ACC_X_L - first_address);
+            ahrspos_update.linear_accel_y = AHRSProtocol.decodeProtocolSignedThousandthsFloat(curr_data, IMURegisters.NAVX_REG_LINEAR_ACC_Y_L - first_address);
+            ahrspos_update.linear_accel_z = AHRSProtocol.decodeProtocolSignedThousandthsFloat(curr_data, IMURegisters.NAVX_REG_LINEAR_ACC_Z_L - first_address);
+
+            return data_valid;
         }
 
-        void decodeNavxBank2Data(byte[] curr_data, int first_address, int len) {
-            ahrspos_update.roll            = AHRSProtocol.decodeProtocolSignedHundredthsFloat(curr_data, IMURegisters.NAVX_REG_ROLL_L-first_address);
-            ahrspos_update.compass_heading = AHRSProtocol.decodeProtocolUnsignedHundredthsFloat(curr_data, IMURegisters.NAVX_REG_HEADING_L-first_address);
-            ahrspos_update.mpu_temp        = AHRSProtocol.decodeProtocolSignedHundredthsFloat(curr_data, IMURegisters.NAVX_REG_MPU_TEMP_C_L - first_address);
-            ahrspos_update.linear_accel_x  = AHRSProtocol.decodeProtocolSignedThousandthsFloat(curr_data, IMURegisters.NAVX_REG_LINEAR_ACC_X_L-first_address);
-            ahrspos_update.linear_accel_y  = AHRSProtocol.decodeProtocolSignedThousandthsFloat(curr_data, IMURegisters.NAVX_REG_LINEAR_ACC_Y_L-first_address);
-            ahrspos_update.linear_accel_z  = AHRSProtocol.decodeProtocolSignedThousandthsFloat(curr_data, IMURegisters.NAVX_REG_LINEAR_ACC_Z_L-first_address);
-            ahrspos_update.altitude        = AHRSProtocol.decodeProtocol1616Float(curr_data, IMURegisters.NAVX_REG_ALTITUDE_D_L - first_address);
-            ahrspos_update.fused_heading   = AHRSProtocol.decodeProtocolUnsignedHundredthsFloat(curr_data, IMURegisters.NAVX_REG_FUSED_HEADING_L-first_address);
-            ahrspos_update.quat_w          = AHRSProtocol.decodeBinaryInt16(curr_data, IMURegisters.NAVX_REG_QUAT_W_L-first_address);
-            ahrspos_update.quat_x          = AHRSProtocol.decodeBinaryInt16(curr_data, IMURegisters.NAVX_REG_QUAT_X_L-first_address);
-            ahrspos_update.quat_y          = AHRSProtocol.decodeBinaryInt16(curr_data, IMURegisters.NAVX_REG_QUAT_Y_L-first_address);
-            ahrspos_update.quat_z          = AHRSProtocol.decodeBinaryInt16(curr_data, IMURegisters.NAVX_REG_QUAT_Z_L-first_address);
-        }
+        boolean decodeNavxQuatAndRawData(byte[] curr_data, int first_address, int len) {
+            boolean data_valid = doesDataAppearValid(curr_data);
+            if ( !data_valid ) {
+                Arrays.fill(curr_data, (byte)0);
+            }
+            ahrspos_update.quat_w   = AHRSProtocol.decodeBinaryInt16(curr_data, IMURegisters.NAVX_REG_QUAT_W_L-first_address);
+            ahrspos_update.quat_x   = AHRSProtocol.decodeBinaryInt16(curr_data, IMURegisters.NAVX_REG_QUAT_X_L-first_address);
+            ahrspos_update.quat_y   = AHRSProtocol.decodeBinaryInt16(curr_data, IMURegisters.NAVX_REG_QUAT_Y_L-first_address);
+            ahrspos_update.quat_z   = AHRSProtocol.decodeBinaryInt16(curr_data, IMURegisters.NAVX_REG_QUAT_Z_L-first_address);
 
-        void decodeNavxBank3Data( byte[] curr_data, int first_address, int len ) {
-            raw_data_update.gyro_x      = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_GYRO_X_L-first_address);
-            raw_data_update.gyro_y      = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_GYRO_Y_L-first_address);
-            raw_data_update.gyro_z      = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_GYRO_Z_L-first_address);
-            raw_data_update.accel_x     = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_ACC_X_L-first_address);
-            raw_data_update.accel_y     = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_ACC_Y_L-first_address);
-            raw_data_update.accel_z     = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_ACC_Z_L-first_address);
-            raw_data_update.mag_x       = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_MAG_X_L-first_address);
-            raw_data_update.mag_y       = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_MAG_Y_L-first_address);
-            raw_data_update.mag_z       = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_MAG_Z_L-first_address);
+            ahrspos_update.mpu_temp = AHRSProtocol.decodeProtocolSignedHundredthsFloat(curr_data, IMURegisters.NAVX_REG_MPU_TEMP_C_L - first_address);
+
+            raw_data_update.gyro_x  = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_GYRO_X_L-first_address);
+            raw_data_update.gyro_y  = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_GYRO_Y_L-first_address);
+            raw_data_update.gyro_z  = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_GYRO_Z_L-first_address);
+            raw_data_update.accel_x = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_ACC_X_L-first_address);
+            raw_data_update.accel_y = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_ACC_Y_L-first_address);
+            raw_data_update.accel_z = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_ACC_Z_L-first_address);
+            raw_data_update.mag_x   = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_MAG_X_L-first_address);
+            raw_data_update.mag_y   = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_MAG_Y_L-first_address);
+            /* Unfortunately, the 26-byte I2C Transfer limit means we can't transfer the Z-axis magnetometer data.  */
+            /* This magnetomer axis typically isn't used, so it's likely not going to be missed.                    */
+            //raw_data_update.mag_z   = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_MAG_Z_L-first_address);
+
+            return data_valid;
         }
 
     }
@@ -962,14 +1124,21 @@ public class AHRS {
         private final int dev_address;
         private final int mem_address;
         private boolean done;
+        private Object synchronization_event;
+        private DimStateTracker state_tracker;
 
         public DimI2cDeviceWriter(I2cDevice i2cDevice, int i2cAddress, int memAddress, byte[] data) {
             this.device = i2cDevice;
             this.dev_address = i2cAddress;
             this.mem_address = memAddress;
             done = false;
+            this.synchronization_event = new Object();
+            this.state_tracker = getDimStateTrackerInstance();
             i2cDevice.copyBufferIntoWriteBuffer(data);
-            i2cDevice.enableI2cWriteMode(i2cAddress, memAddress, data.length);
+            if ( !state_tracker.isModeCurrent(false,dev_address, mem_address, data.length)) {
+                this.state_tracker.setMode(false,dev_address, mem_address, data.length);
+                i2cDevice.enableI2cWriteMode(i2cAddress, memAddress, data.length);
+            }
             i2cDevice.setI2cPortActionFlag();
             i2cDevice.writeI2cCacheToController();
             i2cDevice.registerForI2cPortReadyCallback(new I2cController.I2cPortReadyCallback() {
@@ -984,52 +1153,235 @@ public class AHRS {
         }
 
         private void portDone() {
+            /* TODO:  the call to isI2cPortReady() may not be necessary,
+               and should likely be removed.
+             */
             if ( device.isI2cPortReady() ) {
                 device.deregisterForPortReadyCallback();
                 done = true;
+                synchronized(synchronization_event) {
+                    synchronization_event.notify();
+                }
             }
         }
+
+        public boolean waitForCompletion( long timeout_ms ) {
+            if ( done ) return true;
+            boolean success;
+            synchronized(synchronization_event) {
+                try {
+                    synchronization_event.wait(timeout_ms);
+                    success = true;
+                } catch( InterruptedException ex ) {
+                    ex.printStackTrace();
+                    success = false;
+                }
+            }
+            return success;
+        }
+
     }
+
+    enum DimState {
+        UNKNOWN,
+        WAIT_FOR_MODE,
+        WAIT_FOR_TRANSFER_COMPLETION,
+        WAIT_FOR_BUFFER_TRANSFER,
+        READY
+    }
+
+    private static DimStateTracker global_dim_state_tracker;
+    public DimStateTracker getDimStateTrackerInstance() {
+        if ( global_dim_state_tracker == null ) {
+            global_dim_state_tracker = new DimStateTracker();
+        }
+        return global_dim_state_tracker;
+    }
+
+    public class DimStateTracker {
+        private boolean read_mode;
+        private int device_address;
+        private int mem_address;
+        private int num_bytes;
+        private DimState state;
+
+        public DimStateTracker() {
+            read_mode = false;
+            device_address = -1;
+            mem_address = -1;
+            num_bytes = -1;
+            state = DimState.UNKNOWN;
+        }
+
+        public void setMode( boolean read_mode, int device_address,
+                             int mem_address, int num_bytes ) {
+            this.read_mode = read_mode;
+            this.device_address = device_address;
+            this.mem_address = mem_address;
+            this.num_bytes = num_bytes;
+        }
+
+        public boolean isModeCurrent( boolean read_mode, int device_address,
+                                      int mem_address, int num_bytes ) {
+            return ( ( this.read_mode == read_mode ) &&
+                    ( this.device_address == device_address ) &&
+                    ( this.mem_address == mem_address ) &&
+                    ( this.num_bytes == num_bytes ) );
+        }
+
+        public void setState( DimState new_state ) {
+            this.state = new_state;
+        }
+
+        public DimState getState() {
+            return this.state;
+        }
+    };
 
     public class DimI2cDeviceReader {
         private final I2cDevice device;
         private final int dev_address;
         private final int mem_address;
-        private boolean i2c_transaction_complete;
-        private boolean buffer_read_complete;
+        private final int num_bytes;
         private byte[] device_data;
+        private Object synchronization_event;
+        private boolean registered;
+        I2cController.I2cPortReadyCallback callback;
+        IoCallback ioCallback;
+        DimState dim_state;
+        DimStateTracker state_tracker;
+        long read_start_timestamp;
+        long timeout_ms;
+        private boolean busy;
 
-        public DimI2cDeviceReader(I2cDevice i2cDevice, int i2cAddress, int memAddress, int num_bytes) {
+        public DimI2cDeviceReader(I2cDevice i2cDevice, int i2cAddress,
+                                  int memAddress, int num_bytes) {
+            this.ioCallback = null;
             this.device = i2cDevice;
             this.dev_address = i2cAddress;
             this.mem_address = memAddress;
-            device_data = null;
-            i2c_transaction_complete = false;
-            buffer_read_complete = false;
-            i2cDevice.enableI2cReadMode(i2cAddress, memAddress, num_bytes);
-            i2cDevice.setI2cPortActionFlag();
-            i2cDevice.writeI2cCacheToController();
-            i2cDevice.registerForI2cPortReadyCallback(new I2cController.I2cPortReadyCallback() {
+            this.num_bytes = num_bytes;
+            this.synchronization_event = new Object();
+            this.registered = false;
+            this.state_tracker = getDimStateTrackerInstance();
+            this.busy = false;
+            this.callback = new I2cController.I2cPortReadyCallback() {
                 public void portIsReady(int port) {
-                    DimI2cDeviceReader.this.portDone();
-                }
-            });
+                    portDone();
+                } };
         }
 
-        public boolean isDone() {
-            return this.i2c_transaction_complete && buffer_read_complete;
+        public void registerIoCallback( IoCallback ioCallback ) {
+            this.ioCallback = ioCallback;
+        }
+
+        public void deregisterIoCallback( IoCallback ioCallback ) {
+            this.ioCallback = null;
+        }
+
+        public void start( long timeout_ms ) {
+            device_data = null;
+            DimState dim_state = state_tracker.getState();
+
+            /* Start a countdown timer, in case the IO doesn't complete as expected. */
+            this.timeout_ms = timeout_ms;
+            read_start_timestamp = SystemClock.elapsedRealtime();
+
+            if ( !registered ) {
+                device.registerForI2cPortReadyCallback(callback);
+                registered = true;
+            }
+            if ( state_tracker.getState() == DimState.UNKNOWN ||
+                 (!state_tracker.isModeCurrent(true, dev_address, mem_address, num_bytes ) ) ) {
+                state_tracker.setMode(true, dev_address, mem_address, num_bytes);
+                state_tracker.setState(DimState.WAIT_FOR_MODE);
+                device.enableI2cReadMode(dev_address, mem_address, num_bytes);
+            } else {
+                if ( !device.isI2cPortReady() || !device.isI2cPortInReadMode()) {
+                    boolean fail = true;
+                }
+                triggerRead();
+            }
+            busy = true;
+        }
+
+        public boolean isBusy() {
+            long busy_period = SystemClock.elapsedRealtime() - read_start_timestamp;
+            if ( busy && ( busy_period >= this.timeout_ms ) ) {
+                busy = false;
+                state_tracker.setState(DimState.READY);
+            }
+            return busy;
+        }
+
+        private void triggerRead() {
+            state_tracker.setState(DimState.WAIT_FOR_TRANSFER_COMPLETION);
+            device.setI2cPortActionFlag();
+            device.writeI2cCacheToController();
         }
 
         private void portDone() {
-            if (!i2c_transaction_complete && device.isI2cPortReady()) {
-                i2c_transaction_complete = true;
+
+            DimState dim_state = state_tracker.getState();
+            switch ( dim_state ) {
+
+            case WAIT_FOR_MODE:
+                triggerRead();
+                break;
+
+            case WAIT_FOR_TRANSFER_COMPLETION:
+                state_tracker.setState(DimState.WAIT_FOR_BUFFER_TRANSFER);
                 device.readI2cCacheFromController();
-            }
-            else if (i2c_transaction_complete) {
+                break;
+
+            case WAIT_FOR_BUFFER_TRANSFER:
                 device_data = this.device.getCopyOfReadBuffer();
-                device.deregisterForPortReadyCallback();
-                buffer_read_complete = true;
+                boolean restarted = false;
+
+                if ( this.ioCallback != null ) {
+                    boolean repeat = ioCallback.ioComplete(true, this.mem_address,
+                                                           this.num_bytes, device_data);
+                    device_data = null;
+                    state_tracker.setState(DimState.READY);
+                    if ( repeat ) {
+                        start(timeout_ms);
+                        restarted = true;
+                    } else {
+                        busy = false;
+                    }
+                } else {
+                    state_tracker.setState(DimState.READY);
+                    busy = false;
+                    synchronized (synchronization_event) {
+                        synchronization_event.notify();
+                    }
+                }
+                if ( !restarted ) {
+                    device.deregisterForPortReadyCallback();
+                }
+                registered = false;
+                break;
+             }
+        }
+
+        public byte[] startAndWaitForCompletion(long timeout_ms ) {
+            start(timeout_ms);
+            return waitForCompletion(timeout_ms);
+        }
+
+        public byte[] waitForCompletion( long timeout_ms ) {
+            if ( device_data != null ) return device_data;
+            byte[] data;
+            synchronized(synchronization_event) {
+                try {
+                    synchronization_event.wait(timeout_ms);
+                    data = device_data;
+                } catch( InterruptedException ex ) {
+                    ex.printStackTrace();
+                    data = null;
+                }
             }
+            return data;
         }
 
         public byte[] getReadBuffer() {
