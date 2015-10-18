@@ -23,7 +23,6 @@
  */
  package com.kauailabs.navx.ftc;
 
-import android.os.CountDownTimer;
 import android.os.Process;
 import android.os.SystemClock;
 
@@ -997,7 +996,8 @@ public class AHRS {
                         if ((data_type == DeviceDataType.kProcessedData) ||
                                 ((data_type == DeviceDataType.kAll) && first_bank)) {
                             if ( !navxReader[1].isBusy() ) {
-                                navxReader[1].start(I2C_TIMEOUT_MS);
+                                navxReader[1].start(I2C_TIMEOUT_MS,
+                                        (data_type == DeviceDataType.kProcessedData));
                             }
                         }
 
@@ -1006,7 +1006,8 @@ public class AHRS {
                         if ((data_type == DeviceDataType.kQuatAndRawData) ||
                                 ((data_type == DeviceDataType.kAll) && !first_bank)) {
                             if ( !navxReader[2].isBusy() ) {
-                                 navxReader[2].start(I2C_TIMEOUT_MS);
+                                 navxReader[2].start(I2C_TIMEOUT_MS,
+                                         (data_type == DeviceDataType.kQuatAndRawData));
                             }
                         }
                         Thread.sleep(10);
@@ -1184,9 +1185,9 @@ public class AHRS {
 
     enum DimState {
         UNKNOWN,
-        WAIT_FOR_MODE,
-        WAIT_FOR_TRANSFER_COMPLETION,
-        WAIT_FOR_BUFFER_TRANSFER,
+        WAIT_FOR_MODE_CONFIG_COMPLETE,
+        WAIT_FOR_I2C_TRANSFER_COMPLETION,
+        WAIT_FOR_HOST_BUFFER_TRANSFER_COMPLETION,
         READY
     }
 
@@ -1253,6 +1254,8 @@ public class AHRS {
         long read_start_timestamp;
         long timeout_ms;
         private boolean busy;
+        private boolean continuous_read;
+        private boolean continuous_first;
 
         public DimI2cDeviceReader(I2cDevice i2cDevice, int i2cAddress,
                                   int memAddress, int num_bytes) {
@@ -1265,6 +1268,8 @@ public class AHRS {
             this.registered = false;
             this.state_tracker = getDimStateTrackerInstance();
             this.busy = false;
+            this.continuous_read = false;
+            this.continuous_first = false;
             this.callback = new I2cController.I2cPortReadyCallback() {
                 public void portIsReady(int port) {
                     portDone();
@@ -1279,8 +1284,14 @@ public class AHRS {
             this.ioCallback = null;
         }
 
-        public void start( long timeout_ms ) {
+        public void start( long timeout_ms, boolean continuous ) {
+            start_internal( timeout_ms, continuous, true );
+        }
+
+        private void start_internal( long timeout_ms, boolean continuous, boolean first ) {
             device_data = null;
+            this.continuous_read = continuous;
+            this.continuous_first = continuous && first;
             DimState dim_state = state_tracker.getState();
 
             /* Start a countdown timer, in case the IO doesn't complete as expected. */
@@ -1293,14 +1304,23 @@ public class AHRS {
             }
             if ( state_tracker.getState() == DimState.UNKNOWN ||
                  (!state_tracker.isModeCurrent(true, dev_address, mem_address, num_bytes ) ) ) {
+                /* Force a read-mode transition (if address changed, or of was in write mode) */
                 state_tracker.setMode(true, dev_address, mem_address, num_bytes);
-                state_tracker.setState(DimState.WAIT_FOR_MODE);
+                state_tracker.setState(DimState.WAIT_FOR_MODE_CONFIG_COMPLETE);
                 device.enableI2cReadMode(dev_address, mem_address, num_bytes);
             } else {
                 if ( !device.isI2cPortReady() || !device.isI2cPortInReadMode()) {
                     boolean fail = true;
                 }
-                triggerRead();
+                /* Already in read mode at the correct address.  Initiate the I2C Bus Read. */
+                state_tracker.setState(DimState.WAIT_FOR_I2C_TRANSFER_COMPLETION);
+                if ( first || !continuous_read ) {
+                    device.setI2cPortActionFlag();
+                    device.writeI2cCacheToController();
+                } else {
+                    /* In this case, the I2C Bus Read was previously initiated in the portDone()
+                       callback function, in the WAIT_FOR_I2C_TRANSFER_COMPLETION case.  */
+                }
             }
             busy = true;
         }
@@ -1314,27 +1334,44 @@ public class AHRS {
             return busy;
         }
 
-        private void triggerRead() {
-            state_tracker.setState(DimState.WAIT_FOR_TRANSFER_COMPLETION);
-            device.setI2cPortActionFlag();
-            device.writeI2cCacheToController();
-        }
-
         private void portDone() {
 
             DimState dim_state = state_tracker.getState();
             switch ( dim_state ) {
 
-            case WAIT_FOR_MODE:
-                triggerRead();
+            case WAIT_FOR_MODE_CONFIG_COMPLETE:
+                /* The controller is now in Read Mode with the specified address/len. */
+                device.setI2cPortActionFlag();
+                state_tracker.setState(DimState.WAIT_FOR_I2C_TRANSFER_COMPLETION);
+                device.writeI2cCacheToController();
                 break;
 
-            case WAIT_FOR_TRANSFER_COMPLETION:
-                state_tracker.setState(DimState.WAIT_FOR_BUFFER_TRANSFER);
+            case WAIT_FOR_I2C_TRANSFER_COMPLETION:
+                state_tracker.setState(DimState.WAIT_FOR_HOST_BUFFER_TRANSFER_COMPLETION);
                 device.readI2cCacheFromController();
+                if ( continuous_read ) {
+                    /* Piggy-back the request for the next read.                            */
+                    /* For this to work, the write cache already has the read address/len   */
+                    /* configured, and the only thing needed to trigger the IO is to change */
+                    /* the "port action" flag.  This is a very useful technique, since it   */
+                    /* allows another I2C read to start at the same time the read cache is  */
+                    /* being transferred from the controller over USB;  Setting only the    */
+                    /* port action flag avoid over-writing the other bytes in the cache,    */
+                    /* which by may (race condition) have already been updated with the     */
+                    /* data read in the just-completed I2C read transaction.                */
+                    device.setI2cPortActionFlag();
+                    device.writeI2cPortFlagOnlyToController(); /* Write *only* the flag. */
+                    if ( continuous_first ) {
+                        continuous_first = false;
+                    } else {
+                        /* Data is now available, simulate another port event. */
+                        portDone();
+                    }
+                }
                 break;
 
-            case WAIT_FOR_BUFFER_TRANSFER:
+            case WAIT_FOR_HOST_BUFFER_TRANSFER_COMPLETION:
+                /* The Read Cache has been successfully transferred to this host. */
                 device_data = this.device.getCopyOfReadBuffer();
                 boolean restarted = false;
 
@@ -1342,16 +1379,18 @@ public class AHRS {
                     boolean repeat = ioCallback.ioComplete(true, this.mem_address,
                                                            this.num_bytes, device_data);
                     device_data = null;
-                    state_tracker.setState(DimState.READY);
-                    if ( repeat ) {
-                        start(timeout_ms);
+                    if (repeat) {
+                        start_internal(timeout_ms,continuous_read,false);
                         restarted = true;
                     } else {
+                        state_tracker.setState(DimState.READY);
                         busy = false;
+                        continuous_read = false;
                     }
                 } else {
                     state_tracker.setState(DimState.READY);
                     busy = false;
+                    continuous_read = false;
                     synchronized (synchronization_event) {
                         synchronization_event.notify();
                     }
@@ -1365,7 +1404,7 @@ public class AHRS {
         }
 
         public byte[] startAndWaitForCompletion(long timeout_ms ) {
-            start(timeout_ms);
+            start(timeout_ms, false);
             return waitForCompletion(timeout_ms);
         }
 
