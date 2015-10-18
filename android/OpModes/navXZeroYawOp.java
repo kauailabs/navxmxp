@@ -42,8 +42,14 @@ import java.text.DecimalFormat;
  * <p>
  * Acquires processed data from navX-Micro
  * and displays it in the Robot DriveStation
- * as telemetry data.  Periodically zeros
- * the yaw.
+ * as telemetry data.  This opmode demonstrates how to "zero"
+ * (reset to zero degrees) the yaw.  This causes whatever
+ * direction the navX-Model device is currently pointing to
+ * now be zero degrees, and is an effective method for dealing
+ * with accumulating Yaw Drift.
+ *
+ * For more information on Yaw drift, please see the online help at:
+ * http://navx-micro.kauailabs.com/guidance/yaw-drift/
  */
 public class navXZeroYawOp extends OpMode {
 

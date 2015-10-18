@@ -58,6 +58,9 @@ import java.text.DecimalFormat;
  * a collision will be dependent upon the robot mass and expected
  * maximum velocity of either the robot, or any object which may strike
  * the robot.
+ *
+ * Note that this example uses the "callback" mechanism to be informed
+ * precisely when new data is received from the navX-Micro.
  */
 public class navXCollisionDetectionOp extends OpMode implements AHRS.Callback {
 

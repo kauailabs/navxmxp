@@ -42,7 +42,10 @@ import java.text.DecimalFormat;
  * <p>
  * Acquires processed data from navX-Micro
  * and displays it in the Robot DriveStation
- * as telemetry data.
+ * as telemetry data.  This processed data includes
+ * Yaw, Pitch, Roll, Compass Heading, Fused (9-axis) Heading,
+ * Sensor Status and Timestamp, and World-Frame Linear
+ * Acceleration data.
  */
 public class navXProcessedOp extends OpMode {
 

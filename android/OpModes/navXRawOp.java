@@ -38,9 +38,29 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import java.text.DecimalFormat;
 
 /**
- * TeleOp Mode
+ * navXRawOp
  * <p>
- *Enables control of the robot via the gamepad
+ * This sample demonstrates how to acquire the raw
+ * Gyroscope, Accelerometer and Magnetometer data.  This raw
+ * data is typically not as useful as the "processed" data
+ * (see the navXProcessedOp for details), however is provided
+ * for those interested in accessing the raw data.
+ *
+ * Gyroscope data is units of Degrees/second.
+ * Accelerometer data is in units of G.
+ * Magnetometer data is in units if microTorr (uT)
+ *
+ * Magnetometer data is not valid unless magnetometer calibration
+ * has been performed.  Without calibration, the magnetometer
+ * data will be all zeros.  For details on how to calibrate the
+ * magnetometer, please see the Magnetometer Calibration documentation:
+ * http://navx-micro.kauailabs.com/guidance/magnetometer-calibration/
+ *
+ * Note that due to limitations imposed by the Core Device
+ * Interface Module's I2C interface mechanisms, the acquisition
+ * of both processed data and raw data requires two separate
+ * I2C bus transfers, and thus takes longer than acquiring
+ * only the raw or only the processed data.
  */
 public class navXRawOp extends OpMode {
 
