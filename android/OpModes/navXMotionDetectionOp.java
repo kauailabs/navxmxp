@@ -40,11 +40,11 @@ import java.text.DecimalFormat;
 /**
  *  navX-Micro Processed Data Mode Op
  * <p>
- * Acquires processed data from navX-Micro
+ * Acquires motion-in-progress indicator from navX-Micro
  * and displays it in the Robot DriveStation
  * as telemetry data.
  */
-public class navXProcessedOp extends OpMode {
+public class navXMotionDetectionOp extends OpMode {
 
   /* This is the port on the Core Device Interace Module */
   /* in which the navX-Micro is connected.  Modify this  */
@@ -85,44 +85,22 @@ public class navXProcessedOp extends OpMode {
       boolean connected = navx_device.isConnected();
       telemetry.addData("1 navX-Device", connected ?
               "Connected" : "Disconnected" );
-      String gyrocal, magcal, yaw, pitch, roll, compass_heading;
-      String fused_heading, ypr, cf, motion;
+      String gyrocal, motion;
       DecimalFormat df = new DecimalFormat("#.##");
 
       if ( connected ) {
           gyrocal = (navx_device.isCalibrating() ?
                   "CALIBRATING" : "Calibration Complete");
-          magcal = (navx_device.isMagnetometerCalibrated() ?
-                  "Calibrated" : "UNCALIBRATED");
-          yaw = df.format(navx_device.getYaw());
-          pitch = df.format(navx_device.getPitch());
-          roll = df.format(navx_device.getRoll());
-          ypr = yaw + ", " + pitch + ", " + roll;
-          compass_heading = df.format(navx_device.getCompassHeading());
-          fused_heading = df.format(navx_device.getFusedHeading());
-          if (!navx_device.isMagnetometerCalibrated()) {
-              compass_heading = "-------";
-          }
-          cf = compass_heading + ", " + fused_heading;
-          if ( navx_device.isMagneticDisturbance()) {
-              cf += " (Mag. Disturbance)";
-          }
           motion = (navx_device.isMoving() ? "Moving" : "Not Moving");
           if ( navx_device.isRotating() ) {
               motion += ", Rotating";
           }
       } else {
           gyrocal =
-            magcal =
-            ypr =
-            cf =
             motion = "-------";
       }
       telemetry.addData("2 GyroAccel", gyrocal );
-      telemetry.addData("3 Y,P,R", ypr);
-      telemetry.addData("4 Magnetometer", magcal );
-      telemetry.addData("5 Compass,9Axis", cf );
-      telemetry.addData("6 Motion", motion);
+      telemetry.addData("3 Motion", motion);
   }
 
 }

@@ -38,13 +38,14 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import java.text.DecimalFormat;
 
 /**
- *  navX-Micro Processed Data Mode Op
+ *  navX-Micro Zero Yaw Op
  * <p>
  * Acquires processed data from navX-Micro
  * and displays it in the Robot DriveStation
- * as telemetry data.
+ * as telemetry data.  Periodically zeros
+ * the yaw.
  */
-public class navXProcessedOp extends OpMode {
+public class navXZeroYawOp extends OpMode {
 
   /* This is the port on the Core Device Interace Module */
   /* in which the navX-Micro is connected.  Modify this  */
@@ -123,6 +124,15 @@ public class navXProcessedOp extends OpMode {
       telemetry.addData("4 Magnetometer", magcal );
       telemetry.addData("5 Compass,9Axis", cf );
       telemetry.addData("6 Motion", motion);
+
+      /* If the left 'bumper' button pressed,
+         reset (zero) the current yaw angle.  This causes whatever
+         direction the navX-Model device is currently pointing to
+         now be zero degrees.
+       */
+      if ( gamepad1.left_bumper ) {
+        navx_device.zeroYaw();
+      }
   }
 
 }
