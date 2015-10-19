@@ -136,7 +136,8 @@ public class navXZeroYawOp extends OpMode {
          direction the navX-Model device is currently pointing to
          now be zero degrees.
        */
-      if ( gamepad1.left_bumper ) {
+      //if ( gamepad1.left_bumper ) {
+      if ( ( navx_device.getUpdateCount() % 500 ) == 0 ) {
         navx_device.zeroYaw();
       }
   }

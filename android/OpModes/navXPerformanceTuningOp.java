@@ -40,62 +40,55 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import java.text.DecimalFormat;
 
 /**
- * navX-Micro Collision Detection Op
+ * navX-Micro Performance Tuning Op
  *
- * This is a demo program showing the use of the navX-Micro to implement
- * a collision detection feature, which can be used to detect events
- * while driving a robot, such as bumping into a wall or being hit
- * by another robot.
+ * This opmode provides insight into the peformance of the communication
+ * with the navX-Model sensor over the I2C bus via the Core Device Interface
+ * Module.  Since the Android operating system is not a real-time
+ * operating system, and since communication w/the navX-Model sensor is
+ * occurring over a wifi-direct network which can be prone to interference,
+ * the actual performance (update rate) achieved may be less than
+ * one might expect.
  *
- * The basic principle used within the Collision Detection example
- * is the calculation of Jerk (which is defined as the change in
- * acceleration).  In the sample code shown below, both the X axis and
- * the Y axis jerk are calculated, and if either exceeds a threshold,
- * then a collision has occurred.
+ * Since the navX-Model devices integrate sensor data onboard, to achieve
+ * the best performance for device control methods like a PID controller
+ * that work best with constant-time updates, the strategy is to:
  *
- * The 'collision threshold' used in these samples will likely need to
- * be tuned for your robot, since the amount of jerk which constitutes
- * a collision will be dependent upon the robot mass and expected
- * maximum velocity of either the robot, or any object which may strike
- * the robot.
- *
- * Note that this example uses the "callback" mechanism to be informed
- * precisely when new data is received from the navX-Micro.
+ * 1) Configure the navX-Model device to a high update rate (e.g., 50Hz)
+ * 2) Using this performance-tuning Op-Mode (with all other
+ * sensors connected, just as your robot will be configured for normal
+ * use) observe the "effective" update rate, and the number of missed
+ * samples over the last minute.
+ * 3) Lower the navX-Model device update rate until the number of missed
+ * samples over the last minute reaches zero.
  */
-public class navXCollisionDetectionOp extends OpMode implements AHRS.Callback {
+public class navXPerformanceTuningOp extends OpMode implements AHRS.Callback {
 
   /* This is the port on the Core Device Interace Module */
   /* in which the navX-Micro is connected.  Modify this  */
   /* depending upon which I2C port you are using.        */
   private final int NAVX_DIM_I2C_PORT = 0;
 
-  /* Tune this threshold to adjust the sensitivy of the */
-  /* Collision detection.                               */
-  private final double COLLISION_THRESHOLD_DELTA_G = 0.5;
-
-  double last_world_linear_accel_x;
-  double last_world_linear_accel_y;
   private ElapsedTime runtime = new ElapsedTime();
   private AHRS navx_device;
-  private boolean collision_state;
-
-  private final String COLLISION = "Collision";
-  private final String NO_COLLISION = "--------";
-
   private long last_system_timestamp = 0;
   private long last_sensor_timestamp = 0;
 
   private long sensor_timestamp_delta = 0;
   private long system_timestamp_delta = 0;
 
+  private byte sensor_update_rate_hz = 40;
+
+  private int missing_sensor_sample_count = 0;
+  private boolean first_sample_received = false;
+
   @Override
   public void init() {
+    AHRS.setLogging(true);
     navx_device = AHRS.getInstance(hardwareMap.deviceInterfaceModule.get("dim"),
             NAVX_DIM_I2C_PORT,
-            AHRS.DeviceDataType.kProcessedData);
-    last_world_linear_accel_x = 0.0;
-    last_world_linear_accel_y = 0.0;
-    setCollisionState(false);
+            AHRS.DeviceDataType.kProcessedData,
+            sensor_update_rate_hz);
   }
 
 @Override
@@ -124,37 +117,18 @@ public class navXCollisionDetectionOp extends OpMode implements AHRS.Callback {
   public void loop() {
 
       boolean connected = navx_device.isConnected();
-      telemetry.addData("1 navX-Device", connected ?
+      telemetry.addData("1 navX-Device...............:", connected ?
               "Connected" : "Disconnected" );
       String gyrocal, motion;
       DecimalFormat df = new DecimalFormat("#.##");
 
-      if ( connected ) {
-          gyrocal = (navx_device.isCalibrating() ?
-                  "CALIBRATING" : "Calibration Complete");
-          motion = (navx_device.isMoving() ? "Moving" : "Not Moving");
-          if ( navx_device.isRotating() ) {
-              motion += ", Rotating";
-          }
-      } else {
-          gyrocal =
-            motion = "-------";
-      }
-      telemetry.addData("2 GyroAccel", gyrocal );
-      telemetry.addData("3 Motion", motion);
-      telemetry.addData("4 Collision", getCollisionString());
-      telemetry.addData("5 Timing", Long.toString(sensor_timestamp_delta) + ", " +
-                                    Long.toString(system_timestamp_delta) );
-      telemetry.addData("6 Events", Double.toString(navx_device.getUpdateCount()) + ", " +
-                                    Integer.toString(last_second_hertz) + " Hz");
-  }
-
-  private String getCollisionString() {
-      return (this.collision_state ? COLLISION : NO_COLLISION);
-  }
-
-    private void setCollisionState( boolean newValue ) {
-      this.collision_state = newValue;
+      telemetry.addData("2 Sensor Rate (Hz)...", Byte.toString(navx_device.getActualUpdateRate()));
+      telemetry.addData("3 Transfer Rate (Hz).", Integer.toString(navx_device.getCurrentTransferRate()));
+      telemetry.addData("4 Effective Rate (Hz)", Integer.toString(last_second_hertz));
+      telemetry.addData("5 Dropped Samples....", Integer.toString(missing_sensor_sample_count));
+      telemetry.addData("6 Duplicate Samples..", Integer.toString(navx_device.getDuplicateDataCount()));
+      telemetry.addData("7 Sensor deltaT (ms).", Long.toString(sensor_timestamp_delta));
+      telemetry.addData("8 System deltaT (ms).", Long.toString(system_timestamp_delta));
   }
 
   public int hertz_counter = 0;
@@ -174,40 +148,50 @@ public class navXCollisionDetectionOp extends OpMode implements AHRS.Callback {
      "Collision Detection Threshold", a collision event is declared.
      */
   public void newProcessedDataAvailable(long curr_sensor_timestamp) {
-      boolean collisionDetected = false;
+
+      final int MS_PER_SEC = 1000;
+      final int NAVX_TIMESTAMP_JITTER_MS = 2;
+      long num_dropped = 0;
 
       long curr_system_timestamp = SystemClock.elapsedRealtime();
+      byte sensor_update_rate = navx_device.getActualUpdateRate();
 
       sensor_timestamp_delta = curr_sensor_timestamp - last_sensor_timestamp;
       system_timestamp_delta = curr_system_timestamp - last_system_timestamp;
-      double curr_world_linear_accel_x = navx_device.getWorldLinearAccelX();
-      double currentJerkX = curr_world_linear_accel_x - last_world_linear_accel_x;
-      last_world_linear_accel_x = curr_world_linear_accel_x;
-      double curr_world_linear_accel_y = navx_device.getWorldLinearAccelY();
-      double currentJerkY = curr_world_linear_accel_y - last_world_linear_accel_y;
-      last_world_linear_accel_y = curr_world_linear_accel_y;
+      int expected_sample_time_ms = MS_PER_SEC / (int)sensor_update_rate;
 
       if ( !navx_device.isConnected() ) {
           last_second_hertz = 0;
           hertz_counter = 0;
+          first_sample_received = false;
       } else {
           if ( ( curr_system_timestamp % 1000 ) < ( last_system_timestamp % 1000 ) ) {
-              /* Second roll over.  Start the Hertz accululator */
+              /* Second roll over.  Start the Hertz accumulator */
               last_second_hertz = hertz_counter;
               hertz_counter = 1;
           } else {
               hertz_counter++;
           }
+          if ( !first_sample_received ) {
+              last_sensor_timestamp = curr_sensor_timestamp;
+              first_sample_received = true;
+              missing_sensor_sample_count = 0;
+          } else {
+              if (sensor_timestamp_delta > (expected_sample_time_ms + NAVX_TIMESTAMP_JITTER_MS) ) {
+                  long dropped_samples = (sensor_timestamp_delta / expected_sample_time_ms) - 1;
+                  if (dropped_samples > 0) {
+                      if ( dropped_samples > 10 )  {
+                          num_dropped = dropped_samples;
+                      }
+                      missing_sensor_sample_count += dropped_samples;
+                  }
+              }
+          }
       }
 
-      if ( ( Math.abs(currentJerkX) > COLLISION_THRESHOLD_DELTA_G ) ||
-              ( Math.abs(currentJerkY) > COLLISION_THRESHOLD_DELTA_G) ) {
-          collisionDetected = true;
-      }
-
-      setCollisionState( collisionDetected );
       last_sensor_timestamp = curr_sensor_timestamp;
       last_system_timestamp = curr_system_timestamp;
+
   }
 
   public void newQuatAndRawDataAvailable() {
