@@ -25,6 +25,7 @@
 
 import android.os.Process;
 import android.os.SystemClock;
+import android.util.Log;
 
 import com.kauailabs.navx.AHRSProtocol;
 import com.kauailabs.navx.IMUProtocol;
@@ -174,6 +175,7 @@ public class AHRS {
     }
 
     private static AHRS instance = null;
+    private static boolean enable_logging = false;
     private static final int NAVX_DEFAULT_UPDATE_RATE_HZ = 50;
 
     private DeviceInterfaceModule dim = null;
@@ -242,12 +244,63 @@ public class AHRS {
         instance = null;
     }
 
+    /**
+     * Returns the single instance (singleton) of the AHRS class.  If the singleton
+     * does not alrady exist, it will be created using the parameters passed in.
+     * The default update rate will be used.
+     *
+     * If the singleton already exists, the parameters passed in will be ignored.
+     * @return The singleton AHRS class instance.
+     */
     public static AHRS getInstance(DeviceInterfaceModule dim, int dim_i2c_port,
                                    DeviceDataType data_type) {
         if (instance == null) {
             instance = new AHRS(dim, dim_i2c_port, data_type, NAVX_DEFAULT_UPDATE_RATE_HZ);
         }
         return instance;
+    }
+
+    /**
+     * Returns the single instance (singleton) of the AHRS class.  If the singleton
+     * does not alrady exist, it will be created using the parameters passed in,
+     * including a custom update rate.  Use this function if an update rate other than
+     * the default is desired.
+     *
+     * @return The singleton AHRS class instance.
+     */
+    public static AHRS getInstance(DeviceInterfaceModule dim, int dim_i2c_port,
+                                   DeviceDataType data_type, byte update_rate_hz) {
+        if (instance == null) {
+            instance = new AHRS(dim, dim_i2c_port, data_type, update_rate_hz);
+        }
+        return instance;
+    }
+
+    /* Configures the AHRS class logging.  To enable logging,
+     * the input parameter should be set to 'true'.
+     */
+    public static void setLogging( boolean enabled ) {
+        enable_logging = enabled;
+    }
+
+    /* Returns 'true' if AHRS class logging is enabled, otherwise
+     * returns 'false'.
+     */
+    public static boolean getLogging() {
+        return enable_logging;
+    }
+
+    /* Returns the "port number" on the Core Device Interface Module
+       in which the navX-Model device is connected.
+     */
+    public int getDimI2cPort() {
+        return this.io_thread_obj.dim_port;
+    }
+
+    /* Returns the currently configured DeviceDataType.
+     */
+    public DeviceDataType getDeviceDataType() {
+        return this.io_thread_obj.data_type;
     }
 
     /**
@@ -348,6 +401,60 @@ public class AHRS {
 
     public boolean isConnected() {
         return io_thread_obj.isConnected();
+    }
+
+    /**
+     * Returns the navX-Model device's currently configured update
+     * rate.  Note that the update rate that can actually be realized
+     * is a value evenly divisible by the navX-Model device's internal
+     * motion processor sample clock (200Hz).  Therefore, the rate that
+     * is returned may be lower than the requested sample rate.
+     *
+     * The actual sample rate is rounded down to the nearest integer
+     * that is divisible by the number of Digital Motion Processor clock
+     * ticks.  For instance, a request for 58 Hertz will result in
+     * an actual rate of 66Hz (200 / (200 / 58), using integer
+     * math.
+     *
+     * @return Returns the current actual update rate in Hz
+     * (cycles per second).
+     */
+
+    public byte getActualUpdateRate() {
+        final int NAVX_MOTION_PROCESSOR_UPDATE_RATE_HZ = 200;
+        int integer_update_rate =  board_state.update_rate_hz;
+        int realized_update_rate = NAVX_MOTION_PROCESSOR_UPDATE_RATE_HZ /
+                (NAVX_MOTION_PROCESSOR_UPDATE_RATE_HZ / integer_update_rate);
+        return (byte)realized_update_rate;
+    }
+
+    /**
+     * Returns the current number of data samples being transferred
+     * from the navX-Model device in the last second.  Note that this
+     * number may be greater than the sensors update rate.
+     *
+     * @return Returns the count of data samples received in the
+     * last second.
+     */
+
+    public int getCurrentTransferRate() {
+        return this.io_thread_obj.last_second_hertz;
+    }
+
+    /* Returns the number of navX-Model processed data samples
+     * that were retrieved from the sensor that had a sensor
+     * timestamp value equal to the timestamp of the last
+     * sensor data sample.
+     *
+     * This information can be used to match the navX-Model
+     * sensor update rate w/the effective update rate which
+     * can be achieved in the Robot Controller, taking into
+     * account the communication over the network with the
+     * Core Device Interface Module.
+     */
+
+    public int getDuplicateDataCount() {
+        return this.io_thread_obj.getDuplicateDataCount();
     }
 
     /**
@@ -820,6 +927,10 @@ public class AHRS {
         long curr_sensor_timestamp;
         boolean cancel_all_reads;
         boolean first_bank;
+        long last_valid_sensor_timestamp;
+        int duplicate_sensor_data_count;
+        int last_second_hertz;
+        int hertz_counter;
 
         final int NAVX_REGISTER_FIRST           = IMURegisters.NAVX_REG_WHOAMI;
         final int NAVX_REGISTER_PROC_FIRST      = IMURegisters.NAVX_REG_SENSOR_STATUS_L;
@@ -839,6 +950,10 @@ public class AHRS {
             this.data_type = data_type;
             this.cancel_all_reads = false;
             this.first_bank = true;
+            this.last_valid_sensor_timestamp = 0;
+            this.duplicate_sensor_data_count = 0;
+            this.last_second_hertz = 0;
+            this.hertz_counter = 0;
 
             android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_MORE_FAVORABLE);
         }
@@ -856,6 +971,10 @@ public class AHRS {
 
         public int getByteCount() {
             return byte_count;
+        }
+
+        public int getDuplicateDataCount() {
+            return duplicate_sensor_data_count;
         }
 
         public void addToByteCount( int new_byte_count ) {
@@ -885,18 +1004,32 @@ public class AHRS {
                         NAVX_REGISTER_PROC_FIRST, data.length)) {
                     setConnected(false);
                 } else {
-                    addToByteCount(len);
-                    incrementUpdateCount();
-                    if (callback != null) {
-                        callback.newProcessedDataAvailable(curr_sensor_timestamp);
+                    if ( curr_sensor_timestamp != last_valid_sensor_timestamp ) {
+                        addToByteCount(len);
+                        incrementUpdateCount();
+                        if (callback != null) {
+                            callback.newProcessedDataAvailable(curr_sensor_timestamp);
+                        }
+                        if (data_type == DeviceDataType.kAll) {
+                            first_bank = false;
+                        }
+                    } else {
+                        duplicate_sensor_data_count++;
                     }
-                    if ( data_type == DeviceDataType.kProcessedData ) {
-                        if ( !cancel_all_reads) {
+
+                    if ( ( curr_sensor_timestamp % 1000 ) < ( last_valid_sensor_timestamp % 1000 ) ) {
+                        /* Second roll over.  Start the Hertz accumulator */
+                        last_second_hertz = hertz_counter;
+                        hertz_counter = 1;
+                    } else {
+                        hertz_counter++;
+                    }
+
+                    last_valid_sensor_timestamp = curr_sensor_timestamp;
+                    if (data_type == DeviceDataType.kProcessedData) {
+                        if (!cancel_all_reads) {
                             restart = true;
                         }
-                    }
-                    if ( data_type == DeviceDataType.kAll ) {
-                        first_bank = false;
                     }
                 }
              } else if ( address == this.NAVX_REGISTER_RAW_FIRST ) {
@@ -937,6 +1070,9 @@ public class AHRS {
             byte[] zero_yaw_command = new byte[1];
             zero_yaw_command[0] = AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_YAW;
 
+            if ( enable_logging ) {
+                Log.i("navx_ftc", "Opening device on DIM port " + Integer.toString(dim_port));
+            }
             navXDevice = new I2cDevice(dim, dim_port);
 
             navxReader[0] = new DimI2cDeviceReader(navXDevice, NAVX_I2C_DEV_8BIT_ADDRESS,
@@ -957,6 +1093,13 @@ public class AHRS {
             while ( keep_running ) {
                 try {
                     if ( !is_connected ) {
+                        this.last_second_hertz = 0;
+                        this.last_valid_sensor_timestamp = 0;
+                        this.byte_count = 0;
+                        this.update_count = 0;
+                        this.first_bank = true;
+                        this.hertz_counter = 0;
+                        this.duplicate_sensor_data_count = 0;
                         byte[] board_data = navxReader[0].startAndWaitForCompletion(I2C_TIMEOUT_MS);
                         if (board_data != null) {
                             if (decodeNavxBoardData(board_data, NAVX_REGISTER_FIRST, board_data.length)) {
@@ -965,11 +1108,28 @@ public class AHRS {
                                 /* To handle the case where the device is reset, reconfigure the
                                    update rate whenever reconecting to the device.
                                  */
+
+                                Thread.sleep(10);
                                 navxUpdateRateWriter = new DimI2cDeviceWriter(navXDevice,
                                         NAVX_I2C_DEV_8BIT_ADDRESS,
                                         NAVX_WRITE_COMMAND_BIT | IMURegisters.NAVX_REG_UPDATE_RATE_HZ,
                                         update_rate_command);
                                 navxUpdateRateWriter.waitForCompletion(I2C_TIMEOUT_MS);
+
+                                /* Read back the current update rate */
+                                Thread.sleep(10);
+                                board_data = navxReader[0].startAndWaitForCompletion(I2C_TIMEOUT_MS);
+                                if (!decodeNavxBoardData(board_data, NAVX_REGISTER_FIRST, board_data.length)) {
+                                    setConnected(false);
+                                }
+                                Thread.sleep(100);
+                                global_dim_state_tracker.reset();
+
+                                /* Wait for the I2C port to be ready, then continue w/normal operations. */
+                                if ( !navXDevice.isI2cPortReady() ) {
+                                    Thread.sleep(10);
+                                }
+
                             }
                         }
                     } else {
@@ -1016,9 +1176,28 @@ public class AHRS {
                 }
             }
 
+            /* Cancel any pending IO, and wait for them to complete (or timeout) */
+            cancel_all_reads = true;
+
+            while ( navxReader[2].isBusy() || navxReader[2].isBusy() ) {
+                try {
+                    if ( enable_logging ) {
+                        Log.i("navx_ftc", "Waiting for outstanding reads to complete.");
+                    }
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
             navxReader[1].deregisterIoCallback(this);
             navxReader[2].deregisterIoCallback(this);
 
+            global_dim_state_tracker.reset();
+
+            if ( enable_logging ) {
+                Log.i("navx_ftc", "Closing I2C device.");
+            }
             navXDevice.close();
         }
 
@@ -1071,10 +1250,7 @@ public class AHRS {
             if ( !data_valid ) {
                 Arrays.fill(curr_data, (byte)0);
             }
-
-            timestamp_low = (long) AHRSProtocol.decodeBinaryUint16(curr_data, IMURegisters.NAVX_REG_TIMESTAMP_L_L - first_address);
-            timestamp_high = (long) AHRSProtocol.decodeBinaryUint16(curr_data, IMURegisters.NAVX_REG_TIMESTAMP_H_L - first_address);
-            curr_sensor_timestamp = (timestamp_high << 16) + timestamp_low;
+            curr_sensor_timestamp = (long)AHRSProtocol.decodeBinaryUint32(curr_data, IMURegisters.NAVX_REG_TIMESTAMP_L_L - first_address);
             ahrspos_update.sensor_status = curr_data[IMURegisters.NAVX_REG_SENSOR_STATUS_L - first_address];
             /* Update calibration status from the "shadow" in the upper 8-bits of sensor status. */
             ahrspos_update.cal_status = curr_data[IMURegisters.NAVX_REG_SENSOR_STATUS_H - first_address];
@@ -1207,6 +1383,10 @@ public class AHRS {
         private DimState state;
 
         public DimStateTracker() {
+            reset();
+        }
+
+        public void reset() {
             read_mode = false;
             device_address = -1;
             mem_address = -1;
@@ -1277,11 +1457,17 @@ public class AHRS {
         }
 
         public void registerIoCallback( IoCallback ioCallback ) {
+            if ( enable_logging ) {
+                Log.i("navx_ftc", "Registering reader IO Callbacks.");
+            }
             this.ioCallback = ioCallback;
         }
 
         public void deregisterIoCallback( IoCallback ioCallback ) {
             this.ioCallback = null;
+            if ( enable_logging ) {
+                Log.i("navx_ftc", "Deregistering reader IO Callbacks.");
+            }
         }
 
         public void start( long timeout_ms, boolean continuous ) {
@@ -1308,6 +1494,9 @@ public class AHRS {
                 state_tracker.setMode(true, dev_address, mem_address, num_bytes);
                 state_tracker.setState(DimState.WAIT_FOR_MODE_CONFIG_COMPLETE);
                 device.enableI2cReadMode(dev_address, mem_address, num_bytes);
+                if ( enable_logging ) {
+                    Log.i("navx_ftc", "enableI2cReadMode");
+                }
             } else {
                 if ( !device.isI2cPortReady() || !device.isI2cPortInReadMode()) {
                     boolean fail = true;
@@ -1317,6 +1506,9 @@ public class AHRS {
                 if ( first || !continuous_read ) {
                     device.setI2cPortActionFlag();
                     device.writeI2cCacheToController();
+                    if ( enable_logging ) {
+                        Log.i("navx_ftc", "setI2cPortActionFlag/writeI2cCacheToController");
+                    }
                 } else {
                     /* In this case, the I2C Bus Read was previously initiated in the portDone()
                        callback function, in the WAIT_FOR_I2C_TRANSFER_COMPLETION case.  */
@@ -1328,8 +1520,11 @@ public class AHRS {
         public boolean isBusy() {
             long busy_period = SystemClock.elapsedRealtime() - read_start_timestamp;
             if ( busy && ( busy_period >= this.timeout_ms ) ) {
+                if ( enable_logging ) {
+                    Log.w("navx_ftc portReady()", "TIMEOUT!!!");
+                }
                 busy = false;
-                state_tracker.setState(DimState.READY);
+                state_tracker.reset();
             }
             return busy;
         }
@@ -1337,6 +1532,7 @@ public class AHRS {
         private void portDone() {
 
             DimState dim_state = state_tracker.getState();
+            boolean fallthrough = false;
             switch ( dim_state ) {
 
             case WAIT_FOR_MODE_CONFIG_COMPLETE:
@@ -1344,11 +1540,21 @@ public class AHRS {
                 device.setI2cPortActionFlag();
                 state_tracker.setState(DimState.WAIT_FOR_I2C_TRANSFER_COMPLETION);
                 device.writeI2cCacheToController();
+                if ( enable_logging ) {
+                    Log.i("navx_ftc portReady()", "WAIT_FOR_MODE_CONFIG_COMPLETE - " +
+                            Integer.toString(this.mem_address) + ", " +
+                            Integer.toString(this.num_bytes));
+                }
                 break;
 
             case WAIT_FOR_I2C_TRANSFER_COMPLETION:
                 state_tracker.setState(DimState.WAIT_FOR_HOST_BUFFER_TRANSFER_COMPLETION);
                 device.readI2cCacheFromController();
+                if ( enable_logging ) {
+                    Log.i("navx_ftc portReady()", "WAIT_FOR_I2C_TRANSFER_COMPLETION - " +
+                            (continuous_read ? "Continuous " : "") +
+                            (continuous_first ? "First" : ""));
+                }
                 if ( continuous_read ) {
                     /* Piggy-back the request for the next read.                            */
                     /* For this to work, the write cache already has the read address/len   */
@@ -1363,17 +1569,25 @@ public class AHRS {
                     device.writeI2cPortFlagOnlyToController(); /* Write *only* the flag. */
                     if ( continuous_first ) {
                         continuous_first = false;
+                        break;
                     } else {
-                        /* Data is now available, simulate another port event. */
-                        portDone();
+                        /* Fall through to WAIT_FOR_HOST_BUFFER_TRANSFER_COMPLETION case */
+                        fallthrough = true;
                     }
+                } else {
+                    break;
                 }
-                break;
 
             case WAIT_FOR_HOST_BUFFER_TRANSFER_COMPLETION:
                 /* The Read Cache has been successfully transferred to this host. */
                 device_data = this.device.getCopyOfReadBuffer();
                 boolean restarted = false;
+
+                if ( enable_logging ) {
+                    Log.i("navx_ftc portReady()", "WAIT_FOR_HOST_BUFFER_TRANSFER_COMPLETION.  " +
+                            (fallthrough ? "(Fallthrough)" : "") +
+                            ((device_data != null) ? " Valid Data" : " Null Data"));
+                }
 
                 if ( this.ioCallback != null ) {
                     boolean repeat = ioCallback.ioComplete(true, this.mem_address,
