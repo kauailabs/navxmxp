@@ -34,6 +34,7 @@ package com.qualcomm.ftcrobotcontroller.opmodes;
 import android.os.SystemClock;
 
 import com.kauailabs.navx.ftc.AHRS;
+import com.kauailabs.navx.ftc.navXPerformanceMonitor;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
@@ -62,25 +63,17 @@ import java.text.DecimalFormat;
  * 3) Lower the navX-Model device update rate until the number of missed
  * samples over the last minute reaches zero.
  */
-public class navXPerformanceTuningOp extends OpMode implements AHRS.Callback {
+public class navXPerformanceTuningOp extends OpMode {
 
-  /* This is the port on the Core Device Interace Module */
+  /* This is the port on the Core Device Interface Module */
   /* in which the navX-Micro is connected.  Modify this  */
   /* depending upon which I2C port you are using.        */
   private final int NAVX_DIM_I2C_PORT = 0;
 
-  private ElapsedTime runtime = new ElapsedTime();
   private AHRS navx_device;
-  private long last_system_timestamp = 0;
-  private long last_sensor_timestamp = 0;
-
-  private long sensor_timestamp_delta = 0;
-  private long system_timestamp_delta = 0;
-
+  private navXPerformanceMonitor navx_perfmon;
   private byte sensor_update_rate_hz = 40;
-
-  private int missing_sensor_sample_count = 0;
-  private boolean first_sample_received = false;
+  private ElapsedTime runtime = new ElapsedTime();
 
   @Override
   public void init() {
@@ -89,11 +82,12 @@ public class navXPerformanceTuningOp extends OpMode implements AHRS.Callback {
             NAVX_DIM_I2C_PORT,
             AHRS.DeviceDataType.kProcessedData,
             sensor_update_rate_hz);
+    navx_perfmon = new navXPerformanceMonitor(navx_device);
   }
 
 @Override
   public void start() {
-    navx_device.registerCallback(this);
+    navx_device.registerCallback(navx_perfmon);
 }
 
   @Override
@@ -124,78 +118,10 @@ public class navXPerformanceTuningOp extends OpMode implements AHRS.Callback {
 
       telemetry.addData("2 Sensor Rate (Hz)...", Byte.toString(navx_device.getActualUpdateRate()));
       telemetry.addData("3 Transfer Rate (Hz).", Integer.toString(navx_device.getCurrentTransferRate()));
-      telemetry.addData("4 Effective Rate (Hz)", Integer.toString(last_second_hertz));
-      telemetry.addData("5 Dropped Samples....", Integer.toString(missing_sensor_sample_count));
+      telemetry.addData("4 Delivvered Rate (Hz)", Integer.toString(navx_perfmon.getDeliveredRateHz()));
+      telemetry.addData("5 Missed Samples.....", Integer.toString(navx_perfmon.getNumMissedSensorTimestampedSamples()));
       telemetry.addData("6 Duplicate Samples..", Integer.toString(navx_device.getDuplicateDataCount()));
-      telemetry.addData("7 Sensor deltaT (ms).", Long.toString(sensor_timestamp_delta));
-      telemetry.addData("8 System deltaT (ms).", Long.toString(system_timestamp_delta));
+      telemetry.addData("7 Sensor deltaT (ms).", Long.toString(navx_perfmon.getLastSensorTimestampDeltaMS()));
+      telemetry.addData("8 System deltaT (ms).", Long.toString(navx_perfmon.getLastSystemTimestampDeltaMS()));
   }
-
-  public int hertz_counter = 0;
-  public int last_second_hertz = 0;
-
-  /* This callback is invoked by the AHRS class whenever new data is
-     received from the sensor.  Note that this callback is occurring
-     within the context of the AHRS class IO thread, and it may
-     interrupt the thread running this opMode.  Therefore, it is
-     very important to use thread synchronization techniques when
-     communicating between this callback and the rest of the
-     code in this opMode.
-
-     The difference between the current linear acceleration data in
-     the X and Y axes and that in the last sample is compared.  If
-     the absolute value of that difference is greater than the
-     "Collision Detection Threshold", a collision event is declared.
-     */
-  public void newProcessedDataAvailable(long curr_sensor_timestamp) {
-
-      final int MS_PER_SEC = 1000;
-      final int NAVX_TIMESTAMP_JITTER_MS = 2;
-      long num_dropped = 0;
-
-      long curr_system_timestamp = SystemClock.elapsedRealtime();
-      byte sensor_update_rate = navx_device.getActualUpdateRate();
-
-      sensor_timestamp_delta = curr_sensor_timestamp - last_sensor_timestamp;
-      system_timestamp_delta = curr_system_timestamp - last_system_timestamp;
-      int expected_sample_time_ms = MS_PER_SEC / (int)sensor_update_rate;
-
-      if ( !navx_device.isConnected() ) {
-          last_second_hertz = 0;
-          hertz_counter = 0;
-          first_sample_received = false;
-      } else {
-          if ( ( curr_system_timestamp % 1000 ) < ( last_system_timestamp % 1000 ) ) {
-              /* Second roll over.  Start the Hertz accumulator */
-              last_second_hertz = hertz_counter;
-              hertz_counter = 1;
-          } else {
-              hertz_counter++;
-          }
-          if ( !first_sample_received ) {
-              last_sensor_timestamp = curr_sensor_timestamp;
-              first_sample_received = true;
-              missing_sensor_sample_count = 0;
-          } else {
-              if (sensor_timestamp_delta > (expected_sample_time_ms + NAVX_TIMESTAMP_JITTER_MS) ) {
-                  long dropped_samples = (sensor_timestamp_delta / expected_sample_time_ms) - 1;
-                  if (dropped_samples > 0) {
-                      if ( dropped_samples > 10 )  {
-                          num_dropped = dropped_samples;
-                      }
-                      missing_sensor_sample_count += dropped_samples;
-                  }
-              }
-          }
-      }
-
-      last_sensor_timestamp = curr_sensor_timestamp;
-      last_system_timestamp = curr_system_timestamp;
-
-  }
-
-  public void newQuatAndRawDataAvailable() {
-
-  }
-
 }

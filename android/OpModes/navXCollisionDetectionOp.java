@@ -34,6 +34,7 @@ package com.qualcomm.ftcrobotcontroller.opmodes;
 import android.os.SystemClock;
 
 import com.kauailabs.navx.ftc.AHRS;
+import com.kauailabs.navx.ftc.IDataArrivalSubscriber;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
@@ -62,7 +63,7 @@ import java.text.DecimalFormat;
  * Note that this example uses the "callback" mechanism to be informed
  * precisely when new data is received from the navX-Micro.
  */
-public class navXCollisionDetectionOp extends OpMode implements AHRS.Callback {
+public class navXCollisionDetectionOp extends OpMode implements IDataArrivalSubscriber {
 
   /* This is the port on the Core Device Interace Module */
   /* in which the navX-Micro is connected.  Modify this  */
@@ -145,8 +146,7 @@ public class navXCollisionDetectionOp extends OpMode implements AHRS.Callback {
       telemetry.addData("4 Collision", getCollisionString());
       telemetry.addData("5 Timing", Long.toString(sensor_timestamp_delta) + ", " +
                                     Long.toString(system_timestamp_delta) );
-      telemetry.addData("6 Events", Double.toString(navx_device.getUpdateCount()) + ", " +
-                                    Integer.toString(last_second_hertz) + " Hz");
+      telemetry.addData("6 Events", Double.toString(navx_device.getUpdateCount()));
   }
 
   private String getCollisionString() {
@@ -156,9 +156,6 @@ public class navXCollisionDetectionOp extends OpMode implements AHRS.Callback {
     private void setCollisionState( boolean newValue ) {
       this.collision_state = newValue;
   }
-
-  public int hertz_counter = 0;
-  public int last_second_hertz = 0;
 
   /* This callback is invoked by the AHRS class whenever new data is
      received from the sensor.  Note that this callback is occurring
@@ -172,46 +169,31 @@ public class navXCollisionDetectionOp extends OpMode implements AHRS.Callback {
      the X and Y axes and that in the last sample is compared.  If
      the absolute value of that difference is greater than the
      "Collision Detection Threshold", a collision event is declared.
-     */
-  public void newProcessedDataAvailable(long curr_sensor_timestamp) {
-      boolean collisionDetected = false;
+  */
 
-      long curr_system_timestamp = SystemClock.elapsedRealtime();
+    @Override
+    public void timestampedDataReceived(long curr_system_timestamp, long curr_sensor_timestamp, Object o) {
+        boolean collisionDetected = false;
 
-      sensor_timestamp_delta = curr_sensor_timestamp - last_sensor_timestamp;
-      system_timestamp_delta = curr_system_timestamp - last_system_timestamp;
-      double curr_world_linear_accel_x = navx_device.getWorldLinearAccelX();
-      double currentJerkX = curr_world_linear_accel_x - last_world_linear_accel_x;
-      last_world_linear_accel_x = curr_world_linear_accel_x;
-      double curr_world_linear_accel_y = navx_device.getWorldLinearAccelY();
-      double currentJerkY = curr_world_linear_accel_y - last_world_linear_accel_y;
-      last_world_linear_accel_y = curr_world_linear_accel_y;
+        sensor_timestamp_delta = curr_sensor_timestamp - last_sensor_timestamp;
+        system_timestamp_delta = curr_system_timestamp - last_system_timestamp;
+        double curr_world_linear_accel_x = navx_device.getWorldLinearAccelX();
+        double currentJerkX = curr_world_linear_accel_x - last_world_linear_accel_x;
+        last_world_linear_accel_x = curr_world_linear_accel_x;
+        double curr_world_linear_accel_y = navx_device.getWorldLinearAccelY();
+        double currentJerkY = curr_world_linear_accel_y - last_world_linear_accel_y;
+        last_world_linear_accel_y = curr_world_linear_accel_y;
 
-      if ( !navx_device.isConnected() ) {
-          last_second_hertz = 0;
-          hertz_counter = 0;
-      } else {
-          if ( ( curr_system_timestamp % 1000 ) < ( last_system_timestamp % 1000 ) ) {
-              /* Second roll over.  Start the Hertz accululator */
-              last_second_hertz = hertz_counter;
-              hertz_counter = 1;
-          } else {
-              hertz_counter++;
-          }
-      }
+        if ( ( Math.abs(currentJerkX) > COLLISION_THRESHOLD_DELTA_G ) ||
+                ( Math.abs(currentJerkY) > COLLISION_THRESHOLD_DELTA_G) ) {
+            collisionDetected = true;
+        }
 
-      if ( ( Math.abs(currentJerkX) > COLLISION_THRESHOLD_DELTA_G ) ||
-              ( Math.abs(currentJerkY) > COLLISION_THRESHOLD_DELTA_G) ) {
-          collisionDetected = true;
-      }
+        setCollisionState( collisionDetected );
+    }
 
-      setCollisionState( collisionDetected );
-      last_sensor_timestamp = curr_sensor_timestamp;
-      last_system_timestamp = curr_system_timestamp;
-  }
+    @Override
+    public void untimestampedDataReceived(long l, Object o) {
 
-  public void newQuatAndRawDataAvailable() {
-
-  }
-
+    }
 }
