@@ -65,6 +65,8 @@ public class navXRotateToAnglePIDOp extends LinearOpMode {
     private navXPIDController yawPIDController;
     private ElapsedTime runtime = new ElapsedTime();
 
+    private final byte NAVX_DEVICE_UPDATE_RATE_HZ = 50;
+
     private final double TARGET_ANGLE_DEGREES = 90.0;
     private final double TOLERANCE_DEGREES = 2.0;
     private final double MIN_MOTOR_OUTPUT_VALUE = -1.0;
@@ -80,7 +82,8 @@ public class navXRotateToAnglePIDOp extends LinearOpMode {
 
         navx_device = AHRS.getInstance(hardwareMap.deviceInterfaceModule.get("dim"),
                 NAVX_DIM_I2C_PORT,
-                AHRS.DeviceDataType.kProcessedData);
+                AHRS.DeviceDataType.kProcessedData,
+                NAVX_DEVICE_UPDATE_RATE_HZ);
 
         rightMotor.setDirection(DcMotor.Direction.REVERSE);
 
