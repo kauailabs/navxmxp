@@ -129,37 +129,6 @@ public class AHRS {
         }
     };
 
-    /**
-     * The AHRS Callback interface should be implemented if notifications
-     * when new data is available are desired.
-     *
-     * This callback is invoked by the AHRS class whenever new data is r
-     * eceived from the sensor.  Note that this callback is occurring
-     * within the context of the AHRS class IO thread, and it may
-     * interrupt the thread running this opMode.  Therefore, it is
-     * very important to use thread synchronization techniques when
-     * communicating between this callback and the rest of the
-     * code in this opMode.
-     *
-     * The sensor_timestamp is accurate to 1 millisecond, and reflects
-     * the time that the data was actually acquired.  This callback will
-     * only be invoked when a sensor data sample newer than the last
-     * is received, so it is guaranteed that the same data sample will
-     * not be delivered to this callback more than once.
-     *
-     * If the sensor is reset for some reason, the sensor timestamp
-     * will be reset to 0.  Therefore, if the sensor timestamp is ever
-     * less than the previous sample, this indicates the sensor has
-     * been reset.
-     *
-     * In order to be called back, the Callback interface must be registered
-     * via the AHRS registerCallback() method.
-     */
-    public interface Callback {
-        void newProcessedDataAvailable( long timestamp );
-        void newQuatAndRawDataAvailable();
-    };
-
     interface IoCallback {
         public boolean ioComplete( boolean read, int address, int len, byte[] data);
     };
@@ -182,7 +151,8 @@ public class AHRS {
     private navXIOThread io_thread_obj;
     private Thread io_thread;
     private int update_rate_hz = NAVX_DEFAULT_UPDATE_RATE_HZ;
-    private Callback callback;
+    private IDataArrivalSubscriber callbacks[];
+    private final int MAX_NUM_CALLBACKS = 3;
 
     AHRSProtocol.AHRSPosUpdate curr_data;
     BoardState board_state;
@@ -194,7 +164,7 @@ public class AHRS {
 
     protected AHRS(DeviceInterfaceModule dim, int dim_i2c_port,
                    DeviceDataType data_type, int update_rate_hz) {
-        this.callback = null;
+        this.callbacks = new IDataArrivalSubscriber[MAX_NUM_CALLBACKS];
         this.dim = dim;
         this.update_rate_hz = update_rate_hz;
         this.curr_data = new AHRSProtocol.AHRSPosUpdate();
@@ -218,8 +188,16 @@ public class AHRS {
      * device IO thread, which is not the same thread context the
      * caller typically executes in.
      */
-    public void registerCallback( Callback callback ) {
-        this.callback = callback;
+    public boolean registerCallback( IDataArrivalSubscriber callback ) {
+        boolean registered = false;
+        for ( int i = 0; i < this.callbacks.length; i++ ) {
+            if (this.callbacks[i] == null) {
+                this.callbacks[i] = callback;
+                registered = true;
+                break;
+            }
+        }
+        return registered;
     }
 
     /**
@@ -230,12 +208,23 @@ public class AHRS {
      * implementing the callback interface does not continue
      * to be accessed when no longer necessary.
      */
-    public void deregisterCallback() {
-        this.callback = null;
+    public boolean deregisterCallback( IDataArrivalSubscriber callback ) {
+        boolean deregistered = false;
+        for ( int i = 0; i < this.callbacks.length; i++ ) {
+            if (this.callbacks[i] == callback) {
+                this.callbacks[i] = null;
+                deregistered = true;
+                break;
+            }
+        }
+        return deregistered;
     }
 
     public void close() {
         io_thread_obj.stop();
+        for ( int i = 0; i < callbacks.length; i++ ) {
+            callbacks[i] = null;
+        }
         try {
             io_thread.join();
         } catch (InterruptedException e) {
@@ -265,6 +254,32 @@ public class AHRS {
      * does not alrady exist, it will be created using the parameters passed in,
      * including a custom update rate.  Use this function if an update rate other than
      * the default is desired.
+     *
+     * NOTE:  The range of valid requested update rates is from 4 to 66.  However, the
+     * actual update does not always match the requested update rate.  The following table
+     * summarizes the requested to actual update rate lookup table:
+     *
+     *   Actual       Requested
+     *   66.6         58-66
+     *   50           45-57
+     *   40           37-44
+     *   33.3         31-36
+     *   28.57        27-30
+     *   25           25-26
+     *   22.22        22-23
+     *   20           20-21
+     *   18.18        18-19
+     *   16.67        17
+     *   15.38        15-16
+     *   14.28        14
+     *
+     * Requested values below 14Hz result in an actual rate which is accurate to within 1Hz.
+     *
+     * The reason for this difference is that the update rate must be an even multiple of
+     * a 200Hz clock (5ms).  So an actual of 66.6 (15ms/sample) can be calculated as follows:
+     *      actual_rate = 200 / (200 / requested_rate)
+     *
+     * The getActualUpdateRate() can be used to calculate this value.
      *
      * @return The singleton AHRS class instance.
      */
@@ -931,6 +946,7 @@ public class AHRS {
         int duplicate_sensor_data_count;
         int last_second_hertz;
         int hertz_counter;
+        Object io_thread_event;
 
         final int NAVX_REGISTER_FIRST           = IMURegisters.NAVX_REG_WHOAMI;
         final int NAVX_REGISTER_PROC_FIRST      = IMURegisters.NAVX_REG_SENSOR_STATUS_L;
@@ -954,6 +970,7 @@ public class AHRS {
             this.duplicate_sensor_data_count = 0;
             this.last_second_hertz = 0;
             this.hertz_counter = 0;
+            this.io_thread_event = new Object();
 
             android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_MORE_FAVORABLE);
         }
@@ -963,6 +980,7 @@ public class AHRS {
         }
         public void stop() {
             keep_running = false;
+            signalThread();
         }
 
         public void zeroYaw() {
@@ -995,10 +1013,20 @@ public class AHRS {
 
         public void setConnected( boolean new_connected ) {
             is_connected = new_connected;
+            if ( !is_connected ) {
+                signalThread();
+            }
+        }
+
+        private void signalThread() {
+            synchronized (io_thread_event) {
+                io_thread_event.notify();
+            }
         }
 
         public boolean ioComplete( boolean read, int address, int len, byte[] data) {
             boolean restart = false;
+            long system_timestamp = SystemClock.elapsedRealtime();
             if ( address == NAVX_REGISTER_PROC_FIRST ) {
                 if (!decodeNavxProcessedData(data,
                         NAVX_REGISTER_PROC_FIRST, data.length)) {
@@ -1007,10 +1035,16 @@ public class AHRS {
                     if ( curr_sensor_timestamp != last_valid_sensor_timestamp ) {
                         addToByteCount(len);
                         incrementUpdateCount();
-                        if (callback != null) {
-                            callback.newProcessedDataAvailable(curr_sensor_timestamp);
+                        for ( int i = 0; i < callbacks.length; i++ ) {
+                            IDataArrivalSubscriber callback = callbacks[i];
+                            if (callback != null) {
+                                callback.timestampedDataReceived(system_timestamp,
+                                        curr_sensor_timestamp,
+                                        DeviceDataType.kProcessedData);
+                            }
                         }
                         if (data_type == DeviceDataType.kAll) {
+                            signalThread();
                             first_bank = false;
                         }
                     } else {
@@ -1030,6 +1064,8 @@ public class AHRS {
                         if (!cancel_all_reads) {
                             restart = true;
                         }
+                    } else if ( data_type == DeviceDataType.kAll ) {
+                        signalThread();
                     }
                 }
              } else if ( address == this.NAVX_REGISTER_RAW_FIRST ) {
@@ -1039,8 +1075,12 @@ public class AHRS {
                 } else {
                     addToByteCount(len);
                     incrementUpdateCount();
-                    if (callback != null) {
-                        callback.newQuatAndRawDataAvailable();
+                    for ( int i = 0; i < callbacks.length; i++ ) {
+                        IDataArrivalSubscriber callback = callbacks[i];
+                        if (callback != null) {
+                            callback.untimestampedDataReceived(system_timestamp,
+                                    DeviceDataType.kQuatAndRawData );
+                        }
                     }
                     if ( data_type == DeviceDataType.kQuatAndRawData) {
                         if ( !cancel_all_reads) {
@@ -1065,10 +1105,10 @@ public class AHRS {
             DimI2cDeviceWriter navxUpdateRateWriter = null;
             DimI2cDeviceWriter navxZeroYawWriter    = null;
 
-            byte[] update_rate_command = new byte[1];
-            update_rate_command[0] = (byte)update_rate_hz;
-            byte[] zero_yaw_command = new byte[1];
-            zero_yaw_command[0] = AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_YAW;
+            byte[] update_rate_command  = new byte[1];
+            update_rate_command[0]      = (byte)update_rate_hz;
+            byte[] zero_yaw_command     = new byte[1];
+            zero_yaw_command[0]         = AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_YAW;
 
             if ( enable_logging ) {
                 Log.i("navx_ftc", "Opening device on DIM port " + Integer.toString(dim_port));
@@ -1105,31 +1145,20 @@ public class AHRS {
                             if (decodeNavxBoardData(board_data, NAVX_REGISTER_FIRST, board_data.length)) {
                                 setConnected(true);
                                 first_bank = true;
-                                /* To handle the case where the device is reset, reconfigure the
-                                   update rate whenever reconecting to the device.
-                                 */
 
-                                Thread.sleep(10);
+                                /* To handle the case where the device is reset, reconfigure the */
+                                /* update rate whenever reconecting to the device.               */
                                 navxUpdateRateWriter = new DimI2cDeviceWriter(navXDevice,
                                         NAVX_I2C_DEV_8BIT_ADDRESS,
                                         NAVX_WRITE_COMMAND_BIT | IMURegisters.NAVX_REG_UPDATE_RATE_HZ,
                                         update_rate_command);
                                 navxUpdateRateWriter.waitForCompletion(I2C_TIMEOUT_MS);
 
-                                /* Read back the current update rate */
-                                Thread.sleep(10);
                                 board_data = navxReader[0].startAndWaitForCompletion(I2C_TIMEOUT_MS);
-                                if (!decodeNavxBoardData(board_data, NAVX_REGISTER_FIRST, board_data.length)) {
+                                if ((board_data == null) ||
+                                    !decodeNavxBoardData(board_data, NAVX_REGISTER_FIRST, board_data.length)) {
                                     setConnected(false);
                                 }
-                                Thread.sleep(100);
-                                global_dim_state_tracker.reset();
-
-                                /* Wait for the I2C port to be ready, then continue w/normal operations. */
-                                if ( !navXDevice.isI2cPortReady() ) {
-                                    Thread.sleep(10);
-                                }
-
                             }
                         }
                     } else {
@@ -1138,9 +1167,8 @@ public class AHRS {
 
                             /* if any reading is underway, wait for it to complete. */
                             cancel_all_reads = true;
-                            while ( navxReader[1].isBusy() || navxReader[2].isBusy() ) {
-                                Thread.sleep(1);
-                            }
+                            if (navxReader[1].isBusy()) { navxReader[1].waitForCompletion(I2C_TIMEOUT_MS); }
+                            if (navxReader[2].isBusy()) { navxReader[2].waitForCompletion(I2C_TIMEOUT_MS); }
                             cancel_all_reads = false;
 
                             navxZeroYawWriter = new DimI2cDeviceWriter(navXDevice,
@@ -1170,25 +1198,25 @@ public class AHRS {
                                          (data_type == DeviceDataType.kQuatAndRawData));
                             }
                         }
-                        Thread.sleep(10);
+                    }
+                    /* Wait for a disconnect, read completion or shutdown event */
+                    synchronized(io_thread_event) {
+                        try {
+                            io_thread_event.wait(50);
+                        } catch (InterruptedException ex) {
+                            ex.printStackTrace();
+                        }
                     }
                 } catch (Exception ex) {
                 }
             }
 
+            /* Thread shutdown requested.                                        */
             /* Cancel any pending IO, and wait for them to complete (or timeout) */
             cancel_all_reads = true;
 
-            while ( navxReader[2].isBusy() || navxReader[2].isBusy() ) {
-                try {
-                    if ( enable_logging ) {
-                        Log.i("navx_ftc", "Waiting for outstanding reads to complete.");
-                    }
-                    Thread.sleep(10);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
+            if (navxReader[1].isBusy()) { navxReader[1].waitForCompletion(I2C_TIMEOUT_MS); }
+            if (navxReader[2].isBusy()) { navxReader[2].waitForCompletion(I2C_TIMEOUT_MS); }
 
             navxReader[1].deregisterIoCallback(this);
             navxReader[2].deregisterIoCallback(this);
@@ -1296,69 +1324,6 @@ public class AHRS {
 
     }
 
-    public class DimI2cDeviceWriter {
-        private final I2cDevice device;
-        private final int dev_address;
-        private final int mem_address;
-        private boolean done;
-        private Object synchronization_event;
-        private DimStateTracker state_tracker;
-
-        public DimI2cDeviceWriter(I2cDevice i2cDevice, int i2cAddress, int memAddress, byte[] data) {
-            this.device = i2cDevice;
-            this.dev_address = i2cAddress;
-            this.mem_address = memAddress;
-            done = false;
-            this.synchronization_event = new Object();
-            this.state_tracker = getDimStateTrackerInstance();
-            i2cDevice.copyBufferIntoWriteBuffer(data);
-            if ( !state_tracker.isModeCurrent(false,dev_address, mem_address, data.length)) {
-                this.state_tracker.setMode(false,dev_address, mem_address, data.length);
-                i2cDevice.enableI2cWriteMode(i2cAddress, memAddress, data.length);
-            }
-            i2cDevice.setI2cPortActionFlag();
-            i2cDevice.writeI2cCacheToController();
-            i2cDevice.registerForI2cPortReadyCallback(new I2cController.I2cPortReadyCallback() {
-                public void portIsReady(int port) {
-                    DimI2cDeviceWriter.this.portDone();
-                }
-            });
-        }
-
-        public boolean isDone() {
-            return this.done;
-        }
-
-        private void portDone() {
-            /* TODO:  the call to isI2cPortReady() may not be necessary,
-               and should likely be removed.
-             */
-            if ( device.isI2cPortReady() ) {
-                device.deregisterForPortReadyCallback();
-                done = true;
-                synchronized(synchronization_event) {
-                    synchronization_event.notify();
-                }
-            }
-        }
-
-        public boolean waitForCompletion( long timeout_ms ) {
-            if ( done ) return true;
-            boolean success;
-            synchronized(synchronization_event) {
-                try {
-                    synchronization_event.wait(timeout_ms);
-                    success = true;
-                } catch( InterruptedException ex ) {
-                    ex.printStackTrace();
-                    success = false;
-                }
-            }
-            return success;
-        }
-
-    }
-
     enum DimState {
         UNKNOWN,
         WAIT_FOR_MODE_CONFIG_COMPLETE,
@@ -1404,10 +1369,10 @@ public class AHRS {
 
         public boolean isModeCurrent( boolean read_mode, int device_address,
                                       int mem_address, int num_bytes ) {
-            return ( ( this.read_mode == read_mode ) &&
+            return (( this.read_mode == read_mode ) &&
                     ( this.device_address == device_address ) &&
                     ( this.mem_address == mem_address ) &&
-                    ( this.num_bytes == num_bytes ) );
+                    ( this.num_bytes == num_bytes ));
         }
 
         public void setState( DimState new_state ) {
@@ -1418,6 +1383,102 @@ public class AHRS {
             return this.state;
         }
     };
+
+    public class DimI2cDeviceWriter {
+        private final I2cDevice device;
+        private final int dev_address;
+        private final int mem_address;
+        private final int num_bytes;
+        private boolean done;
+        private Object synchronization_event;
+        private DimStateTracker state_tracker;
+
+        public DimI2cDeviceWriter(I2cDevice i2cDevice, int i2cAddress, int memAddress, byte[] data) {
+            this.device = i2cDevice;
+            this.dev_address = i2cAddress;
+            this.mem_address = memAddress;
+            this.num_bytes = data.length;
+            done = false;
+            this.synchronization_event = new Object();
+            this.state_tracker = getDimStateTrackerInstance();
+            i2cDevice.copyBufferIntoWriteBuffer(data);
+            i2cDevice.registerForI2cPortReadyCallback(new I2cController.I2cPortReadyCallback() {
+                public void portIsReady(int port) {
+                    DimI2cDeviceWriter.this.portDone();
+                }
+            });
+            if ( enable_logging ) {
+                Log.i("navx_ftc", "Writer registerForPortReadyCallback");
+            }
+            if ( !state_tracker.isModeCurrent(false,dev_address, mem_address, data.length)) {
+                this.state_tracker.setMode(false,dev_address, mem_address, data.length);
+                state_tracker.setState(DimState.WAIT_FOR_MODE_CONFIG_COMPLETE);
+                device.enableI2cWriteMode(i2cAddress, memAddress, data.length);
+                if ( enable_logging ) {
+                    Log.i("navx_ftc", "Writer enableI2cWiteMode");
+                }
+
+            } else {
+                state_tracker.setState(DimState.WAIT_FOR_I2C_TRANSFER_COMPLETION);
+                device.setI2cPortActionFlag();
+                device.writeI2cCacheToController();
+                if ( enable_logging ) {
+                    Log.i("navx_ftc", "Writer setI2cPortActionFlag/writeI2cCacheToController");
+                }
+            }
+        }
+
+        public boolean isDone() {
+            return this.done;
+        }
+
+        private void portDone() {
+            DimState dim_state = state_tracker.getState();
+            switch ( dim_state ) {
+
+                case WAIT_FOR_MODE_CONFIG_COMPLETE:
+                    state_tracker.setState(DimState.WAIT_FOR_I2C_TRANSFER_COMPLETION);
+                    device.setI2cPortActionFlag();
+                    device.writeI2cCacheToController();
+                    if ( enable_logging ) {
+                        Log.i("navx_ftc", "Writer WAIT_FOR_MODE_CONFIG_COMPLETE - " +
+                                Integer.toString(this.mem_address) + ", " +
+                                Integer.toString(this.num_bytes));
+                    }
+                    break;
+
+                case WAIT_FOR_I2C_TRANSFER_COMPLETION:
+                    state_tracker.setState(DimState.READY);
+                    device.deregisterForPortReadyCallback();
+                    if ( enable_logging ) {
+                        Log.i("navx_ftc", "Writer WAIT_FOR_I2C_TRANSFER_COMPLETION; deregisterForPortReadyCallback()");
+                    }
+                    done = true;
+                    synchronized(synchronization_event) {
+                        synchronization_event.notify();
+                    }
+                    break;
+            }
+        }
+
+        public boolean waitForCompletion( long timeout_ms ) {
+            if ( done ) return true;
+            boolean success;
+            synchronized(synchronization_event) {
+                try {
+                    synchronization_event.wait(timeout_ms);
+                    success = done;
+                    if ( !success ) {
+                        Log.i("navx_ftc", "Writer waitForCompletion() timeout");
+                    }
+                } catch( InterruptedException ex ) {
+                    ex.printStackTrace();
+                    success = false;
+                }
+            }
+            return success;
+        }
+    }
 
     public class DimI2cDeviceReader {
         private final I2cDevice device;
@@ -1458,7 +1519,7 @@ public class AHRS {
 
         public void registerIoCallback( IoCallback ioCallback ) {
             if ( enable_logging ) {
-                Log.i("navx_ftc", "Registering reader IO Callbacks.");
+                Log.i("navx_ftc", "Reader Registering reader IO Callbacks.");
             }
             this.ioCallback = ioCallback;
         }
@@ -1466,7 +1527,7 @@ public class AHRS {
         public void deregisterIoCallback( IoCallback ioCallback ) {
             this.ioCallback = null;
             if ( enable_logging ) {
-                Log.i("navx_ftc", "Deregistering reader IO Callbacks.");
+                Log.i("navx_ftc", "Reader Deregistering reader IO Callbacks.");
             }
         }
 
@@ -1485,6 +1546,9 @@ public class AHRS {
             read_start_timestamp = SystemClock.elapsedRealtime();
 
             if ( !registered ) {
+                if ( enable_logging ) {
+                    Log.i("navx_ftc", "Reader registerForI2cPortReadyCallback");
+                }
                 device.registerForI2cPortReadyCallback(callback);
                 registered = true;
             }
@@ -1495,7 +1559,7 @@ public class AHRS {
                 state_tracker.setState(DimState.WAIT_FOR_MODE_CONFIG_COMPLETE);
                 device.enableI2cReadMode(dev_address, mem_address, num_bytes);
                 if ( enable_logging ) {
-                    Log.i("navx_ftc", "enableI2cReadMode");
+                    Log.i("navx_ftc", "Reader enableI2cReadMode");
                 }
             } else {
                 if ( !device.isI2cPortReady() || !device.isI2cPortInReadMode()) {
@@ -1507,7 +1571,7 @@ public class AHRS {
                     device.setI2cPortActionFlag();
                     device.writeI2cCacheToController();
                     if ( enable_logging ) {
-                        Log.i("navx_ftc", "setI2cPortActionFlag/writeI2cCacheToController");
+                        Log.i("navx_ftc", "Reader setI2cPortActionFlag/writeI2cCacheToController");
                     }
                 } else {
                     /* In this case, the I2C Bus Read was previously initiated in the portDone()
@@ -1521,7 +1585,7 @@ public class AHRS {
             long busy_period = SystemClock.elapsedRealtime() - read_start_timestamp;
             if ( busy && ( busy_period >= this.timeout_ms ) ) {
                 if ( enable_logging ) {
-                    Log.w("navx_ftc portReady()", "TIMEOUT!!!");
+                    Log.w("navx_ftc", "Reader TIMEOUT!!!");
                 }
                 busy = false;
                 state_tracker.reset();
@@ -1541,7 +1605,7 @@ public class AHRS {
                 state_tracker.setState(DimState.WAIT_FOR_I2C_TRANSFER_COMPLETION);
                 device.writeI2cCacheToController();
                 if ( enable_logging ) {
-                    Log.i("navx_ftc portReady()", "WAIT_FOR_MODE_CONFIG_COMPLETE - " +
+                    Log.i("navx_ftc", "Reader WAIT_FOR_MODE_CONFIG_COMPLETE - " +
                             Integer.toString(this.mem_address) + ", " +
                             Integer.toString(this.num_bytes));
                 }
@@ -1551,7 +1615,7 @@ public class AHRS {
                 state_tracker.setState(DimState.WAIT_FOR_HOST_BUFFER_TRANSFER_COMPLETION);
                 device.readI2cCacheFromController();
                 if ( enable_logging ) {
-                    Log.i("navx_ftc portReady()", "WAIT_FOR_I2C_TRANSFER_COMPLETION - " +
+                    Log.i("navx_ftc", "Reader WAIT_FOR_I2C_TRANSFER_COMPLETION - " +
                             (continuous_read ? "Continuous " : "") +
                             (continuous_first ? "First" : ""));
                 }
@@ -1582,9 +1646,10 @@ public class AHRS {
                 /* The Read Cache has been successfully transferred to this host. */
                 device_data = this.device.getCopyOfReadBuffer();
                 boolean restarted = false;
+                boolean notify = false;
 
                 if ( enable_logging ) {
-                    Log.i("navx_ftc portReady()", "WAIT_FOR_HOST_BUFFER_TRANSFER_COMPLETION.  " +
+                    Log.i("navx_ftc", "Reader WAIT_FOR_HOST_BUFFER_TRANSFER_COMPLETION.  " +
                             (fallthrough ? "(Fallthrough)" : "") +
                             ((device_data != null) ? " Valid Data" : " Null Data"));
                 }
@@ -1605,14 +1670,22 @@ public class AHRS {
                     state_tracker.setState(DimState.READY);
                     busy = false;
                     continuous_read = false;
+                    notify = true;
+                }
+                if ( !restarted ) {
+                    if ( enable_logging ) {
+                        Log.i("navx_ftc", "Reader deregisterForPortReadyCallback");
+                    }
+                    device.deregisterForPortReadyCallback();
+                    registered = false;
+                }
+                /* Finally, after all other processing is complete, notify waiters. */
+                if ( notify ) {
                     synchronized (synchronization_event) {
                         synchronization_event.notify();
                     }
                 }
-                if ( !restarted ) {
-                    device.deregisterForPortReadyCallback();
-                }
-                registered = false;
+
                 break;
              }
         }
@@ -1629,6 +1702,9 @@ public class AHRS {
                 try {
                     synchronization_event.wait(timeout_ms);
                     data = device_data;
+                    if ( data == null ) {
+                        Log.i("navx_ftc", "Reader waitForCompletion() timeout");
+                    }
                 } catch( InterruptedException ex ) {
                     ex.printStackTrace();
                     data = null;
