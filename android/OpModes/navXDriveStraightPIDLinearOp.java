@@ -34,30 +34,31 @@ import android.util.Log;
 
 import com.kauailabs.navx.ftc.AHRS;
 import com.kauailabs.navx.ftc.navXPIDController;
-
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorController;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-import java.text.DecimalFormat;
-
 /*
- * An example linear op mode where the robot will rotate
- * to a specified angle an then stop.
+ * An example linear op mode where the robot will drive in
+ * a straight line (where the driving direction is guided by
+ * the Yaw angle from a navX-Model device).
  *
  * This example uses a simple PID controller configuration
  * with a P coefficient, and will likely need tuning in order
  * to achieve optimal performance.
  *
  * Note that for the best accuracy, a reasonably high update rate
- * for the navX-Model sensor shoudl be used.
+ * for the navX-Model sensor should be used.  This example uses
+ * the default update rate (50Hz), which may be lowered in order
+ * to reduce the frequency of the updates to the drive system.
  */
-public class navXRotateToAnglePIDOp extends LinearOpMode {
+
+public class navXDriveStraightPIDLinearOp extends LinearOpMode {
     DcMotor leftMotor;
     DcMotor rightMotor;
 
-    /* This is the port on the Core Device Interace Module        */
+    /* This is the port on the Core Device Interface Module        */
     /* in which the navX-Model Device is connected.  Modify this  */
     /* depending upon which I2C port you are using.               */
     private final int NAVX_DIM_I2C_PORT = 0;
@@ -88,7 +89,7 @@ public class navXRotateToAnglePIDOp extends LinearOpMode {
         rightMotor.setDirection(DcMotor.Direction.REVERSE);
 
         /* If possible, use encoders when driving, as it results in more */
-        /* predicatable drive system response.                           */
+        /* predictable drive system response.                           */
         leftMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
         rightMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
 
@@ -106,34 +107,42 @@ public class navXRotateToAnglePIDOp extends LinearOpMode {
 
         waitForStart();
 
+        /* reset the navX-Model device yaw angle so that whatever direction */
+        /* it is currently pointing will be zero degrees.                   */
+
+        navx_device.zeroYaw();
+
         /* Wait for new Yaw PID output values, then update the motors
            with the new PID value with each new output value.
          */
 
-        final double TOTAL_RUN_TIME_SECONDS = 30.0;
+        final double TOTAL_RUN_TIME_SECONDS = 10.0;
         int DEVICE_TIMEOUT_MS = 500;
         navXPIDController.PIDResult yawPIDResult = new navXPIDController.PIDResult();
+
+        /* Drive straight forward at 1/2 of full drive speed */
+        double drive_speed = 0.5;
 
         while ( runtime.time() < TOTAL_RUN_TIME_SECONDS ) {
             if ( yawPIDController.waitForNewUpdate(yawPIDResult, DEVICE_TIMEOUT_MS ) ) {
                 if ( yawPIDResult.isOnTarget() ) {
-                    leftMotor.setPowerFloat();
-                    rightMotor.setPowerFloat();
+                    leftMotor.setPower(drive_speed);
+                    rightMotor.setPower(drive_speed);
                 } else {
                     double output = yawPIDResult.getOutput();
                     if ( output < 0 ) {
                         /* Rotate Left */
-                        leftMotor.setPower(-output);
-                        rightMotor.setPower(output);
+                        leftMotor.setPower(drive_speed - output);
+                        rightMotor.setPower(drive_speed + output);
                     } else {
                         /* Rotate Right */
-                        leftMotor.setPower(output);
-                        rightMotor.setPower(-output);
+                        leftMotor.setPower(drive_speed + output);
+                        rightMotor.setPower(drive_speed - output);
                     }
                 }
             } else {
 			    /* A timeout occurred */
-                Log.w("navXRotateToAnglePIDOp", "Yaw PID waitForNewUpdate() TIMEOUT.");
+                Log.w("navXDriveStraightOp", "Yaw PID waitForNewUpdate() TIMEOUT.");
             }
         }
     }
