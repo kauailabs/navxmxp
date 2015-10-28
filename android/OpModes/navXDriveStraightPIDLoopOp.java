@@ -116,6 +116,7 @@ public class navXDriveStraightPIDLoopOp extends OpMode {
         /* reset the navX-Model device yaw angle so that whatever direction */
         /* it is currently pointing will be zero degrees.                   */
         if ( first_iteration ) {
+            first_iteration = false;
             navx_device.zeroYaw();
             yawPIDResult = new navXPIDController.PIDResult();
         }
