@@ -31,6 +31,12 @@ THE SOFTWARE.
 #   define NAVX_HARDWARE_REV 40
 #   define ENABLE_USB_VBUS
 #   define DISABLE_EXTERNAL_I2C_INTERFACE
+#elif defined(NAVX_BOARDTYPE_BLUE_1_0)
+#   define NAVX_HARDWARE_REV 50
+#   define ENABLE_USB_VBUS
+#   define DISABLE_EXTERNAL_I2C_INTERFACE
+#   define DISABLE_EXTERNAL_SPI_INTERFACE
+#   define ENABLE_RN4020
 #else
 #   define NAVX_HARDWARE_REV 33         /* v. 3.3 EXPIO */
 #endif
@@ -58,5 +64,14 @@ void HAL_I2C_Power_On();
 void HAL_I2C_Power_Off();
 int  HAL_SPI_Slave_Enabled();
 int  HAL_UART_Slave_Enabled();
+
+/* RN4020 Access */
+void HAL_RN4020_IO_Init();
+void HAL_RN4020_Wake();
+void HAL_RN4020_Sleep();
+int HAL_RN4020_Get_MLDP_EV();
+int HAL_RN4020_Get_RTS();
+void HAL_RN4020_Set_CTS(int value);
+void HAL_RN4020_Set_CMD_MLDP(int value);
 
 #endif /* NAVX_MXP_HAL_H_ */

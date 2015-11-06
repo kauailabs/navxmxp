@@ -121,7 +121,11 @@ int HAL_CAL_Button_Pressed()
 
 int HAL_SPI_Slave_Enabled()
 {
+#ifdef DISABLE_EXTERNAL_SPI_INTERFACE
+    return 0;
+#else
 	return (HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_14) != GPIO_PIN_SET);
+#endif
 }
 
 int HAL_UART_Slave_Enabled()
@@ -141,5 +145,93 @@ void HAL_I2C_Power_On()
 void HAL_I2C_Power_Off()
 {
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_5, GPIO_PIN_SET);
+}
+
+
+void HAL_RN4020_IO_Init(void)
+{
+#ifdef ENABLE_RN4020
+    // BLUE_MLDP_EV:  PA0 (Input), Active High
+    GPIO_InitTypeDef GPIO_InitStruct;
+    GPIO_InitStruct.Pin = GPIO_PIN_0;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+    HAL_GPIO_Init(GPIOA &GPIO_InitStruct);
+
+    // BLUE_WAKE_HW:  PA1 (Output, Active High, Internal Pulldown on RN4020)
+    // BLUE_CTS:      PA2 (Output)
+    GPIO_InitStruct.Pin = GPIO_PIN_1 | GPIO_PIN_2;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+    HAL_GPIO_Init(GPIOA &GPIO_InitStruct)
+
+    // BLUE_RTS:      PC1 (Input)
+
+    GPIO_InitStruct.Pin = GPIO_PIN_1;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+    HAL_GPIO_Init(GPIOC &GPIO_InitStruct);
+
+    // BLUE_WAKE_SW:  PC0 (Output), Weak pulldown on RN4020
+    // BLUE_CMD_MLDP: PC2 (Output), Active High
+    GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_2;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+    HAL_GPIO_Init(GPIOC &GPIO_InitStruct);
+#endif
+}
+
+void HAL_RN4020_Wake()
+{
+#ifdef ENABLE_RN4020
+    // a1, c0 high
+    HAL_GPIO_WritePin( GPIOA, GPIO_PIN_1, GPIO_PIN_SET);
+    HAL_GPIO_WritePin( GPIOC, GPIO_PIN_0, GPIO_PIN_SET);
+#endif
+}
+
+void HAL_RN4020_Sleep()
+{
+#ifdef ENABLE_RN4020
+    // a1, c0 low
+    HAL_GPIO_WritePin( GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin( GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
+#endif
+}
+
+int HAL_RN4020_Get_MLDP_EV()
+{
+#ifdef ENABLE_RN4020
+    return (HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_15) == GPIO_PIN_SET);
+#else
+    return 0;
+#endif
+}
+
+int HAL_RN4020_Get_RTS()
+{
+#ifdef ENABLE_RN4020
+    return (HAL_GPIO_ReadPin(GPIOC,GPIO_PIN_1) == GPIO_PIN_SET);
+#else
+    return 0;
+#endif
+}
+
+void HAL_RN4020_Set_CTS(int value)
+{
+#ifdef ENABLE_RN4020
+    return (HAL_GPIO_WritePin(GPIOA,GPIO_PIN_2, value ? GPIO_PIN_SET : GPIO_PIN_RESET );
+#endif
+}
+
+void HAL_RN4020_Set_CMD_MLDP(int value)
+{
+#ifdef ENABLE_RN4020
+    return (HAL_GPIO_WritePin(GPIOC,GPIO_PIN_2, value ? GPIO_PIN_SET : GPIO_PIN_RESET );
+#endif
 }
 
