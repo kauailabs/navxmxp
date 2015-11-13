@@ -130,15 +130,8 @@ public class navXRotateToAnglePIDLoopOp extends OpMode {
                 rightMotor.setPowerFloat();
             } else {
                 double output = yawPIDResult.getOutput();
-                if ( output < 0 ) {
-                    /* Rotate Left */
-                    leftMotor.setPower(-output);
-                    rightMotor.setPower(output);
-                } else {
-                    /* Rotate Right */
-                    leftMotor.setPower(output);
-                    rightMotor.setPower(-output);
-                }
+                leftMotor.setPower(output);
+                rightMotor.setPower(-output);
             }
         } else {
             /* No sensor update has been received since the last time  */

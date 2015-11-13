@@ -30,34 +30,34 @@ import java.security.Timestamp;
 /**
  * The navXPIDController implements a timestamped PID controller (designed to deal
  * with the jitter which is typically present in a networked control system scenario).
- *
+ * <p>
  * The navXPIDController can use an of the various data sources on a navX-Model device
  * as an input (process variable); when instantiating a navXPIDController simply
  * provide an AHRS class instance and specify which navX-Model device variable you
  * wish to use as the input.  Then, configure the navXPIDController's setPoint,
  * outputRange, whether it should operate in continuous mode or not, and the
  * P, I, D and F coefficients which will be used to calculate the output value.
- *
+ * <p>
  * Using the navXPIDController w/the AHRS class is rather simple.  An example of using
  * the navXPIDController to rotate a FTC robot to a target angle is provided at:
  * http://pdocs.kauailabs.com/navx-micro/examples/rotate-to-angle/.
- *
- * The PID algorithm used herein is discussed in detail at
+ * <p>
+ * The general PID algorithm used herein is discussed in detail at
  * https://en.wikipedia.org/wiki/PID_controller
- *
+ * <p>
  * In addition to the P,I,D terms, a FeedForward term is optionally available
  * which may be useful in cases where velocity is being controlled (e.g., to
  * achieve a continuous rotational velocity using a yaw rate gyro).  The FeedForward
  * concept is discussed at http://www.expertune.com/articles/UG2007/PIDControlsPLCEnviron.pdf
- *
+ * <p>
  * This algorithm implements two features with respect to the integral gain calculated
  * based on the integral (i) coefficient:
- *
+ * <p>
  * - Anti-Windup:  Ensures the integral gain doesn't exceed the min/max output range, as discussed
  *   at http://www.expertune.com/articles/UG2007/PIDControlsPLCEnviron.pdf
  * - Time-Correction:  Adjust the integral gain in cases when timestamps indicate that
  *   data samples were lost.
- *
+ * <p>
  * This algorithm implements this feature with respect to the derivative gain, as discussed
  *   at http://www.diva-portal.org/smash/get/diva2:570067/FULLTEXT01.pdf
  */
@@ -66,6 +66,15 @@ public class navXPIDController implements IDataArrivalSubscriber {
 
     public enum TimestampType {SENSOR, SYSTEM};
 
+	 /**
+     * The PIDResult class encapsulates the data used by the navXPIDController to
+	 * communicate current state to a client of the navXPIDController.  The client
+	 * creates the instance of the PIDResult, and continually provides it to the
+	 * navxPIDController's waitForNewUpdate() and isNewDataAvailable() methods,
+	 * depending upon whether the client wishes to block (wait) for new updates,
+	 * or periodically poll to determine when new data is available.
+     */
+	
     static public class PIDResult {
         public double output;
         public long timestamp;
@@ -75,14 +84,35 @@ public class navXPIDController implements IDataArrivalSubscriber {
             timestamp = 0;
             on_target = false;
         }
+		/** 
+		* Returns the timestamp of the last data sample processed by the
+		* navXPIDController.
+		*/
         public long    getTimestamp() { return timestamp; }
+		/** 
+		* Returns true if the navXPIDController indicated that it is currently
+		* "on target" as defined by the configured tolerances and the most
+		* recent input data sample.
+		*/
         public boolean isOnTarget()   { return on_target; }
+		/**
+		* Returns the output value calculated by the navXPIDController which
+		* corresponds to the most recent input data sample.
+		*/
         public double  getOutput()    { return output; }
     }
 
     private Object sync_event = new Object();
 
-    public enum navXTimestampedDataSource {
+    /**
+     * The navXTimestampedDataSources specifies the navX-Model device
+     * sensor data source type used by the navXPIDController as it's input data source.
+	 * These data sources are timestamped by the navX-Model device and thus are delivered
+	 * with sufficient data (a highly-accurate "sensor timestamp") to allow the 
+	 * navXPIDController to compensate for any jitter in the transmission from the 
+	 * navX-Model device to the navXPIDController.
+     */
+	 public enum navXTimestampedDataSource {
         YAW,
         PITCH,
         ROLL,
@@ -94,7 +124,14 @@ public class navXPIDController implements IDataArrivalSubscriber {
         LINEAR_ACCEL_Z
     }
 
-    public enum navXUntimestampedDataSource {
+     /**
+     * The navXUntimestampedDataSources specifies the navX-Model device
+     * sensor data source type used by the navXPIDController as it's input data source.
+	 * These data sources are timestamped with the Android "system" timestamp only, and
+	 * thus may not have sufficient data to allow the navXPIDController to compensate 
+	 * for any jitter in the transmission from the navX-Model device to the navXPIDController.
+     */
+	 public enum navXUntimestampedDataSource {
         RAW_GYRO_X,
         RAW_GYRO_Y,
         RAW_GYRO_Z,
@@ -130,7 +167,9 @@ public class navXPIDController implements IDataArrivalSubscriber {
     private double max_output       = 1.0;
     private double min_output       = -1.0;
 
-    /* on-target tolerance */
+    /** 
+	* The ToleranceType enumeration defines the type of tolerance to be used by the
+	* navXPIDController to determine whether the controller is "on_target". */
     public enum ToleranceType {
         NONE, PERCENT, ABSOLUTE
     }
@@ -231,6 +270,14 @@ public class navXPIDController implements IDataArrivalSubscriber {
         }
     }
 
+	/**
+	* This navXPIDController constructor is used when the PID Controller is to be 
+	* driven by a navX-Model device input data source which is accompanied by a 
+	* high-accuracy "sensor" timestamp.
+	* <p>
+	* The data source specified automatically determines the navXPIDController's
+	* input data range.
+	**/
     public navXPIDController(AHRS navx_device, navXTimestampedDataSource src) {
         this.navx_device = navx_device;
         this.timestamped = true;
@@ -256,6 +303,14 @@ public class navXPIDController implements IDataArrivalSubscriber {
         navx_device.registerCallback(this);
     }
 
+	/**
+	* This navXPIDController constructor is used when the PID Controller is to be 
+	* driven by a navX-Model device input data source which is not accompanied by a 
+	* high-accuracy "sensor" timestamp.
+	* <p>
+	* The data source specified automatically determines the navXPIDController's
+	* input data range.
+	**/
     public navXPIDController(AHRS navx_device, navXUntimestampedDataSource src) {
         this.navx_device = navx_device;
         this.timestamped = false;
@@ -263,12 +318,32 @@ public class navXPIDController implements IDataArrivalSubscriber {
         navx_device.registerCallback(this);
     }
 
+	/**
+	* isNewUpdateAvailable() should be called by clients of the navXPIDController
+	* which need to "poll" to determine whether new navX-Model device data has 
+	* been received.  Whether or not new data has been received, this method
+	* returns immediately and does not block.
+	* <p>
+    * @return Returns true if new data has been received since the last time
+	* this function was called, otherwise returns false.  If true, the result
+	* will updated to reflect the newly-calculated controller values.
+	*/
     public boolean isNewUpdateAvailable(PIDResult result) {
         return ((timestamped && (result.timestamp < this.last_sensor_timestamp) ||
                 (result.timestamp < this.last_system_timestamp)));
     }
 
-    public boolean waitForNewUpdate(PIDResult result, int timeout_ms) {
+	/**
+	* waitForNewUpdate() should be called by clients of the navXPIDController
+	* which want to "wait" until new navX-Model device data has been received.  
+	* This method will return immediately only if new data has been received
+	* since the last time it was called; otherwise, it will block and not return 
+	* until new data has been received, or a specified timeout period has passed.  
+	* <p>
+    * @return Returns true when new data has been received.  If false is returned,
+	* this indicates a timeout has occurred while waiting for new data.
+	*/
+	public boolean waitForNewUpdate(PIDResult result, int timeout_ms) {
         boolean ready = isNewUpdateAvailable(result);
         if (!ready) {
             synchronized (sync_event) {
@@ -292,15 +367,32 @@ public class navXPIDController implements IDataArrivalSubscriber {
         return ready;
     }
 
+	/**
+	* Returns the current amount of error calculated by the navXPIDController
+	* based upon the last navX-Model device data sample.  By definition, this
+	* error is equal to the set point minus the last device data sample.
+	*/
     public double getError() {
         return error_current;
     }
 
+	/**
+	* Used to specify the tolerance used to determine whether the navXPIDController
+	* is "on_target".  The tolerance threshold is defined by the tolerance_type and
+	* the tolerance amount.  For example, if the YAW data source is used and thus the
+	* values used are in units of degrees, ToleranceType.ABSOLUTE and tolerance_amount
+	* of 2.0 would result in the navXPIDController deciding it was "on_target" whenever
+	* the error was within a range of +/- 2 degrees.
+	*/
     public synchronized void setTolerance(ToleranceType tolerance_type, double tolerance_amount) {
         this.tolerance_amount = tolerance_amount;
         this.tolerance_type = tolerance_type;
     }
 
+	/**
+	* Indicates whether the navXPIDController has determined that it is "on_target" based upon
+	* whether the current error is within the range defined by the tolerance.
+	*/
     public boolean isOnTarget() {
         boolean on_target = false;
         switch (tolerance_type) {
@@ -318,9 +410,15 @@ public class navXPIDController implements IDataArrivalSubscriber {
         return on_target;
     }
 
+	/**
+	* stepController() is the PIDController worker function, which is used internally
+	* by the navXPIDController whenever a new navX-Model device sensor data value
+	* is received.
+	*/
     public double stepController(double process_variable, int num_missed_samples) {
         double local_result;
         if (enabled) {
+            double i_adj;
             double d_adj;
 
             synchronized (this) {
@@ -340,21 +438,29 @@ public class navXPIDController implements IDataArrivalSubscriber {
                     }
                 }
 
+                /* If samples were missed, reduce the d gain by dividing */
+                /* by the total number of samples since the last update. */
+                /* For more discussion on this topic, see:               */
+                /* http://www.diva-portal.org/smash/get/diva2:570067/FULLTEXT01.pdf */
+                if ( num_missed_samples > 0 ) {
+                    i_adj = i / (1 + num_missed_samples);
+                } else {
+                    i_adj = i;
+                }
                 /* Process integral term.  Perform "anti-windup" processing */
                 /* by preventing the integral term from accumulating when   */
                 /* the output reaches it's minimum or maximum limits.       */
-                /* TODO:  adjust for dropped samples as described at:       */
-                /* http://www.diva-portal.org/smash/get/diva2:570067/FULLTEXT01.pdf */
+
                 if (i != 0) {
-                    double estimated_i = (error_total + error_current) * i;
+                    double estimated_i = (error_total + error_current) * i_adj;
                     if (estimated_i < max_output) {
                         if (estimated_i > min_output) {
                             error_total += error_current;
                         } else {
-                            error_total = min_output / i;
+                            error_total = min_output / i_adj;
                         }
                     } else {
-                        error_total = max_output / i;
+                        error_total = max_output / i_adj;
                     }
                 }
 
@@ -367,8 +473,8 @@ public class navXPIDController implements IDataArrivalSubscriber {
                 }
 
                 /* Calculate result w/P, I, D & F terms */
-                result = p      * error_current +
-                        i      * error_total +
+                result = p     * error_current +
+                        i_adj  * error_total +
                         d_adj  * (error_current - error_previous) +
                         ff     * setpoint;
                 error_previous = error_current;
@@ -388,12 +494,20 @@ public class navXPIDController implements IDataArrivalSubscriber {
         return local_result;
     }
 
+	/**
+	* setPID() is used to set the Proportional, Integral and Differential coefficients
+	* used by the navXPIDController.
+	*/
     public synchronized void setPID(double p, double i, double d) {
         this.p = p;
         this.i = i;
         this.d = d;
     }
 
+	/**
+	* setPID() is used to set the Proportional, Integral, Differential and FeedForward
+	* coefficients used by the navXPIDController.
+	*/
     public synchronized void setPID(double p, double i, double d, double ff) {
         this.p = p;
         this.i = i;
@@ -401,14 +515,46 @@ public class navXPIDController implements IDataArrivalSubscriber {
         this.ff = ff;
     }
 
+	/**
+	* setContinuous() is used to enable/disable the continuous mode of operation.
+	*
+	* When continuous mode is disabled, the min/max input range values are used as
+	* two separate points at the ends of the range of possible input values.  This
+	* mode of operation is typically used for reaching a position within a linear
+	* range.
+	*
+	* When continuous mode is enabled, the min/max input range are considered to
+	* represent the sampe point.  This mode of operation is typically used for reaching
+	* a position within a circular range, and allows the navXPIDController to determine
+	* the shortest possible route to the setpoint.  For example, when using YAW as
+	* the input data source, and using the PID controller to rotatie to a given angle,
+	* if the setpoint is 150 degrees and the current input value is -150 degrees, the 
+	* controller will calculate an output such that it travels across the boundary
+	* between -180 and 180 degrees (for a total traveled distance of 60 degrees), rather
+	* than traveling 300 degrees as it would if continuous mode were disabled. 
+	*/
     public synchronized void setContinuous(boolean continuous) {
         this.continuous = continuous;
     }
 
+	/**
+	* Returns the current output value calculated by the navXPIDController based upon the
+	* last navX-Model device data sample received.
+	*/
     public synchronized double get() {
         return result;
     }
 
+	/**
+	* Defines the range of output values calculated by the navXPIDController.
+	*
+	* For example, when the navXPIDController is used to calculate an output value to be
+	* sent to a motor controller whose valid range is -1 to 1, the output range should be
+	* sent to -1, 1.
+	*
+	* Note that the units of the output range are not necessarily the same as the units
+	* of the input range.
+	*/
     public synchronized void setOutputRange(double min_output, double max_output) {
         if (min_output <= max_output) {
             this.min_output = min_output;
@@ -416,6 +562,14 @@ public class navXPIDController implements IDataArrivalSubscriber {
         }
     }
 
+	/**
+	* Defines the range of possible input values received from the currently-selected
+	* navX-Model device data source.  For example, if YAW is the data source, the 
+	* input range would be -180.0, 180.0.
+	*
+	* Note that the navXPIDController constructor automatically sets the input range
+	* based upon the data source specified to the constructor.
+	*/
     public synchronized void setInputRange(double min_input, double max_input) {
         if (min_input <= max_input) {
             this.min_input = min_input;
@@ -424,6 +578,11 @@ public class navXPIDController implements IDataArrivalSubscriber {
         }
     }
 
+	/**
+	* Defines the "target" value the navXPIDController attempts to reach.  This value 
+	* is in the same units as the input, and should be within the input range.  For
+	* example, if YAW is the data source, the setput should be between -180.0 and 180.0.
+	*/
     public synchronized void setSetpoint(double setpoint) {
         if (max_input > min_input) {
             if (setpoint > max_input) {
@@ -438,18 +597,35 @@ public class navXPIDController implements IDataArrivalSubscriber {
         }
     }
 
+	/**
+	* Returns the currently configured setpoint.
+	*/
     public synchronized double getSetpoint() {
         return setpoint;
     }
 
+	/**
+	* Enables the PID controller.  By default, the navXPIDController is
+	* disabled, thus this method must be invoked before attempting to
+	* use the navXPIDController's output values.
+	*/
     public synchronized void enable(boolean enabled) {
         this.enabled = enabled;
     }
 
+	/**
+	* Returns true if the navXPIDController is currently enabled, otherwise
+	* return false.
+	*/
     public synchronized boolean isEnabled() {
         return this.enabled;
     }
 
+	/**
+	* Resets the PIDController's current error value as well as the integrated
+	* error.  Also disables the controller.  The enable() method must be used
+	* to re-enable the controller.
+	*/
     public synchronized void reset() {
         enable(false);
         error_previous = 0;

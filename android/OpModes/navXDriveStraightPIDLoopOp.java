@@ -134,15 +134,8 @@ public class navXDriveStraightPIDLoopOp extends OpMode {
                 rightMotor.setPower(drive_speed);
             } else {
                 double output = yawPIDResult.getOutput();
-                if ( output < 0 ) {
-                    /* Rotate Left */
-                    leftMotor.setPower(drive_speed - output);
-                    rightMotor.setPower(drive_speed + output);
-                } else {
-                    /* Rotate Right */
-                    leftMotor.setPower(drive_speed + output);
-                    rightMotor.setPower(drive_speed - output);
-                }
+                leftMotor.setPower(drive_speed + output);
+                rightMotor.setPower(drive_speed - output);
             }
         } else {
             /* No sensor update has been received since the last time  */
