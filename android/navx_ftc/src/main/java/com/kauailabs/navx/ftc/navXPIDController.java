@@ -31,35 +31,34 @@ import java.security.Timestamp;
  * The navXPIDController implements a timestamped PID controller (designed to deal
  * with the jitter which is typically present in a networked control system scenario).
  * <p>
- * The navXPIDController can use an of the various data sources on a navX-Model device
+ * The navXPIDController can use any of the various data sources on a navX-Model device
  * as an input (process variable); when instantiating a navXPIDController simply
  * provide an AHRS class instance and specify which navX-Model device variable you
  * wish to use as the input.  Then, configure the navXPIDController's setPoint,
  * outputRange, whether it should operate in continuous mode or not, and the
  * P, I, D and F coefficients which will be used to calculate the output value.
  * <p>
- * Using the navXPIDController w/the AHRS class is rather simple.  An example of using
- * the navXPIDController to rotate a FTC robot to a target angle is provided at:
- * http://pdocs.kauailabs.com/navx-micro/examples/rotate-to-angle/.
+ * An example of using the navXPIDController to rotate a FTC robot to a target angle is
+ * provided <a href="http://navx-micro.kauailabs.com/examples/rotate-to-angle/">online</a>.
  * <p>
- * The general PID algorithm used herein is discussed in detail at
- * https://en.wikipedia.org/wiki/PID_controller
+ * The general PID algorithm used herein is <a href="https://en.wikipedia.org/wiki/PID_controller">discussed in detail on Wikipedia.</a>
+ *
  * <p>
  * In addition to the P,I,D terms, a FeedForward term is optionally available
  * which may be useful in cases where velocity is being controlled (e.g., to
  * achieve a continuous rotational velocity using a yaw rate gyro).  The FeedForward
- * concept is discussed at http://www.expertune.com/articles/UG2007/PIDControlsPLCEnviron.pdf
+ * concept is discussed further <a href="http://www.expertune.com/articles/UG2007/PIDControlsPLCEnviron.pdf">here.</a>
  * <p>
  * This algorithm implements two features with respect to the integral gain calculated
  * based on the integral (i) coefficient:
  * <p>
  * - Anti-Windup:  Ensures the integral gain doesn't exceed the min/max output range, as discussed
- *   at http://www.expertune.com/articles/UG2007/PIDControlsPLCEnviron.pdf
+ *   <a href="http://www.expertune.com/articles/UG2007/PIDControlsPLCEnviron.pdf">here.</a>
  * - Time-Correction:  Adjust the integral gain in cases when timestamps indicate that
  *   data samples were lost.
  * <p>
  * This algorithm implements this feature with respect to the derivative gain, as discussed
- *   at http://www.diva-portal.org/smash/get/diva2:570067/FULLTEXT01.pdf
+ *   <a href="http://www.diva-portal.org/smash/get/diva2:570067/FULLTEXT01.pdf">here.</a>
  */
 
 public class navXPIDController implements IDataArrivalSubscriber {
