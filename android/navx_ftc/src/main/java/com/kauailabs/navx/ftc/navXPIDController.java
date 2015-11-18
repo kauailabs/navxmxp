@@ -328,8 +328,21 @@ public class navXPIDController implements IDataArrivalSubscriber {
 	* will updated to reflect the newly-calculated controller values.
 	*/
     public boolean isNewUpdateAvailable(PIDResult result) {
-        return ((timestamped && (result.timestamp < this.last_sensor_timestamp) ||
-                (result.timestamp < this.last_system_timestamp)));
+        boolean new_data_available;
+        if ((timestamped && (result.timestamp < this.last_sensor_timestamp) ||
+                (result.timestamp < this.last_system_timestamp))) {
+            new_data_available = true;
+            result.on_target = this.isOnTarget();
+            result.output = this.get();
+            if (timestamped) {
+                result.timestamp = last_sensor_timestamp;
+            } else {
+                result.timestamp = last_system_timestamp;
+            }
+        } else {
+            new_data_available = false;
+        }
+        return new_data_available;
     }
 
 	/**
@@ -353,15 +366,6 @@ public class navXPIDController implements IDataArrivalSubscriber {
                 }
             }
             ready = isNewUpdateAvailable(result);
-        }
-        if (ready) {
-            result.on_target = this.isOnTarget();
-            result.output = this.get();
-            if (timestamped) {
-                result.timestamp = last_sensor_timestamp;
-            } else {
-                result.timestamp = last_system_timestamp;
-            }
         }
         return ready;
     }
