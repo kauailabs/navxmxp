@@ -39,6 +39,8 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorController;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import java.text.DecimalFormat;
+
 /*
  * An example loop op mode where the robot will drive in
  * a straight line (where the driving direction is guided by
@@ -68,7 +70,7 @@ public class navXDriveStraightPIDLoopOp extends OpMode {
 
     private final byte NAVX_DEVICE_UPDATE_RATE_HZ = 50;
 
-    private final double TARGET_ANGLE_DEGREES = 90.0;
+    private final double TARGET_ANGLE_DEGREES = 0.0;
     private final double TOLERANCE_DEGREES = 2.0;
     private final double MIN_MOTOR_OUTPUT_VALUE = -1.0;
     private final double MAX_MOTOR_OUTPUT_VALUE = 1.0;
@@ -93,8 +95,8 @@ public class navXDriveStraightPIDLoopOp extends OpMode {
 
         /* If possible, use encoders when driving, as it results in more */
         /* predictable drive system response.                           */
-        leftMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
-        rightMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+        //leftMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+        //rightMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
 
         /* Create a PID Controller which uses the Yaw Angle as input. */
         yawPIDController = new navXPIDController( navx_device,
@@ -109,6 +111,10 @@ public class navXDriveStraightPIDLoopOp extends OpMode {
         yawPIDController.enable(true);
 
         first_iteration = true;
+    }
+
+    public double limit(double a) {
+        return Math.min(Math.max(a, MIN_MOTOR_OUTPUT_VALUE), MAX_MOTOR_OUTPUT_VALUE);
     }
 
     @Override
@@ -128,19 +134,26 @@ public class navXDriveStraightPIDLoopOp extends OpMode {
         /* Drive straight forward at 1/2 of full drive speed */
         double drive_speed = 0.5;
 
+        DecimalFormat df = new DecimalFormat("#.##");
+
         if ( yawPIDController.isNewUpdateAvailable(yawPIDResult) ) {
             if ( yawPIDResult.isOnTarget() ) {
                 leftMotor.setPower(drive_speed);
                 rightMotor.setPower(drive_speed);
+                telemetry.addData("PIDOutput",df.format(drive_speed) + ", " +
+                                                df.format(drive_speed));
             } else {
                 double output = yawPIDResult.getOutput();
-                leftMotor.setPower(drive_speed + output);
-                rightMotor.setPower(drive_speed - output);
+                leftMotor.setPower(limit(drive_speed + output));
+                rightMotor.setPower(limit(drive_speed - output));
+                telemetry.addData("PIDOutput", df.format(limit(drive_speed + output)) + ", " +
+                        df.format(limit(drive_speed - output)));
             }
         } else {
             /* No sensor update has been received since the last time  */
             /* the loop() function was invoked.  Therefore, there's no */
             /* need to update the motors at this time.                 */
         }
+        telemetry.addData("Yaw", df.format(navx_device.getYaw()));
     }
 }

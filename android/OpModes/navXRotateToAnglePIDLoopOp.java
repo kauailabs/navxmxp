@@ -39,6 +39,8 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorController;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import java.text.DecimalFormat;
+
 /*
  * An example loop op mode where the robot will rotate
  * to a specified angle an then stop.
@@ -89,8 +91,8 @@ public class navXRotateToAnglePIDLoopOp extends OpMode {
 
         /* If possible, use encoders when driving, as it results in more */
         /* predictable drive system response.                           */
-        leftMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
-        rightMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+        //leftMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+        //rightMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
 
         /* Create a PID Controller which uses the Yaw Angle as input. */
         yawPIDController = new navXPIDController( navx_device,
@@ -124,19 +126,25 @@ public class navXRotateToAnglePIDLoopOp extends OpMode {
         int DEVICE_TIMEOUT_MS = 500;
         navXPIDController.PIDResult yawPIDResult = new navXPIDController.PIDResult();
 
+        DecimalFormat df = new DecimalFormat("#.##");
+
         if ( yawPIDController.isNewUpdateAvailable(yawPIDResult) ) {
             if ( yawPIDResult.isOnTarget() ) {
                 leftMotor.setPowerFloat();
                 rightMotor.setPowerFloat();
+                telemetry.addData("PIDOutput", df.format(0.00));
             } else {
                 double output = yawPIDResult.getOutput();
                 leftMotor.setPower(output);
                 rightMotor.setPower(-output);
+                telemetry.addData("PIDOutput", df.format(output) + ", " +
+                        df.format(-output));
             }
         } else {
             /* No sensor update has been received since the last time  */
             /* the loop() function was invoked.  Therefore, there's no */
             /* need to update the motors at this time.                 */
         }
+        telemetry.addData("Yaw", df.format(navx_device.getYaw()));
     }
 }

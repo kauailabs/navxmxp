@@ -39,6 +39,8 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorController;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import java.text.DecimalFormat;
+
 /*
  * An example linear op mode where the robot will drive in
  * a straight line (where the driving direction is guided by
@@ -68,13 +70,17 @@ public class navXDriveStraightPIDLinearOp extends LinearOpMode {
 
     private final byte NAVX_DEVICE_UPDATE_RATE_HZ = 50;
 
-    private final double TARGET_ANGLE_DEGREES = 90.0;
+    private final double TARGET_ANGLE_DEGREES = 0.0;
     private final double TOLERANCE_DEGREES = 2.0;
     private final double MIN_MOTOR_OUTPUT_VALUE = -1.0;
     private final double MAX_MOTOR_OUTPUT_VALUE = 1.0;
     private final double YAW_PID_P = 0.005;
     private final double YAW_PID_I = 0.0;
     private final double YAW_PID_D = 0.0;
+
+    public double limit(double a) {
+        return Math.min(Math.max(a, MIN_MOTOR_OUTPUT_VALUE), MAX_MOTOR_OUTPUT_VALUE);
+    }
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -90,8 +96,8 @@ public class navXDriveStraightPIDLinearOp extends LinearOpMode {
 
         /* If possible, use encoders when driving, as it results in more */
         /* predictable drive system response.                           */
-        leftMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
-        rightMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+        //leftMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+        //rightMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
 
         /* Create a PID Controller which uses the Yaw Angle as input. */
         yawPIDController = new navXPIDController( navx_device,
@@ -123,16 +129,23 @@ public class navXDriveStraightPIDLinearOp extends LinearOpMode {
         /* Drive straight forward at 1/2 of full drive speed */
         double drive_speed = 0.5;
 
+        DecimalFormat df = new DecimalFormat("#.##");
+
         while ( runtime.time() < TOTAL_RUN_TIME_SECONDS ) {
             if ( yawPIDController.waitForNewUpdate(yawPIDResult, DEVICE_TIMEOUT_MS ) ) {
                 if ( yawPIDResult.isOnTarget() ) {
                     leftMotor.setPower(drive_speed);
                     rightMotor.setPower(drive_speed);
+                    telemetry.addData("PIDOutput", df.format(drive_speed) + ", " +
+                            df.format(drive_speed));
                 } else {
                     double output = yawPIDResult.getOutput();
                     leftMotor.setPower(drive_speed + output);
                     rightMotor.setPower(drive_speed - output);
+                    telemetry.addData("PIDOutput", df.format(limit(drive_speed + output)) + ", " +
+                            df.format(limit(drive_speed - output)));
                 }
+                telemetry.addData("Yaw", df.format(navx_device.getYaw()));
             } else {
 			    /* A timeout occurred */
                 Log.w("navXDriveStraightOp", "Yaw PID waitForNewUpdate() TIMEOUT.");

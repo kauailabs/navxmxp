@@ -89,8 +89,8 @@ public class navXRotateToAnglePIDLinearOp extends LinearOpMode {
 
         /* If possible, use encoders when driving, as it results in more */
         /* predictable drive system response.                           */
-        leftMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
-        rightMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+        //leftMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
+        //rightMotor.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
 
         /* Create a PID Controller which uses the Yaw Angle as input. */
         yawPIDController = new navXPIDController( navx_device,
@@ -114,20 +114,26 @@ public class navXRotateToAnglePIDLinearOp extends LinearOpMode {
         int DEVICE_TIMEOUT_MS = 500;
         navXPIDController.PIDResult yawPIDResult = new navXPIDController.PIDResult();
 
+        DecimalFormat df = new DecimalFormat("#.##");
+
         while ( runtime.time() < TOTAL_RUN_TIME_SECONDS ) {
             if ( yawPIDController.waitForNewUpdate(yawPIDResult, DEVICE_TIMEOUT_MS ) ) {
                 if ( yawPIDResult.isOnTarget() ) {
                     leftMotor.setPowerFloat();
                     rightMotor.setPowerFloat();
+                    telemetry.addData("PIDOutput", df.format(0.00));
                 } else {
                     double output = yawPIDResult.getOutput();
                     leftMotor.setPower(output);
                     rightMotor.setPower(-output);
+                    telemetry.addData("PIDOutput", df.format(output) + ", " +
+                            df.format(-output));
                 }
             } else {
 			    /* A timeout occurred */
                 Log.w("navXRotateOp", "Yaw PID waitForNewUpdate() TIMEOUT.");
             }
+            telemetry.addData("Yaw", df.format(navx_device.getYaw()));
         }
     }
 }
