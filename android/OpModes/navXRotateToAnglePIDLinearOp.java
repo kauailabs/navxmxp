@@ -102,38 +102,48 @@ public class navXRotateToAnglePIDLinearOp extends LinearOpMode {
         yawPIDController.setOutputRange(MIN_MOTOR_OUTPUT_VALUE, MAX_MOTOR_OUTPUT_VALUE);
         yawPIDController.setTolerance(navXPIDController.ToleranceType.ABSOLUTE, TOLERANCE_DEGREES);
         yawPIDController.setPID(YAW_PID_P, YAW_PID_I, YAW_PID_D);
-        yawPIDController.enable(true);
 
         waitForStart();
+
+        try {
+            yawPIDController.enable(true);
 
         /* Wait for new Yaw PID output values, then update the motors
            with the new PID value with each new output value.
          */
 
-        final double TOTAL_RUN_TIME_SECONDS = 30.0;
-        int DEVICE_TIMEOUT_MS = 500;
-        navXPIDController.PIDResult yawPIDResult = new navXPIDController.PIDResult();
+            final double TOTAL_RUN_TIME_SECONDS = 30.0;
+            int DEVICE_TIMEOUT_MS = 500;
+            navXPIDController.PIDResult yawPIDResult = new navXPIDController.PIDResult();
 
-        DecimalFormat df = new DecimalFormat("#.##");
+            DecimalFormat df = new DecimalFormat("#.##");
 
-        while ( runtime.time() < TOTAL_RUN_TIME_SECONDS ) {
-            if ( yawPIDController.waitForNewUpdate(yawPIDResult, DEVICE_TIMEOUT_MS ) ) {
-                if ( yawPIDResult.isOnTarget() ) {
-                    leftMotor.setPowerFloat();
-                    rightMotor.setPowerFloat();
-                    telemetry.addData("PIDOutput", df.format(0.00));
+            while ( (runtime.time() < TOTAL_RUN_TIME_SECONDS) &&
+                    !Thread.currentThread().isInterrupted()) {
+                if (yawPIDController.waitForNewUpdate(yawPIDResult, DEVICE_TIMEOUT_MS)) {
+                    if (yawPIDResult.isOnTarget()) {
+                        leftMotor.setPowerFloat();
+                        rightMotor.setPowerFloat();
+                        telemetry.addData("PIDOutput", df.format(0.00));
+                    } else {
+                        double output = yawPIDResult.getOutput();
+                        leftMotor.setPower(output);
+                        rightMotor.setPower(-output);
+                        telemetry.addData("PIDOutput", df.format(output) + ", " +
+                                df.format(-output));
+                    }
                 } else {
-                    double output = yawPIDResult.getOutput();
-                    leftMotor.setPower(output);
-                    rightMotor.setPower(-output);
-                    telemetry.addData("PIDOutput", df.format(output) + ", " +
-                            df.format(-output));
-                }
-            } else {
 			    /* A timeout occurred */
-                Log.w("navXRotateOp", "Yaw PID waitForNewUpdate() TIMEOUT.");
+                    Log.w("navXRotateOp", "Yaw PID waitForNewUpdate() TIMEOUT.");
+                }
+                telemetry.addData("Yaw", df.format(navx_device.getYaw()));
             }
-            telemetry.addData("Yaw", df.format(navx_device.getYaw()));
+        }
+        catch(InterruptedException ex) {
+             Thread.currentThread().interrupt();
+        }
+        finally {
+            navx_device.close();
         }
     }
 }

@@ -131,25 +131,34 @@ public class navXDriveStraightPIDLinearOp extends LinearOpMode {
 
         DecimalFormat df = new DecimalFormat("#.##");
 
-        while ( runtime.time() < TOTAL_RUN_TIME_SECONDS ) {
-            if ( yawPIDController.waitForNewUpdate(yawPIDResult, DEVICE_TIMEOUT_MS ) ) {
-                if ( yawPIDResult.isOnTarget() ) {
-                    leftMotor.setPower(drive_speed);
-                    rightMotor.setPower(drive_speed);
-                    telemetry.addData("PIDOutput", df.format(drive_speed) + ", " +
-                            df.format(drive_speed));
-                } else {
-                    double output = yawPIDResult.getOutput();
-                    leftMotor.setPower(drive_speed + output);
-                    rightMotor.setPower(drive_speed - output);
-                    telemetry.addData("PIDOutput", df.format(limit(drive_speed + output)) + ", " +
-                            df.format(limit(drive_speed - output)));
+        try {
+            while ((runtime.time() < TOTAL_RUN_TIME_SECONDS) &&
+                    !Thread.currentThread().isInterrupted()) {
+                if (yawPIDController.waitForNewUpdate(yawPIDResult, DEVICE_TIMEOUT_MS)) {
+                    if (yawPIDResult.isOnTarget()) {
+                        leftMotor.setPower(drive_speed);
+                        rightMotor.setPower(drive_speed);
+                        telemetry.addData("PIDOutput", df.format(drive_speed) + ", " +
+                                df.format(drive_speed));
+                    } else {
+                        double output = yawPIDResult.getOutput();
+                        leftMotor.setPower(drive_speed + output);
+                        rightMotor.setPower(drive_speed - output);
+                        telemetry.addData("PIDOutput", df.format(limit(drive_speed + output)) + ", " +
+                                df.format(limit(drive_speed - output)));
+                    }
+                    telemetry.addData("Yaw", df.format(navx_device.getYaw()));
+                } else{
+			        /* A timeout occurred */
+                    Log.w("navXDriveStraightOp", "Yaw PID waitForNewUpdate() TIMEOUT.");
                 }
-                telemetry.addData("Yaw", df.format(navx_device.getYaw()));
-            } else {
-			    /* A timeout occurred */
-                Log.w("navXDriveStraightOp", "Yaw PID waitForNewUpdate() TIMEOUT.");
             }
+        }
+        catch(InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+        finally {
+            navx_device.close();
         }
     }
 }

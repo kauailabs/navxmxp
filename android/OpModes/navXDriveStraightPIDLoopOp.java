@@ -78,8 +78,8 @@ public class navXDriveStraightPIDLoopOp extends OpMode {
     private final double YAW_PID_I = 0.0;
     private final double YAW_PID_D = 0.0;
 
-    private boolean first_iteration = true;
     navXPIDController.PIDResult yawPIDResult;
+    DecimalFormat df;
 
     @Override
     public void init() {
@@ -110,7 +110,7 @@ public class navXDriveStraightPIDLoopOp extends OpMode {
         yawPIDController.setPID(YAW_PID_P, YAW_PID_I, YAW_PID_D);
         yawPIDController.enable(true);
 
-        first_iteration = true;
+        df = new DecimalFormat("#.##");
     }
 
     public double limit(double a) {
@@ -118,15 +118,15 @@ public class navXDriveStraightPIDLoopOp extends OpMode {
     }
 
     @Override
-    public void loop() {
+    public void start() {
         /* reset the navX-Model device yaw angle so that whatever direction */
         /* it is currently pointing will be zero degrees.                   */
-        if ( first_iteration ) {
-            first_iteration = false;
-            navx_device.zeroYaw();
-            yawPIDResult = new navXPIDController.PIDResult();
-        }
+        navx_device.zeroYaw();
+        yawPIDResult = new navXPIDController.PIDResult();
+    }
 
+    @Override
+    public void loop() {
         /* Wait for new Yaw PID output values, then update the motors
            with the new PID value with each new output value.
          */
@@ -134,19 +134,17 @@ public class navXDriveStraightPIDLoopOp extends OpMode {
         /* Drive straight forward at 1/2 of full drive speed */
         double drive_speed = 0.5;
 
-        DecimalFormat df = new DecimalFormat("#.##");
-
         if ( yawPIDController.isNewUpdateAvailable(yawPIDResult) ) {
             if ( yawPIDResult.isOnTarget() ) {
                 leftMotor.setPower(drive_speed);
                 rightMotor.setPower(drive_speed);
-                telemetry.addData("PIDOutput",df.format(drive_speed) + ", " +
+                telemetry.addData("Motor Output",df.format(drive_speed) + ", " +
                                                 df.format(drive_speed));
             } else {
                 double output = yawPIDResult.getOutput();
                 leftMotor.setPower(limit(drive_speed + output));
                 rightMotor.setPower(limit(drive_speed - output));
-                telemetry.addData("PIDOutput", df.format(limit(drive_speed + output)) + ", " +
+                telemetry.addData("Motor Output", df.format(limit(drive_speed + output)) + ", " +
                         df.format(limit(drive_speed - output)));
             }
         } else {
@@ -155,5 +153,10 @@ public class navXDriveStraightPIDLoopOp extends OpMode {
             /* need to update the motors at this time.                 */
         }
         telemetry.addData("Yaw", df.format(navx_device.getYaw()));
+    }
+
+    @Override
+    public void stop() {
+        navx_device.close();
     }
 }

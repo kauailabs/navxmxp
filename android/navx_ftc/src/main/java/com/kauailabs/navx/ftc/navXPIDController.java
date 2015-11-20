@@ -317,6 +317,11 @@ public class navXPIDController implements IDataArrivalSubscriber {
         navx_device.registerCallback(this);
     }
 
+    public void close() {
+        enable(false);
+        navx_device.deregisterCallback(this);
+    }
+
 	/**
 	* isNewUpdateAvailable() should be called by clients of the navXPIDController
 	* which need to "poll" to determine whether new navX-Model device data has 
@@ -355,15 +360,11 @@ public class navXPIDController implements IDataArrivalSubscriber {
     * @return Returns true when new data has been received.  If false is returned,
 	* this indicates a timeout has occurred while waiting for new data.
 	*/
-	public boolean waitForNewUpdate(PIDResult result, int timeout_ms) {
+	public boolean waitForNewUpdate(PIDResult result, int timeout_ms) throws InterruptedException {
         boolean ready = isNewUpdateAvailable(result);
-        if (!ready) {
+        if (!ready && !Thread.currentThread().isInterrupted()) {
             synchronized (sync_event) {
-                try {
-                    sync_event.wait(timeout_ms);
-                } catch (InterruptedException ex) {
-                    ex.printStackTrace();
-                }
+                sync_event.wait(timeout_ms);
             }
             ready = isNewUpdateAvailable(result);
         }

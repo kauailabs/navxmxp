@@ -74,8 +74,8 @@ public class navXRotateToAnglePIDLoopOp extends OpMode {
     private final double YAW_PID_I = 0.0;
     private final double YAW_PID_D = 0.0;
 
-    private boolean first_iteration = true;
     navXPIDController.PIDResult yawPIDResult;
+    DecimalFormat df;
 
     @Override
     public void init() {
@@ -106,38 +106,33 @@ public class navXRotateToAnglePIDLoopOp extends OpMode {
         yawPIDController.setPID(YAW_PID_P, YAW_PID_I, YAW_PID_D);
         yawPIDController.enable(true);
 
-        first_iteration = true;
+        df = new DecimalFormat("#.##");
+    }
+
+    @Override
+    public void start() {
+        /* reset the navX-Model device yaw angle so that whatever direction */
+        /* it is currently pointing will be zero degrees.                   */
+        navx_device.zeroYaw();
+        yawPIDResult = new navXPIDController.PIDResult();
     }
 
     @Override
     public void loop() {
-        /* reset the navX-Model device yaw angle so that whatever direction */
-        /* it is currently pointing will be zero degrees.                   */
-        if ( first_iteration ) {
-            first_iteration = false;
-            navx_device.zeroYaw();
-            yawPIDResult = new navXPIDController.PIDResult();
-        }
         /* Wait for new Yaw PID output values, then update the motors
            with the new PID value with each new output value.
          */
-
-        final double TOTAL_RUN_TIME_SECONDS = 30.0;
-        int DEVICE_TIMEOUT_MS = 500;
-        navXPIDController.PIDResult yawPIDResult = new navXPIDController.PIDResult();
-
-        DecimalFormat df = new DecimalFormat("#.##");
 
         if ( yawPIDController.isNewUpdateAvailable(yawPIDResult) ) {
             if ( yawPIDResult.isOnTarget() ) {
                 leftMotor.setPowerFloat();
                 rightMotor.setPowerFloat();
-                telemetry.addData("PIDOutput", df.format(0.00));
+                telemetry.addData("Motor Output", df.format(0.00));
             } else {
                 double output = yawPIDResult.getOutput();
                 leftMotor.setPower(output);
                 rightMotor.setPower(-output);
-                telemetry.addData("PIDOutput", df.format(output) + ", " +
+                telemetry.addData("Motor Output", df.format(output) + ", " +
                         df.format(-output));
             }
         } else {
@@ -146,5 +141,10 @@ public class navXRotateToAnglePIDLoopOp extends OpMode {
             /* need to update the motors at this time.                 */
         }
         telemetry.addData("Yaw", df.format(navx_device.getYaw()));
+    }
+
+    @Override
+    public void stop() {
+        navx_device.close();
     }
 }
