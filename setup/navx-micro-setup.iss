@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "navX-Micro"
-#define MyAppVersion "2.0.178"
+#define MyAppVersion "0.0.000"
 #define MyAppPublisher "KauaiLabs, Inc."
 #define MyAppURL "http://navx-micro.kauailabs.com"
 
