@@ -750,10 +750,10 @@ void dmpGetYawPitchRoll(float *data, Quaternion *q, struct FloatVectorStruct *gr
 
     // yaw: (about Z axis)
     data[0] = atan2(2*q -> x*q -> y - 2*q -> w*q -> z, 2*q -> w*q -> w + 2*q -> x*q -> x - 1);
-    // pitch: (nose up/down, about Y axis)
-    data[1] = atan(gravity -> x / sqrt(gravity -> y*gravity -> y + gravity -> z*gravity -> z));
-    // roll: (tilt left/right, about X axis)
-    data[2] = atan(gravity -> y / sqrt(gravity -> x*gravity -> x + gravity -> z*gravity -> z));
+    // pitch: (node up/down, about X axis)
+    data[1] = atan(gravity -> y / sqrt(gravity -> x*gravity -> x + gravity -> z*gravity -> z));
+    // roll: (tilt left/right, about Y axis)
+    data[2] = atan(gravity -> x / sqrt(gravity -> y*gravity -> y + gravity -> z*gravity -> z));
 }
 
 long last_temperature = 32 * 65535; /* Reasonable default */
@@ -1035,26 +1035,32 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
             pdata->calibrated_compass[1] *= pdata->mag_norm_scalar;
             pdata->calibrated_compass[2] *= pdata->mag_norm_scalar;
 
-            /* Perform tilt compensation, based upon pitch/roll     */
-            /* Note that pitch (X Axis) is inverted here, since the */
-            /* sign of the X axis is inverted within the Quaternion */
-            /* provided by the MPU.                                 */
+            /* Perform tilt compensation, based upon pitch/roll        */
+            /* Note that roll (roation about Y Axis) is inverted here, */
+            /* since the sign of the Y axis is inverted within the     */
+            /* Quaternion calculated by the MPU                        */
 
-            float inverted_pitch = -ypr[1];
-            float roll = ypr[2];
+            float inverted_roll = -ypr[2];
+            float pitch = ypr[1];
 
-            float cos_roll = cos(roll);
-            float sin_roll = sin(roll);
-            float cos_pitch = cos(inverted_pitch);
-            float sin_pitch = sin(inverted_pitch);
+            float cos_roll = cos(inverted_roll);
+            float sin_roll = sin(inverted_roll);
+            float cos_pitch = cos(pitch);
+            float sin_pitch = sin(pitch);
 
             /* Transform compass data to board orientation */
             xform_mpu_to_board_coordinates(pdata->calibrated_compass);
 
-            float MAG_X = pdata->calibrated_compass[0] * cos_pitch + pdata->calibrated_compass[2] * sin_pitch;
-            float MAG_Y = pdata->calibrated_compass[0] * sin_roll * sin_pitch +
-                    pdata->calibrated_compass[1] * cos_roll -
-                    pdata->calibrated_compass[2] * sin_roll * cos_pitch;
+            /* The following tilt compensation algorithm was derived from      */
+            /* ST Micro’s AN3192, with the exception that the Roll and Pitch   */
+            /* Terms are swapped due to a difference in the X/Y axis reference */
+            /* frame used by ST and that used by the navX-Micro.               */
+            /* http://solutions-cubed.com/app-notes-downloads/#BM004           */
+
+            float MAG_X = pdata->calibrated_compass[0] * cos_roll + pdata->calibrated_compass[2] * sin_roll;
+            float MAG_Y = pdata->calibrated_compass[0] * sin_pitch * sin_roll +
+                    pdata->calibrated_compass[1] * cos_pitch -
+                    pdata->calibrated_compass[2] * sin_pitch * cos_roll;
             float tilt_compensated_heading_radians = atan2(MAG_Y,MAG_X);
             pdata->heading = tilt_compensated_heading_radians * radians_to_degrees;
 

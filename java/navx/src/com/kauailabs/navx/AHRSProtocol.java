@@ -401,8 +401,8 @@ public class AHRSProtocol extends IMUProtocol {
                 return 0;
             }
             u.yaw = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRS_UPDATE_YAW_VALUE_INDEX);
-            u.pitch = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRS_UPDATE_PITCH_VALUE_INDEX);
-            u.roll = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRS_UPDATE_ROLL_VALUE_INDEX);
+            u.pitch = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRS_UPDATE_ROLL_VALUE_INDEX); /* FIXME */
+            u.roll = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRS_UPDATE_PITCH_VALUE_INDEX); /* FIXME */
             u.compass_heading = decodeProtocolUnsignedHundredthsFloat(buffer, offset+AHRS_UPDATE_HEADING_VALUE_INDEX);
             u.altitude = decodeProtocol1616Float(buffer, offset+AHRS_UPDATE_ALTITUDE_VALUE_INDEX);
             u.fused_heading = decodeProtocolUnsignedHundredthsFloat(buffer,offset+AHRS_UPDATE_FUSED_HEADING_VALUE_INDEX);
@@ -449,8 +449,8 @@ public class AHRSProtocol extends IMUProtocol {
 				return 0;
 			}
 			u.yaw = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRSPOS_UPDATE_YAW_VALUE_INDEX);
-			u.pitch = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRSPOS_UPDATE_PITCH_VALUE_INDEX);
-			u.roll = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRSPOS_UPDATE_ROLL_VALUE_INDEX);
+			u.pitch = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRSPOS_UPDATE_ROLL_VALUE_INDEX); /* FIXME */
+			u.roll = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRSPOS_UPDATE_PITCH_VALUE_INDEX); /* FIXME */
 			u.compass_heading = decodeProtocolUnsignedHundredthsFloat(buffer, offset+AHRSPOS_UPDATE_HEADING_VALUE_INDEX);
 			u.altitude = decodeProtocol1616Float(buffer, offset+AHRSPOS_UPDATE_ALTITUDE_VALUE_INDEX);
 			u.fused_heading = decodeProtocolUnsignedHundredthsFloat(buffer,offset+AHRSPOS_UPDATE_FUSED_HEADING_VALUE_INDEX);

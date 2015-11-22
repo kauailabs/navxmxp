@@ -247,8 +247,8 @@ namespace compass_calibrator
                                 usart_data_offset += navx_ahrs_update_length;
 
                                 float yawval            = signedHundredthsToFloat(bytes, 4);
-                                float pitchval          = signedHundredthsToFloat(bytes, 6);
-                                float rollval           = signedHundredthsToFloat(bytes, 8);
+                                float rollval           = signedHundredthsToFloat(bytes, 6);
+                                float pitchval          = signedHundredthsToFloat(bytes, 8);
                                 float heading           = unsignedHudredthsToFloat(bytes, 10);
                                 float altitude          = text1616FloatToFloat(bytes, 12);
                                 float fused_heading     = unsignedHudredthsToFloat(bytes, 16);

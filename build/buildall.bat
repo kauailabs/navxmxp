@@ -21,6 +21,16 @@ call ant clean build
 popd
 
 REM
+REM Copy the navX protocol library .h files to the 
+REM projects that need them.
+REM
+
+cp ./stm32/navx-mxp/IMU*.h  ./arduino/navXTestJig/
+cp ./stm32/navx-mxp/AHRS*.h ./arduino/navXTestJig/
+cp ./stm32/navx-mxp/IMU*.h  ./roborio/c++/navx_frc_cpp/src
+cp ./stm32/navx-mxp/AHRS*.h ./roborio/c++/navx_frc_cpp/src
+
+REM
 REM Begin a command-line "clean build" of the navx frc C++ library
 REM
 
@@ -37,16 +47,6 @@ REM
 
 mkdir .\processing\libraries\navx\library\
 copy .\java\navx\jar\*.jar .\processing\libraries\navx\library\ /Y
-
-REM
-REM Copy the navX protocol library .h files to the 
-REM projects that need them.
-REM
-
-cp ./stm32/navx-mxp/IMU*.h  ./arduino/navXTestJig/
-cp ./stm32/navx-mxp/AHRS*.h ./arduino/navXTestJig/
-cp ./stm32/navx-mxp/IMU*.h  ./roborio/c++/navx_frc_cpp/src
-cp ./stm32/navx-mxp/AHRS*.h ./roborio/c++/navx_frc_cpp/src
 
 REM
 REM Begin a command-line "clean build" of the Debug version of the navx-mxp firmware

@@ -93,8 +93,8 @@ typedef enum
 
 #define MSGID_AHRS_UPDATE 'a'
 #define AHRS_UPDATE_YAW_VALUE_INDEX                     4  /* Degrees.  Signed Hundredths */
-#define AHRS_UPDATE_PITCH_VALUE_INDEX                   6  /* Degrees.  Signed Hundredeths */
-#define AHRS_UPDATE_ROLL_VALUE_INDEX                    8  /* Degrees.  Signed Hundredths */
+#define AHRS_UPDATE_ROLL_VALUE_INDEX                    6  /* Degrees.  Signed Hundredths */
+#define AHRS_UPDATE_PITCH_VALUE_INDEX                   8  /* Degrees.  Signed Hundredeths */
 #define AHRS_UPDATE_HEADING_VALUE_INDEX                 10 /* Degrees.  Unsigned Hundredths */
 #define AHRS_UPDATE_ALTITUDE_VALUE_INDEX                12 /* Meters.   Signed 16:16 */
 #define AHRS_UPDATE_FUSED_HEADING_VALUE_INDEX           16 /* Degrees.  Unsigned Hundredths */
@@ -128,8 +128,8 @@ typedef enum
 
 #define MSGID_AHRSPOS_UPDATE 'p'
 #define AHRSPOS_UPDATE_YAW_VALUE_INDEX                   4 /* Degrees.  Signed Hundredths */
-#define AHRSPOS_UPDATE_PITCH_VALUE_INDEX                 6 /* Degrees.  Signed Hundredeths */
-#define AHRSPOS_UPDATE_ROLL_VALUE_INDEX                  8 /* Degrees.  Signed Hundredths */
+#define AHRSPOS_UPDATE_ROLL_VALUE_INDEX                  6 /* Degrees.  Signed Hundredths */
+#define AHRSPOS_UPDATE_PITCH_VALUE_INDEX                 8 /* Degrees.  Signed Hundredeths */
 #define AHRSPOS_UPDATE_HEADING_VALUE_INDEX              10 /* Degrees.  Unsigned Hundredths */
 #define AHRSPOS_UPDATE_ALTITUDE_VALUE_INDEX             12 /* Meters.   Signed 16:16 */
 #define AHRSPOS_UPDATE_FUSED_HEADING_VALUE_INDEX        16 /* Degrees.  Unsigned Hundredths */

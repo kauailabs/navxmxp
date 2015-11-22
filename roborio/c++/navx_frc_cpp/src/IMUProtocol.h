@@ -37,8 +37,8 @@ THE SOFTWARE.
 
 #define MSGID_YPR_UPDATE                            'y'
 #define YPR_UPDATE_YAW_VALUE_INDEX                  2
-#define YPR_UPDATE_PITCH_VALUE_INDEX                9
-#define YPR_UPDATE_ROLL_VALUE_INDEX                 16
+#define YPR_UPDATE_ROLL_VALUE_INDEX                 9
+#define YPR_UPDATE_PITCH_VALUE_INDEX                16
 #define YPR_UPDATE_COMPASS_VALUE_INDEX              23
 #define YPR_UPDATE_CHECKSUM_INDEX                   30
 #define YPR_UPDATE_TERMINATOR_INDEX                 32

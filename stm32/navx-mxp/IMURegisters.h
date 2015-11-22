@@ -96,10 +96,10 @@ typedef int32_t     s_1616_float;
 
 #define NAVX_REG_YAW_L              0x16 /* Lower 8 bits of Yaw     */
 #define NAVX_REG_YAW_H              0x17 /* Upper 8 bits of Yaw     */
-#define NAVX_REG_PITCH_L            0x18 /* Lower 8 bits of Pitch   */
-#define NAVX_REG_PITCH_H            0x19 /* Upper 8 bits of Pitch   */
-#define NAVX_REG_ROLL_L             0x1A /* Lower 8 bits of Roll    */
-#define NAVX_REG_ROLL_H             0x1B /* Upper 8 bits of Roll    */
+#define NAVX_REG_ROLL_L             0x18 /* Lower 8 bits of Roll    */
+#define NAVX_REG_ROLL_H             0x19 /* Upper 8 bits of Roll    */
+#define NAVX_REG_PITCH_L            0x1A /* Lower 8 bits of Pitch   */
+#define NAVX_REG_PITCH_H            0x1B /* Upper 8 bits of Pitch   */
 #define NAVX_REG_HEADING_L          0x1C /* Lower 8 bits of Heading */
 #define NAVX_REG_HEADING_H          0x1D /* Upper 8 bits of Heading */
 #define NAVX_REG_FUSED_HEADING_L    0x1E /* Upper 8 bits of Fused Heading */

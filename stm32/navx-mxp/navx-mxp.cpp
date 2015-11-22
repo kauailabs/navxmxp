@@ -150,8 +150,8 @@ struct __attribute__ ((__packed__)) nav10_protocol_registers {
     uint16_t                sensor_status;
     uint32_t                timestamp;
     s_short_hundred_float   yaw;
-    s_short_hundred_float   pitch;
     s_short_hundred_float   roll;
+    s_short_hundred_float   pitch;
     u_short_hundred_float   heading;
     u_short_hundred_float   fused_heading;
     s_1616_float            altitude;
