@@ -61,7 +61,7 @@ public class navXPerformanceMonitor implements IDataArrivalSubscriber {
      * @return The rate of navX-Model device sample delivery in Hz.
      */
     public int getDeliveredRateHz() {
-        return hertz_counter;
+        return last_second_hertz;
     }
 
     /**

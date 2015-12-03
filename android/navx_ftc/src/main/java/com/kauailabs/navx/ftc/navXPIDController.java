@@ -334,7 +334,8 @@ public class navXPIDController implements IDataArrivalSubscriber {
 	*/
     public boolean isNewUpdateAvailable(PIDResult result) {
         boolean new_data_available;
-        if ((timestamped && (result.timestamp < this.last_sensor_timestamp) ||
+        if (enabled &&
+                ((timestamped && (result.timestamp < this.last_sensor_timestamp)) ||
                 (result.timestamp < this.last_system_timestamp))) {
             new_data_available = true;
             result.on_target = this.isOnTarget();
@@ -433,12 +434,12 @@ public class navXPIDController implements IDataArrivalSubscriber {
                 /* modify the error to ensure the output doesn't change     */
                 /* direction, but processed onward until error is zero.     */
                 if (continuous) {
-                    if (Math.abs(error_current) > (max_input - min_input) / 2) {
-                        if (error_current > 0) {
-                            error_current -= max_input + min_input;
-                        } else {
-                            error_current += max_input - min_input;
-                        }
+                    double range = max_input - min_input ;
+                    if (Math.abs(error_current) > (range / 2))  {
+                        if (error_current > 0)
+                            error_current -= range;
+                        else
+                            error_current += range;
                     }
                 }
 
@@ -506,6 +507,7 @@ public class navXPIDController implements IDataArrivalSubscriber {
         this.p = p;
         this.i = i;
         this.d = d;
+        stepController(error_previous, 0); /* Update cached values */
     }
 
 	/**
@@ -517,6 +519,7 @@ public class navXPIDController implements IDataArrivalSubscriber {
         this.i = i;
         this.d = d;
         this.ff = ff;
+        stepController(error_previous, 0); /* Update cached values */
     }
 
 	/**
@@ -539,6 +542,7 @@ public class navXPIDController implements IDataArrivalSubscriber {
 	*/
     public synchronized void setContinuous(boolean continuous) {
         this.continuous = continuous;
+        stepController(error_previous, 0); /* Update cached values */
     }
 
 	/**
@@ -564,6 +568,7 @@ public class navXPIDController implements IDataArrivalSubscriber {
             this.min_output = min_output;
             this.max_output = max_output;
         }
+        stepController(error_previous, 0); /* Update cached values */
     }
 
 	/**
@@ -599,6 +604,7 @@ public class navXPIDController implements IDataArrivalSubscriber {
         } else {
             this.setpoint = setpoint;
         }
+        stepController(error_previous, 0); /* Update cached values */
     }
 
 	/**
@@ -609,12 +615,15 @@ public class navXPIDController implements IDataArrivalSubscriber {
     }
 
 	/**
-	* Enables the PID controller.  By default, the navXPIDController is
+	* Enables/disables the PID controller.  By default, the navXPIDController is
 	* disabled, thus this method must be invoked before attempting to
 	* use the navXPIDController's output values.
 	*/
     public synchronized void enable(boolean enabled) {
         this.enabled = enabled;
+        if ( !enabled ) {
+            reset();
+        }
     }
 
 	/**
@@ -631,9 +640,10 @@ public class navXPIDController implements IDataArrivalSubscriber {
 	* to re-enable the controller.
 	*/
     public synchronized void reset() {
-        enable(false);
-        error_previous = 0;
-        error_total = 0;
-        result = 0;
+        this.enabled = false;
+        error_current = 0.0;
+        error_previous = 0.0;
+        error_total = 0.0;
+        result = 0.0;
     }
 }
