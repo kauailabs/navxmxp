@@ -115,6 +115,7 @@ del .\setup\navx-mxp-setup-orig.iss
 copy .\setup\navx-micro-setup.iss .\setup\navx-micro-setup-orig.iss 
 Powershell -command "(get-content .\setup\navx-micro-setup.iss) -replace ('0.0.000','%REVISION_STRING%') | out-file .\setup\navx-micro-setup.iss -encoding ASCII"
 pushd build
+echo %REVISION_STRING% > version.txt
 call buildsetup_navx-micro.bat
 popd
 copy .\setup\navx-micro-setup-orig.iss .\setup\navx-micro-setup.iss
