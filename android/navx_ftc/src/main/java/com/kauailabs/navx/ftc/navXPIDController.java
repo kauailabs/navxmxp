@@ -185,7 +185,7 @@ public class navXPIDController implements IDataArrivalSubscriber {
 
     @Override
     public void untimestampedDataReceived(long curr_system_timestamp, Object kind) {
-        if (!timestamped && (kind.getClass() == AHRS.DeviceDataType.class)) {
+        if (enabled && (!timestamped) && (kind.getClass() == AHRS.DeviceDataType.class)) {
             double process_value;
             switch (untimestamped_src) {
                 case RAW_GYRO_X:
@@ -228,7 +228,7 @@ public class navXPIDController implements IDataArrivalSubscriber {
     @Override
     public void timestampedDataReceived(long curr_system_timestamp,
                                         long curr_sensor_timestamp, Object kind) {
-        if (timestamped && (kind.getClass() == AHRS.DeviceDataType.class)) {
+        if (enabled && timestamped && (kind.getClass() == AHRS.DeviceDataType.class)) {
             double process_value;
             switch (timestamped_src) {
                 case YAW:
@@ -422,79 +422,75 @@ public class navXPIDController implements IDataArrivalSubscriber {
 	*/
     public double stepController(double process_variable, int num_missed_samples) {
         double local_result;
-        if (enabled) {
-            double i_adj;
-            double d_adj;
+        double i_adj;
+        double d_adj;
 
-            synchronized (this) {
+        synchronized (this) {
 
-                error_current = setpoint - process_variable;
+            error_current = setpoint - process_variable;
 
-                /* If a continuous controller, if > 1/2 way from the target */
-                /* modify the error to ensure the output doesn't change     */
-                /* direction, but processed onward until error is zero.     */
-                if (continuous) {
-                    double range = max_input - min_input ;
-                    if (Math.abs(error_current) > (range / 2))  {
-                        if (error_current > 0)
-                            error_current -= range;
-                        else
-                            error_current += range;
-                    }
+            /* If a continuous controller, if > 1/2 way from the target */
+            /* modify the error to ensure the output doesn't change     */
+            /* direction, but processed onward until error is zero.     */
+            if (continuous) {
+                double range = max_input - min_input ;
+                if (Math.abs(error_current) > (range / 2))  {
+                    if (error_current > 0)
+                        error_current -= range;
+                    else
+                        error_current += range;
                 }
-
-                /* If samples were missed, reduce the d gain by dividing */
-                /* by the total number of samples since the last update. */
-                /* For more discussion on this topic, see:               */
-                /* http://www.diva-portal.org/smash/get/diva2:570067/FULLTEXT01.pdf */
-                if ( num_missed_samples > 0 ) {
-                    i_adj = i / (1 + num_missed_samples);
-                } else {
-                    i_adj = i;
-                }
-                /* Process integral term.  Perform "anti-windup" processing */
-                /* by preventing the integral term from accumulating when   */
-                /* the output reaches it's minimum or maximum limits.       */
-
-                if (i != 0) {
-                    double estimated_i = (error_total + error_current) * i_adj;
-                    if (estimated_i < max_output) {
-                        if (estimated_i > min_output) {
-                            error_total += error_current;
-                        } else {
-                            error_total = min_output / i_adj;
-                        }
-                    } else {
-                        error_total = max_output / i_adj;
-                    }
-                }
-
-                /* If samples were missed, reduce the d gain by dividing */
-                /* by the total number of samples since the last update. */
-                if ( num_missed_samples > 0 ) {
-                    d_adj = d / (1 + num_missed_samples);
-                } else {
-                    d_adj = d;
-                }
-
-                /* Calculate result w/P, I, D & F terms */
-                result = p     * error_current +
-                        i_adj  * error_total +
-                        d_adj  * (error_current - error_previous) +
-                        ff     * setpoint;
-                error_previous = error_current;
-
-                /* Clamp result to output range */
-                if (result > max_output) {
-                    result = max_output;
-                } else if (result < min_output) {
-                    result = min_output;
-                }
-
-                local_result = result;
             }
-        } else {
-            local_result = 0.0;
+
+            /* If samples were missed, reduce the d gain by dividing */
+            /* by the total number of samples since the last update. */
+            /* For more discussion on this topic, see:               */
+            /* http://www.diva-portal.org/smash/get/diva2:570067/FULLTEXT01.pdf */
+            if ( num_missed_samples > 0 ) {
+                i_adj = i / (1 + num_missed_samples);
+            } else {
+                i_adj = i;
+            }
+            /* Process integral term.  Perform "anti-windup" processing */
+            /* by preventing the integral term from accumulating when   */
+            /* the output reaches it's minimum or maximum limits.       */
+
+            if (i != 0) {
+                double estimated_i = (error_total + error_current) * i_adj;
+                if (estimated_i < max_output) {
+                    if (estimated_i > min_output) {
+                        error_total += error_current;
+                    } else {
+                        error_total = min_output / i_adj;
+                    }
+                } else {
+                    error_total = max_output / i_adj;
+                }
+            }
+
+            /* If samples were missed, reduce the d gain by dividing */
+            /* by the total number of samples since the last update. */
+            if ( num_missed_samples > 0 ) {
+                d_adj = d / (1 + num_missed_samples);
+            } else {
+                d_adj = d;
+            }
+
+            /* Calculate result w/P, I, D & F terms */
+            result = p     * error_current +
+                    i_adj  * error_total +
+                    d_adj  * (error_current - error_previous) +
+                    ff     * setpoint;
+            error_previous = error_current;
+
+            /* Clamp result to output range */
+            if (result > max_output) {
+                result = max_output;
+            } else if (result < min_output) {
+                result = min_output;
+            }
+
+            local_result = result;
         }
         return local_result;
     }
