@@ -985,6 +985,7 @@ public class AHRS {
 
         public void zeroYaw() {
             request_zero_yaw = true;
+            signalThread();
         }
 
         public int getByteCount() {
@@ -1469,7 +1470,12 @@ public class AHRS {
                     synchronization_event.wait(timeout_ms);
                     success = done;
                     if ( !success ) {
-                        Log.i("navx_ftc", "Writer waitForCompletion() timeout");
+                        Log.w("navx_ftc", "Writer waitForCompletion() timeout");
+                        /* Unregister the callback.v*/
+                        if ( enable_logging ) {
+                            Log.i("navx_ftc", "Writer deregisterForPortReadyCallback due to timeout");
+                        }
+                        device.deregisterForPortReadyCallback();
                     }
                 } catch( InterruptedException ex ) {
                     ex.printStackTrace();
@@ -1665,6 +1671,7 @@ public class AHRS {
                         state_tracker.setState(DimState.READY);
                         busy = false;
                         continuous_read = false;
+                        notify = true;
                     }
                 } else {
                     state_tracker.setState(DimState.READY);
@@ -1696,14 +1703,20 @@ public class AHRS {
         }
 
         public byte[] waitForCompletion( long timeout_ms ) {
-            if ( device_data != null ) return device_data;
+            if ( !busy && (device_data == null) ) return device_data;
             byte[] data;
             synchronized(synchronization_event) {
                 try {
                     synchronization_event.wait(timeout_ms);
                     data = device_data;
-                    if ( data == null ) {
-                        Log.i("navx_ftc", "Reader waitForCompletion() timeout");
+                    if ( busy && ( data == null ) ) {
+                        Log.w("navx_ftc", "Reader waitForCompletion() timeout");
+                        /* Unregister the callback. */
+                        if ( enable_logging ) {
+                            Log.i("navx_ftc", "Reader deregisterForPortReadyCallback due to timeout");
+                        }
+                        device.deregisterForPortReadyCallback();
+                        registered = false;
                     }
                 } catch( InterruptedException ex ) {
                     ex.printStackTrace();
