@@ -34,4 +34,4 @@
 //          controller system released in Summer/Fall, 2015.
 // 2.3: Sixth Release Version (12/21/2015)
 //       -  Maintenance release.  Fixed a few communications issues encountered during
-//          integration w/the new, v2 LabView Libray.
+//          integration w/the new, v2 LabView Library.
