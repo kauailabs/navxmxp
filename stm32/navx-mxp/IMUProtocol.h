@@ -420,10 +420,13 @@ protected:
     static void encodeProtocolFloat( float f, char* buff )
     {
         char work_buffer[PROTOCOL_FLOAT_LENGTH + 1];
+        int i;
         int temp1 = abs((int)((f - (int)f) * 100));
         if ( f < 0 ) buff[0] = '-'; else buff[0] = ' ';
         sprintf(work_buffer,"%03d.%02d", abs((int)f), temp1);
-        memcpy(&buff[1], work_buffer, PROTOCOL_FLOAT_LENGTH);
+        for ( i = 0; i < (PROTOCOL_FLOAT_LENGTH-1); i++ ) {
+            buff[1 + i] = work_buffer[i];
+        }
     }
 
     static void encodeProtocolUint16( uint16_t value, char* buff )
