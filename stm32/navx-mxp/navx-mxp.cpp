@@ -84,7 +84,7 @@ uint8_t clip_sample_rate(uint8_t update_rate_hz)
 char update_type[NUM_STREAMING_INTERFACES] = { MSGID_YPR_UPDATE, MSGID_YPR_UPDATE };
 char update_buffer[NUM_STREAMING_INTERFACES][AHRS_PROTOCOL_MAX_MESSAGE_LENGTH * 3];	/* Buffer for outbound serial update messages. */
 char inbound_data[AHRS_PROTOCOL_MAX_MESSAGE_LENGTH];			/* Buffer for inbound serial messages.  */
-char response_buffer[NUM_STREAMING_INTERFACES][AHRS_PROTOCOL_MAX_MESSAGE_LENGTH * 2];  /* Buffer for building serial reponse. */
+char response_buffer[NUM_STREAMING_INTERFACES][AHRS_PROTOCOL_MAX_MESSAGE_LENGTH * 2];  /* Buffer for building serial response. */
 
 struct fusion_settings {
     float motion_detect_thresh_g;
@@ -1211,7 +1211,7 @@ _EXTERN_ATTRIB void nav10_main()
                         NAV6_CALIBRATION_STATE_WAIT : (yaw_offset_calibration_complete ?
                                 NAV6_CALIBRATION_STATE_COMPLETE : NAV6_CALIBRATION_STATE_ACCUMULATE );
                 flags |= get_capability_flags();
-                num_resp_bytes[ifx] = IMUProtocol::encodeStreamResponse(  response_buffer[ifx], update_type[ifx],
+                num_resp_bytes[ifx] += IMUProtocol::encodeStreamResponse(  response_buffer[ifx] + num_resp_bytes[ifx], update_type[ifx],
                         mpuconfig.gyro_fsr, mpuconfig.accel_fsr, mpuconfig.mpu_update_rate, calibrated_yaw_offset,
                         0,
                         0,
@@ -1220,10 +1220,10 @@ _EXTERN_ATTRIB void nav10_main()
                         flags );
             }
             if ( send_mag_cal_response[ifx] ) {
-                num_resp_bytes[ifx] = AHRSProtocol::encodeDataSetResponse(response_buffer[ifx], MAG_CALIBRATION, UNSPECIFIED, DATA_GETSET_SUCCESS);
+                num_resp_bytes[ifx] += AHRSProtocol::encodeDataSetResponse(response_buffer[ifx] + num_resp_bytes[ifx], MAG_CALIBRATION, UNSPECIFIED, DATA_GETSET_SUCCESS);
             }
             if ( send_tuning_var_set_response[ifx] ) {
-                num_resp_bytes[ifx] = AHRSProtocol::encodeDataSetResponse(response_buffer[ifx], TUNING_VARIABLE, tuning_var_id, tuning_var_status);
+                num_resp_bytes[ifx] += AHRSProtocol::encodeDataSetResponse(response_buffer[ifx] + num_resp_bytes[ifx], TUNING_VARIABLE, tuning_var_id, tuning_var_status);
             }
             if ( send_data_retrieval_response[ifx] ) {
                 float value;
@@ -1251,14 +1251,14 @@ _EXTERN_ATTRIB void nav10_main()
                         tuning_var_status = DATA_GETSET_ERROR;
                         break;
                     }
-                    num_resp_bytes[ifx] = AHRSProtocol::encodeTuningVariableCmd(response_buffer[ifx], DATA_GET, retrieved_var_id, value );
+                    num_resp_bytes[ifx] += AHRSProtocol::encodeTuningVariableCmd(response_buffer[ifx] + num_resp_bytes[ifx], DATA_GET, retrieved_var_id, value );
                 } else if ( retrieved_data_type == MAG_CALIBRATION ) {
-                    num_resp_bytes[ifx] = AHRSProtocol::encodeMagCalCommand(response_buffer[ifx], DATA_GET,
+                    num_resp_bytes[ifx] += AHRSProtocol::encodeMagCalCommand(response_buffer[ifx] + num_resp_bytes[ifx], DATA_GET,
                             (int16_t *)&((struct flash_cal_data *)flashdata)->magcaldata.bias,
                             (float *)&((struct flash_cal_data *)flashdata)->magcaldata.xform,
                             ((struct flash_cal_data *)flashdata)->magcaldata.earth_mag_field_norm);
                 } else if ( retrieved_data_type == BOARD_IDENTITY ) {
-                    num_resp_bytes[ifx] = AHRSProtocol::encodeBoardIdentityResponse(response_buffer[ifx],
+                    num_resp_bytes[ifx] += AHRSProtocol::encodeBoardIdentityResponse(response_buffer[ifx] + num_resp_bytes[ifx],
                             registers.identifier,
                             registers.hw_rev,
                             registers.fw_major,
@@ -1268,7 +1268,7 @@ _EXTERN_ATTRIB void nav10_main()
                 }
             }
             if ( send_integration_control_response[ifx] ) {
-                num_resp_bytes[ifx] = AHRSProtocol::encodeIntegrationControlResponse(response_buffer[ifx],
+                num_resp_bytes[ifx] += AHRSProtocol::encodeIntegrationControlResponse(response_buffer[ifx] + num_resp_bytes[ifx],
                         integration_control_action,
                         integration_control_parameter );
             }

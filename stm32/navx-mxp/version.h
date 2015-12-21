@@ -1,5 +1,5 @@
 #define NAVX_MXP_FIRMWARE_VERSION_MAJOR 	2
-#define NAVX_MXP_FIRMWARE_VERSION_MINOR		2
+#define NAVX_MXP_FIRMWARE_VERSION_MINOR		3
 
 #define NAVX_MXP_HARDWARE_VERSION_NUMBER    33 /* Revision 3.3 MXP IO */
 
@@ -32,3 +32,6 @@
 //          Robotics systems to acquire all processed data, sensor status and timestamp
 //          in one single 26-byte I2C bus transaction.
 //          controller system released in Summer/Fall, 2015.
+// 2.3: Sixth Release Version (12/21/2015)
+//       -  Maintenance release.  Fixed a few communications issues encountered during
+//          integration w/the new, v2 LabView Libray.
