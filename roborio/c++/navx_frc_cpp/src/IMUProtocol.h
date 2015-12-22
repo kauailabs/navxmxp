@@ -179,7 +179,7 @@ public:
         // Data
         encodeProtocolFloat( yaw,    &protocol_buffer[YPR_UPDATE_YAW_VALUE_INDEX] );
         encodeProtocolFloat( pitch,  &protocol_buffer[YPR_UPDATE_PITCH_VALUE_INDEX] );
-        encodeProtocolFloat( roll,    &protocol_buffer[YPR_UPDATE_ROLL_VALUE_INDEX] );
+        encodeProtocolFloat( roll,   &protocol_buffer[YPR_UPDATE_ROLL_VALUE_INDEX] );
         encodeProtocolFloat( compass_heading, &protocol_buffer[YPR_UPDATE_COMPASS_VALUE_INDEX] );
 
         // Footer
@@ -419,9 +419,14 @@ protected:
 
     static void encodeProtocolFloat( float f, char* buff )
     {
+        char work_buffer[PROTOCOL_FLOAT_LENGTH + 1];
+        int i;
         int temp1 = abs((int)((f - (int)f) * 100));
         if ( f < 0 ) buff[0] = '-'; else buff[0] = ' ';
-        sprintf(&buff[1],"%03d.%02d", abs((int)f), temp1);
+        sprintf(work_buffer,"%03d.%02d", abs((int)f), temp1);
+        for ( i = 0; i < (PROTOCOL_FLOAT_LENGTH-1); i++ ) {
+            buff[1 + i] = work_buffer[i];
+        }
     }
 
     static void encodeProtocolUint16( uint16_t value, char* buff )
