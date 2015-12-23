@@ -388,7 +388,7 @@ _EXTERN_ATTRIB void nav10_init()
             registers.cal_status |= NAVX_CAL_STATUS_MAG_CAL_COMPLETE;
             mag_cal_complete = true;
         }
-        registers.selftest_status = ((struct flash_cal_data *)flashdata)->selfteststatus;
+        registers.selftest_status = ((struct flash_cal_data *)flashdata)->selfteststatus | NAVX_SELFTEST_STATUS_COMPLETE;
     }
 
     /* If no MPU calibration data exists, detect yaw orientation, and run self tests which */
