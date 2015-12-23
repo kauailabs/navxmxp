@@ -388,7 +388,7 @@ _EXTERN_ATTRIB void nav10_init()
             registers.cal_status |= NAVX_CAL_STATUS_MAG_CAL_COMPLETE;
             mag_cal_complete = true;
         }
-        registers.selftest_status = ((struct flash_cal_data *)flashdata)->selfteststatus;
+        registers.selftest_status = ((struct flash_cal_data *)flashdata)->selfteststatus | NAVX_SELFTEST_STATUS_COMPLETE;
     }
 
     /* If no MPU calibration data exists, detect yaw orientation, and run self tests which */
@@ -413,8 +413,8 @@ _EXTERN_ATTRIB void nav10_init()
                     /* Retrieve default magnetometer calibration data */
                     mpu_get_mag_cal_data(&((struct flash_cal_data *)flashdata)->magcaldata);
                     init_fusion_settings(&((struct flash_cal_data *)flashdata)->fusiondata);
-                    registers.selftest_status = selftest_status | NAVX_SELFTEST_STATUS_COMPLETE;
                     ((struct flash_cal_data *)flashdata)->selfteststatus = selftest_status;
+                    registers.selftest_status = selftest_status | NAVX_SELFTEST_STATUS_COMPLETE;
                     registers.op_status = NAVX_OP_STATUS_IMU_AUTOCAL_IN_PROGRESS;
                     registers.cal_status |= NAVX_CAL_STATUS_IMU_CAL_INPROGRESS;
                     cal_led_cycle = flash_slow;
@@ -432,8 +432,6 @@ _EXTERN_ATTRIB void nav10_init()
                 /* with one of the axes perpendicular to the earth.  Continue retrying...     */
             }
         }
-    } else {
-        ((struct flash_cal_data *)flashdata)->selfteststatus |= NAVX_SELFTEST_STATUS_COMPLETE;
     }
 
     /* Configure device and external communication interrupts */
@@ -673,8 +671,9 @@ _EXTERN_ATTRIB void nav10_main()
             /* Ensure that the CAL LED is lit for one second */
             HAL_CAL_LED_On(1);
             override_current_led_cycle( flash_on );
-            /* clear the "valid calibration" flag, write to flash */
+            /* clear the "valid calibration" flag and self-test results, write to flash */
             ((struct flash_cal_data *)flashdata)->dmpcaldatavalid = false;
+            ((struct flash_cal_data *)flashdata)->selfteststatus = 0;
             FlashStorage.commit();
             schedule_caldata_clear = false;
             caldata_clear_count++;
