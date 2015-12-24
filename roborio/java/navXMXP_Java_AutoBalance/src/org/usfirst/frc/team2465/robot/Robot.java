@@ -22,7 +22,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
  * the Y axis jerk are calculated, and if either exceeds a threshold, 
  * then a collision has occurred.
  * 
- * The “collision threshold” used in these samples will likely need to 
+ * The 'collision threshold' used in these samples will likely need to 
  * be tuned for your robot, since the amount of jerk which constitutes 
  * a collision will be dependent upon the robot mass and expected 
  * maximum velocity of either the robot, or any object which may strike 
@@ -37,9 +37,16 @@ public class Robot extends SampleRobot {
     double last_world_linear_accel_y;
 
     final static double kCollisionThreshold_DeltaG = 0.5f;
-
+    
+    // Channels for the wheels
+    final static int frontLeftChannel	= 2;
+    final static int rearLeftChannel	= 3;
+    final static int frontRightChannel	= 1;
+    final static int rearRightChannel	= 0;
+    
     public Robot() {
-        myRobot = new RobotDrive(0, 1);
+        myRobot = new RobotDrive(frontLeftChannel, rearLeftChannel,
+        		frontRightChannel, rearRightChannel);
         myRobot.setExpiration(0.1);
         stick = new Joystick(0);
         try {

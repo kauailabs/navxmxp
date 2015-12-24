@@ -17,13 +17,13 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
  *
  * The basic principle used within the Motion Detection example 
  * is to subtract the acceleration due to gravity from the raw 
- * acceleration values. The result value is known as “world linear 
- * acceleration”, representing the actual amount of acceleration 
- * due to motion, and is calculated automatically by navX MXP’s 
+ * acceleration values. The result value is known as 'world linear 
+ * acceleration', representing the actual amount of acceleration 
+ * due to motion, and is calculated automatically by the navX MXP 
  * motion processor.  Whenever the sum of the world linear 
- * acceleration in both the X and Y axes exceeds a “motion 
- * threshold”, motion is occurring.  The navX MXP makes it easy, 
- * simply invoke the "isMoving()" function to determine if motion
+ * acceleration in both the X and Y axes exceeds a 'motion 
+ * threshold', motion is occurring.  The navX MXP makes it easy, 
+ * simply invoke the 'isMoving()' function to determine if motion
  * is currently underway.
  */
 
@@ -32,8 +32,15 @@ public class Robot extends SampleRobot {
   RobotDrive myRobot;
   Joystick stick;
 
+  // Channels for the wheels
+  final static int frontLeftChannel	= 2;
+  final static int rearLeftChannel	= 3;
+  final static int frontRightChannel	= 1;
+  final static int rearRightChannel	= 0;
+  
   public Robot() {
-      myRobot = new RobotDrive(0, 1);
+      myRobot = new RobotDrive(frontLeftChannel, rearLeftChannel,
+      		frontRightChannel, rearRightChannel);
       myRobot.setExpiration(0.1);
       stick = new Joystick(0);
       try {
