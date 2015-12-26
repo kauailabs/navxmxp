@@ -17,6 +17,7 @@ import com.kauailabs.navx.IMUProtocol.YPRUpdate;
 
 import edu.wpi.first.wpilibj.I2C;
 import edu.wpi.first.wpilibj.PIDSource;
+import edu.wpi.first.wpilibj.PIDSourceType;
 import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.SensorBase;
 import edu.wpi.first.wpilibj.SerialPort;
@@ -182,6 +183,8 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     BoardCapabilities       board_capabilities;
     IOCompleteNotification  io_complete_sink;
     IOThread                io_thread;
+    
+    private PIDSourceType   m_pidSource = PIDSourceType.kDisplacement;
     
     /***********************************************************/
     /* Public Interface Implementation                         */
@@ -811,13 +814,22 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     /***********************************************************/
     
     /**
-     * Returns the current yaw value reported by the sensor.  This
-     * yaw value is useful for implementing features including "auto rotate 
-     * to a known angle".
-     * @return The current yaw angle in degrees (-180 to 180).
+     * Returns the current value to use for PID, based on the PIDSourceType.
+     * If the PIDSourceType is kDisplacement, this returns the Yaw Angle
+     * in degrees (-180 to 180). See {@link #getYaw()}.
+     * If the PIDSourceType is kRate, this returns the rate of rotation in
+     * degrees per seconds. See {@link #getRate()}.
+     * @return The current yaw angle or rate.
      */
     public double pidGet() {
-        return getYaw();
+        switch (m_pidSource) {
+        case kRate:
+          return getRate();
+        case kDisplacement:
+          return getYaw();
+        default:
+          return 0.0;
+      }
     }
 
     /**
@@ -1331,5 +1343,15 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
 
     public String getSmartDashboardType() {
         return "Gyro";
+    }
+
+    @Override
+    public void setPIDSourceType(PIDSourceType pidSource) {
+        m_pidSource = pidSource;
+    }
+
+    @Override
+    public PIDSourceType getPIDSourceType() {
+        return m_pidSource;
     }
 }
