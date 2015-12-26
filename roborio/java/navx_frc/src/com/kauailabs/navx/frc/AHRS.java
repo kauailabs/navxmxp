@@ -17,6 +17,7 @@ import com.kauailabs.navx.IMUProtocol.YPRUpdate;
 
 import edu.wpi.first.wpilibj.I2C;
 import edu.wpi.first.wpilibj.PIDSource;
+import edu.wpi.first.wpilibj.PIDSourceType;
 import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.SensorBase;
 import edu.wpi.first.wpilibj.SerialPort;
@@ -182,6 +183,8 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     BoardCapabilities       board_capabilities;
     IOCompleteNotification  io_complete_sink;
     IOThread                io_thread;
+    
+    PIDSourceType			pid_source_type = PIDSourceType.kDisplacement;
     
     /***********************************************************/
     /* Public Interface Implementation                         */
@@ -810,6 +813,14 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     /* PIDSource Interface Implementation                      */
     /***********************************************************/
     
+    public PIDSourceType getPIDSourceType() {
+    	return pid_source_type;
+    }
+    
+    public void setPIDSourceType(PIDSourceType type) {
+    	pid_source_type = type;
+    }
+    
     /**
      * Returns the current yaw value reported by the sensor.  This
      * yaw value is useful for implementing features including "auto rotate 
@@ -817,7 +828,11 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
      * @return The current yaw angle in degrees (-180 to 180).
      */
     public double pidGet() {
-        return getYaw();
+    	if ( pid_source_type == PIDSourceType.kRate ) {
+    		return getRate();
+    	} else {
+    		return getYaw();
+    	}
     }
 
     /**

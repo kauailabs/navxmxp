@@ -6,8 +6,9 @@
  */
 
 #include <RegisterIOI2C.h>
+#include "HAL/cpp/priority_mutex.h"
 
-static ReentrantSemaphore cIMUStateSemaphore;
+static priority_mutex imu_mutex;
 RegisterIO_I2C::RegisterIO_I2C(I2C* port) {
     this->port = port;
 }
@@ -17,14 +18,14 @@ bool RegisterIO_I2C::Init() {
 }
 
 bool RegisterIO_I2C::Write(uint8_t address, uint8_t value ) {
-    Synchronized sync(cIMUStateSemaphore);
+	std::unique_lock<priority_mutex> sync(imu_mutex);
     return port->Write(address | 0x80, value);
 }
 
 static int MAX_WPILIB_I2C_READ_BYTES = 7;
 
 bool RegisterIO_I2C::Read(uint8_t first_address, uint8_t* buffer, uint8_t buffer_len) {
-    Synchronized sync(cIMUStateSemaphore);
+	std::unique_lock<priority_mutex> sync(imu_mutex);
     int len = buffer_len;
     int buffer_offset = 0;
     uint8_t read_buffer[MAX_WPILIB_I2C_READ_BYTES];

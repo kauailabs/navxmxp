@@ -828,20 +828,20 @@ float AHRS::GetDisplacementZ() {
 void AHRS::SPIInit( SPI::Port spi_port_id, uint32_t bitrate, uint8_t update_rate_hz ) {
     commonInit( update_rate_hz );
     io = new RegisterIO(new RegisterIO_SPI(new SPI(spi_port_id), bitrate), update_rate_hz, ahrs_internal, ahrs_internal);
-    task->Start((uint32_t)io);
+    task = new Task("navX-MXP_IO", (FUNCPTR)AHRS::ThreadFunc,io);
 }
 
 void AHRS::I2CInit( I2C::Port i2c_port_id, uint8_t update_rate_hz ) {
     commonInit(update_rate_hz);
     io = new RegisterIO(new RegisterIO_I2C(new I2C(i2c_port_id, NAVX_MXP_I2C_ADDRESS)), update_rate_hz, ahrs_internal, ahrs_internal);
-    task->Start((uint32_t)io);
+    task = new Task("navX-MXP_IO", (FUNCPTR)AHRS::ThreadFunc,io);
 }
 
 void AHRS::SerialInit(SerialPort::Port serial_port_id, AHRS::SerialDataType data_type, uint8_t update_rate_hz) {
     commonInit(update_rate_hz);
     bool processed_data = (data_type == SerialDataType::kProcessedData);
     io = new SerialIO(serial_port_id, update_rate_hz, processed_data, ahrs_internal, ahrs_internal);
-    task->Start((uint32_t)io);
+    task = new Task("navX-MXP_IO", (FUNCPTR)AHRS::ThreadFunc,io);
 }
 
 void AHRS::commonInit( uint8_t update_rate_hz ) {
@@ -915,7 +915,6 @@ void AHRS::commonInit( uint8_t update_rate_hz ) {
 
     table = 0;
     io = 0;
-    task = new Task("navX-MXP_IO", (FUNCPTR)AHRS::ThreadFunc,Task::kDefaultPriority+1);
 }
 
 /**
@@ -1180,16 +1179,16 @@ void AHRS::StopLiveWindowMode() {
 
 /* Are the two following functions still needed? */
 
-void AHRS::InitTable(ITable *itable) {
+void AHRS::InitTable(std::shared_ptr<ITable> itable) {
     table = itable;
     UpdateTable();
 }
 
-ITable *AHRS::GetTable() {
+std::shared_ptr<ITable> AHRS::GetTable() const {
     return table;
 }
 
-std::string AHRS::GetSmartDashboardType() {
+std::string AHRS::GetSmartDashboardType() const {
     return "Gyro";
 }
 
