@@ -947,6 +947,7 @@ public class AHRS {
         int last_second_hertz;
         int hertz_counter;
         Object io_thread_event;
+        Object reset_yaw_critical_section;
 
         final int NAVX_REGISTER_FIRST           = IMURegisters.NAVX_REG_WHOAMI;
         final int NAVX_REGISTER_PROC_FIRST      = IMURegisters.NAVX_REG_SENSOR_STATUS_L;
@@ -971,6 +972,7 @@ public class AHRS {
             this.last_second_hertz = 0;
             this.hertz_counter = 0;
             this.io_thread_event = new Object();
+            this.reset_yaw_critical_section = new Object();
 
             android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_MORE_FAVORABLE);
         }
@@ -984,7 +986,18 @@ public class AHRS {
         }
 
         public void zeroYaw() {
-            request_zero_yaw = true;
+            synchronized(reset_yaw_critical_section) {
+                request_zero_yaw = true;
+                /* Notify all data subscribers that the yaw
+                   is about to be reset.
+                 */
+                for ( int i = 0; i < callbacks.length; i++ ) {
+                    IDataArrivalSubscriber callback = callbacks[i];
+                    if (callback != null) {
+                        callback.yawReset();
+                    }
+                }
+            }
             signalThread();
         }
 
@@ -1029,44 +1042,51 @@ public class AHRS {
             boolean restart = false;
             long system_timestamp = SystemClock.elapsedRealtime();
             if ( address == NAVX_REGISTER_PROC_FIRST ) {
-                if (!decodeNavxProcessedData(data,
-                        NAVX_REGISTER_PROC_FIRST, data.length)) {
-                    setConnected(false);
-                } else {
-                    if ( curr_sensor_timestamp != last_valid_sensor_timestamp ) {
-                        addToByteCount(len);
-                        incrementUpdateCount();
-                        for ( int i = 0; i < callbacks.length; i++ ) {
-                            IDataArrivalSubscriber callback = callbacks[i];
-                            if (callback != null) {
-                                callback.timestampedDataReceived(system_timestamp,
-                                        curr_sensor_timestamp,
-                                        DeviceDataType.kProcessedData);
+                synchronized(reset_yaw_critical_section) {
+                    /* If zero-yaw is requested, discard any received data, to
+                       ensure that "stale" yaw data is not delivered.  Once the zero
+                       yaw request completes, data will again be delivered. */
+                    if ( !request_zero_yaw ) {
+                        if (!decodeNavxProcessedData(data,
+                                NAVX_REGISTER_PROC_FIRST, data.length)) {
+                            setConnected(false);
+                        } else {
+                            if (curr_sensor_timestamp != last_valid_sensor_timestamp) {
+                                addToByteCount(len);
+                                incrementUpdateCount();
+                                for (int i = 0; i < callbacks.length; i++) {
+                                    IDataArrivalSubscriber callback = callbacks[i];
+                                    if (callback != null) {
+                                        callback.timestampedDataReceived(system_timestamp,
+                                                curr_sensor_timestamp,
+                                                DeviceDataType.kProcessedData);
+                                    }
+                                }
+                                if (data_type == DeviceDataType.kAll) {
+                                    signalThread();
+                                    first_bank = false;
+                                }
+                            } else {
+                                duplicate_sensor_data_count++;
+                            }
+
+                            if ((curr_sensor_timestamp % 1000) < (last_valid_sensor_timestamp % 1000)) {
+                                /* Second roll over.  Start the Hertz accumulator */
+                                last_second_hertz = hertz_counter;
+                                hertz_counter = 1;
+                            } else {
+                                hertz_counter++;
+                            }
+
+                            last_valid_sensor_timestamp = curr_sensor_timestamp;
+                            if (data_type == DeviceDataType.kProcessedData) {
+                                if (!cancel_all_reads) {
+                                    restart = true;
+                                }
+                            } else if (data_type == DeviceDataType.kAll) {
+                                signalThread();
                             }
                         }
-                        if (data_type == DeviceDataType.kAll) {
-                            signalThread();
-                            first_bank = false;
-                        }
-                    } else {
-                        duplicate_sensor_data_count++;
-                    }
-
-                    if ( ( curr_sensor_timestamp % 1000 ) < ( last_valid_sensor_timestamp % 1000 ) ) {
-                        /* Second roll over.  Start the Hertz accumulator */
-                        last_second_hertz = hertz_counter;
-                        hertz_counter = 1;
-                    } else {
-                        hertz_counter++;
-                    }
-
-                    last_valid_sensor_timestamp = curr_sensor_timestamp;
-                    if (data_type == DeviceDataType.kProcessedData) {
-                        if (!cancel_all_reads) {
-                            restart = true;
-                        }
-                    } else if ( data_type == DeviceDataType.kAll ) {
-                        signalThread();
                     }
                 }
              } else if ( address == this.NAVX_REGISTER_RAW_FIRST ) {
@@ -1092,7 +1112,6 @@ public class AHRS {
                     }
                 }
             }
-
             return restart;
         }
 
@@ -1177,6 +1196,9 @@ public class AHRS {
                                     NAVX_WRITE_COMMAND_BIT | IMURegisters.NAVX_REG_INTEGRATION_CTL,
                                     zero_yaw_command);
                             navxZeroYawWriter.waitForCompletion(I2C_TIMEOUT_MS);
+                            /* After zeroing the yaw, wait one sample time to ensure that */
+                            /* a new yaw value (which has been "zeroed") is ready to read. */
+                            Thread.sleep(1000 / update_rate_hz);
                             request_zero_yaw = false;
                         }
 

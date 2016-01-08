@@ -269,6 +269,29 @@ public class navXPIDController implements IDataArrivalSubscriber {
         }
     }
 
+    /* If the yaw was just reset, this forms a potential discontinuity in the
+       yaw sample stream.  It's possible that if isNewUpdateAvailable() is
+       invoked after the yaw is reset but before the next post yaw-reset sample
+       has been received, that the PID Controller will indicate TRUE.  Thus,
+       when the yaw is reset, set the last sensor timestamp to 0, which
+       effecitively causes isNewUpdateAvailable() to return FALSE until
+       the next (post yaw-reset) sample is received.
+
+       Additionally, the error terms and the output result are also reset,
+       and will be recalculated when the next (post yaw-reset) sample arrives.
+     */
+
+    @Override
+    public void yawReset() {
+        if (timestamped && (timestamped_src == navXTimestampedDataSource.YAW)) {
+            this.last_sensor_timestamp = 0;
+            error_current = 0.0;
+            error_previous = 0.0;
+            error_total = 0.0;
+            result = 0.0;
+        }
+    }
+
 	/**
 	* This navXPIDController constructor is used when the PID Controller is to be 
 	* driven by a navX-Model device input data source which is accompanied by a 

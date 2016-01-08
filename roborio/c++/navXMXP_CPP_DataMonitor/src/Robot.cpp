@@ -25,8 +25,8 @@
  */
 class Robot: public IterativeRobot
 {
-    NetworkTable *table;
-    Joystick stick; // only joystick
+	std::shared_ptr<NetworkTable> table;
+	Joystick stick; // only joystick
     AHRS *ahrs;
     LiveWindow *lw;
     int autoLoopCounter;
@@ -83,7 +83,7 @@ private:
     {
         if ( !ahrs ) return;
 
-        bool reset_yaw_button_pressed = DriverStation::GetInstance()->GetStickButton(0,1);
+        bool reset_yaw_button_pressed = DriverStation::GetInstance().GetStickButton(0,1);
         if ( reset_yaw_button_pressed ) {
             ahrs->ZeroYaw();
         }

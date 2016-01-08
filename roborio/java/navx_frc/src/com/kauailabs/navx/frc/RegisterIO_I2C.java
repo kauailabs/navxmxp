@@ -29,7 +29,7 @@ class RegisterIO_I2C implements IRegisterIO{
         return port.write(address | 0x80, value);
     }
 
-    final static int MAX_WPILIB_I2C_READ_BYTES = 7;
+    final static int MAX_WPILIB_I2C_READ_BYTES = 127;
     
     @Override
     public boolean read(byte first_address, byte[] buffer) {

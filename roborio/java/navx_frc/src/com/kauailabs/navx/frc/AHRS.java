@@ -17,6 +17,7 @@ import com.kauailabs.navx.IMUProtocol.YPRUpdate;
 
 import edu.wpi.first.wpilibj.I2C;
 import edu.wpi.first.wpilibj.PIDSource;
+import edu.wpi.first.wpilibj.PIDSourceType;
 import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.SensorBase;
 import edu.wpi.first.wpilibj.SerialPort;
@@ -182,6 +183,8 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     BoardCapabilities       board_capabilities;
     IOCompleteNotification  io_complete_sink;
     IOThread                io_thread;
+    
+    PIDSourceType			pid_source_type = PIDSourceType.kDisplacement;
     
     /***********************************************************/
     /* Public Interface Implementation                         */
@@ -761,7 +764,7 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
      * @return Displacement since last reset (in meters).
      */
     public float getDisplacementX() {
-        return (board_capabilities.isDisplacementSupported() ? displacement[0] : integrator.getVelocityX());
+        return (board_capabilities.isDisplacementSupported() ? displacement[0] : integrator.getDisplacementX());
     }
     
     /**
@@ -775,7 +778,7 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
      * @return Displacement since last reset (in meters).
      */
     public float getDisplacementY() {
-        return (board_capabilities.isDisplacementSupported() ? displacement[1] : integrator.getVelocityY());
+        return (board_capabilities.isDisplacementSupported() ? displacement[1] : integrator.getDisplacementY());
     }
     
     /**
@@ -810,6 +813,14 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     /* PIDSource Interface Implementation                      */
     /***********************************************************/
     
+    public PIDSourceType getPIDSourceType() {
+    	return pid_source_type;
+    }
+    
+    public void setPIDSourceType(PIDSourceType type) {
+    	pid_source_type = type;
+    }
+    
     /**
      * Returns the current yaw value reported by the sensor.  This
      * yaw value is useful for implementing features including "auto rotate 
@@ -817,7 +828,11 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
      * @return The current yaw angle in degrees (-180 to 180).
      */
     public double pidGet() {
-        return getYaw();
+    	if ( pid_source_type == PIDSourceType.kRate ) {
+    		return getRate();
+    	} else {
+    		return getYaw();
+    	}
     }
 
     /**
@@ -1118,189 +1133,177 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
         
         @Override
         public void setYawPitchRoll(YPRUpdate ypr_update) {
-            synchronized (this) { // synchronized block
-                AHRS.this.yaw = ypr_update.yaw;
-                AHRS.this.pitch = ypr_update.pitch;
-                AHRS.this.roll = ypr_update.roll;
-                AHRS.this.compass_heading = ypr_update.compass_heading;
-            }
+            AHRS.this.yaw = ypr_update.yaw;
+            AHRS.this.pitch = ypr_update.pitch;
+            AHRS.this.roll = ypr_update.roll;
+            AHRS.this.compass_heading = ypr_update.compass_heading;
         }
     
         @Override
         public void setAHRSPosData(AHRSPosUpdate ahrs_update) {
-            synchronized (this) { // synchronized block
     
-                /* Update base IMU class variables */
-                
-                AHRS.this.yaw                    = ahrs_update.yaw;
-                AHRS.this.pitch                  = ahrs_update.pitch;
-                AHRS.this.roll                   = ahrs_update.roll;
-                AHRS.this.compass_heading        = ahrs_update.compass_heading;
-                yaw_offset_tracker.updateHistory(ahrs_update.yaw);
-    
-                /* Update AHRS class variables */
-                
-                // 9-axis data
-                AHRS.this.fused_heading          = ahrs_update.fused_heading;
-    
-                // Gravity-corrected linear acceleration (world-frame)
-                AHRS.this.world_linear_accel_x   = ahrs_update.linear_accel_x;
-                AHRS.this.world_linear_accel_y   = ahrs_update.linear_accel_y;
-                AHRS.this.world_linear_accel_z   = ahrs_update.linear_accel_z;
-                
-                // Gyro/Accelerometer Die Temperature
-                AHRS.this.mpu_temp_c             = ahrs_update.mpu_temp;
-                
-                // Barometric Pressure/Altitude
-                AHRS.this.altitude               = ahrs_update.altitude;
-                AHRS.this.baro_pressure          = ahrs_update.barometric_pressure;
-                
-                // Status/Motion Detection
-                AHRS.this.is_moving              = 
-                        (((ahrs_update.sensor_status & 
-                                AHRSProtocol.NAVX_SENSOR_STATUS_MOVING) != 0) 
-                                ? true : false);
-                AHRS.this.is_rotating                = 
-                        (((ahrs_update.sensor_status & 
-                                AHRSProtocol.NAVX_SENSOR_STATUS_YAW_STABLE) != 0) 
-                                ? false : true);
-                AHRS.this.altitude_valid             = 
-                        (((ahrs_update.sensor_status & 
-                                AHRSProtocol.NAVX_SENSOR_STATUS_ALTITUDE_VALID) != 0) 
-                                ? true : false);
-                AHRS.this.is_magnetometer_calibrated =
-                        (((ahrs_update.cal_status & 
-                                AHRSProtocol.NAVX_CAL_STATUS_MAG_CAL_COMPLETE) != 0) 
-                                ? true : false);
-                AHRS.this.magnetic_disturbance       =
-                        (((ahrs_update.sensor_status & 
-                                AHRSProtocol.NAVX_SENSOR_STATUS_MAG_DISTURBANCE) != 0) 
-                                ? true : false);                        
-    
-                AHRS.this.quaternionW                = ahrs_update.quat_w;
-                AHRS.this.quaternionX                = ahrs_update.quat_x;
-                AHRS.this.quaternionY                = ahrs_update.quat_y;
-                AHRS.this.quaternionZ                = ahrs_update.quat_z;
-                
-                velocity[0]     = ahrs_update.vel_x;
-                velocity[1]     = ahrs_update.vel_y;
-                velocity[2]     = ahrs_update.vel_z;
-                displacement[0] = ahrs_update.disp_x;
-                displacement[1] = ahrs_update.disp_y;
-                displacement[2] = ahrs_update.disp_z;
-                
-                yaw_angle_tracker.nextAngle(getYaw());
-            }
+            /* Update base IMU class variables */
+            
+            AHRS.this.yaw                    = ahrs_update.yaw;
+            AHRS.this.pitch                  = ahrs_update.pitch;
+            AHRS.this.roll                   = ahrs_update.roll;
+            AHRS.this.compass_heading        = ahrs_update.compass_heading;
+            yaw_offset_tracker.updateHistory(ahrs_update.yaw);
+
+            /* Update AHRS class variables */
+            
+            // 9-axis data
+            AHRS.this.fused_heading          = ahrs_update.fused_heading;
+
+            // Gravity-corrected linear acceleration (world-frame)
+            AHRS.this.world_linear_accel_x   = ahrs_update.linear_accel_x;
+            AHRS.this.world_linear_accel_y   = ahrs_update.linear_accel_y;
+            AHRS.this.world_linear_accel_z   = ahrs_update.linear_accel_z;
+            
+            // Gyro/Accelerometer Die Temperature
+            AHRS.this.mpu_temp_c             = ahrs_update.mpu_temp;
+            
+            // Barometric Pressure/Altitude
+            AHRS.this.altitude               = ahrs_update.altitude;
+            AHRS.this.baro_pressure          = ahrs_update.barometric_pressure;
+            
+            // Status/Motion Detection
+            AHRS.this.is_moving              = 
+                    (((ahrs_update.sensor_status & 
+                            AHRSProtocol.NAVX_SENSOR_STATUS_MOVING) != 0) 
+                            ? true : false);
+            AHRS.this.is_rotating                = 
+                    (((ahrs_update.sensor_status & 
+                            AHRSProtocol.NAVX_SENSOR_STATUS_YAW_STABLE) != 0) 
+                            ? false : true);
+            AHRS.this.altitude_valid             = 
+                    (((ahrs_update.sensor_status & 
+                            AHRSProtocol.NAVX_SENSOR_STATUS_ALTITUDE_VALID) != 0) 
+                            ? true : false);
+            AHRS.this.is_magnetometer_calibrated =
+                    (((ahrs_update.cal_status & 
+                            AHRSProtocol.NAVX_CAL_STATUS_MAG_CAL_COMPLETE) != 0) 
+                            ? true : false);
+            AHRS.this.magnetic_disturbance       =
+                    (((ahrs_update.sensor_status & 
+                            AHRSProtocol.NAVX_SENSOR_STATUS_MAG_DISTURBANCE) != 0) 
+                            ? true : false);                        
+
+            AHRS.this.quaternionW                = ahrs_update.quat_w;
+            AHRS.this.quaternionX                = ahrs_update.quat_x;
+            AHRS.this.quaternionY                = ahrs_update.quat_y;
+            AHRS.this.quaternionZ                = ahrs_update.quat_z;
+            
+            velocity[0]     = ahrs_update.vel_x;
+            velocity[1]     = ahrs_update.vel_y;
+            velocity[2]     = ahrs_update.vel_z;
+            displacement[0] = ahrs_update.disp_x;
+            displacement[1] = ahrs_update.disp_y;
+            displacement[2] = ahrs_update.disp_z;
+            
+            yaw_angle_tracker.nextAngle(getYaw());
         }
             
         @Override
         public void setRawData(AHRSProtocol.GyroUpdate raw_data_update) {
-            synchronized (this) { // synchronized block
-                AHRS.this.raw_gyro_x     = raw_data_update.gyro_x;
-                AHRS.this.raw_gyro_y     = raw_data_update.gyro_y;
-                AHRS.this.raw_gyro_z     = raw_data_update.gyro_z;
-                AHRS.this.raw_accel_x    = raw_data_update.accel_x;
-                AHRS.this.raw_accel_y    = raw_data_update.accel_y;
-                AHRS.this.raw_accel_z    = raw_data_update.accel_z;
-                AHRS.this.cal_mag_x      = raw_data_update.mag_x;
-                AHRS.this.cal_mag_y      = raw_data_update.mag_y;
-                AHRS.this.cal_mag_z      = raw_data_update.mag_z;
-                AHRS.this.mpu_temp_c     = raw_data_update.temp_c;
-            }
+            AHRS.this.raw_gyro_x     = raw_data_update.gyro_x;
+            AHRS.this.raw_gyro_y     = raw_data_update.gyro_y;
+            AHRS.this.raw_gyro_z     = raw_data_update.gyro_z;
+            AHRS.this.raw_accel_x    = raw_data_update.accel_x;
+            AHRS.this.raw_accel_y    = raw_data_update.accel_y;
+            AHRS.this.raw_accel_z    = raw_data_update.accel_z;
+            AHRS.this.cal_mag_x      = raw_data_update.mag_x;
+            AHRS.this.cal_mag_y      = raw_data_update.mag_y;
+            AHRS.this.cal_mag_z      = raw_data_update.mag_z;
+            AHRS.this.mpu_temp_c     = raw_data_update.temp_c;
         }
         
         @Override
         public void setAHRSData(AHRSProtocol.AHRSUpdate ahrs_update) {
-            synchronized (this) { // synchronized block
     
-                /* Update base IMU class variables */
-                
-                AHRS.this.yaw                    = ahrs_update.yaw;
-                AHRS.this.pitch                  = ahrs_update.pitch;
-                AHRS.this.roll                   = ahrs_update.roll;
-                AHRS.this.compass_heading        = ahrs_update.compass_heading;
-                yaw_offset_tracker.updateHistory(ahrs_update.yaw);
-    
-                /* Update AHRS class variables */
-                
-                // 9-axis data
-                AHRS.this.fused_heading          = ahrs_update.fused_heading;
-    
-                // Gravity-corrected linear acceleration (world-frame)
-                AHRS.this.world_linear_accel_x   = ahrs_update.linear_accel_x;
-                AHRS.this.world_linear_accel_y   = ahrs_update.linear_accel_y;
-                AHRS.this.world_linear_accel_z   = ahrs_update.linear_accel_z;
-                
-                // Gyro/Accelerometer Die Temperature
-                AHRS.this.mpu_temp_c             = ahrs_update.mpu_temp;
-                
-                // Barometric Pressure/Altitude
-                AHRS.this.altitude               = ahrs_update.altitude;
-                AHRS.this.baro_pressure          = ahrs_update.barometric_pressure;
-                
-                // Magnetometer Data
-                AHRS.this.cal_mag_x              = ahrs_update.cal_mag_x;
-                AHRS.this.cal_mag_y              = ahrs_update.cal_mag_y;
-                AHRS.this.cal_mag_z              = ahrs_update.cal_mag_z;
-                
-                // Status/Motion Detection
-                AHRS.this.is_moving              = 
-                        (((ahrs_update.sensor_status & 
-                                AHRSProtocol.NAVX_SENSOR_STATUS_MOVING) != 0) 
-                                ? true : false);
-                AHRS.this.is_rotating                = 
-                        (((ahrs_update.sensor_status & 
-                                AHRSProtocol.NAVX_SENSOR_STATUS_YAW_STABLE) != 0) 
-                                ? false : true);
-                AHRS.this.altitude_valid             = 
-                        (((ahrs_update.sensor_status & 
-                                AHRSProtocol.NAVX_SENSOR_STATUS_ALTITUDE_VALID) != 0) 
-                                ? true : false);
-                AHRS.this.is_magnetometer_calibrated =
-                        (((ahrs_update.cal_status & 
-                                AHRSProtocol.NAVX_CAL_STATUS_MAG_CAL_COMPLETE) != 0) 
-                                ? true : false);
-                AHRS.this.magnetic_disturbance       =
-                        (((ahrs_update.sensor_status & 
-                                AHRSProtocol.NAVX_SENSOR_STATUS_MAG_DISTURBANCE) != 0) 
-                                ? true : false);                        
-    
-                AHRS.this.quaternionW                = ahrs_update.quat_w;
-                AHRS.this.quaternionX                = ahrs_update.quat_x;
-                AHRS.this.quaternionY                = ahrs_update.quat_y;
-                AHRS.this.quaternionZ                = ahrs_update.quat_z;
-                
-                updateDisplacement( AHRS.this.world_linear_accel_x, 
-                        AHRS.this.world_linear_accel_y, 
-                        update_rate_hz,
-                        AHRS.this.is_moving);
-                
-                yaw_angle_tracker.nextAngle(getYaw());
-            }
+            /* Update base IMU class variables */
+            
+            AHRS.this.yaw                    = ahrs_update.yaw;
+            AHRS.this.pitch                  = ahrs_update.pitch;
+            AHRS.this.roll                   = ahrs_update.roll;
+            AHRS.this.compass_heading        = ahrs_update.compass_heading;
+            yaw_offset_tracker.updateHistory(ahrs_update.yaw);
+
+            /* Update AHRS class variables */
+            
+            // 9-axis data
+            AHRS.this.fused_heading          = ahrs_update.fused_heading;
+
+            // Gravity-corrected linear acceleration (world-frame)
+            AHRS.this.world_linear_accel_x   = ahrs_update.linear_accel_x;
+            AHRS.this.world_linear_accel_y   = ahrs_update.linear_accel_y;
+            AHRS.this.world_linear_accel_z   = ahrs_update.linear_accel_z;
+            
+            // Gyro/Accelerometer Die Temperature
+            AHRS.this.mpu_temp_c             = ahrs_update.mpu_temp;
+            
+            // Barometric Pressure/Altitude
+            AHRS.this.altitude               = ahrs_update.altitude;
+            AHRS.this.baro_pressure          = ahrs_update.barometric_pressure;
+            
+            // Magnetometer Data
+            AHRS.this.cal_mag_x              = ahrs_update.cal_mag_x;
+            AHRS.this.cal_mag_y              = ahrs_update.cal_mag_y;
+            AHRS.this.cal_mag_z              = ahrs_update.cal_mag_z;
+            
+            // Status/Motion Detection
+            AHRS.this.is_moving              = 
+                    (((ahrs_update.sensor_status & 
+                            AHRSProtocol.NAVX_SENSOR_STATUS_MOVING) != 0) 
+                            ? true : false);
+            AHRS.this.is_rotating                = 
+                    (((ahrs_update.sensor_status & 
+                            AHRSProtocol.NAVX_SENSOR_STATUS_YAW_STABLE) != 0) 
+                            ? false : true);
+            AHRS.this.altitude_valid             = 
+                    (((ahrs_update.sensor_status & 
+                            AHRSProtocol.NAVX_SENSOR_STATUS_ALTITUDE_VALID) != 0) 
+                            ? true : false);
+            AHRS.this.is_magnetometer_calibrated =
+                    (((ahrs_update.cal_status & 
+                            AHRSProtocol.NAVX_CAL_STATUS_MAG_CAL_COMPLETE) != 0) 
+                            ? true : false);
+            AHRS.this.magnetic_disturbance       =
+                    (((ahrs_update.sensor_status & 
+                            AHRSProtocol.NAVX_SENSOR_STATUS_MAG_DISTURBANCE) != 0) 
+                            ? true : false);                        
+
+            AHRS.this.quaternionW                = ahrs_update.quat_w;
+            AHRS.this.quaternionX                = ahrs_update.quat_x;
+            AHRS.this.quaternionY                = ahrs_update.quat_y;
+            AHRS.this.quaternionZ                = ahrs_update.quat_z;
+            
+            updateDisplacement( AHRS.this.world_linear_accel_x, 
+                    AHRS.this.world_linear_accel_y, 
+                    update_rate_hz,
+                    AHRS.this.is_moving);
+            
+            yaw_angle_tracker.nextAngle(getYaw());
         }
     
         @Override
         public void setBoardID(BoardID board_id) {
-            synchronized (this) { // synchronized block
-                board_type = board_id.type;
-                hw_rev = board_id.hw_rev;
-                fw_ver_major = board_id.fw_ver_major;
-                fw_ver_minor = board_id.fw_ver_minor;
-            }
+            board_type = board_id.type;
+            hw_rev = board_id.hw_rev;
+            fw_ver_major = board_id.fw_ver_major;
+            fw_ver_minor = board_id.fw_ver_minor;
         }
     
         @Override
         public void setBoardState(BoardState board_state) {
-            synchronized (this) { // synchronized block
-                update_rate_hz = board_state.update_rate_hz;
-                accel_fsr_g = board_state.accel_fsr_g;
-                gyro_fsr_dps = board_state.gyro_fsr_dps;
-                capability_flags = board_state.capability_flags;    
-                op_status = board_state.op_status;
-                sensor_status = board_state.sensor_status;
-                cal_status = board_state.cal_status;
-                selftest_status = board_state.selftest_status;
-            }
+            update_rate_hz = board_state.update_rate_hz;
+            accel_fsr_g = board_state.accel_fsr_g;
+            gyro_fsr_dps = board_state.gyro_fsr_dps;
+            capability_flags = board_state.capability_flags;    
+            op_status = board_state.op_status;
+            sensor_status = board_state.sensor_status;
+            cal_status = board_state.cal_status;
+            selftest_status = board_state.selftest_status;
         }
     };
     

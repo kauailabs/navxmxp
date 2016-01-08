@@ -75,6 +75,8 @@ public class navXRotateToAnglePIDLinearOp extends LinearOpMode {
     private final double YAW_PID_I = 0.0;
     private final double YAW_PID_D = 0.0;
 
+    private boolean calibration_complete = false;
+
     @Override
     public void runOpMode() throws InterruptedException {
         leftMotor = hardwareMap.dcMotor.get("left_drive");
@@ -104,6 +106,19 @@ public class navXRotateToAnglePIDLinearOp extends LinearOpMode {
         yawPIDController.setPID(YAW_PID_P, YAW_PID_I, YAW_PID_D);
 
         waitForStart();
+
+        while ( !calibration_complete ) {
+            /* navX-Micro Calibration completes automatically ~15 seconds after it is
+            powered on, as long as the device is still.  To handle the case where the
+            navX-Micro has not been able to calibrate successfully, hold off using
+            the navX-Micro Yaw value until calibration is complete.
+             */
+            calibration_complete = !navx_device.isCalibrating();
+            if (!calibration_complete) {
+                telemetry.addData("navX-Micro", "Startup Calibration in Progress");
+            }
+        }
+        navx_device.zeroYaw();
 
         try {
             yawPIDController.enable(true);
@@ -144,6 +159,7 @@ public class navXRotateToAnglePIDLinearOp extends LinearOpMode {
         }
         finally {
             navx_device.close();
+            telemetry.addData("LinearOp", "Complete");
         }
     }
 }
