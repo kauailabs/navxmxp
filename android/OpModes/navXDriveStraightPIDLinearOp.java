@@ -78,6 +78,8 @@ public class navXDriveStraightPIDLinearOp extends LinearOpMode {
     private final double YAW_PID_I = 0.0;
     private final double YAW_PID_D = 0.0;
 
+    private boolean calibration_complete = false;
+
     public double limit(double a) {
         return Math.min(Math.max(a, MIN_MOTOR_OUTPUT_VALUE), MAX_MOTOR_OUTPUT_VALUE);
     }
@@ -113,9 +115,17 @@ public class navXDriveStraightPIDLinearOp extends LinearOpMode {
 
         waitForStart();
 
-        /* reset the navX-Model device yaw angle so that whatever direction */
-        /* it is currently pointing will be zero degrees.                   */
-
+        while ( !calibration_complete ) {
+            /* navX-Micro Calibration completes automatically ~15 seconds after it is
+            powered on, as long as the device is still.  To handle the case where the
+            navX-Micro has not been able to calibrate successfully, hold off using
+            the navX-Micro Yaw value until calibration is complete.
+             */
+            calibration_complete = !navx_device.isCalibrating();
+            if (!calibration_complete) {
+                telemetry.addData("navX-Micro", "Startup Calibration in Progress");
+            }
+        }
         navx_device.zeroYaw();
 
         /* Wait for new Yaw PID output values, then update the motors
@@ -159,6 +169,7 @@ public class navXDriveStraightPIDLinearOp extends LinearOpMode {
         }
         finally {
             navx_device.close();
+            telemetry.addData("LinearOp", "Complete");
         }
     }
 }

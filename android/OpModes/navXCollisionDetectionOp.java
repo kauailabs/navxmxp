@@ -196,4 +196,8 @@ public class navXCollisionDetectionOp extends OpMode implements IDataArrivalSubs
     public void untimestampedDataReceived(long l, Object o) {
 
     }
+
+    @Override
+    public void yawReset() {
+    }
 }

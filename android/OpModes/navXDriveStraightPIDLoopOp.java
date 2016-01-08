@@ -78,6 +78,8 @@ public class navXDriveStraightPIDLoopOp extends OpMode {
     private final double YAW_PID_I = 0.0;
     private final double YAW_PID_D = 0.0;
 
+    private boolean calibration_complete = false;
+
     navXPIDController.PIDResult yawPIDResult;
     DecimalFormat df;
 
@@ -127,32 +129,46 @@ public class navXDriveStraightPIDLoopOp extends OpMode {
 
     @Override
     public void loop() {
-        /* Wait for new Yaw PID output values, then update the motors
-           with the new PID value with each new output value.
-         */
-
-        /* Drive straight forward at 1/2 of full drive speed */
-        double drive_speed = 0.5;
-
-        if ( yawPIDController.isNewUpdateAvailable(yawPIDResult) ) {
-            if ( yawPIDResult.isOnTarget() ) {
-                leftMotor.setPower(drive_speed);
-                rightMotor.setPower(drive_speed);
-                telemetry.addData("Motor Output",df.format(drive_speed) + ", " +
-                                                df.format(drive_speed));
+        if ( !calibration_complete ) {
+            /* navX-Micro Calibration completes automatically ~15 seconds after it is
+            powered on, as long as the device is still.  To handle the case where the
+            navX-Micro has not been able to calibrate successfully, hold off using
+            the navX-Micro Yaw value until calibration is complete.
+             */
+            calibration_complete = !navx_device.isCalibrating();
+            if ( calibration_complete ) {
+                navx_device.zeroYaw();
             } else {
-                double output = yawPIDResult.getOutput();
-                leftMotor.setPower(limit(drive_speed + output));
-                rightMotor.setPower(limit(drive_speed - output));
-                telemetry.addData("Motor Output", df.format(limit(drive_speed + output)) + ", " +
-                        df.format(limit(drive_speed - output)));
+                telemetry.addData("navX-Micro", "Startup Calibration in Progress");
             }
         } else {
-            /* No sensor update has been received since the last time  */
-            /* the loop() function was invoked.  Therefore, there's no */
-            /* need to update the motors at this time.                 */
+            /* Wait for new Yaw PID output values, then update the motors
+               with the new PID value with each new output value.
+             */
+
+            /* Drive straight forward at 1/2 of full drive speed */
+            double drive_speed = 0.5;
+
+            if (yawPIDController.isNewUpdateAvailable(yawPIDResult)) {
+                if (yawPIDResult.isOnTarget()) {
+                    leftMotor.setPower(drive_speed);
+                    rightMotor.setPower(drive_speed);
+                    telemetry.addData("Motor Output", df.format(drive_speed) + ", " +
+                            df.format(drive_speed));
+                } else {
+                    double output = yawPIDResult.getOutput();
+                    leftMotor.setPower(limit(drive_speed + output));
+                    rightMotor.setPower(limit(drive_speed - output));
+                    telemetry.addData("Motor Output", df.format(limit(drive_speed + output)) + ", " +
+                            df.format(limit(drive_speed - output)));
+                }
+            } else {
+                /* No sensor update has been received since the last time  */
+                /* the loop() function was invoked.  Therefore, there's no */
+                /* need to update the motors at this time.                 */
+            }
+            telemetry.addData("Yaw", df.format(navx_device.getYaw()));
         }
-        telemetry.addData("Yaw", df.format(navx_device.getYaw()));
     }
 
     @Override
