@@ -514,6 +514,9 @@ void draw() {
         text("Connected",width-100,30);
       } else {
         text("Disconnected",(width/2)-100,((height-tray_height_px)/2)-100);
+        g_boardtype = "<Unknown>";
+        gyroFSRDPS = 0;
+        accelFSRG = 0;        
       }
       disconnected = true;
       if ( millis() - last_port_open_attempt_timestamp > timeout_ms ) {
