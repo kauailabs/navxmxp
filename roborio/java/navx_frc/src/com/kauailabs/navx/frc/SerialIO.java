@@ -118,15 +118,16 @@ class SerialIO implements IIOProvider {
     protected int decodePacketHandler(byte[] received_data, int offset, int bytes_remaining) {
 
         int packet_length;
+        int sensor_timestamp = 0; /* Note:  Serial Protocols don't provide sensor timestamps */
         
         if ( (packet_length = IMUProtocol.decodeYPRUpdate(received_data, offset, bytes_remaining, ypr_update_data)) > 0) {
-            notify_sink.setYawPitchRoll(ypr_update_data);
+            notify_sink.setYawPitchRoll(ypr_update_data, sensor_timestamp);
         } else if ( ( packet_length = AHRSProtocol.decodeAHRSPosUpdate(received_data, offset, bytes_remaining, ahrspos_update_data)) > 0) {
-            notify_sink.setAHRSPosData(ahrspos_update_data);
+            notify_sink.setAHRSPosData(ahrspos_update_data, sensor_timestamp);
         } else if ( ( packet_length = AHRSProtocol.decodeAHRSUpdate(received_data, offset, bytes_remaining, ahrs_update_data)) > 0) {
-            notify_sink.setAHRSData(ahrs_update_data);
+            notify_sink.setAHRSData(ahrs_update_data, sensor_timestamp);
         } else if ( ( packet_length = IMUProtocol.decodeGyroUpdate(received_data, offset, bytes_remaining, gyro_update_data)) > 0) {
-            notify_sink.setRawData(gyro_update_data);
+            notify_sink.setRawData(gyro_update_data, sensor_timestamp);
         } else if ( ( packet_length = AHRSProtocol.decodeBoardIDGetResponse(received_data, offset, bytes_remaining, board_id)) > 0) {
             notify_sink.setBoardID(board_id);
         } else {

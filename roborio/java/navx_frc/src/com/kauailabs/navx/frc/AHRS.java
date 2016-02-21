@@ -451,6 +451,19 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     }
     
     /**
+     * Returns the sensor timestamp corresponding to the
+     * last sample retrieved from the sensor.  Note that this
+     * sensor timestamp is only provided when the Register-based
+     * IO methods (SPI, I2C) are used; sensor timestamps are not
+     * provided when Serial-based IO methods (TTL UART, USB)
+     * are used.
+     * @return The sensor timestamp corresponding to the current AHRS sensor data.
+     */
+    public long getLastSensorTimestamp() {
+    	return this.last_sensor_timestamp;
+    }
+    
+    /**
      * Returns the current linear acceleration in the X-axis (in G).
      *<p>
      * World linear acceleration refers to raw acceleration data, which
@@ -1132,15 +1145,16 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     class IOCompleteNotification implements IIOCompleteNotification {
         
         @Override
-        public void setYawPitchRoll(YPRUpdate ypr_update) {
+        public void setYawPitchRoll(YPRUpdate ypr_update, long sensor_timestamp) {
             AHRS.this.yaw = ypr_update.yaw;
             AHRS.this.pitch = ypr_update.pitch;
             AHRS.this.roll = ypr_update.roll;
             AHRS.this.compass_heading = ypr_update.compass_heading;
+            AHRS.this.last_sensor_timestamp = sensor_timestamp;
         }
     
         @Override
-        public void setAHRSPosData(AHRSPosUpdate ahrs_update) {
+        public void setAHRSPosData(AHRSPosUpdate ahrs_update, long sensor_timestamp) {
     
             /* Update base IMU class variables */
             
@@ -1194,6 +1208,8 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
             AHRS.this.quaternionY                = ahrs_update.quat_y;
             AHRS.this.quaternionZ                = ahrs_update.quat_z;
             
+            AHRS.this.last_sensor_timestamp      = sensor_timestamp;
+            
             velocity[0]     = ahrs_update.vel_x;
             velocity[1]     = ahrs_update.vel_y;
             velocity[2]     = ahrs_update.vel_z;
@@ -1205,7 +1221,7 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
         }
             
         @Override
-        public void setRawData(AHRSProtocol.GyroUpdate raw_data_update) {
+        public void setRawData(AHRSProtocol.GyroUpdate raw_data_update, long sensor_timestamp) {
             AHRS.this.raw_gyro_x     = raw_data_update.gyro_x;
             AHRS.this.raw_gyro_y     = raw_data_update.gyro_y;
             AHRS.this.raw_gyro_z     = raw_data_update.gyro_z;
@@ -1216,10 +1232,12 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
             AHRS.this.cal_mag_y      = raw_data_update.mag_y;
             AHRS.this.cal_mag_z      = raw_data_update.mag_z;
             AHRS.this.mpu_temp_c     = raw_data_update.temp_c;
+            
+            AHRS.this.last_sensor_timestamp      = sensor_timestamp;            
         }
         
         @Override
-        public void setAHRSData(AHRSProtocol.AHRSUpdate ahrs_update) {
+        public void setAHRSData(AHRSProtocol.AHRSUpdate ahrs_update, long sensor_timestamp) {
     
             /* Update base IMU class variables */
             
@@ -1277,6 +1295,8 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
             AHRS.this.quaternionX                = ahrs_update.quat_x;
             AHRS.this.quaternionY                = ahrs_update.quat_y;
             AHRS.this.quaternionZ                = ahrs_update.quat_z;
+            
+            AHRS.this.last_sensor_timestamp      = sensor_timestamp;           
             
             updateDisplacement( AHRS.this.world_linear_accel_x, 
                     AHRS.this.world_linear_accel_y, 

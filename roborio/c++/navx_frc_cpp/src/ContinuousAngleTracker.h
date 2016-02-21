@@ -12,6 +12,7 @@ class ContinuousAngleTracker {
     float last_angle;
     double last_rate;
     int zero_crossing_count;
+    bool first_sample;
 public:
     ContinuousAngleTracker();
     void NextAngle( float newAngle );

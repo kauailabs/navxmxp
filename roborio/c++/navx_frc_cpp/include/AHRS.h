@@ -137,6 +137,7 @@ public:
     bool   IsConnected();
     double GetByteCount();
     double GetUpdateCount();
+    long   GetLastSensorTimestamp();
     float  GetWorldLinearAccelX();
     float  GetWorldLinearAccelY();
     float  GetWorldLinearAccelZ();

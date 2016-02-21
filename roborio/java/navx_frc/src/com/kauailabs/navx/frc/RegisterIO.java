@@ -141,7 +141,7 @@ class RegisterIO implements IIOProvider {
                 ahrspos_update.disp_x      = AHRSProtocol.decodeProtocol1616Float(curr_data, IMURegisters.NAVX_REG_DISP_X_I_L-first_address);
                 ahrspos_update.disp_y      = AHRSProtocol.decodeProtocol1616Float(curr_data, IMURegisters.NAVX_REG_DISP_Y_I_L-first_address);
                 ahrspos_update.disp_z      = AHRSProtocol.decodeProtocol1616Float(curr_data, IMURegisters.NAVX_REG_DISP_Z_I_L-first_address);            
-                notify_sink.setAHRSPosData(ahrspos_update);  
+                notify_sink.setAHRSPosData(ahrspos_update, sensor_timestamp);  
             } else {
                 ahrs_update.op_status           = ahrspos_update.op_status;
                 ahrs_update.selftest_status     = ahrspos_update.selftest_status;
@@ -158,7 +158,7 @@ class RegisterIO implements IIOProvider {
                 ahrs_update.altitude            = ahrspos_update.altitude;
                 ahrs_update.barometric_pressure = ahrspos_update.barometric_pressure;
                 ahrs_update.fused_heading       = ahrspos_update.fused_heading;
-                notify_sink.setAHRSData( ahrs_update );
+                notify_sink.setAHRSData( ahrs_update, sensor_timestamp );
             }
             
             board_state.cal_status      = curr_data[IMURegisters.NAVX_REG_CAL_STATUS-first_address];
@@ -181,7 +181,7 @@ class RegisterIO implements IIOProvider {
             raw_data_update.mag_y       = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_MAG_Y_L-first_address);
             raw_data_update.mag_z       = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_MAG_Z_L-first_address);
             raw_data_update.temp_c      = ahrspos_update.mpu_temp;
-            notify_sink.setRawData(raw_data_update);
+            notify_sink.setRawData(raw_data_update, sensor_timestamp);
             
             this.last_update_time = Timer.getFPGATimestamp();
             byte_count += curr_data.length;

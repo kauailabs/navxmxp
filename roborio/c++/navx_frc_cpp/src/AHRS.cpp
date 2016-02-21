@@ -39,14 +39,15 @@ class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
     /* IIOCompleteNotification Interface Implementation        */
     /***********************************************************/
 
-    void SetYawPitchRoll(IMUProtocol::YPRUpdate& ypr_update) {
-        ahrs->yaw               = ypr_update.yaw;
-        ahrs->pitch             = ypr_update.pitch;
-        ahrs->roll              = ypr_update.roll;
-        ahrs->compass_heading   = ypr_update.compass_heading;
+    void SetYawPitchRoll(IMUProtocol::YPRUpdate& ypr_update, long sensor_timestamp) {
+        ahrs->yaw               	= ypr_update.yaw;
+        ahrs->pitch             	= ypr_update.pitch;
+        ahrs->roll              	= ypr_update.roll;
+        ahrs->compass_heading   	= ypr_update.compass_heading;
+        ahrs->last_sensor_timestamp	= sensor_timestamp;
     }
 
-    void SetAHRSPosData(AHRSProtocol::AHRSPosUpdate& ahrs_update) {
+    void SetAHRSPosData(AHRSProtocol::AHRSPosUpdate& ahrs_update, long sensor_timestamp) {
         /* Update base IMU class variables */
 
         ahrs->yaw                    = ahrs_update.yaw;
@@ -107,9 +108,10 @@ class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
         ahrs->displacement[2] = ahrs_update.disp_z;
 
         ahrs->yaw_angle_tracker->NextAngle(ahrs->GetYaw());
+        ahrs->last_sensor_timestamp	= sensor_timestamp;
     }
 
-    void SetRawData(AHRSProtocol::GyroUpdate& raw_data_update) {
+    void SetRawData(AHRSProtocol::GyroUpdate& raw_data_update, long sensor_timestamp) {
         ahrs->raw_gyro_x     = raw_data_update.gyro_x;
         ahrs->raw_gyro_y     = raw_data_update.gyro_y;
         ahrs->raw_gyro_z     = raw_data_update.gyro_z;
@@ -120,9 +122,10 @@ class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
         ahrs->cal_mag_y      = raw_data_update.mag_y;
         ahrs->cal_mag_z      = raw_data_update.mag_z;
         ahrs->mpu_temp_c     = raw_data_update.temp_c;
+        ahrs->last_sensor_timestamp	= sensor_timestamp;
     }
 
-    void SetAHRSData(AHRSProtocol::AHRSUpdate& ahrs_update) {
+    void SetAHRSData(AHRSProtocol::AHRSUpdate& ahrs_update, long sensor_timestamp) {
         /* Update base IMU class variables */
 
         ahrs->yaw                    = ahrs_update.yaw;
@@ -179,6 +182,8 @@ class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
         ahrs->quaternionX                = ahrs_update.quat_x;
         ahrs->quaternionY                = ahrs_update.quat_y;
         ahrs->quaternionZ                = ahrs_update.quat_z;
+
+        ahrs->last_sensor_timestamp	= sensor_timestamp;
 
         ahrs->UpdateDisplacement( ahrs->world_linear_accel_x,
                 ahrs->world_linear_accel_y,
@@ -478,6 +483,19 @@ double AHRS::GetByteCount() {
  */
 double AHRS::GetUpdateCount() {
     return io->GetUpdateCount();
+}
+
+/**
+ * Returns the sensor timestamp corresponding to the
+ * last sample retrieved from the sensor.  Note that this
+ * sensor timestamp is only provided when the Register-based
+ * IO methods (SPI, I2C) are used; sensor timestamps are not
+ * provided when Serial-based IO methods (TTL UART, USB)
+ * are used.
+ * @return The sensor timestamp corresponding to the current AHRS sensor data.
+ */
+long AHRS::GetLastSensorTimestamp() {
+	return this->last_sensor_timestamp;
 }
 
 /**

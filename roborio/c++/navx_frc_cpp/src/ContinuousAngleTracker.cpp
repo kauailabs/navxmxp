@@ -7,54 +7,65 @@
 
 #include <ContinuousAngleTracker.h>
 
-float last_angle;
-double last_rate;
-int zero_crossing_count;
 ContinuousAngleTracker::ContinuousAngleTracker() {
-    last_angle = 0.0f;
-    zero_crossing_count = 0;
-    last_rate = 0;
+    this->last_angle = 0.0f;
+    this->zero_crossing_count = 0;
+    this->last_rate = 0;
+    this->first_sample = false;
 }
 
 void ContinuousAngleTracker::NextAngle( float newAngle ) {
 
-    int angle_last_direction;
-    float adjusted_last_angle = ( last_angle < 0.0f ) ? last_angle + 360.0f : last_angle;
-    float adjusted_curr_angle = ( newAngle < 0.0f ) ? newAngle + 360.0f : newAngle;
-    float delta_angle = adjusted_curr_angle - adjusted_last_angle;
+
+	/* If the first received sample is negative,
+	 * ensure that the zero crossing count is
+	 * decremented.
+	 */
+
+	if ( this->first_sample ) {
+		this->first_sample = false;
+		if ( newAngle < 0.0f ) {
+			this->zero_crossing_count--;
+		}
+	}
+
+	/* Calculate delta angle, adjusting appropriately
+	 * if the current sample crossed the -180/180
+	 * point.
+	 */
+
+	bool bottom_crossing = false;
+	float delta_angle = newAngle - this->last_angle;
+    /* Adjust for wraparound at -180/+180 point */
+    if ( delta_angle >= 180.0f ){
+    	delta_angle = 360.0f - delta_angle;
+    	bottom_crossing = true;
+    } else if ( delta_angle <= -180.0f ){
+    	delta_angle = 360.0f + delta_angle;
+    	bottom_crossing = true;
+    }
     this->last_rate = delta_angle;
 
-    angle_last_direction = 0;
-    if ( adjusted_curr_angle < adjusted_last_angle ) {
-        if ( delta_angle < -180.0f ) {
-            angle_last_direction = -1;
-        } else {
-            angle_last_direction = 1;
-        }
-    } else if ( adjusted_curr_angle > adjusted_last_angle ) {
-        if ( delta_angle > 180.0f ) {
-            angle_last_direction = -1;
-        } else {
-            angle_last_direction = 1;
-        }
-    }
-
-    if ( angle_last_direction < 0 ) {
-        if ( ( adjusted_curr_angle < 0.0f ) && ( adjusted_last_angle >= 0.0f ) ) {
-            zero_crossing_count--;
-        }
-    } else if ( angle_last_direction > 0 ) {
-        if ( ( adjusted_curr_angle >= 0.0f ) && ( adjusted_last_angle < 0.0f ) ) {
-            zero_crossing_count++;
+    /* If a zero crossing occurred, increment/decrement
+     * the zero crossing count appropriately.
+     */
+    if ( !bottom_crossing ) {
+        if ( delta_angle < 0.0f ) {
+        	if ( (newAngle < 0.0f) && (this->last_angle >= 0.0f) ) {
+        		this->zero_crossing_count--;
+        	}
+        } else if ( delta_angle >= 0.0f ) {
+        	if ( (newAngle >= 0.0f) && (last_angle < 0.0f) ) {
+        		this->zero_crossing_count++;
+        	}
         }
     }
-    last_angle = newAngle;
-
+    this->last_angle = newAngle;
 }
 
 double ContinuousAngleTracker::GetAngle() {
-    double accumulated_angle = (double)zero_crossing_count * 360.0f;
-    double curr_angle = (double)last_angle;
+    double accumulated_angle = (double)this->zero_crossing_count * 360.0f;
+    double curr_angle = (double)this->last_angle;
     if ( curr_angle < 0.0f ) {
         curr_angle += 360.0f;
     }
@@ -63,5 +74,5 @@ double ContinuousAngleTracker::GetAngle() {
 }
 
 double ContinuousAngleTracker::GetRate() {
-    return last_rate;
+    return this->last_rate;
 }

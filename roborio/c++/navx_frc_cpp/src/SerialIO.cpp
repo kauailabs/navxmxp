@@ -92,15 +92,16 @@ void SerialIO::DispatchStreamResponse(IMUProtocol::StreamResponse& response) {
 
 int SerialIO::DecodePacketHandler(char * received_data, int bytes_remaining) {
     int packet_length;
+    long sensor_timestamp = 0; /* Serial protocols do not provide sensor timestamps. */
 
     if ( (packet_length = IMUProtocol::decodeYPRUpdate(received_data, bytes_remaining, ypr_update_data)) > 0) {
-        notify_sink->SetYawPitchRoll(ypr_update_data);
+        notify_sink->SetYawPitchRoll(ypr_update_data, sensor_timestamp);
     } else if ( ( packet_length = AHRSProtocol::decodeAHRSPosUpdate(received_data, bytes_remaining, ahrspos_update_data)) > 0) {
-        notify_sink->SetAHRSPosData(ahrspos_update_data);
+        notify_sink->SetAHRSPosData(ahrspos_update_data, sensor_timestamp);
     } else if ( ( packet_length = AHRSProtocol::decodeAHRSUpdate(received_data, bytes_remaining, ahrs_update_data)) > 0) {
-        notify_sink->SetAHRSData(ahrs_update_data);
+        notify_sink->SetAHRSData(ahrs_update_data, sensor_timestamp);
     } else if ( ( packet_length = IMUProtocol::decodeGyroUpdate(received_data, bytes_remaining, gyro_update_data)) > 0) {
-        notify_sink->SetRawData(gyro_update_data);
+        notify_sink->SetRawData(gyro_update_data, sensor_timestamp);
     } else if ( ( packet_length = AHRSProtocol::decodeBoardIdentityResponse(received_data, bytes_remaining, board_id)) > 0) {
         notify_sink->SetBoardID(board_id);
     } else {
