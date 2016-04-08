@@ -1,4 +1,4 @@
-SET ECLIPSEC_LUNA=C:\Eclipse_Luna\eclipsec.exe
+SET ECLIPSEC_MARS=C:\Users\Scott\eclipse\cpp-mars\eclipse\eclipsec.exe
 SET ECLIPSEC_JUNO=C:\Eclipse\eclipsec.exe
 REM Build all binaries
 
@@ -35,10 +35,10 @@ REM Begin a command-line "clean build" of the navx frc C++ library
 REM
 
 pushd .\roborio\c++
-rm -r -f ./build_workspace_luna
+REM rm -r -f ./build_workspace_luna
 mkdir build_workspace_luna
 
-%ECLIPSEC_LUNA% -nosplash -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data ./build_workspace_luna -import ./navx_frc_cpp -cleanBuild navx_frc_cpp/Debug
+%ECLIPSEC_MARS% -nosplash -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data ./build_workspace_luna -import ./navx_frc_cpp -cleanBuild navx_frc_cpp/Debug
 popd
 
 REM
