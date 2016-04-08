@@ -353,7 +353,7 @@ _EXTERN_ATTRIB void nav10_init()
 
     /* Power on the on-board I2C devices */
     HAL_I2C_Power_On();
-    HAL_Delay(50);
+    HAL_Delay(1000);
 
     FlashStorage.init(sizeof(flash_cal_data));
 
@@ -658,10 +658,21 @@ _EXTERN_ATTRIB void nav10_main()
                 if ( yaw_offset_calibration_complete ) {
                     /* Current yaw angle now becomes zero degrees */
                     float curr_yaw_offset;
+                    /* Disable MPU interrupts around the following
+                     * pair of calls to get_yaw_offset() and set_yaw_offset().
+                     */
+                    HAL_NVIC_DisableIRQ((IRQn_Type)EXTI9_5_IRQn);
                     get_yaw_offset(&curr_yaw_offset);
                     calibrated_yaw_offset = mpudata.yaw + curr_yaw_offset;
-                    registers.yaw_offset = calibrated_yaw_offset;
+                    registers.yaw_offset = IMURegisters::encodeSignedHundredthsFloat(calibrated_yaw_offset);
+                    /* Note:  protect against a race condition in which multiple
+                     * Zero Yaw commands are received before the next MPU
+                     * interrupt occurs.  In this condition, the mpudata.yaw value
+                     * will not have been updated by the MPU interrupt.  Therefore,
+                     * set the mpudata.yaw value to 0 immediately here. */
+                    mpudata.yaw = 0.0f;
                     set_yaw_offset(calibrated_yaw_offset);
+                    HAL_NVIC_EnableIRQ((IRQn_Type)EXTI9_5_IRQn);
                 }
             }
             integration_control_update = false;
@@ -1166,7 +1177,7 @@ _EXTERN_ATTRIB void nav10_main()
                             newcal.earth_mag_field_norm ) ) ) {
                         if ( data_action == DATA_SET ) {
                             if ( newcal.earth_mag_field_norm == 0.0f ) {
-                                /* Disallow 0 value, to avoid divide by zero. */
+                                /* Disallow 0 value, to avoid divide by . */
                                 newcal.earth_mag_field_norm = 0.001f;
                             }
                             float previous_mag_disturbance_ratio = ((struct flash_cal_data *)flashdata)->magcaldata.mag_disturbance_ratio;
