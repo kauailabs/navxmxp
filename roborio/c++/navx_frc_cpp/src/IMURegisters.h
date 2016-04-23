@@ -302,6 +302,7 @@ typedef int32_t     s_1616_float;
 #define NAVX_INTEGRATION_CTL_RESET_DISP_X           0x08
 #define NAVX_INTEGRATION_CTL_RESET_DISP_Y           0x10
 #define NAVX_INTEGRATION_CTL_RESET_DISP_Z           0x20
+#define NAVX_INTEGRATION_CTL_VEL_AND_DISP_MASK      0x3F
 
 #define NAVX_INTEGRATION_CTL_RESET_YAW              0x80
 

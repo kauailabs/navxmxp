@@ -60,7 +60,7 @@ uint8_t i2c3_RxBuffer[RXBUFFERSIZE];
 uint8_t spi1_RxBuffer[RXBUFFERSIZE];
 
 #define MIN_SAMPLE_RATE_HZ 4
-#define MAX_SAMPLE_RATE_HZ 60
+#define MAX_SAMPLE_RATE_HZ 100
 
 #define UART_RX_PACKET_TIMEOUT_MS 	30 /* Max wait after start of packet */
 #define MIN_UART_MESSAGE_LENGTH		STREAM_CMD_MESSAGE_LENGTH
