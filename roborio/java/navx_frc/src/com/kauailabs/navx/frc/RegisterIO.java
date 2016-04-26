@@ -29,6 +29,9 @@ class RegisterIO implements IIOProvider {
     double last_update_time;
     int byte_count;
     int update_count;
+    long last_sensor_timestamp;
+    
+    static final double DELAY_OVERHEAD_SECONDS = 0.004;
     
     public RegisterIO( IRegisterIO io_provider, byte update_rate_hz, IIOCompleteNotification notify_sink, IBoardCapabilities board_capabilities  ) {
         this.io_provider = io_provider;
@@ -40,6 +43,7 @@ class RegisterIO implements IIOProvider {
         ahrspos_update = new AHRSProtocol.AHRSPosUpdate();
         board_state = new IIOCompleteNotification.BoardState();
         board_id = new AHRSProtocol.BoardID();
+        last_sensor_timestamp = 0;
     }
     
     private final double IO_TIMEOUT_SECONDS = 1.0;
@@ -56,13 +60,22 @@ class RegisterIO implements IIOProvider {
         setUpdateRateHz(this.update_rate_hz);
         getConfiguration();
         
+        /* Calculate delay to match configured update rate */
+        /* Note:  some additional time is removed from the */
+        /* 1/update_rate value to ensure samples are not   */
+        /* dropped, esp. at higher update rates.           */
+        double update_rate = 1.0/(double)this.update_rate_hz;
+        if ( update_rate > DELAY_OVERHEAD_SECONDS) {
+        	update_rate -= DELAY_OVERHEAD_SECONDS;
+        }
+        
         /* IO Loop */
         while (!stop) {
             if ( board_state.update_rate_hz != this.update_rate_hz ) {
                 setUpdateRateHz(this.update_rate_hz);
             }
             getCurrentData();
-            Timer.delay(1.0/this.update_rate_hz);
+            Timer.delay(update_rate);
         }
     }
     
@@ -115,6 +128,10 @@ class RegisterIO implements IIOProvider {
             timestamp_low = (long)AHRSProtocol.decodeBinaryUint16(curr_data, IMURegisters.NAVX_REG_TIMESTAMP_L_L-first_address);
             timestamp_high = (long)AHRSProtocol.decodeBinaryUint16(curr_data, IMURegisters.NAVX_REG_TIMESTAMP_H_L-first_address);
             sensor_timestamp            = (timestamp_high << 16) + timestamp_low;
+            if ( sensor_timestamp == last_sensor_timestamp ) {
+            	return;
+            }
+            last_sensor_timestamp = sensor_timestamp;
             ahrspos_update.op_status    = curr_data[IMURegisters.NAVX_REG_OP_STATUS - first_address];
             ahrspos_update.selftest_status = curr_data[IMURegisters.NAVX_REG_SELFTEST_STATUS - first_address];
             ahrspos_update.cal_status      = curr_data[IMURegisters.NAVX_REG_CAL_STATUS];
@@ -206,8 +223,8 @@ class RegisterIO implements IIOProvider {
     }
 
     @Override
-    public void setUpdateRateHz(byte update_rate) {
-        io_provider.write(IMURegisters.NAVX_REG_UPDATE_RATE_HZ, update_rate);
+    public void setUpdateRateHz(byte update_rate_hz) {
+        io_provider.write(IMURegisters.NAVX_REG_UPDATE_RATE_HZ, update_rate_hz);
     }
     
     @Override

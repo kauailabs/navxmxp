@@ -25,6 +25,7 @@ SerialIO::SerialIO( SerialPort::Port port_id,
     board_state = {0};
     this->notify_sink = notify_sink;
     this->board_capabilities = board_capabilities;
+    serial_port = 0;
     serial_port = GetMaybeCreateSerialPort();
     this->update_rate_hz = update_rate_hz;
     if ( processed_data ) {

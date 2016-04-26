@@ -33,6 +33,7 @@ private:
     int byte_count;
     int update_count;
     Task *task;
+    long last_sensor_timestamp;
 public:
     RegisterIO( IRegisterIO *io_provider,
                 uint8_t update_rate_hz,

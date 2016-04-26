@@ -14,6 +14,7 @@ import edu.wpi.first.wpilibj.I2C;
 class RegisterIO_I2C implements IRegisterIO{
 
     I2C port;
+    boolean trace = true;
     
     public RegisterIO_I2C( I2C i2c_port ) {
         port = i2c_port;
@@ -26,7 +27,9 @@ class RegisterIO_I2C implements IRegisterIO{
 
     @Override
     public boolean write(byte address, byte value ) {
-        return port.write(address | 0x80, value);
+        boolean success = port.write(address | 0x80, value);
+        if ( !success && trace ) System.out.println("navX-MXP I2C Write Error");
+        return success;
     }
 
     final static int MAX_WPILIB_I2C_READ_BYTES = 127;
@@ -44,6 +47,7 @@ class RegisterIO_I2C implements IRegisterIO{
                 buffer_offset += read_len;
                 len -= read_len;
             } else {
+            	if (trace) System.out.println("navX-MXP I2C Read Error");
                 break;
             }
         }
