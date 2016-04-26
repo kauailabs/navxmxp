@@ -279,7 +279,7 @@ AHRS::AHRS(SPI::Port spi_port_id, uint32_t spi_bitrate, uint8_t update_rate_hz) 
 
 /**
  * Constructs the AHRS class using I2C communication, overriding the
- * default update rate with a custom rate which may be from 4 to 60,
+ * default update rate with a custom rate which may be from 4 to 100,
  * representing the number of updates per second sent by the sensor.
  *<p>
  * This constructor should be used if communicating via I2C.
@@ -296,7 +296,7 @@ AHRS::AHRS(I2C::Port i2c_port_id, uint8_t update_rate_hz) {
 
     /**
      * Constructs the AHRS class using serial communication, overriding the
-     * default update rate with a custom rate which may be from 4 to 60,
+     * default update rate with a custom rate which may be from 4 to 100,
      * representing the number of updates per second sent by the sensor.
      *<p>
      * This constructor should be used if communicating via either

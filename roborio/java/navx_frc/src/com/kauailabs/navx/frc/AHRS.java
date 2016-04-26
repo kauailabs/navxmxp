@@ -192,7 +192,7 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     
     /**
      * Constructs the AHRS class using SPI communication, overriding the 
-     * default update rate with a custom rate which may be from 4 to 60, 
+     * default update rate with a custom rate which may be from 4 to 100, 
      * representing the number of updates per second sent by the sensor.  
      *<p>
      * This constructor should be used if communicating via SPI.
@@ -238,7 +238,7 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
         io_thread.start();
     }/**
      * Constructs the AHRS class using I2C communication, overriding the 
-     * default update rate with a custom rate which may be from 4 to 60, 
+     * default update rate with a custom rate which may be from 4 to 100, 
      * representing the number of updates per second sent by the sensor.  
      *<p>
      * This constructor should be used if communicating via I2C.
@@ -257,7 +257,7 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
 
     /**
      * Constructs the AHRS class using serial communication, overriding the 
-     * default update rate with a custom rate which may be from 4 to 60, 
+     * default update rate with a custom rate which may be from 4 to 100, 
      * representing the number of updates per second sent by the sensor.  
      *<p>
      * This constructor should be used if communicating via either 
