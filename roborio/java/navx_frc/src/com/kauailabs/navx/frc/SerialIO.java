@@ -32,6 +32,7 @@ class SerialIO implements IIOProvider {
     private IMUProtocol.GyroUpdate gyro_update_data;
     private AHRSProtocol.AHRSUpdate ahrs_update_data;
     private AHRSProtocol.AHRSPosUpdate ahrspos_update_data;
+    private AHRSProtocol.AHRSPosTSUpdate ahrspos_ts_update_data;
     private AHRSProtocol.BoardID board_id;
     IIOCompleteNotification notify_sink;
     IIOCompleteNotification.BoardState board_state;
@@ -46,6 +47,7 @@ class SerialIO implements IIOProvider {
         gyro_update_data = new IMUProtocol.GyroUpdate();
         ahrs_update_data = new AHRSProtocol.AHRSUpdate();
         ahrspos_update_data = new AHRSProtocol.AHRSPosUpdate();
+        ahrspos_ts_update_data = new AHRSProtocol.AHRSPosTSUpdate();
         board_id = new AHRSProtocol.BoardID();
         board_state = new IIOCompleteNotification.BoardState();
         this.notify_sink = notify_sink;
@@ -53,7 +55,7 @@ class SerialIO implements IIOProvider {
         serial_port = getMaybeCreateSerialPort();
         this.update_rate_hz = update_rate_hz;
         if ( processed_data ) {
-            update_type = AHRSProtocol.MSGID_AHRSPOS_UPDATE;
+            update_type = AHRSProtocol.MSGID_AHRSPOS_TS_UPDATE;
         } else {
             update_type = IMUProtocol.MSGID_GYRO_UPDATE;
         }
@@ -105,23 +107,34 @@ class SerialIO implements IIOProvider {
         board_state.gyro_fsr_dps = response.gyro_fsr_dps;
         board_state.update_rate_hz = (byte) response.update_rate_hz;
         notify_sink.setBoardState(board_state);
-        /* If AHRSPOS is update type is request, but board doesn't support it, */
-        /* retransmit the stream config, falling back to AHRS Update mode.     */
-        if ( this.update_type == AHRSProtocol.MSGID_AHRSPOS_UPDATE ) {
-            if ( !board_capabilities.isDisplacementSupported() ) {
-                this.update_type = AHRSProtocol.MSGID_AHRS_UPDATE;
-                signal_retransmit_stream_config = true;
-            }
+        /* If AHRSPOS_TS is update type is requested, but board doesn't support it, */
+        /* retransmit the stream config, falling back to AHRSPos update mode, if    */
+        /* the board supports it, otherwise fall all the way back to AHRS Update mode. */
+        if ( response.stream_type != this.update_type ) {
+	        if ( this.update_type == AHRSProtocol.MSGID_AHRSPOS_TS_UPDATE ) {
+	        	if ( board_capabilities.isAHRSPosTimestampSupported() ) {
+	        		this.update_type = AHRSProtocol.MSGID_AHRSPOS_TS_UPDATE;
+	        	}
+	        	else if ( board_capabilities.isDisplacementSupported() ) {
+	                this.update_type = AHRSProtocol.MSGID_AHRSPOS_UPDATE;
+	            }
+	        	else {
+	        		this.update_type = AHRSProtocol.MSGID_AHRS_UPDATE;
+	        	}
+	    		signal_retransmit_stream_config = true;
+	        }
         }
     }
     
     protected int decodePacketHandler(byte[] received_data, int offset, int bytes_remaining) {
 
         int packet_length;
-        int sensor_timestamp = 0; /* Note:  Serial Protocols don't provide sensor timestamps */
+        int sensor_timestamp = 0; /* Note:  Serial Protocols often don't provide sensor timestamps */
         
         if ( (packet_length = IMUProtocol.decodeYPRUpdate(received_data, offset, bytes_remaining, ypr_update_data)) > 0) {
             notify_sink.setYawPitchRoll(ypr_update_data, sensor_timestamp);
+        } else if ( ( packet_length = AHRSProtocol.decodeAHRSPosTSUpdate(received_data, offset, bytes_remaining, ahrspos_ts_update_data)) > 0) {
+            notify_sink.setAHRSPosData(ahrspos_update_data, ahrspos_ts_update_data.timestamp);
         } else if ( ( packet_length = AHRSProtocol.decodeAHRSPosUpdate(received_data, offset, bytes_remaining, ahrspos_update_data)) > 0) {
             notify_sink.setAHRSPosData(ahrspos_update_data, sensor_timestamp);
         } else if ( ( packet_length = AHRSProtocol.decodeAHRSUpdate(received_data, offset, bytes_remaining, ahrs_update_data)) > 0) {

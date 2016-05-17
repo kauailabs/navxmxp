@@ -38,9 +38,14 @@ import com.kauailabs.navx.*;
 
 import java.util.*;
 import g4p_controls.*;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.File;
+import java.text.SimpleDateFormat;
 
 GButton btnResetYaw;
 GButton btnBoardInfo;
+GButton btnFileSave;
 GButton btnAdvanced;
 GDropList dplComPorts;
 
@@ -51,6 +56,10 @@ GWindow windowBoardInfo = null;
 GWindow windowAdvanced = null;
 
 String g_boardtype = "Unknown";
+
+FileWriter outputStream = null;
+boolean save_to_file = false;
+String datafile_name;
 
 int tray_height_px = 60;
 
@@ -100,6 +109,8 @@ float curr_velocity_x = 0.0;
 float curr_velocity_y = 0.0;
 float curr_displacement_x = 0.0;
 float curr_displacement_y = 0.0;
+
+long curr_sensor_timestamp = 0;
             
 static final int ACCEL_HISTORY_SIZE = 10;
 float world_acceleration_history[] = new float[ACCEL_HISTORY_SIZE];
@@ -120,6 +131,7 @@ boolean initial_calibration_in_process = false;
 boolean yaw_reset_supported = false;
 boolean omnimount_supported = false;
 boolean vel_and_disp_supported = false;
+boolean ahrspos_timestamp_supported = false;
 boolean mag_disturbance = true;
 boolean altitude_valid = false;
 boolean compass_calibrated = false;
@@ -176,6 +188,7 @@ boolean reopen_serial_port( String portName )
       }
       port = null;
     }
+	curr_sensor_timestamp = 0;
     // open the serial port
     try {
       port_open_in_progress = true;
@@ -276,6 +289,27 @@ void enableAHRSUpdateMode(int rate) {
 void enableAHRSPosUpdateMode(int rate) {
     if ( port == null ) return;
     int length = IMUProtocol.encodeStreamCommand(protocol_buffer, (byte) AHRSProtocol.MSGID_AHRSPOS_UPDATE,(byte)rate);
+    if (length != 0) {
+      byte[] stream_command = new byte[length];
+      arrayCopy(protocol_buffer,0,stream_command,0,length);
+      try
+      {
+        port.write(stream_command);
+      }
+      catch(RuntimeException ex)
+      {
+        println("Exception:  " + ex.toString() );
+      }
+      println("Sending " + new String(protocol_buffer,0,length));
+    }
+    else {
+      println("Error encoding stream command.");
+    }
+}
+
+void enableAHRSPosTSUpdateMode(int rate) {
+    if ( port == null ) return;
+    int length = IMUProtocol.encodeStreamCommand(protocol_buffer, (byte) AHRSProtocol.MSGID_AHRSPOS_TS_UPDATE,(byte)rate);
     if (length != 0) {
       byte[] stream_command = new byte[length];
       arrayCopy(protocol_buffer,0,stream_command,0,length);
@@ -439,9 +473,10 @@ void setup() {
     }
     
     G4P.setGlobalColorScheme(5);
-    btnResetYaw = new GButton(this, 20, ((height-tray_height_px)+15), 120, 30, "ResetYaw");
-    btnBoardInfo = new GButton(this, (width/2)-60, ((height-tray_height_px)+15), 120, 30, "BoardInfo...");
-    btnAdvanced = new GButton(this, width-140, ((height-tray_height_px)+15), 120, 30, "Experimental...");
+    btnResetYaw = new GButton(this, 20, ((height-tray_height_px)+15), 100, 30, "ResetYaw");
+    btnBoardInfo = new GButton(this, (width/2)-110, ((height-tray_height_px)+15), 100, 30, "BoardInfo...");
+    btnFileSave  = new GButton(this, (width/2)+10, ((height-tray_height_px)+15), 100, 30, "Save Data...");
+    btnAdvanced = new GButton(this, width-120, ((height-tray_height_px)+15), 100, 30, "Experimental...");
     
     dplComPorts = new GDropList(this,400,40,80,70);
     dplComPorts.setItems(new String[] {"<None>"}, 0 );
@@ -460,7 +495,7 @@ void setup() {
       enableAHRSUpdateMode(100);
       //enableAHRSUpdateMode(100);
       //enableAHRSUpdateMode(100);
-    }
+    }    
 }
 
 void handleDropListEvents(GDropList list, GEvent event)
@@ -568,9 +603,15 @@ void draw() {
     text(accelfsr,20,90);
     String updaterate = "Update Rate:  " + updateRateHz + " Hz";
     text(updaterate,20,110);
+
+    fill(255,255,255);
+    if ( curr_sensor_timestamp != 0 ) {
+      textAlign(RIGHT);
+      String timestamp = "Time:  " + curr_sensor_timestamp + " ms";
+      text(timestamp,width-20,110);
+    }
     
     textSize(16);
-    fill(255,255,255);
 
     textAlign(LEFT);
     text("Accel X:",20, (height-tray_height_px)-60);
@@ -634,6 +675,14 @@ void draw() {
       rotation_state = "Rotating";
     }
     text(rotation_state,(width/2)-35,(height-tray_height_px)-40);
+    
+    if ( save_to_file ) {
+      textSize(14);
+      fill(255,255,255);
+      String save_string = "<Saving to " + datafile_name + ">";
+      textAlign(LEFT);
+      text(save_string,20, height-tray_height_px);
+    }
     
     // translate everything to the middle of the viewport
     pushMatrix();
@@ -790,6 +839,42 @@ public void handleButtonEvents(GButton button, GEvent event)
       }
     }
   } 
+  if ( button == btnFileSave ) 
+  {
+    save_to_file = !save_to_file;
+    if ( save_to_file ) {
+      println("Opening data file.");
+      try {
+        String user_dir = System.getProperty("user.home");
+        Date date = new Date();
+        SimpleDateFormat sdf = new SimpleDateFormat("MM_dd_yyyy_h_mm_ss");
+        String formattedDate = sdf.format(date);
+        datafile_name = user_dir + File.separator + "navXData_" + formattedDate + ".csv";
+        println("Datafile name:  " + datafile_name);
+        outputStream = new FileWriter(datafile_name);
+        String header = "Timestamp,Yaw,Pitch,Roll\r\n";
+        outputStream.write(header);
+        btnFileSave.setText("Stop Saving Data", GAlign.CENTER, GAlign.MIDDLE );
+        btnFileSave.setLocalColorScheme(3);
+      } catch (IOException ex) {
+        println("IOException opening file.");
+        ex.printStackTrace();
+      }
+    } else {
+      if (outputStream != null) {
+          println("Closing data file.");
+          btnFileSave.setText("Save Data...", GAlign.CENTER, GAlign.MIDDLE );
+          btnFileSave.setLocalColorScheme(5);
+        try {
+          outputStream.close();
+          outputStream = null;
+        } catch (IOException ex) {
+          println("Exception closing data file.");
+          ex.printStackTrace();
+        }
+      }
+    }
+  }
 }
 
 // The serialEvent() method will be invoked whenever one or more
@@ -801,7 +886,7 @@ IMUProtocol.QuaternionUpdate raw_update = new IMUProtocol.QuaternionUpdate();
 IMUProtocol.YPRUpdate ypr_update = new IMUProtocol.YPRUpdate();
 IMUProtocol.StreamResponse stream_response = new IMUProtocol.StreamResponse();
 AHRSProtocol.AHRSUpdate ahrs_update = new AHRSProtocol.AHRSUpdate();
-AHRSProtocol.AHRSPosUpdate ahrs_pos_update = new AHRSProtocol.AHRSPosUpdate();
+AHRSProtocol.AHRSPosTSUpdate ahrs_pos_update = new AHRSProtocol.AHRSPosTSUpdate();
 AHRSProtocol.BoardID board_id = new AHRSProtocol.BoardID();
 
 long update_count = 0;
@@ -1060,10 +1145,23 @@ void serialEvent(MySerial port) {
                 btnResetYaw.setVisible(yaw_reset_supported);
               }
               vel_and_disp_supported = ((stream_response.flags & AHRSProtocol.NAVX_CAPABILITY_FLAG_VEL_AND_DISP) != 0);
+              ahrspos_timestamp_supported = ((stream_response.flags & AHRSProtocol.NAVX_CAPABILITY_FLAG_AHRSPOS_TS) != 0);
+              println("Stream Response:  Type:  " + stream_response.stream_type + ", Vel/Disp:  " + vel_and_disp_supported + ", Timestamp:  " + ahrspos_timestamp_supported);
               if ( btnAdvanced != null ) {
-                btnAdvanced.setVisible(vel_and_disp_supported); 
-                if ( stream_response.stream_type != AHRSProtocol.MSGID_AHRSPOS_UPDATE ) {
-                  enableAHRSPosUpdateMode(100);
+                btnAdvanced.setVisible(vel_and_disp_supported);
+                if ( ahrspos_timestamp_supported ) {
+                  if ( stream_response.stream_type != AHRSProtocol.MSGID_AHRSPOS_TS_UPDATE ) {
+                    println("Enabling AHRSPOS Timestamp Mode");
+                    enableAHRSPosTSUpdateMode(100);
+                  }
+                }
+                else {
+                  if ( vel_and_disp_supported ) {
+                    if ( stream_response.stream_type != AHRSProtocol.MSGID_AHRSPOS_UPDATE ) {
+                      println("Enabling AHRSPOS Mode");
+                      enableAHRSPosUpdateMode(100);
+                    }
+                  }
                 }
               }
               omnimount_supported = ((stream_response.flags & AHRSProtocol.NAVX_CAPABILITY_FLAG_OMNIMOUNT) != 0);
@@ -1120,10 +1218,15 @@ void serialEvent(MySerial port) {
                   ((float)ahrs_update.raw_mag_z * (float)ahrs_update.raw_mag_z) );
                 //println(ahrs_update.raw_mag_x + ", " + ahrs_update.raw_mag_y + ", " + ahrs_update.raw_mag_z + ", ", mag_field_norm);
               } else {
-                decode_length = AHRSProtocol.decodeAHRSPosUpdate(full_message, 0, full_message.length, ahrs_pos_update);
+                decode_length = AHRSProtocol.decodeAHRSPosTSUpdate(full_message, 0, full_message.length, ahrs_pos_update);
+                if ( decode_length == 0 ) {
+                  decode_length = AHRSProtocol.decodeAHRSPosUpdate(full_message, 0, full_message.length, ahrs_pos_update);
+                } else {
+                  curr_sensor_timestamp = ahrs_pos_update.timestamp;
+                }
                 if (decode_length != 0) {
                   update_count++;
-                  println("AHRSPos Update Count:  " + String.valueOf(update_count));
+                  println("AHRSPos Update Count:  " + String.valueOf(update_count) + ", time:  " + String.valueOf(curr_sensor_timestamp));
                   last_update_ms = millis();
             
                   current_temp_c = ahrs_pos_update.mpu_temp;
@@ -1158,6 +1261,12 @@ void serialEvent(MySerial port) {
                   curr_velocity_y = ahrs_pos_update.vel_y;
                   curr_displacement_x = ahrs_pos_update.disp_x;
                   curr_displacement_y = ahrs_pos_update.disp_y;
+
+                  String file_data = new String();
+                  file_data = curr_sensor_timestamp + "," + yaw_degrees + "," + pitch_degrees + "," + roll_degrees + "\r\n"; 
+                  if ( outputStream != null ) {
+                    outputStream.write(file_data);
+                  }
                 } else {               
                   decode_length = AHRSProtocol.decodeBoardIDGetResponse(full_message, 0, full_message.length, board_id);
                   if (decode_length != 0) {

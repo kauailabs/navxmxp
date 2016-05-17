@@ -1137,6 +1137,12 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
         {
             return (((capability_flags & AHRSProtocol.NAVX_CAPABILITY_FLAG_VEL_AND_DISP) != 0) ? true : false);
         }
+        
+        @Override
+        public boolean isAHRSPosTimestampSupported()
+        {
+        	return (((capability_flags & AHRSProtocol.NAVX_CAPABILITY_FLAG_AHRSPOS_TS) != 0) ? true : false);
+        }
     }
     /***********************************************************/
     /* IIOCompleteNotification Interface Implementation        */

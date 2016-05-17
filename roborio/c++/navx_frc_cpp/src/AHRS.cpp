@@ -228,6 +228,11 @@ class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
     {
         return (((ahrs->capability_flags & NAVX_CAPABILITY_FLAG_VEL_AND_DISP) != 0) ? true : false);
     }
+
+    bool IsAHRSPosTimestampSupported()
+    {
+    	return (((ahrs->capability_flags & NAVX_CAPABILITY_FLAG_AHRSPOS_TS) != 0) ? true : false);
+    }
 };
 
 /**

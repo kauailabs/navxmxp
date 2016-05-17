@@ -68,6 +68,7 @@ public class AHRSProtocol extends IMUProtocol {
 	public static final short NAVX_CAPABILITY_FLAG_OMNIMOUNT_CONFIG_MASK = 0x0038;
 	public static final short NAVX_CAPABILITY_FLAG_VEL_AND_DISP =          0x0040;
 	public static final short NAVX_CAPABILITY_FLAG_YAW_RESET =             0x0080;
+	public static final short NAVX_CAPABILITY_FLAG_AHRSPOS_TS = 		   0x0100;
 
 	/* NAVX_OMNIMOUNT_CONFIG */
 
@@ -190,6 +191,38 @@ public class AHRSProtocol extends IMUProtocol {
     final static int AHRSPOS_UPDATE_MESSAGE_CHECKSUM_INDEX =    62;
     final static int AHRSPOS_UPDATE_MESSAGE_TERMINATOR_INDEX =  64;
     final static int AHRSPOS_UPDATE_MESSAGE_LENGTH =            66;
+    
+ // AHRSAndPositioningWithTimestamp Update Packet (similar to AHRSPos, but adds sample timestamp)
+    
+    public final static byte MSGID_AHRSPOS_TS_UPDATE =              't';
+    final static int AHRSPOS_TS_UPDATE_YAW_VALUE_INDEX =              4; /* Degrees.  Signed Hundredths */
+    final static int AHRSPOS_TS_UPDATE_PITCH_VALUE_INDEX =            6; /* Degrees.  Signed Hundredeths */
+    final static int AHRSPOS_TS_UPDATE_ROLL_VALUE_INDEX =             8; /* Degrees.  Signed Hundredths */
+    final static int AHRSPOS_TS_UPDATE_HEADING_VALUE_INDEX =         10; /* Degrees.  Unsigned Hundredths */
+    final static int AHRSPOS_TS_UPDATE_ALTITUDE_VALUE_INDEX =        12; /* Meters.   Signed 16:16 */
+    final static int AHRSPOS_TS_UPDATE_FUSED_HEADING_VALUE_INDEX =   16; /* Degrees.  Unsigned Hundredths */
+    final static int AHRSPOS_TS_UPDATE_LINEAR_ACCEL_X_VALUE_INDEX =  18; /* Inst. G.  Signed Thousandths */
+    final static int AHRSPOS_TS_UPDATE_LINEAR_ACCEL_Y_VALUE_INDEX =  20; /* Inst. G.  Signed Thousandths */
+    final static int AHRSPOS_TS_UPDATE_LINEAR_ACCEL_Z_VALUE_INDEX =  22; /* Inst. G.  Signed Thousandths */
+    final static int AHRSPOS_TS_UPDATE_VEL_X_VALUE_INDEX =           24; /* Signed 16:16, in meters/sec */
+    final static int AHRSPOS_TS_UPDATE_VEL_Y_VALUE_INDEX =           28; /* Signed 16:16, in meters/sec */
+    final static int AHRSPOS_TS_UPDATE_VEL_Z_VALUE_INDEX =           32; /* Signed 16:16, in meters/sec */
+    final static int AHRSPOS_TS_UPDATE_DISP_X_VALUE_INDEX =          36; /* Signed 16:16, in meters */
+    final static int AHRSPOS_TS_UPDATE_DISP_Y_VALUE_INDEX =          40; /* Signed 16:16, in meters */
+    final static int AHRSPOS_TS_UPDATE_DISP_Z_VALUE_INDEX =          44; /* Signed 16:16, in meters */
+    final static int AHRSPOS_TS_UPDATE_QUAT_W_VALUE_INDEX =          48; /* INT16 */
+    final static int AHRSPOS_TS_UPDATE_QUAT_X_VALUE_INDEX =          50; /* INT16 */
+    final static int AHRSPOS_TS_UPDATE_QUAT_Y_VALUE_INDEX =          52; /* INT16 */
+    final static int AHRSPOS_TS_UPDATE_QUAT_Z_VALUE_INDEX =          54; /* INT16 */
+    final static int AHRSPOS_TS_UPDATE_MPU_TEMP_VAUE_INDEX =         56; /* Centigrade.  Signed Hundredths */
+    final static int AHRSPOS_TS_UPDATE_OPSTATUS_VALUE_INDEX =        58; /* NAVX_OP_STATUS_XXX */
+    final static int AHRSPOS_TS_UPDATE_SENSOR_STATUS_VALUE_INDEX =   59; /* NAVX_SENSOR_STATUS_XXX */
+    final static int AHRSPOS_TS_UPDATE_CAL_STATUS_VALUE_INDEX =      60; /* NAVX_CAL_STATUS_XXX */
+    final static int AHRSPOS_TS_UPDATE_SELFTEST_STATUS_VALUE_INDEX = 61; /* NAVX_SELFTEST_STATUS_XXX */
+    final static int AHRSPOS_TS_UPDATE_TIMESTAMP_INDEX =             62; /* UINT32, Timestamp (milliseconds) */            
+    final static int AHRSPOS_TS_UPDATE_MESSAGE_CHECKSUM_INDEX =      66;
+    final static int AHRSPOS_TS_UPDATE_MESSAGE_TERMINATOR_INDEX =    68;
+    final static int AHRSPOS_TS_UPDATE_MESSAGE_LENGTH =              70;
     
     // Data Get Request:  Tuning Variable, Mag Cal, Board Identity (Response message depends upon request type)
     public final static byte MSGID_DATA_REQUEST =               'D';
@@ -338,6 +371,10 @@ public class AHRSProtocol extends IMUProtocol {
         public byte  selftest_status;
     }
     
+    static public class AHRSPosTSUpdate extends AHRSPosUpdate {
+        public long  timestamp;
+    }
+    
     static public class DataSetResponse
     {
         public byte data_type;
@@ -473,6 +510,51 @@ public class AHRSProtocol extends IMUProtocol {
 			u.cal_status = buffer[AHRSPOS_UPDATE_CAL_STATUS_VALUE_INDEX];
 			u.selftest_status = buffer[AHRSPOS_UPDATE_SELFTEST_STATUS_VALUE_INDEX];
 			return AHRSPOS_UPDATE_MESSAGE_LENGTH;
+		}
+		return 0;
+	}
+    
+    public static int decodeAHRSPosTSUpdate( byte[] buffer, 
+            int offset, 
+            int length, 
+            AHRSPosTSUpdate u) {
+		if (length < AHRSPOS_TS_UPDATE_MESSAGE_LENGTH) {
+			return 0;
+		}
+		if ( (buffer[offset+0] == PACKET_START_CHAR) && 
+				(buffer[offset+1] == BINARY_PACKET_INDICATOR_CHAR) && 
+				(buffer[offset+2] == AHRSPOS_TS_UPDATE_MESSAGE_LENGTH - 2) && 
+				(buffer[offset+3] == MSGID_AHRSPOS_TS_UPDATE)) {
+		
+			if (!verifyChecksum(buffer, offset, AHRSPOS_TS_UPDATE_MESSAGE_CHECKSUM_INDEX)) {
+				return 0;
+			}
+			u.yaw = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRSPOS_TS_UPDATE_YAW_VALUE_INDEX);
+			u.pitch = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRSPOS_TS_UPDATE_ROLL_VALUE_INDEX); /* FIXME */
+			u.roll = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRSPOS_TS_UPDATE_PITCH_VALUE_INDEX); /* FIXME */
+			u.compass_heading = decodeProtocolUnsignedHundredthsFloat(buffer, offset+AHRSPOS_TS_UPDATE_HEADING_VALUE_INDEX);
+			u.altitude = decodeProtocol1616Float(buffer, offset+AHRSPOS_TS_UPDATE_ALTITUDE_VALUE_INDEX);
+			u.fused_heading = decodeProtocolUnsignedHundredthsFloat(buffer,offset+AHRSPOS_TS_UPDATE_FUSED_HEADING_VALUE_INDEX);
+			u.linear_accel_x = decodeProtocolSignedThousandthsFloat(buffer,offset+AHRSPOS_TS_UPDATE_LINEAR_ACCEL_X_VALUE_INDEX);
+			u.linear_accel_y = decodeProtocolSignedThousandthsFloat(buffer,offset+AHRSPOS_TS_UPDATE_LINEAR_ACCEL_Y_VALUE_INDEX);
+			u.linear_accel_z = decodeProtocolSignedThousandthsFloat(buffer,offset+AHRSPOS_TS_UPDATE_LINEAR_ACCEL_Z_VALUE_INDEX);
+			u.vel_x = decodeProtocol1616Float(buffer,offset+AHRSPOS_TS_UPDATE_VEL_X_VALUE_INDEX);
+			u.vel_y = decodeProtocol1616Float(buffer,offset+AHRSPOS_TS_UPDATE_VEL_Y_VALUE_INDEX);
+			u.vel_z = decodeProtocol1616Float(buffer,offset+AHRSPOS_TS_UPDATE_VEL_Z_VALUE_INDEX);
+			u.disp_x = decodeProtocol1616Float(buffer,offset+AHRSPOS_TS_UPDATE_DISP_X_VALUE_INDEX);
+			u.disp_y = decodeProtocol1616Float(buffer,offset+AHRSPOS_TS_UPDATE_DISP_Y_VALUE_INDEX);
+			u.disp_z = decodeProtocol1616Float(buffer,offset+AHRSPOS_TS_UPDATE_DISP_Z_VALUE_INDEX);
+			u.mpu_temp = decodeProtocolSignedHundredthsFloat(buffer, offset+AHRSPOS_TS_UPDATE_MPU_TEMP_VAUE_INDEX);
+			u.quat_w = decodeBinaryInt16(buffer,offset+AHRSPOS_TS_UPDATE_QUAT_W_VALUE_INDEX);
+			u.quat_x = decodeBinaryInt16(buffer,offset+AHRSPOS_TS_UPDATE_QUAT_X_VALUE_INDEX);
+			u.quat_y = decodeBinaryInt16(buffer,offset+AHRSPOS_TS_UPDATE_QUAT_Y_VALUE_INDEX);
+			u.quat_z = decodeBinaryInt16(buffer,offset+AHRSPOS_TS_UPDATE_QUAT_Z_VALUE_INDEX);
+			u.op_status = buffer[AHRSPOS_TS_UPDATE_OPSTATUS_VALUE_INDEX];
+			u.sensor_status = buffer[AHRSPOS_TS_UPDATE_SENSOR_STATUS_VALUE_INDEX];
+			u.cal_status = buffer[AHRSPOS_TS_UPDATE_CAL_STATUS_VALUE_INDEX];
+			u.selftest_status = buffer[AHRSPOS_TS_UPDATE_SELFTEST_STATUS_VALUE_INDEX];
+			u.timestamp = decodeBinaryUint32(buffer,offset+AHRSPOS_TS_UPDATE_TIMESTAMP_INDEX);
+			return AHRSPOS_TS_UPDATE_MESSAGE_LENGTH;
 		}
 		return 0;
 	}

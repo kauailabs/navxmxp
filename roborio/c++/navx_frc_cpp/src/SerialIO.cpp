@@ -19,8 +19,9 @@ SerialIO::SerialIO( SerialPort::Port port_id,
     this->serial_port_id = port_id;
     ypr_update_data = {0};
     gyro_update_data = {0};
-    ahrs_update_data = {0};;
+    ahrs_update_data = {0};
     ahrspos_update_data = {0};
+    ahrspos_ts_update_data = {};
     board_id = {0};
     board_state = {0};
     this->notify_sink = notify_sink;
@@ -29,7 +30,7 @@ SerialIO::SerialIO( SerialPort::Port port_id,
     serial_port = GetMaybeCreateSerialPort();
     this->update_rate_hz = update_rate_hz;
     if ( processed_data ) {
-        update_type = MSGID_AHRSPOS_UPDATE;
+        update_type = MSGID_AHRSPOS_TS_UPDATE;
     } else {
         update_type = MSGID_GYRO_UPDATE;
     }
@@ -81,13 +82,20 @@ void SerialIO::DispatchStreamResponse(IMUProtocol::StreamResponse& response) {
     board_state.gyro_fsr_dps = response.gyro_fsr_dps;
     board_state.update_rate_hz = (uint8_t) response.update_rate_hz;
     notify_sink->SetBoardState(board_state);
-    /* If AHRSPOS is update type is request, but board doesn't support it, */
-    /* retransmit the stream config, falling back to AHRS Update mode.     */
-    if ( this->update_type == MSGID_AHRSPOS_UPDATE ) {
-        if ( !board_capabilities->IsDisplacementSupported() ) {
-            this->update_type = MSGID_AHRS_UPDATE;
-            signal_retransmit_stream_config = true;
+    /* If AHRSPOS_TS is update type is requested, but board doesn't support it, */
+    /* retransmit the stream config, falling back to AHRSPos update mode, if    */
+    /* the board supports it, otherwise fall all the way back to AHRS Update mode. */
+    if ( this->update_type == MSGID_AHRSPOS_TS_UPDATE ) {
+    	if ( board_capabilities->IsAHRSPosTimestampSupported() ) {
+    		this->update_type = MSGID_AHRSPOS_TS_UPDATE;
+    	}
+    	else if ( board_capabilities->IsDisplacementSupported() ) {
+            this->update_type = MSGID_AHRSPOS_UPDATE;
         }
+    	else {
+    		this->update_type = MSGID_AHRS_UPDATE;
+    	}
+		signal_retransmit_stream_config = true;
     }
 }
 
@@ -97,6 +105,8 @@ int SerialIO::DecodePacketHandler(char * received_data, int bytes_remaining) {
 
     if ( (packet_length = IMUProtocol::decodeYPRUpdate(received_data, bytes_remaining, ypr_update_data)) > 0) {
         notify_sink->SetYawPitchRoll(ypr_update_data, sensor_timestamp);
+    } else if ( ( packet_length = AHRSProtocol::decodeAHRSPosTSUpdate(received_data, bytes_remaining, ahrspos_ts_update_data)) > 0) {
+        notify_sink->SetAHRSPosData(ahrspos_update_data, ahrspos_ts_update_data.timestamp);
     } else if ( ( packet_length = AHRSProtocol::decodeAHRSPosUpdate(received_data, bytes_remaining, ahrspos_update_data)) > 0) {
         notify_sink->SetAHRSPosData(ahrspos_update_data, sensor_timestamp);
     } else if ( ( packet_length = AHRSProtocol::decodeAHRSUpdate(received_data, bytes_remaining, ahrs_update_data)) > 0) {

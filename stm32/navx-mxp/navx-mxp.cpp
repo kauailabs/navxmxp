@@ -282,7 +282,8 @@ uint16_t get_capability_flags()
     uint16_t capability_flags = 0;
     capability_flags |= (NAVX_CAPABILITY_FLAG_OMNIMOUNT +
             NAVX_CAPABILITY_FLAG_VEL_AND_DISP +
-            NAVX_CAPABILITY_FLAG_YAW_RESET);
+            NAVX_CAPABILITY_FLAG_YAW_RESET +
+            NAVX_CAPABILITY_FLAG_AHRSPOS_TS);
     uint16_t yaw_axis_info =
             (((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis << 1) +
             ((((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up) ? 1 : 0);
@@ -799,7 +800,36 @@ _EXTERN_ATTRIB void nav10_main()
 
                 for ( int ifx = 0; ifx < num_serial_interfaces; ifx++ ) {
 
-                    if ( update_type[ifx] == MSGID_AHRSPOS_UPDATE ) {
+                    if ( update_type[ifx] == MSGID_AHRSPOS_TS_UPDATE ) {
+
+                        num_update_bytes[ifx] = AHRSProtocol::encodeAHRSPosTSUpdate( update_buffer[ifx],
+                                mpudata.yaw,
+                                mpudata.pitch,
+                                mpudata.roll,
+                                mpudata.heading,
+                                0.0, 							/* TODO:  Calc altitude    */
+                                mpudata.fused_heading,
+                                mpudata.world_linear_accel[0],
+                                mpudata.world_linear_accel[1],
+                                mpudata.world_linear_accel[2],
+                                mpudata.temp_c,
+                                mpudata.quaternion[0] >> 16,
+                                mpudata.quaternion[1] >> 16,
+                                mpudata.quaternion[2] >> 16,
+                                mpudata.quaternion[3] >> 16,
+                                mpudata.velocity[0],
+                                mpudata.velocity[1],
+                                mpudata.velocity[2],
+                                mpudata.displacement[0],
+                                mpudata.displacement[1],
+                                mpudata.displacement[2],
+                                registers.op_status,
+                                registers.sensor_status,
+                                registers.cal_status,
+                                registers.selftest_status,
+                                registers.timestamp);
+                    }
+                    else if ( update_type[ifx] == MSGID_AHRSPOS_UPDATE ) {
 
                         num_update_bytes[ifx] = AHRSProtocol::encodeAHRSPosUpdate( update_buffer[ifx],
                                 mpudata.yaw,
@@ -1184,7 +1214,8 @@ _EXTERN_ATTRIB void nav10_main()
                                 ( new_stream_type == MSGID_QUATERNION_UPDATE ) ||
                                 ( new_stream_type == MSGID_GYRO_UPDATE ) ||
                                 ( new_stream_type == MSGID_AHRS_UPDATE ) ||
-                                ( new_stream_type == MSGID_AHRSPOS_UPDATE ) ) {
+                                ( new_stream_type == MSGID_AHRSPOS_UPDATE ) ||
+                                ( new_stream_type == MSGID_AHRSPOS_TS_UPDATE )) {
                             update_type[ifx] = new_stream_type;
                         }
                     }
