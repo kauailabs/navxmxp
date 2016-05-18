@@ -48,6 +48,7 @@ GButton btnBoardInfo;
 GButton btnFileSave;
 GButton btnAdvanced;
 GDropList dplComPorts;
+GDropList dplUpdateRates;
 
 String[] currComPortNames = null;
 int num_curr_com_port_names = 0;
@@ -123,7 +124,7 @@ boolean navx_device_moving = false;
 boolean yaw_stable = true;
 int last_update_ms = 0;
 
-int updateRateHz = 0;
+int updateRateHz = 50;
 int gyroFSRDPS = 0;
 int accelFSRG = 0;
 float yaw_offset_degrees = 0.0;
@@ -147,10 +148,16 @@ int lf = 10;      // ASCII linefeed
 // this table is used to store all command line parameters
 // in the form: name=value
 static Hashtable params=new Hashtable();
+
+byte stream_type = AHRSProtocol.MSGID_AHRS_UPDATE;
  
 PFont smallTextFont;
 PFont mediumTextFont;
 PFont largeTextFont;
+ 
+String[] valid_update_rates = new String[] {"4","5","6","7","8","9","10","11",
+                                            "12","13","14","15","16","18","20","22",
+                                            "25","28","33","40","50","66","100","200"};
  
 // here we overwrite PApplet's main entry point (for application mode)
 // we're parsing all commandline arguments and copy only the relevant ones
@@ -328,6 +335,29 @@ void enableAHRSPosTSUpdateMode(int rate) {
     }
 }
 
+void updateUpdateRateListSelection() {
+  int index = getIndexInUpdateRateList(updateRateHz);
+  dplUpdateRates.setSelected(index);
+}
+
+int getIndexInUpdateRateList( int update_rate ) {
+  int highest_matching_index = 0;
+  for ( int i = 0; i < valid_update_rates.length; i++ ) {
+    double update_rate_hz_f = Double.parseDouble(valid_update_rates[i]);
+    int update_rate_hz_i = (int)update_rate_hz_f;
+    if ( update_rate == update_rate_hz_i ) {
+      return i;
+    }
+    if ( update_rate > update_rate_hz_i ) {
+      highest_matching_index = i+1;
+    }
+  }
+  if ( highest_matching_index >= valid_update_rates.length ) {
+    highest_matching_index = valid_update_rates.length - 1;
+  }
+  return highest_matching_index;
+}
+
 int last_port_list_update_timestamp = 0;
 
 int getIndexInStringList( String[] array, String str )
@@ -357,6 +387,9 @@ void update_port_list()
   currComPortNames = MySerialList.list();
   println(currComPortNames);
   dplComPorts.setVisible(currComPortNames.length != 0);
+  if ( dplUpdateRates != null ) {
+    dplUpdateRates.setVisible(currComPortNames.length != 0);
+  }
   int index = 0;
   if ( ( dplComPorts != null ) && ( currComPortNames.length > 0 ) && ( currComPortNames != null ) ){
     if ( opened_port_name != null ) {
@@ -388,7 +421,7 @@ void setup() {
     // 500px square viewport using OpenGL rendering
     size(500, 560, OPENGL);
     gfx = new ToxiclibsSupport(this);
-    println("Sketh Path:  " + sketchPath(""));
+    println("Sketch Path:  " + sketchPath(""));
     println("Data Path:  " + dataPath(""));
     try {
     smallTextFont = loadFont("ArialMT-16.vlw");
@@ -483,6 +516,9 @@ void setup() {
     num_curr_com_port_names = 1;
     update_port_list();
 
+    dplUpdateRates = new GDropList(this,20,120,80,70);
+    dplUpdateRates.setItems(valid_update_rates, valid_update_rates.length);
+    dplUpdateRates.setSelected(20);
     if ( port != null ) {
       int lf=10;
       port.bufferUntil(lf);
@@ -492,9 +528,10 @@ void setup() {
       
       // Send command to navX-Model device requesting streaming data in 'raw' format
       //enableRawUpdateMode(100);    
-      enableAHRSUpdateMode(100);
+      //enableAHRSUpdateMode(50);
       //enableAHRSUpdateMode(100);
       //enableAHRSUpdateMode(100);
+      requestUpdateModeAndRate();
     }    
 }
 
@@ -509,6 +546,17 @@ void handleDropListEvents(GDropList list, GEvent event)
         }
       }
     }
+  }
+  if ( list == dplUpdateRates ) {
+    println("Update Rate list event" + event.toString() );
+    if ( event == GEvent.SELECTED  ) {
+      //println("Selected index:  " + list.getSelectedIndex() + " (" + list.getSelectedText() + ")" );
+      double update_rate_hz_f = Double.parseDouble(list.getSelectedText());
+      int update_rate_hz_i = (int)update_rate_hz_f;
+      println("Selected update Rate:  " + update_rate_hz_i + " Hz");
+      updateRateHz = update_rate_hz_i;
+      requestUpdateModeAndRate();
+    }    
   }
 }
 
@@ -560,7 +608,7 @@ void draw() {
         } else {
           reopen_serial_port(attempted_open_serial_port_name);
         }
-        enableAHRSUpdateMode(100);
+        requestUpdateModeAndRate();
       }
     }
     else {
@@ -731,6 +779,20 @@ void draw() {
     endShape();
     
     popMatrix();
+}
+
+public void requestUpdateModeAndRate() 
+{
+  if ( stream_type == AHRSProtocol.MSGID_AHRS_UPDATE ) {
+    print("Enabling AHRS Update Mode.");
+    enableAHRSUpdateMode(updateRateHz);
+  } else if ( stream_type == AHRSProtocol.MSGID_AHRSPOS_UPDATE ) {
+    print("Enabling AHRS Pos Update Mode.");
+    enableAHRSPosUpdateMode(updateRateHz);
+  } else if ( stream_type == AHRSProtocol.MSGID_AHRSPOS_TS_UPDATE ) {
+    print("Enabling AHRS Pos Timestamp Update Mode.");    
+    enableAHRSPosTSUpdateMode(updateRateHz);
+  }  
 }
 
 public void createBoardInfoWindow()
@@ -938,7 +1000,7 @@ void serialEvent(MySerial port) {
             initial_bytes_received++;
           }
           //initial_bytes_received = port.readBytesUntil((int)'n',protocol_buffer2);
-          println("Got more bytes.  More Len = " + String.valueOf(initial_bytes_received) + " Remaining available:  " + String.valueOf(port.available()) );
+          //println("Got more bytes.  More Len = " + String.valueOf(initial_bytes_received) + " Remaining available:  " + String.valueOf(port.available()) );
           if ( initial_bytes_received == 0 ) return;
           int x = 0;
           for ( int i = last_partial_packet_bytes_received; i < last_partial_packet_bytes_received + initial_bytes_received; i++, x++ ) {
@@ -967,7 +1029,7 @@ void serialEvent(MySerial port) {
               int indicated_message_length = protocol_buffer[1];
               if ( msg_len != indicated_message_length + 1 ) {
                 last_msg_start_received_timestamp = millis();             
-                println( "Partial:  Len Received = " + String.valueOf(msg_len) + ", Expected Len = " + String.valueOf(indicated_message_length) + ", Now = " + String.valueOf(last_msg_start_received_timestamp));
+                //println( "Partial:  Len Received = " + String.valueOf(msg_len) + ", Expected Len = " + String.valueOf(indicated_message_length) + ", Now = " + String.valueOf(last_msg_start_received_timestamp));
                 last_partial_packet_expected_length = indicated_message_length;
                 last_partial_packet_bytes_received = msg_len;
                 for ( int i = 0; i < msg_len; i++ ) {
@@ -1129,12 +1191,13 @@ void serialEvent(MySerial port) {
           // initialization.
           decode_length = IMUProtocol.decodeYPRUpdate(full_message, 0, full_message.length, ypr_update);
           if ( decode_length > 0 ) {
-            enableAHRSUpdateMode(100);
+            requestUpdateModeAndRate();
           }
           else {
             decode_length = IMUProtocol.decodeStreamResponse(full_message,0, full_message.length,stream_response);
             if ( decode_length > 0 ) {
               updateRateHz = stream_response.update_rate_hz;
+              updateUpdateRateListSelection();
               gyroFSRDPS = stream_response.gyro_fsr_dps;
               accelFSRG = stream_response.accel_fsr_g;
               yaw_offset_degrees = stream_response.yaw_offset_degrees;
@@ -1151,15 +1214,15 @@ void serialEvent(MySerial port) {
                 btnAdvanced.setVisible(vel_and_disp_supported);
                 if ( ahrspos_timestamp_supported ) {
                   if ( stream_response.stream_type != AHRSProtocol.MSGID_AHRSPOS_TS_UPDATE ) {
-                    println("Enabling AHRSPOS Timestamp Mode");
-                    enableAHRSPosTSUpdateMode(100);
+                    stream_type = AHRSProtocol.MSGID_AHRSPOS_TS_UPDATE;
+                    requestUpdateModeAndRate();
                   }
                 }
                 else {
                   if ( vel_and_disp_supported ) {
                     if ( stream_response.stream_type != AHRSProtocol.MSGID_AHRSPOS_UPDATE ) {
-                      println("Enabling AHRSPOS Mode");
-                      enableAHRSPosUpdateMode(100);
+                      stream_type = AHRSProtocol.MSGID_AHRSPOS_UPDATE;
+                      requestUpdateModeAndRate();
                     }
                   }
                 }
@@ -1226,7 +1289,7 @@ void serialEvent(MySerial port) {
                 }
                 if (decode_length != 0) {
                   update_count++;
-                  println("AHRSPos Update Count:  " + String.valueOf(update_count) + ", time:  " + String.valueOf(curr_sensor_timestamp));
+                  //println("AHRSPos Update Count:  " + String.valueOf(update_count) + ", time:  " + String.valueOf(curr_sensor_timestamp));
                   last_update_ms = millis();
             
                   current_temp_c = ahrs_pos_update.mpu_temp;
