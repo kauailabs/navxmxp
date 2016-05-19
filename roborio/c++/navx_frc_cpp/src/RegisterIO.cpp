@@ -17,6 +17,8 @@ RegisterIO::RegisterIO( IRegisterIO *io_provider,
     this->board_capabilities    = board_capabilities;
     this->notify_sink           = notify_sink;
     this->last_sensor_timestamp = 0;
+    this->update_count 			= 0;
+    this->byte_count			= 0;
 
     raw_data_update = {0};
     ahrs_update     = {0};
