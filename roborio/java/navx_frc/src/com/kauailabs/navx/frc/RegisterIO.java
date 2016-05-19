@@ -64,7 +64,7 @@ class RegisterIO implements IIOProvider {
         /* Note:  some additional time is removed from the */
         /* 1/update_rate value to ensure samples are not   */
         /* dropped, esp. at higher update rates.           */
-        double update_rate = 1.0/(double)this.update_rate_hz;
+        double update_rate = 1.0/((double)((int)(this.update_rate_hz & 0xFF)));
         if ( update_rate > DELAY_OVERHEAD_SECONDS) {
         	update_rate -= DELAY_OVERHEAD_SECONDS;
         }
