@@ -385,7 +385,7 @@ void update_port_list()
     dplComPorts.removeItem(i);
   }
   currComPortNames = MySerialList.list();
-  println(currComPortNames);
+  //println(currComPortNames);
   dplComPorts.setVisible(currComPortNames.length != 0);
   if ( dplUpdateRates != null ) {
     dplUpdateRates.setVisible(currComPortNames.length != 0);
@@ -994,13 +994,17 @@ void serialEvent(MySerial port) {
           initial_bytes_received = 0;
           while ( ( port.available() > 0 ) && !end_of_packet ) {
             protocol_buffer2[initial_bytes_received] = (byte)port.read();
-            if ( protocol_buffer2[initial_bytes_received] == (byte)'n' ) {
+            if ( protocol_buffer2[initial_bytes_received] == (byte)lf ) {
               end_of_packet = true;
             }
             initial_bytes_received++;
           }
           //initial_bytes_received = port.readBytesUntil((int)'n',protocol_buffer2);
-          //println("Got more bytes.  More Len = " + String.valueOf(initial_bytes_received) + " Remaining available:  " + String.valueOf(port.available()) );
+          if ( end_of_packet ) {
+            println("Got end of partial packet.");            
+          } else {
+            println("Got more bytes.  More Len = " + String.valueOf(initial_bytes_received) + " Remaining available:  " + String.valueOf(port.available()) );
+          }
           if ( initial_bytes_received == 0 ) return;
           int x = 0;
           for ( int i = last_partial_packet_bytes_received; i < last_partial_packet_bytes_received + initial_bytes_received; i++, x++ ) {
@@ -1029,7 +1033,7 @@ void serialEvent(MySerial port) {
               int indicated_message_length = protocol_buffer[1];
               if ( msg_len != indicated_message_length + 1 ) {
                 last_msg_start_received_timestamp = millis();             
-                //println( "Partial:  Len Received = " + String.valueOf(msg_len) + ", Expected Len = " + String.valueOf(indicated_message_length) + ", Now = " + String.valueOf(last_msg_start_received_timestamp));
+                println( "Partial:  Len Received = " + String.valueOf(msg_len) + ", Expected Len = " + String.valueOf(indicated_message_length) + ", Now = " + String.valueOf(last_msg_start_received_timestamp));
                 last_partial_packet_expected_length = indicated_message_length;
                 last_partial_packet_bytes_received = msg_len;
                 for ( int i = 0; i < msg_len; i++ ) {
@@ -1039,6 +1043,8 @@ void serialEvent(MySerial port) {
               } else {
                 //println("Got complete binary packet.  Len = " + String.valueOf(msg_len));
               }
+          } else {
+            println("Received packet, but not a valid binary packet.");
           }
         }
         //println(msg_len);

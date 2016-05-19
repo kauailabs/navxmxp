@@ -323,6 +323,8 @@ static void android_orient_cb(unsigned char orientation)
 }
 
 unsigned long sensor_timestamp = 0;
+unsigned long sensor_timestamp_dmp_fifo = 0;
+unsigned long sensor_timestamp_mpu_temp = 0;
 unsigned char accel_fsr = 0;
 
 _EXTERN_ATTRIB void mpu_initialize(unsigned short mpu_interrupt_pin)
@@ -800,7 +802,8 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
     if ( !hal.new_gyro ) return -1;
     if ( NULL == pdata ) return -1;
 
-    if (!dmp_read_fifo(gyro, accel_short, pdata->quaternion, &sensor_timestamp, &sensors, &more) ) {
+    get_ms(&sensor_timestamp);
+    if (!dmp_read_fifo(gyro, accel_short, pdata->quaternion, &sensor_timestamp_dmp_fifo, &sensors, &more) ) {
 
         /* Read mpu temperature data if sufficient time has passed. */
         if (sensor_timestamp > hal.next_temp_ms) {
@@ -825,7 +828,7 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
             new_data = 1;
             if (new_temp) {
                 new_temp = 0;
-                if ( !mpu_get_temperature(&last_temperature, &sensor_timestamp) ) {
+                if ( !mpu_get_temperature(&last_temperature, &sensor_timestamp_mpu_temp) ) {
                     /* Correct for discrepancy between datasheet and mpu_get_temperature implementation */
                     last_temperature -= (14 * 65536);
                     pdata->temp_c = last_temperature / 65536.0;
