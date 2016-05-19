@@ -813,10 +813,10 @@ _EXTERN_ATTRIB void nav10_main()
                                 mpudata.world_linear_accel[1],
                                 mpudata.world_linear_accel[2],
                                 mpudata.temp_c,
-                                mpudata.quaternion[0] >> 16,
-                                mpudata.quaternion[1] >> 16,
-                                mpudata.quaternion[2] >> 16,
-                                mpudata.quaternion[3] >> 16,
+                                (((float)mpudata.quaternion[0])/65536), /* Cvt 16:16 -> Float */
+                                (((float)mpudata.quaternion[1])/65536), /* Cvt 16:16 -> Float */
+                                (((float)mpudata.quaternion[2])/65536), /* Cvt 16:16 -> Float */
+                                (((float)mpudata.quaternion[3])/65536), /* Cvt 16:16 -> Float */
                                 mpudata.velocity[0],
                                 mpudata.velocity[1],
                                 mpudata.velocity[2],
