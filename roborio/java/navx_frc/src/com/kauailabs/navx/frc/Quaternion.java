@@ -11,7 +11,7 @@ package com.kauailabs.navx.frc;
 
 import java.lang.Math;
 
-class Quaternion {
+public class Quaternion {
 
     private float w;
     private float x;

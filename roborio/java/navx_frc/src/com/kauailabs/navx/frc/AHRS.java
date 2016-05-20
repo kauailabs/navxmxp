@@ -823,7 +823,7 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
         integrator = new InertialDataIntegrator();
         yaw_offset_tracker = new OffsetTracker(YAW_HISTORY_LENGTH);
         yaw_angle_tracker = new ContinuousAngleTracker();
-        int history_size = (int)((float)update_rate_hz * QUATERNION_HISTORY_SECONDS);
+        int history_size = (int)(((float)(this.update_rate_hz & 0xFF)) * QUATERNION_HISTORY_SECONDS);
         this.quaternion_history = new TimestampedQuaternionHistory(history_size);
     }
 

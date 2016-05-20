@@ -9,7 +9,7 @@
 /*----------------------------------------------------------------------------*/
 package com.kauailabs.navx.frc;
 
-class TimestampedQuaternion extends Quaternion {
+public class TimestampedQuaternion extends Quaternion {
 
     long timestamp;
     boolean valid;
@@ -19,13 +19,21 @@ class TimestampedQuaternion extends Quaternion {
     	super();
     	timestamp = 0;
     	valid = false;
-    	interpolated = false;
+    	this.interpolated = false;
     }
     
     public TimestampedQuaternion(Quaternion src, long timestamp) {
     	super(src);
     	this.timestamp = timestamp;
     	valid = true;
+    	this.interpolated = false;
+    }
+    
+    public TimestampedQuaternion(TimestampedQuaternion src) {
+    	super(src);
+    	this.timestamp = src.timestamp;
+    	this.valid = src.valid;
+    	this.interpolated = src.interpolated;
     }
     
     public boolean isValid() {

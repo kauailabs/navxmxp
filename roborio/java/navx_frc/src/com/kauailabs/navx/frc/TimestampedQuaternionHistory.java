@@ -21,12 +21,16 @@ class TimestampedQuaternionHistory {
     public TimestampedQuaternionHistory(int num_samples) {
     	history_size = num_samples;
     	history = new TimestampedQuaternion[history_size];
+    	for ( int i = 0; i < history_size; i++ ) {
+    		history[i] = new TimestampedQuaternion();
+    	}
     	curr_index = 0;
     	num_valid_samples = 0;
     }
 
     public void add(float w, float x, float y, float z, long new_timestamp) {
     	synchronized(this) {
+			history[curr_index].set(w, x, y, z, new_timestamp);
 	    	if ( curr_index < (history_size - 1)) {
 	    		curr_index++;
 	    	} else {
@@ -34,8 +38,7 @@ class TimestampedQuaternionHistory {
 	    	}
 	    	if ( num_valid_samples < history_size ) {
 	    		num_valid_samples++;
-	    	}
-			history[curr_index].set(w, x, y, z, new_timestamp);
+	    	}			
     	}
     }
     
@@ -85,6 +88,13 @@ class TimestampedQuaternionHistory {
 	    	}
     	}
     	
-    	return match;
+    	if ( match != null ) {
+    		/* Make a copy of the quaternion, so that caller does not directly reference
+    		 * a quaternion within this history, which is volatile.
+    		 */
+    		return new TimestampedQuaternion(match);
+    	}
+    	
+    	return null;
     }
 }
