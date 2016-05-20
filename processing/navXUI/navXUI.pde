@@ -914,7 +914,7 @@ public void handleButtonEvents(GButton button, GEvent event)
         datafile_name = user_dir + File.separator + "navXData_" + formattedDate + ".csv";
         println("Datafile name:  " + datafile_name);
         outputStream = new FileWriter(datafile_name);
-        String header = "Timestamp,Yaw,Pitch,Roll\r\n";
+        String header = "Timestamp,Yaw,Pitch,Roll,LinearAccelX,LinearAccelY,VelocityX,VelocityY,DisplacementX,DisplacementY\r\n";
         outputStream.write(header);
         btnFileSave.setText("Stop Saving Data", GAlign.CENTER, GAlign.MIDDLE );
         btnFileSave.setLocalColorScheme(3);
@@ -1332,7 +1332,10 @@ void serialEvent(MySerial port) {
                   curr_displacement_y = ahrs_pos_update.disp_y;
 
                   String file_data = new String();
-                  file_data = curr_sensor_timestamp + "," + yaw_degrees + "," + pitch_degrees + "," + roll_degrees + "\r\n"; 
+                  file_data = curr_sensor_timestamp + "," + yaw_degrees + "," + pitch_degrees + "," + roll_degrees + "," + 
+                                world_linear_acceleration_x + "," + world_linear_acceleration_y + "," + 
+                                curr_velocity_x + "," + curr_velocity_y + "," + 
+                                curr_displacement_x + "," + curr_displacement_y + "\r\n"; 
                   if ( outputStream != null ) {
                     outputStream.write(file_data);
                   }

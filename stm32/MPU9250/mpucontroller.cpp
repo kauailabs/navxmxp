@@ -684,7 +684,7 @@ _EXTERN_ATTRIB int mpu_apply_calibration_data(struct mpu_selftest_calibration_da
     /* less-than-desirable ways w/the DMP's accelerometer bias     */
     /* calculations.  The only downside to this is that the raw    */
     /* Accelerometer values are not bias-corrected.                */
-    /* mpu_set_accel_bias_6500_reg(accel);                         */
+    mpu_set_accel_bias_6500_reg(accel);
 #elif defined (MPU6050) || defined (MPU9150)
     mpu_set_accel_bias_6050_reg(accel);
 #endif
@@ -798,7 +798,6 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
     FloatVectorStruct gravity;
     short sensors;
     unsigned char more;
-    long accel[3];
     if ( !hal.new_gyro ) return -1;
     if ( NULL == pdata ) return -1;
 
@@ -838,9 +837,6 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
         if (sensors & INV_XYZ_ACCEL) {
             /* Transform raw accelerometer data to board orientation */
             xform_mpu_to_board_coordinates(accel_short);
-            accel[0] = (long)accel_short[0];
-            accel[1] = (long)accel_short[1];
-            accel[2] = (long)accel_short[2];
             new_data = 1;
         }
         if (sensors & INV_WXYZ_QUAT) {
@@ -879,10 +875,10 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
 
             /* Rotate the Quaternion from the MPU by the inverse of the current yaw offset */
 
-            Quaternion q_in( (float)(pdata->quaternion[0] >> 16) / 16384.0f,
-                    (float)(pdata->quaternion[1] >> 16) / 16384.0f,
-                    (float)(pdata->quaternion[2] >> 16) / 16384.0f,
-                    (float)(pdata->quaternion[3] >> 16) / 16384.0f);
+            Quaternion q_in( (((float)(pdata->quaternion[0]))/65536) / 16384.0f,
+            		(((float)(pdata->quaternion[1]))/65536) / 16384.0f,
+            		(((float)(pdata->quaternion[2]))/65536) / 16384.0f,
+            		(((float)(pdata->quaternion[3]))/65536) / 16384.0f);
 
             Quaternion world_frame_rotation( cos(-curr_yaw_offset_radians/2), 0.0f, 0.0f, -sin(-curr_yaw_offset_radians/2) );
 
