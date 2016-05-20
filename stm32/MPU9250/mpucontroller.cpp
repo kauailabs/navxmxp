@@ -684,7 +684,7 @@ _EXTERN_ATTRIB int mpu_apply_calibration_data(struct mpu_selftest_calibration_da
     /* less-than-desirable ways w/the DMP's accelerometer bias     */
     /* calculations.  The only downside to this is that the raw    */
     /* Accelerometer values are not bias-corrected.                */
-    mpu_set_accel_bias_6500_reg(accel);
+    //mpu_set_accel_bias_6500_reg(accel);
 #elif defined (MPU6050) || defined (MPU9150)
     mpu_set_accel_bias_6050_reg(accel);
 #endif

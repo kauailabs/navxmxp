@@ -113,6 +113,7 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     static final int    YAW_HISTORY_LENGTH      			= 10;
     static final short  DEFAULT_ACCEL_FSR_G                 = 2;
     static final short  DEFAULT_GYRO_FSR_DPS                = 2000;
+    static final float  QUATERNION_HISTORY_SECONDS			= 5.0f;
    
     /* Processed Data */
     
@@ -186,13 +187,15 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     
     PIDSourceType			pid_source_type = PIDSourceType.kDisplacement;
     
+    TimestampedQuaternionHistory quaternion_history;
+    
     /***********************************************************/
     /* Public Interface Implementation                         */
     /***********************************************************/
     
     /**
      * Constructs the AHRS class using SPI communication, overriding the 
-     * default update rate with a custom rate which may be from 4 to 100, 
+     * default update rate with a custom rate which may be from 4 to 200, 
      * representing the number of updates per second sent by the sensor.  
      *<p>
      * This constructor should be used if communicating via SPI.
@@ -238,7 +241,7 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
         io_thread.start();
     }/**
      * Constructs the AHRS class using I2C communication, overriding the 
-     * default update rate with a custom rate which may be from 4 to 100, 
+     * default update rate with a custom rate which may be from 4 to 200, 
      * representing the number of updates per second sent by the sensor.  
      *<p>
      * This constructor should be used if communicating via I2C.
@@ -257,7 +260,7 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
 
     /**
      * Constructs the AHRS class using serial communication, overriding the 
-     * default update rate with a custom rate which may be from 4 to 100, 
+     * default update rate with a custom rate which may be from 4 to 200, 
      * representing the number of updates per second sent by the sensor.  
      *<p>
      * This constructor should be used if communicating via either 
@@ -820,6 +823,8 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
         integrator = new InertialDataIntegrator();
         yaw_offset_tracker = new OffsetTracker(YAW_HISTORY_LENGTH);
         yaw_angle_tracker = new ContinuousAngleTracker();
+        int history_size = (int)((float)update_rate_hz * QUATERNION_HISTORY_SECONDS);
+        this.quaternion_history = new TimestampedQuaternionHistory(history_size);
     }
 
     /***********************************************************/
@@ -1092,6 +1097,41 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
         return fw_version;
     }
     
+    public TimestampedQuaternion getQuaternionAtTime( long requested_timestamp ) {
+    	TimestampedQuaternion match = null;
+    	if ( quaternion_history != null ) {
+    		match = quaternion_history.get(requested_timestamp);
+    	}
+    	return match;
+    }
+    
+    public float getYawAtTime( long requested_timestamp ) {
+    	float yaw = 0.0f;
+    	TimestampedQuaternion match = getQuaternionAtTime( requested_timestamp );
+    	if ( match != null ) {
+    		yaw = match.getYaw();
+    	}
+    	return yaw;
+    }
+    
+    public float getPitchAtTime( long requested_timestamp ) {
+    	float pitch = 0.0f;
+    	TimestampedQuaternion match = getQuaternionAtTime( requested_timestamp );
+    	if ( match != null ) {
+    		pitch = match.getPitch();
+    	}
+    	return pitch;
+    }
+    
+    public float getRollAtTime( long requested_timestamp ) {
+    	float roll = 0.0f;
+    	TimestampedQuaternion match = getQuaternionAtTime( requested_timestamp );
+    	if ( match != null ) {
+    		roll = match.getRoll();
+    	}
+    	return roll;
+    }
+    
     /***********************************************************/
     /* Runnable Interface Implementation                       */
     /***********************************************************/
@@ -1216,6 +1256,14 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
             
             AHRS.this.last_sensor_timestamp      = sensor_timestamp;
             
+            if ( quaternion_history != null ) {
+            	quaternion_history.add(	AHRS.this.quaternionW,
+            							AHRS.this.quaternionX,
+            							AHRS.this.quaternionY,
+            							AHRS.this.quaternionZ,
+            							sensor_timestamp);
+            }
+            
             velocity[0]     = ahrs_update.vel_x;
             velocity[1]     = ahrs_update.vel_y;
             velocity[2]     = ahrs_update.vel_z;
@@ -1303,6 +1351,14 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
             AHRS.this.quaternionZ                = ahrs_update.quat_z;
             
             AHRS.this.last_sensor_timestamp      = sensor_timestamp;           
+            
+            if ( quaternion_history != null ) {
+            	quaternion_history.add(	AHRS.this.quaternionW,
+            							AHRS.this.quaternionX,
+            							AHRS.this.quaternionY,
+            							AHRS.this.quaternionZ,
+            							sensor_timestamp);
+            }            
             
             updateDisplacement( AHRS.this.world_linear_accel_x, 
                     AHRS.this.world_linear_accel_y, 
