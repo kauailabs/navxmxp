@@ -15,6 +15,8 @@ class ContinuousAngleTracker;
 class InertialDataIntegrator;
 class OffsetTracker;
 class AHRSInternal;
+class TimestampedQuaternion;
+class TimestampedQuaternionHistory;
 
 class AHRS : public SensorBase,
              public LiveWindowSendable,
@@ -116,6 +118,8 @@ private:
 
     Task *                  task;
 
+    TimestampedQuaternionHistory* quaternion_history;
+
 public:
     AHRS(SPI::Port spi_port_id);
     AHRS(I2C::Port i2c_port_id);
@@ -178,6 +182,11 @@ public:
     float  GetTempC();
     AHRS::BoardYawAxis GetBoardYawAxis();
     std::string GetFirmwareVersion();
+
+    bool GetQuaternionAtTime( long requested_timestamp, TimestampedQuaternion& out );
+    float GetYawAtTime( long requested_timestamp );
+    float GetPitchAtTime( long requested_timestamp );
+    float GetRollAtTime( long requested_timestamp );
 
 private:
     void SPIInit( SPI::Port spi_port_id, uint32_t bitrate, uint8_t update_rate_hz );

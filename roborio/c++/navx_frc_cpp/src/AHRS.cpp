@@ -18,6 +18,7 @@
 #include "RegisterIOSPI.h"
 #include "RegisterIOI2C.h"
 #include "SerialIO.h"
+#include "TimestampedQuaternionHistory.h"
 
 static const uint8_t    NAVX_DEFAULT_UPDATE_RATE_HZ         = 60;
 static const int        YAW_HISTORY_LENGTH                  = 10;
@@ -27,6 +28,7 @@ static const uint32_t   MAX_SPI_BITRATE                     = 2000000;
 static const uint32_t   MIN_SPI_BITRATE                     = 100000;
 static const uint32_t   DEFAULT_SPI_BITRATE                 = 500000;
 static const uint8_t    NAVX_MXP_I2C_ADDRESS                = 0x32;
+static const float  	QUATERNION_HISTORY_SECONDS			= 5.0f;
 
 class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
     AHRS *ahrs;
@@ -99,6 +101,16 @@ class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
         ahrs->quaternionX                = ahrs_update.quat_x;
         ahrs->quaternionY                = ahrs_update.quat_y;
         ahrs->quaternionZ                = ahrs_update.quat_z;
+
+        ahrs->last_sensor_timestamp	= sensor_timestamp;
+
+        if ( ahrs->quaternion_history ) {
+        	ahrs->quaternion_history->Add( 	ahrs->quaternionW,
+											ahrs->quaternionX,
+											ahrs->quaternionY,
+											ahrs->quaternionZ,
+											sensor_timestamp);
+        }
 
         ahrs->velocity[0]     = ahrs_update.vel_x;
         ahrs->velocity[1]     = ahrs_update.vel_y;
@@ -184,6 +196,14 @@ class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
         ahrs->quaternionZ                = ahrs_update.quat_z;
 
         ahrs->last_sensor_timestamp	= sensor_timestamp;
+
+        if ( ahrs->quaternion_history ) {
+        	ahrs->quaternion_history->Add( 	ahrs->quaternionW,
+											ahrs->quaternionX,
+											ahrs->quaternionY,
+											ahrs->quaternionZ,
+											sensor_timestamp);
+        }
 
         ahrs->UpdateDisplacement( ahrs->world_linear_accel_x,
                 ahrs->world_linear_accel_y,
@@ -938,6 +958,10 @@ void AHRS::commonInit( uint8_t update_rate_hz ) {
 
     table = 0;
     io = 0;
+
+    int history_size = (int)(((float)(this->update_rate_hz & 0xFF)) * QUATERNION_HISTORY_SECONDS);
+    this->quaternion_history = new TimestampedQuaternionHistory(history_size);
+
 }
 
 /**
@@ -1182,6 +1206,41 @@ std::string AHRS::GetFirmwareVersion() {
     os << (int)fw_ver_major << "." << (int)fw_ver_minor;
     std::string fw_version = os.str();
     return fw_version;
+}
+
+bool AHRS::GetQuaternionAtTime( long requested_timestamp, TimestampedQuaternion& out ) {
+	bool match = false;
+	if ( quaternion_history ) {
+		match = quaternion_history->Get(requested_timestamp, out);
+	}
+	return match;
+}
+
+float AHRS::GetYawAtTime( long requested_timestamp ) {
+	float yaw_val = 0.0f;
+	TimestampedQuaternion match;
+	if ( GetQuaternionAtTime( requested_timestamp, match ) ) {
+		yaw_val = match.GetYaw();
+	}
+	return yaw_val;
+}
+
+float AHRS::GetPitchAtTime( long requested_timestamp ) {
+	float pitch_val = 0.0f;
+	TimestampedQuaternion match;
+	if ( GetQuaternionAtTime( requested_timestamp, match ) ) {
+		pitch_val = match.GetPitch();
+	}
+	return pitch_val;
+}
+
+float AHRS::GetRollAtTime( long requested_timestamp ) {
+	float roll_val = 0.0f;
+	TimestampedQuaternion match;
+	if ( GetQuaternionAtTime( requested_timestamp, match ) ) {
+		roll_val = match.GetPitch();
+	}
+	return roll_val;
 }
 
     /***********************************************************/
