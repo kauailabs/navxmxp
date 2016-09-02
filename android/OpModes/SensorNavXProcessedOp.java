@@ -29,66 +29,44 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
 
-package com.qualcomm.ftcrobotcontroller.opmodes;
-
-import android.os.SystemClock;
+package org.firstinspires.ftc.teamcode;
 
 import com.kauailabs.navx.ftc.AHRS;
-import com.kauailabs.navx.ftc.navXPerformanceMonitor;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import java.text.DecimalFormat;
 
 /**
- * navX-Micro Performance Tuning Op
- *
- * This opmode provides insight into the peformance of the communication
- * with the navX-Model sensor over the I2C bus via the Core Device Interface
- * Module.  Since the Android operating system is not a real-time
- * operating system, and since communication w/the navX-Model sensor is
- * occurring over a wifi-direct network which can be prone to interference,
- * the actual performance (update rate) achieved may be less than
- * one might expect.
- *
- * Since the navX-Model devices integrate sensor data onboard, to achieve
- * the best performance for device control methods like a PID controller
- * that work best with constant-time updates, the strategy is to:
- *
- * 1) Configure the navX-Model device to a high update rate (e.g., 50Hz)
- * 2) Using this performance-tuning Op-Mode (with all other
- * sensors connected, just as your robot will be configured for normal
- * use) observe the "effective" update rate, and the number of missed
- * samples over the last minute.
- * 3) Lower the navX-Model device update rate until the number of missed
- * samples over the last minute reaches zero.
+ *  navX-Micro Processed Data Mode Op
+ * <p>
+ * Acquires processed data from navX-Micro
+ * and displays it in the Robot DriveStation
+ * as telemetry data.  This processed data includes
+ * Yaw, Pitch, Roll, Compass Heading, Fused (9-axis) Heading,
+ * Sensor Status and Timestamp, and World-Frame Linear
+ * Acceleration data.
  */
-public class navXPerformanceTuningOp extends OpMode {
+@TeleOp(name = "Sensor: navX Motion-processed Data", group = "Sensor")
+// @Disabled Comment this in to remove this from the Driver Station OpMode List
+public class SensorNavXProcessedOp extends OpMode {
 
-  /* This is the port on the Core Device Interface Module */
+  /* This is the port on the Core Device Interace Module */
   /* in which the navX-Micro is connected.  Modify this  */
   /* depending upon which I2C port you are using.        */
   private final int NAVX_DIM_I2C_PORT = 0;
 
-  private AHRS navx_device;
-  private navXPerformanceMonitor navx_perfmon;
-  private byte sensor_update_rate_hz = 40;
+  private String startDate;
   private ElapsedTime runtime = new ElapsedTime();
+  private AHRS navx_device;
 
   @Override
   public void init() {
-    AHRS.setLogging(true);
     navx_device = AHRS.getInstance(hardwareMap.deviceInterfaceModule.get("dim"),
             NAVX_DIM_I2C_PORT,
-            AHRS.DeviceDataType.kProcessedData,
-            sensor_update_rate_hz);
-    navx_perfmon = new navXPerformanceMonitor(navx_device);
+            AHRS.DeviceDataType.kProcessedData);
   }
-
-@Override
-  public void start() {
-    navx_device.registerCallback(navx_perfmon);
-}
 
   @Override
   public void stop() {
@@ -111,17 +89,46 @@ public class navXPerformanceTuningOp extends OpMode {
   public void loop() {
 
       boolean connected = navx_device.isConnected();
-      telemetry.addData("1 navX-Device...............:", connected ?
+      telemetry.addData("1 navX-Device", connected ?
               "Connected" : "Disconnected" );
-      String gyrocal, motion;
+      String gyrocal, magcal, yaw, pitch, roll, compass_heading;
+      String fused_heading, ypr, cf, motion;
       DecimalFormat df = new DecimalFormat("#.##");
 
-      telemetry.addData("2 Sensor Rate (Hz)...", Byte.toString(navx_device.getActualUpdateRate()));
-      telemetry.addData("3 Transfer Rate (Hz).", Integer.toString(navx_device.getCurrentTransferRate()));
-      telemetry.addData("4 Delivvered Rate (Hz)", Integer.toString(navx_perfmon.getDeliveredRateHz()));
-      telemetry.addData("5 Missed Samples.....", Integer.toString(navx_perfmon.getNumMissedSensorTimestampedSamples()));
-      telemetry.addData("6 Duplicate Samples..", Integer.toString(navx_device.getDuplicateDataCount()));
-      telemetry.addData("7 Sensor deltaT (ms).", Long.toString(navx_perfmon.getLastSensorTimestampDeltaMS()));
-      telemetry.addData("8 System deltaT (ms).", Long.toString(navx_perfmon.getLastSystemTimestampDeltaMS()));
+      if ( connected ) {
+          gyrocal = (navx_device.isCalibrating() ?
+                  "CALIBRATING" : "Calibration Complete");
+          magcal = (navx_device.isMagnetometerCalibrated() ?
+                  "Calibrated" : "UNCALIBRATED");
+          yaw = df.format(navx_device.getYaw());
+          pitch = df.format(navx_device.getPitch());
+          roll = df.format(navx_device.getRoll());
+          ypr = yaw + ", " + pitch + ", " + roll;
+          compass_heading = df.format(navx_device.getCompassHeading());
+          fused_heading = df.format(navx_device.getFusedHeading());
+          if (!navx_device.isMagnetometerCalibrated()) {
+              compass_heading = "-------";
+          }
+          cf = compass_heading + ", " + fused_heading;
+          if ( navx_device.isMagneticDisturbance()) {
+              cf += " (Mag. Disturbance)";
+          }
+          motion = (navx_device.isMoving() ? "Moving" : "Not Moving");
+          if ( navx_device.isRotating() ) {
+              motion += ", Rotating";
+          }
+      } else {
+          gyrocal =
+            magcal =
+            ypr =
+            cf =
+            motion = "-------";
+      }
+      telemetry.addData("2 GyroAccel", gyrocal );
+      telemetry.addData("3 Y,P,R", ypr);
+      telemetry.addData("4 Magnetometer", magcal );
+      telemetry.addData("5 Compass,9Axis", cf );
+      telemetry.addData("6 Motion", motion);
   }
+
 }

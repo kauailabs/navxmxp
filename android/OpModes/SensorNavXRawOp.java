@@ -29,16 +29,17 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
 
-package com.qualcomm.ftcrobotcontroller.opmodes;
+package org.firstinspires.ftc.teamcode;
 
 import com.kauailabs.navx.ftc.AHRS;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import java.text.DecimalFormat;
 
 /**
- * navXRawOp
+ * SensorNavXRawOp
  * <p>
  * This sample demonstrates how to acquire the raw
  * Gyroscope, Accelerometer and Magnetometer data.  This raw
@@ -62,7 +63,9 @@ import java.text.DecimalFormat;
  * I2C bus transfers, and thus takes longer than acquiring
  * only the raw or only the processed data.
  */
-public class navXRawOp extends OpMode {
+@TeleOp(name = "Sensor: navX Raw Data", group = "Sensor")
+// @Disabled Comment this in to remove this from the Driver Station OpMode List
+public class SensorNavXRawOp extends OpMode {
 
   private final int NAVX_DIM_I2C_PORT = 0;
   private String startDate;

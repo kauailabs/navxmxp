@@ -28,13 +28,15 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
-package com.qualcomm.ftcrobotcontroller.opmodes;
+package org.firstinspires.ftc.teamcode;
 
 import android.util.Log;
 
 import com.kauailabs.navx.ftc.AHRS;
 import com.kauailabs.navx.ftc.navXPIDController;
-import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorController;
 import com.qualcomm.robotcore.util.ElapsedTime;
@@ -42,21 +44,19 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import java.text.DecimalFormat;
 
 /*
- * An example loop op mode where the robot will drive in
- * a straight line (where the driving direction is guided by
- * the Yaw angle from a navX-Model device).
+ * An example linear op mode where the robot will rotate
+ * to a specified angle an then stop.
  *
  * This example uses a simple PID controller configuration
  * with a P coefficient, and will likely need tuning in order
  * to achieve optimal performance.
  *
  * Note that for the best accuracy, a reasonably high update rate
- * for the navX-Model sensor should be used.  This example uses
- * the default update rate (50Hz), which may be lowered in order
- * to reduce the frequency of the updates to the drive system.
+ * for the navX-Model sensor should be used.
  */
-
-public class navXDriveStraightPIDLoopOp extends OpMode {
+@TeleOp(name = "Concept: navX Rotate to Angle PID - Linear", group = "Concept")
+// @Disabled Comment this in to remove this from the Driver Station OpMode List
+public class ConceptNavXRotateToAnglePIDLinearOp extends LinearOpMode {
     DcMotor leftMotor;
     DcMotor rightMotor;
 
@@ -70,7 +70,7 @@ public class navXDriveStraightPIDLoopOp extends OpMode {
 
     private final byte NAVX_DEVICE_UPDATE_RATE_HZ = 50;
 
-    private final double TARGET_ANGLE_DEGREES = 0.0;
+    private final double TARGET_ANGLE_DEGREES = 90.0;
     private final double TOLERANCE_DEGREES = 2.0;
     private final double MIN_MOTOR_OUTPUT_VALUE = -1.0;
     private final double MAX_MOTOR_OUTPUT_VALUE = 1.0;
@@ -80,11 +80,8 @@ public class navXDriveStraightPIDLoopOp extends OpMode {
 
     private boolean calibration_complete = false;
 
-    navXPIDController.PIDResult yawPIDResult;
-    DecimalFormat df;
-
     @Override
-    public void init() {
+    public void runOpMode() throws InterruptedException {
         leftMotor = hardwareMap.dcMotor.get("left_drive");
         rightMotor = hardwareMap.dcMotor.get("right_drive");
 
@@ -102,7 +99,7 @@ public class navXDriveStraightPIDLoopOp extends OpMode {
 
         /* Create a PID Controller which uses the Yaw Angle as input. */
         yawPIDController = new navXPIDController( navx_device,
-                navXPIDController.navXTimestampedDataSource.YAW);
+                                    navXPIDController.navXTimestampedDataSource.YAW);
 
         /* Configure the PID controller */
         yawPIDController.setSetpoint(TARGET_ANGLE_DEGREES);
@@ -110,69 +107,62 @@ public class navXDriveStraightPIDLoopOp extends OpMode {
         yawPIDController.setOutputRange(MIN_MOTOR_OUTPUT_VALUE, MAX_MOTOR_OUTPUT_VALUE);
         yawPIDController.setTolerance(navXPIDController.ToleranceType.ABSOLUTE, TOLERANCE_DEGREES);
         yawPIDController.setPID(YAW_PID_P, YAW_PID_I, YAW_PID_D);
-        yawPIDController.enable(true);
 
-        df = new DecimalFormat("#.##");
-    }
+        waitForStart();
 
-    public double limit(double a) {
-        return Math.min(Math.max(a, MIN_MOTOR_OUTPUT_VALUE), MAX_MOTOR_OUTPUT_VALUE);
-    }
-
-    @Override
-    public void start() {
-        /* reset the navX-Model device yaw angle so that whatever direction */
-        /* it is currently pointing will be zero degrees.                   */
-        navx_device.zeroYaw();
-        yawPIDResult = new navXPIDController.PIDResult();
-    }
-
-    @Override
-    public void loop() {
-        if ( !calibration_complete ) {
+        while ( !calibration_complete ) {
             /* navX-Micro Calibration completes automatically ~15 seconds after it is
             powered on, as long as the device is still.  To handle the case where the
             navX-Micro has not been able to calibrate successfully, hold off using
             the navX-Micro Yaw value until calibration is complete.
              */
             calibration_complete = !navx_device.isCalibrating();
-            if ( calibration_complete ) {
-                navx_device.zeroYaw();
-            } else {
+            if (!calibration_complete) {
                 telemetry.addData("navX-Micro", "Startup Calibration in Progress");
             }
-        } else {
-            /* Wait for new Yaw PID output values, then update the motors
-               with the new PID value with each new output value.
-             */
-
-            /* Drive straight forward at 1/2 of full drive speed */
-            double drive_speed = 0.5;
-
-            if (yawPIDController.isNewUpdateAvailable(yawPIDResult)) {
-                if (yawPIDResult.isOnTarget()) {
-                    leftMotor.setPower(drive_speed);
-                    rightMotor.setPower(drive_speed);
-                    telemetry.addData("Motor Output", df.format(drive_speed) + ", " +
-                            df.format(drive_speed));
-                } else {
-                    double output = yawPIDResult.getOutput();
-                    leftMotor.setPower(limit(drive_speed + output));
-                    rightMotor.setPower(limit(drive_speed - output));
-                    telemetry.addData("Motor Output", df.format(limit(drive_speed + output)) + ", " +
-                            df.format(limit(drive_speed - output)));
-                }
-            } else {
-                /* No sensor update has been received since the last time  */
-                /* the loop() function was invoked.  Therefore, there's no */
-                /* need to update the motors at this time.                 */
-            }
-            telemetry.addData("Yaw", df.format(navx_device.getYaw()));
         }
-    }
+        navx_device.zeroYaw();
 
-    @Override
-    public void stop() {
-        navx_device.close();
+        try {
+            yawPIDController.enable(true);
+
+        /* Wait for new Yaw PID output values, then update the motors
+           with the new PID value with each new output value.
+         */
+
+            final double TOTAL_RUN_TIME_SECONDS = 30.0;
+            int DEVICE_TIMEOUT_MS = 500;
+            navXPIDController.PIDResult yawPIDResult = new navXPIDController.PIDResult();
+
+            DecimalFormat df = new DecimalFormat("#.##");
+
+            while ( (runtime.time() < TOTAL_RUN_TIME_SECONDS) &&
+                    !Thread.currentThread().isInterrupted()) {
+                if (yawPIDController.waitForNewUpdate(yawPIDResult, DEVICE_TIMEOUT_MS)) {
+                    if (yawPIDResult.isOnTarget()) {
+                        leftMotor.setPowerFloat();
+                        rightMotor.setPowerFloat();
+                        telemetry.addData("PIDOutput", df.format(0.00));
+                    } else {
+                        double output = yawPIDResult.getOutput();
+                        leftMotor.setPower(output);
+                        rightMotor.setPower(-output);
+                        telemetry.addData("PIDOutput", df.format(output) + ", " +
+                                df.format(-output));
+                    }
+                } else {
+			    /* A timeout occurred */
+                    Log.w("navXRotateOp", "Yaw PID waitForNewUpdate() TIMEOUT.");
+                }
+                telemetry.addData("Yaw", df.format(navx_device.getYaw()));
+            }
+        }
+        catch(InterruptedException ex) {
+             Thread.currentThread().interrupt();
+        }
+        finally {
+            navx_device.close();
+            telemetry.addData("LinearOp", "Complete");
+        }
     }
 }

@@ -29,13 +29,15 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
 
-package com.qualcomm.ftcrobotcontroller.opmodes;
+package org.firstinspires.ftc.teamcode;
 
 import android.os.SystemClock;
 
 import com.kauailabs.navx.ftc.AHRS;
 import com.kauailabs.navx.ftc.IDataArrivalSubscriber;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import java.text.DecimalFormat;
@@ -63,7 +65,9 @@ import java.text.DecimalFormat;
  * Note that this example uses the "callback" mechanism to be informed
  * precisely when new data is received from the navX-Micro.
  */
-public class navXCollisionDetectionOp extends OpMode implements IDataArrivalSubscriber {
+@TeleOp(name = "Concept: navX Collision Detection", group = "Concept")
+// @Disabled Comment this in to remove this from the Driver Station OpMode List
+public class ConceptNavXCollisionDetectionOp extends OpMode implements IDataArrivalSubscriber {
 
   /* This is the port on the Core Device Interace Module */
   /* in which the navX-Micro is connected.  Modify this  */
