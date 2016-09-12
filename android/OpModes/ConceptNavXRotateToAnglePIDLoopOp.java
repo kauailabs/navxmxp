@@ -84,8 +84,8 @@ public class ConceptNavXRotateToAnglePIDLoopOp extends OpMode {
 
     @Override
     public void init() {
-        leftMotor = hardwareMap.dcMotor.get("left_drive");
-        rightMotor = hardwareMap.dcMotor.get("right_drive");
+        leftMotor = hardwareMap.dcMotor.get("left motor");
+        rightMotor = hardwareMap.dcMotor.get("right motor");
 
         navx_device = AHRS.getInstance(hardwareMap.deviceInterfaceModule.get("dim"),
                 NAVX_DIM_I2C_PORT,
