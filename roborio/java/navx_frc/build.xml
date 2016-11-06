@@ -51,8 +51,9 @@
         <antcall target="build"/>
     </target>
     <target description="build jar file" name="createjar">
-         <jar destfile="./jar/navx_frc.jar" basedir="./bin"/>
-    	 <jar destfile="./jar/navx_frc.jar" basedir="../../../java/navx/bin" update="true"/>
+        <jar destfile="./jar/navx_frc.jar" basedir="./bin"/>
+    	<!-- Include base navx java library within the jar. -->
+    	<jar destfile="./jar/navx_frc.jar" basedir="../../../java/navx/bin" update="true"/>
         <!-- Copy Jar File to Target Lib Directory-->
         <copy includeemptydirs="true" todir="${user.home}/navx-mxp/java/lib">
            <fileset dir="jar" />
