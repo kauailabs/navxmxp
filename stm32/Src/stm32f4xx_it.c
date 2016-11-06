@@ -49,7 +49,7 @@ extern UART_HandleTypeDef huart6;
 extern TIM_HandleTypeDef    TimHandle;
 extern DMA_HandleTypeDef hdma_spi1_tx;
 extern DMA_HandleTypeDef hdma_spi1_rx;
-
+extern DMA_HandleTypeDef hdma_adc1;
 /******************************************************************************/
 /*            Cortex-M4 Processor Interruption and Exception Handlers         */ 
 /******************************************************************************/
@@ -62,6 +62,7 @@ void DMA2_Stream0_IRQHandler(void)
 	/* USER CODE BEGIN DMA2_Stream0_IRQn 0 */
 
 	/* USER CODE END DMA2_Stream0_IRQn 0 */
+    HAL_NVIC_ClearPendingIRQ(DMA2_Stream0_IRQn);
 	HAL_DMA_IRQHandler(&hdma_spi1_rx);
 	/* USER CODE BEGIN DMA2_Stream0_IRQn 1 */
 
@@ -225,15 +226,44 @@ void EXTI9_5_IRQHandler(void)
 {
   HAL_NVIC_ClearPendingIRQ(EXTI9_5_IRQn);
 
-  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_8);
-  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_9);
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_8); /* MPU9250 on navX-MXP, navX-PI */
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_9); /* CAL BTN on navX-MXP */
+}
+
+/**
+* @brief This function handles EXTI Line[15:10] interrupts.
+*/
+void EXTI15_10_IRQHandler(void)
+{
+  HAL_NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_11); /* CAL BTN on navX-PI */
 }
 
 /* USER CODE BEGIN 1 */
 
 void TIM1_TRG_COM_TIM11_IRQHandler(void)
 {
+	HAL_NVIC_ClearPendingIRQ(TIM1_TRG_COM_TIM11_IRQn);
 	HAL_TIM_IRQHandler(&TimHandle);
+}
+
+/**
+* @brief This function handles DMA2 stream4 global interrupt.
+*/
+void DMA2_Stream4_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA2_Stream4_IRQn 0 */
+
+  /* USER CODE END DMA2_Stream4_IRQn 0 */
+  HAL_NVIC_ClearPendingIRQ(DMA2_Stream4_IRQn);
+  HAL_DMA_IRQHandler(&hdma_adc1);
+  /* USER CODE BEGIN DMA2_Stream4_IRQn 1 */
+
+  /* USER CODE END DMA2_Stream4_IRQn 1 */
+}
+
+void HardFault_Handler(void)
+{
 }
 
 /* USER CODE END 1 */
