@@ -328,6 +328,10 @@ public:
     static inline void encodeProtocolInt16( int16_t val, char *int16_bytes) {
         *((int16_t *)int16_bytes) = val;
     }
+	
+    static inline uint32_t decodeProtocolUint32( char *uint32_bytes ) {
+        return *((uint32_t *)uint32_bytes);
+    }	
 
     static inline int32_t decodeProtocolInt32( char *int32_bytes ) {
         return *((int32_t *)int32_bytes);

@@ -914,7 +914,7 @@ public void handleButtonEvents(GButton button, GEvent event)
         datafile_name = user_dir + File.separator + "navXData_" + formattedDate + ".csv";
         println("Datafile name:  " + datafile_name);
         outputStream = new FileWriter(datafile_name);
-        String header = "Timestamp,Yaw,Pitch,Roll,LinearAccelX,LinearAccelY,VelocityX,VelocityY,DisplacementX,DisplacementY\r\n";
+        String header = "Timestamp,QuatW,QuatX,QuatY,QuatZ,Yaw,Pitch,Roll,LinearAccelX,LinearAccelY,VelocityX,VelocityY,DisplacementX,DisplacementY\r\n";
         outputStream.write(header);
         btnFileSave.setText("Stop Saving Data", GAlign.CENTER, GAlign.MIDDLE );
         btnFileSave.setLocalColorScheme(3);
@@ -1265,10 +1265,10 @@ void serialEvent(MySerial port) {
                 world_linear_acceleration_y = ahrs_update.linear_accel_y;
                 world_linear_acceleration_z = ahrs_update.linear_accel_z;
                 
-                q[0] = ((float)ahrs_update.quat_w) / 16384.0f;
-                q[1] = ((float)ahrs_update.quat_x) / 16384.0f;
-                q[2] = ((float)ahrs_update.quat_y) / 16384.0f;
-                q[3] = ((float)ahrs_update.quat_z) / 16384.0f;
+                q[0] = ((float)ahrs_update.quat_w); // / 16384.0f; // This now occurs in decodeAHRSUpdate()
+                q[1] = ((float)ahrs_update.quat_x); // / 16384.0f; // This now occurs in decodeAHRSUpdate()
+                q[2] = ((float)ahrs_update.quat_y); // / 16384.0f; // This now occurs in decodeAHRSUpdate()
+                q[3] = ((float)ahrs_update.quat_z); // / 16384.0f; // This now occurs in decodeAHRSUpdate()
                 for (int i = 0; i < 4; i++) if (q[i] >= 2) q[i] = -4 + q[i]; // Range-check quaternion values
                 
                 // set our toxilibs quaternion to new data
@@ -1311,10 +1311,10 @@ void serialEvent(MySerial port) {
                   world_linear_acceleration_y = ahrs_pos_update.linear_accel_y;
                   world_linear_acceleration_z = ahrs_pos_update.linear_accel_z;
                   
-                  q[0] = ((float)ahrs_pos_update.quat_w) / 16384.0f;
-                  q[1] = ((float)ahrs_pos_update.quat_x) / 16384.0f;
-                  q[2] = ((float)ahrs_pos_update.quat_y) / 16384.0f;
-                  q[3] = ((float)ahrs_pos_update.quat_z) / 16384.0f;
+                  q[0] = ((float)ahrs_pos_update.quat_w); // / 16384.0f; // This now occurs in decodeAHRSPosUpdate()
+                  q[1] = ((float)ahrs_pos_update.quat_x); // / 16384.0f; // This now occurs in decodeAHRSPosUpdate()
+                  q[2] = ((float)ahrs_pos_update.quat_y); // / 16384.0f; // This now occurs in decodeAHRSPosUpdate()
+                  q[3] = ((float)ahrs_pos_update.quat_z); // / 16384.0f; // This now occurs in decodeAHRSPosUpdate()
                   for (int i = 0; i < 4; i++) if (q[i] >= 2) q[i] = -4 + q[i]; // Range-check quaternion values
                   
                   // set our toxilibs quaternion to new data
@@ -1332,7 +1332,8 @@ void serialEvent(MySerial port) {
                   curr_displacement_y = ahrs_pos_update.disp_y;
 
                   String file_data = new String();
-                  file_data = curr_sensor_timestamp + "," + yaw_degrees + "," + pitch_degrees + "," + roll_degrees + "," + 
+                  file_data = curr_sensor_timestamp + "," + q[0] + "," + q[1] + "," + q[2] + "," + q[3] + "," + 
+                                yaw_degrees + "," + pitch_degrees + "," + roll_degrees + "," + 
                                 world_linear_acceleration_x + "," + world_linear_acceleration_y + "," + 
                                 curr_velocity_x + "," + curr_velocity_y + "," + 
                                 curr_displacement_x + "," + curr_displacement_y + "\r\n"; 

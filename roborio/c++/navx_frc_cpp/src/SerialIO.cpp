@@ -19,8 +19,8 @@ SerialIO::SerialIO( SerialPort::Port port_id,
     this->serial_port_id = port_id;
     ypr_update_data = {0};
     gyro_update_data = {0};
-    ahrs_update_data = {0};
-    ahrspos_update_data = {0};
+    ahrs_update_data = {};
+    ahrspos_update_data = {};
     ahrspos_ts_update_data = {};
     board_id = {0};
     board_state = {0};
@@ -106,7 +106,7 @@ int SerialIO::DecodePacketHandler(char * received_data, int bytes_remaining) {
     if ( (packet_length = IMUProtocol::decodeYPRUpdate(received_data, bytes_remaining, ypr_update_data)) > 0) {
         notify_sink->SetYawPitchRoll(ypr_update_data, sensor_timestamp);
     } else if ( ( packet_length = AHRSProtocol::decodeAHRSPosTSUpdate(received_data, bytes_remaining, ahrspos_ts_update_data)) > 0) {
-        notify_sink->SetAHRSPosData(ahrspos_update_data, ahrspos_ts_update_data.timestamp);
+        notify_sink->SetAHRSPosData(ahrspos_ts_update_data, ahrspos_ts_update_data.timestamp);
     } else if ( ( packet_length = AHRSProtocol::decodeAHRSPosUpdate(received_data, bytes_remaining, ahrspos_update_data)) > 0) {
         notify_sink->SetAHRSPosData(ahrspos_update_data, sensor_timestamp);
     } else if ( ( packet_length = AHRSProtocol::decodeAHRSUpdate(received_data, bytes_remaining, ahrs_update_data)) > 0) {

@@ -11,7 +11,7 @@
 #include "WPILIb.h"
 #include "IIOProvider.h"
 #include <stdint.h>
-#include "AHRSProtocol.h"
+#include <AHRSProtocol.h>
 #include "IMUProtocol.h"
 #include "IIOCompleteNotification.h"
 #include "IBoardCapabilities.h"

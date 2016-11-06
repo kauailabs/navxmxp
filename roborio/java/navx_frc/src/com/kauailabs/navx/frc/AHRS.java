@@ -23,6 +23,7 @@ import edu.wpi.first.wpilibj.SensorBase;
 import edu.wpi.first.wpilibj.SerialPort;
 import edu.wpi.first.wpilibj.livewindow.LiveWindowSendable;
 import edu.wpi.first.wpilibj.tables.ITable;
+import edu.wpi.first.wpilibj.Timer;
 
 /**
  * The AHRS class provides an interface to AHRS capabilities
@@ -134,10 +135,10 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     volatile boolean    altitude_valid;
     volatile boolean    is_magnetometer_calibrated;
     volatile boolean    magnetic_disturbance;
-    volatile short      quaternionW;
-    volatile short      quaternionX;
-    volatile short      quaternionY;
-    volatile short      quaternionZ;       
+    volatile float      quaternionW;
+    volatile float      quaternionX;
+    volatile float      quaternionY;
+    volatile float      quaternionZ;       
     
     /* Integrated Data */
     float velocity[] = new float[3];
@@ -187,7 +188,9 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     
     PIDSourceType			pid_source_type = PIDSourceType.kDisplacement;
     
-    TimestampedQuaternionHistory quaternion_history;
+    private ITimestampedDataSubscriber callbacks[];
+    private Object callback_contexts[];
+    private final int MAX_NUM_CALLBACKS = 3;
     
     /***********************************************************/
     /* Public Interface Implementation                         */
@@ -444,6 +447,53 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     }
 
     /**
+     * Returns the navX-Model device's currently configured update
+     * rate.  Note that the update rate that can actually be realized
+     * is a value evenly divisible by the navX-Model device's internal
+     * motion processor sample clock (200Hz).  Therefore, the rate that
+     * is returned may be lower than the requested sample rate.
+     *
+     * The actual sample rate is rounded down to the nearest integer
+     * that is divisible by the number of Digital Motion Processor clock
+     * ticks.  For instance, a request for 58 Hertz will result in
+     * an actual rate of 66Hz (200 / (200 / 58), using integer
+     * math.
+     *
+     * @return Returns the current actual update rate in Hz
+     * (cycles per second).
+     */
+
+    public int getActualUpdateRate() {
+        byte actual_update_rate = getActualUpdateRateInternal((byte)getRequestedUpdateRate());
+        return (int)(actual_update_rate & 0xFF);
+    }    
+    
+    private byte getActualUpdateRateInternal(byte update_rate) {
+        final int NAVX_MOTION_PROCESSOR_UPDATE_RATE_HZ = 200;
+        int integer_update_rate = (int)(update_rate & 0xFF);
+        int realized_update_rate = NAVX_MOTION_PROCESSOR_UPDATE_RATE_HZ /
+                (NAVX_MOTION_PROCESSOR_UPDATE_RATE_HZ / integer_update_rate);
+        return (byte)realized_update_rate;    	
+    }
+    
+	/**
+	 * Returns the currently requested update rate.
+	 * rate.  Note that not every update rate can actually be realized,
+	 * since the actual update rate must be a value evenly divisible by
+	 * the navX-Model device's internal motion processor sample clock (200Hz).
+	 * 
+	 * To determine the actual update rate, use the
+	 * {@link #getActualUpdateRate()} method.
+	 * 
+	 * @return Returns the requested update rate in Hz
+	 * (cycles per second).
+	 */
+
+    public int getRequestedUpdateRate() {
+        return (int)(this.update_rate_hz & 0xFF);
+    }    
+    
+    /**
      * Returns the count of valid updates which have
      * been received from the sensor.  This count should increase
      * at the same rate indicated by the configured update rate.
@@ -653,7 +703,7 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
      * @return Returns the imaginary portion (W) of the quaternion.
      */   
     public float getQuaternionW() {
-        return ((float)quaternionW / 16384.0f);
+        return quaternionW;
     }
     /**
      * Returns the real portion (X axis) of the Orientation Quaternion which 
@@ -668,7 +718,7 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
      * @return Returns the real portion (X) of the quaternion.
      */   
     public float getQuaternionX() {
-        return ((float)quaternionX / 16384.0f);
+        return quaternionX;
     }
     /**
      * Returns the real portion (X axis) of the Orientation Quaternion which 
@@ -686,7 +736,7 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
      * @return Returns the real portion (X) of the quaternion.
      */   
     public float getQuaternionY() {
-        return ((float)quaternionY / 16384.0f);
+        return quaternionY;
     }
     /**
      * Returns the real portion (X axis) of the Orientation Quaternion which 
@@ -704,7 +754,7 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
      * @return Returns the real portion (X) of the quaternion.
      */   
     public float getQuaternionZ() {
-        return ((float)quaternionZ / 16384.0f);
+        return quaternionZ;
     }
     
     /**
@@ -810,7 +860,50 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     public float getDisplacementZ() {
         return (board_capabilities.isDisplacementSupported() ? displacement[2] : 0.f);
     }
+    
+    /**
+     * Registers a callback interface.  This interface
+     * will be called back when new data is available,
+     * based upon a change in the sensor timestamp.
+     *<p>
+     * Note that this callback will occur within the context of the
+     * device IO thread, which is not the same thread context the
+     * caller typically executes in.
+     */
+    public boolean registerCallback( ITimestampedDataSubscriber callback, Object callback_context) {
+        boolean registered = false;
+        for ( int i = 0; i < this.callbacks.length; i++ ) {
+            if (this.callbacks[i] == null) {
+                this.callbacks[i] = callback;
+                this.callback_contexts[i] = callback_context;
+                registered = true;
+                break;
+            }
+        }
+        return registered;
+    }    
 
+
+    /**
+     * Deregisters a previously registered callback interface.
+     *
+     * Be sure to deregister any callback which have been
+     * previously registered, to ensure that the object
+     * implementing the callback interface does not continue
+     * to be accessed when no longer necessary.
+     */
+    public boolean deregisterCallback( ITimestampedDataSubscriber callback ) {
+        boolean deregistered = false;
+        for ( int i = 0; i < this.callbacks.length; i++ ) {
+            if (this.callbacks[i] == callback) {
+                this.callbacks[i] = null;
+                deregistered = true;
+                break;
+            }
+        }
+        return deregistered;
+    }    
+    
     /***********************************************************/
     /* Internal Implementation                                  */
     /***********************************************************/
@@ -823,8 +916,8 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
         integrator = new InertialDataIntegrator();
         yaw_offset_tracker = new OffsetTracker(YAW_HISTORY_LENGTH);
         yaw_angle_tracker = new ContinuousAngleTracker();
-        int history_size = (int)(((float)(this.update_rate_hz & 0xFF)) * QUATERNION_HISTORY_SECONDS);
-        this.quaternion_history = new TimestampedQuaternionHistory(history_size);
+        this.callbacks = new ITimestampedDataSubscriber[MAX_NUM_CALLBACKS];
+        this.callback_contexts = new Object[MAX_NUM_CALLBACKS];
     }
 
     /***********************************************************/
@@ -1097,41 +1190,6 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
         return fw_version;
     }
     
-    public TimestampedQuaternion getQuaternionAtTime( long requested_timestamp ) {
-    	TimestampedQuaternion match = null;
-    	if ( quaternion_history != null ) {
-    		match = quaternion_history.get(requested_timestamp);
-    	}
-    	return match;
-    }
-    
-    public float getYawAtTime( long requested_timestamp ) {
-    	float yaw = 0.0f;
-    	TimestampedQuaternion match = getQuaternionAtTime( requested_timestamp );
-    	if ( match != null ) {
-    		yaw = match.getYaw();
-    	}
-    	return yaw;
-    }
-    
-    public float getPitchAtTime( long requested_timestamp ) {
-    	float pitch = 0.0f;
-    	TimestampedQuaternion match = getQuaternionAtTime( requested_timestamp );
-    	if ( match != null ) {
-    		pitch = match.getPitch();
-    	}
-    	return pitch;
-    }
-    
-    public float getRollAtTime( long requested_timestamp ) {
-    	float roll = 0.0f;
-    	TimestampedQuaternion match = getQuaternionAtTime( requested_timestamp );
-    	if ( match != null ) {
-    		roll = match.getRoll();
-    	}
-    	return roll;
-    }
-    
     /***********************************************************/
     /* Runnable Interface Implementation                       */
     /***********************************************************/
@@ -1142,7 +1200,7 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
         boolean             stop;
         
         public void start() {
-            m_thread = new Thread(this);
+        	m_thread = new Thread(null, this, "navXIOThread");
             m_thread.start();
         }
         
@@ -1256,14 +1314,6 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
             
             AHRS.this.last_sensor_timestamp      = sensor_timestamp;
             
-            if ( quaternion_history != null ) {
-            	quaternion_history.add(	AHRS.this.quaternionW,
-            							AHRS.this.quaternionX,
-            							AHRS.this.quaternionY,
-            							AHRS.this.quaternionZ,
-            							sensor_timestamp);
-            }
-            
             velocity[0]     = ahrs_update.vel_x;
             velocity[1]     = ahrs_update.vel_y;
             velocity[2]     = ahrs_update.vel_z;
@@ -1272,6 +1322,18 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
             displacement[2] = ahrs_update.disp_z;
             
             yaw_angle_tracker.nextAngle(getYaw());
+            
+            /* Notify external data arrival subscribers, if any. */
+            for (int i = 0; i < callbacks.length; i++) {
+                ITimestampedDataSubscriber callback = callbacks[i];
+                if (callback != null) {
+                	long system_timestamp = (long)(Timer.getFPGATimestamp() * 1000);
+                    callback.timestampedDataReceived(system_timestamp,
+                    		sensor_timestamp,
+                    		ahrs_update,
+                    		callback_contexts[i]);
+                }
+            }            
         }
             
         @Override
@@ -1352,20 +1414,24 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
             
             AHRS.this.last_sensor_timestamp      = sensor_timestamp;           
             
-            if ( quaternion_history != null ) {
-            	quaternion_history.add(	AHRS.this.quaternionW,
-            							AHRS.this.quaternionX,
-            							AHRS.this.quaternionY,
-            							AHRS.this.quaternionZ,
-            							sensor_timestamp);
-            }            
-            
             updateDisplacement( AHRS.this.world_linear_accel_x, 
                     AHRS.this.world_linear_accel_y, 
                     update_rate_hz,
                     AHRS.this.is_moving);
             
             yaw_angle_tracker.nextAngle(getYaw());
+            
+            /* Notify external data arrival subscribers, if any. */
+            for (int i = 0; i < callbacks.length; i++) {
+                ITimestampedDataSubscriber callback = callbacks[i];
+                if (callback != null) {
+                	long system_timestamp = (long)(Timer.getFPGATimestamp() * 1000);
+                    callback.timestampedDataReceived(system_timestamp,
+                    		sensor_timestamp,
+                    		ahrs_update,
+                    		callback_contexts[i]);
+                }
+            }            
         }
     
         @Override

@@ -21,8 +21,8 @@ RegisterIO::RegisterIO( IRegisterIO *io_provider,
     this->byte_count			= 0;
 
     raw_data_update = {0};
-    ahrs_update     = {0};
-    ahrspos_update  = {0};
+    ahrs_update     = {};
+    ahrspos_update  = {};
     board_state     = {0};
     board_id        = {0};
 }
@@ -131,12 +131,8 @@ void RegisterIO::GetCurrentData() {
     } else {
         buffer_len = NAVX_REG_QUAT_OFFSET_Z_H + 1 - first_address;
     }
-    long timestamp_low, timestamp_high;
-    long sensor_timestamp;
     if ( io_provider->Read(first_address,(uint8_t *)curr_data, buffer_len) ) {
-        timestamp_low = (long)IMURegisters::decodeProtocolUint16(curr_data + NAVX_REG_TIMESTAMP_L_L-first_address);
-        timestamp_high = (long)IMURegisters::decodeProtocolUint16(curr_data + NAVX_REG_TIMESTAMP_H_L-first_address);
-        sensor_timestamp               = (timestamp_high << 16) + timestamp_low;
+    	long sensor_timestamp = IMURegisters::decodeProtocolUint32(curr_data + NAVX_REG_TIMESTAMP_L_L-first_address);
         if ( sensor_timestamp == last_sensor_timestamp ) {
         	return;
         }
@@ -156,10 +152,10 @@ void RegisterIO::GetCurrentData() {
         ahrspos_update.altitude        = IMURegisters::decodeProtocol1616Float(curr_data + NAVX_REG_ALTITUDE_D_L - first_address);
         ahrspos_update.barometric_pressure = IMURegisters::decodeProtocol1616Float(curr_data + NAVX_REG_PRESSURE_DL - first_address);
         ahrspos_update.fused_heading   = IMURegisters::decodeProtocolUnsignedHundredthsFloat(curr_data + NAVX_REG_FUSED_HEADING_L-first_address);
-        ahrspos_update.quat_w          = IMURegisters::decodeProtocolInt16(curr_data + NAVX_REG_QUAT_W_L-first_address);
-        ahrspos_update.quat_x          = IMURegisters::decodeProtocolInt16(curr_data + NAVX_REG_QUAT_X_L-first_address);
-        ahrspos_update.quat_y          = IMURegisters::decodeProtocolInt16(curr_data + NAVX_REG_QUAT_Y_L-first_address);
-        ahrspos_update.quat_z          = IMURegisters::decodeProtocolInt16(curr_data + NAVX_REG_QUAT_Z_L-first_address);
+        ahrspos_update.quat_w          = ((float)IMURegisters::decodeProtocolInt16(curr_data + NAVX_REG_QUAT_W_L-first_address)) / 32768.0f;
+        ahrspos_update.quat_x          = ((float)IMURegisters::decodeProtocolInt16(curr_data + NAVX_REG_QUAT_X_L-first_address)) / 32768.0f;
+        ahrspos_update.quat_y          = ((float)IMURegisters::decodeProtocolInt16(curr_data + NAVX_REG_QUAT_Y_L-first_address)) / 32768.0f;
+        ahrspos_update.quat_z          = ((float)IMURegisters::decodeProtocolInt16(curr_data + NAVX_REG_QUAT_Z_L-first_address)) / 32768.0f;
         if ( displacement_registers ) {
             ahrspos_update.vel_x       = IMURegisters::decodeProtocol1616Float(curr_data + NAVX_REG_VEL_X_I_L-first_address);
             ahrspos_update.vel_y       = IMURegisters::decodeProtocol1616Float(curr_data + NAVX_REG_VEL_Y_I_L-first_address);

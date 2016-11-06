@@ -134,7 +134,7 @@ class SerialIO implements IIOProvider {
         if ( (packet_length = IMUProtocol.decodeYPRUpdate(received_data, offset, bytes_remaining, ypr_update_data)) > 0) {
             notify_sink.setYawPitchRoll(ypr_update_data, sensor_timestamp);
         } else if ( ( packet_length = AHRSProtocol.decodeAHRSPosTSUpdate(received_data, offset, bytes_remaining, ahrspos_ts_update_data)) > 0) {
-            notify_sink.setAHRSPosData(ahrspos_update_data, ahrspos_ts_update_data.timestamp);
+            notify_sink.setAHRSPosData(ahrspos_ts_update_data, ahrspos_ts_update_data.timestamp);
         } else if ( ( packet_length = AHRSProtocol.decodeAHRSPosUpdate(received_data, offset, bytes_remaining, ahrspos_update_data)) > 0) {
             notify_sink.setAHRSPosData(ahrspos_update_data, sensor_timestamp);
         } else if ( ( packet_length = AHRSProtocol.decodeAHRSUpdate(received_data, offset, bytes_remaining, ahrs_update_data)) > 0) {

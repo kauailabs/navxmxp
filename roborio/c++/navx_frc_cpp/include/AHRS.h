@@ -9,14 +9,13 @@
 #define SRC_AHRS_H_
 
 #include "WPILib.h"
+#include "ITimestampedDataSubscriber.h"
 
 class IIOProvider;
 class ContinuousAngleTracker;
 class InertialDataIntegrator;
 class OffsetTracker;
 class AHRSInternal;
-class TimestampedQuaternion;
-class TimestampedQuaternionHistory;
 
 class AHRS : public SensorBase,
              public LiveWindowSendable,
@@ -69,10 +68,10 @@ private:
     volatile bool       altitude_valid;
     volatile bool       is_magnetometer_calibrated;
     volatile bool       magnetic_disturbance;
-    volatile int16_t    quaternionW;
-    volatile int16_t    quaternionX;
-    volatile int16_t    quaternionY;
-    volatile int16_t    quaternionZ;
+    volatile float    	quaternionW;
+    volatile float    	quaternionX;
+    volatile float    	quaternionY;
+    volatile float    	quaternionZ;
 
     /* Integrated Data */
     float velocity[3];
@@ -118,7 +117,9 @@ private:
 
     Task *                  task;
 
-    TimestampedQuaternionHistory* quaternion_history;
+#define MAX_NUM_CALLBACKS 3
+    ITimestampedDataSubscriber *callbacks[MAX_NUM_CALLBACKS];
+    void *callback_contexts[MAX_NUM_CALLBACKS];
 
 public:
     AHRS(SPI::Port spi_port_id);
@@ -183,10 +184,11 @@ public:
     AHRS::BoardYawAxis GetBoardYawAxis();
     std::string GetFirmwareVersion();
 
-    bool GetQuaternionAtTime( long requested_timestamp, TimestampedQuaternion& out );
-    float GetYawAtTime( long requested_timestamp );
-    float GetPitchAtTime( long requested_timestamp );
-    float GetRollAtTime( long requested_timestamp );
+    bool RegisterCallback( ITimestampedDataSubscriber *callback, void *callback_context);
+    bool DeregisterCallback( ITimestampedDataSubscriber *callback );
+
+    int GetActualUpdateRate();
+    int GetRequestedUpdateRate();
 
 private:
     void SPIInit( SPI::Port spi_port_id, uint32_t bitrate, uint8_t update_rate_hz );
@@ -205,6 +207,8 @@ private:
 
     /* PIDSource implementation */
     double PIDGet();
+
+    uint8_t GetActualUpdateRateInternal(uint8_t update_rate);
 };
 
 #endif /* SRC_AHRS_H_ */
