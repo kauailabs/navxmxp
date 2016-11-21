@@ -684,11 +684,11 @@ void draw() {
     textAlign(LEFT);
     text("Roll (Y):",width-150,(height-tray_height_px)-100);
     textAlign(RIGHT);
-    text(nfp(pitch_degrees,3,2),width-15, (height-tray_height_px)-100);
+    text(nfp(roll_degrees,3,2),width-15, (height-tray_height_px)-100);
     textAlign(LEFT);
     text("Pitch (X):",width-150,(height-tray_height_px)-120);
     textAlign(RIGHT);
-    text(nfp(roll_degrees,3,2),width-15, (height-tray_height_px)-120);
+    text(nfp(pitch_degrees,3,2),width-15, (height-tray_height_px)-120);
     textAlign(LEFT);
     if ( !compass_calibrated ) {
       fill(128,128,128);
