@@ -7,6 +7,7 @@
 
 #include <RegisterIO.h>
 #include "IMURegisters.h"
+#include "delay.h"
 
 RegisterIO::RegisterIO( IRegisterIO *io_provider,
         uint8_t update_rate_hz,
@@ -19,6 +20,8 @@ RegisterIO::RegisterIO( IRegisterIO *io_provider,
     this->last_sensor_timestamp = 0;
     this->update_count 			= 0;
     this->byte_count			= 0;
+    this->last_update_time      = 0;
+    this->stop                  = false;
 
     raw_data_update = {0};
     ahrs_update     = {};

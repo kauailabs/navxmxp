@@ -10,6 +10,7 @@
 
 #include "WPILib.h"
 #include "ITimestampedDataSubscriber.h"
+#include <thread>
 
 class IIOProvider;
 class ContinuousAngleTracker;
@@ -115,7 +116,7 @@ private:
     OffsetTracker *         yaw_offset_tracker;
     IIOProvider *           io;
 
-    Task *                  task;
+    std::thread *           task;
 
 #define MAX_NUM_CALLBACKS 3
     ITimestampedDataSubscriber *callbacks[MAX_NUM_CALLBACKS];

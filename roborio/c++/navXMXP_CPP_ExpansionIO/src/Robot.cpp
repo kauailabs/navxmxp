@@ -53,6 +53,8 @@ class Robot: public SampleRobot
     AnalogOutput *an_out_1;     /* E.g., Constant-current LED output  */
     AnalogOutput *an_out_0;     /* E.g., Speaker output               */
 
+    enum PinType { DigitalIO, PWM, AnalogIn, AnalogOut };
+
 #define MXP_IO_VOLTAGE (double)3.3f /* Alternately, 5.0f   */
 #define MIN_AN_TRIGGER_VOLTAGE (double)0.76f
 #define MAX_AN_TRIGGER_VOLTAGE MXP_IO_VOLTAGE - (double)2.0f
@@ -80,7 +82,7 @@ public:
             /* For that reason, use of pin 3 and pin 2 is NOT RECOMMENDED.       */
             an_in_1   = new AnalogInput(   GetChannelFromPin( PinType::AnalogIn,  1 ));
             an_trig_0 = new AnalogTrigger( GetChannelFromPin( PinType::AnalogIn,  0 ));
-            an_trig_0_counter = new Counter( an_trig_0 );
+            an_trig_0_counter = new Counter( *an_trig_0 );
 
             an_out_1  = new AnalogOutput(  GetChannelFromPin( PinType::AnalogOut, 1 ));
             an_out_0  = new AnalogOutput(  GetChannelFromPin( PinType::AnalogOut, 0 ));
@@ -92,14 +94,12 @@ public:
             /* Configure Analog Trigger */
             an_trig_0->SetAveraged(true);
             an_trig_0->SetLimitsVoltage(MIN_AN_TRIGGER_VOLTAGE, MAX_AN_TRIGGER_VOLTAGE);
-        } catch (std::exception ex ) {
+        } catch (std::exception& ex ) {
             std::string err_string = "Error instantiating MXP pin on navX MXP:  ";
             err_string += ex.what();
             DriverStation::ReportError(err_string.c_str());
         }
 	}
-
-    enum PinType { DigitalIO, PWM, AnalogIn, AnalogOut };
 
     static const int MAX_NAVX_MXP_DIGIO_PIN_NUMBER      = 9;
     static const int MAX_NAVX_MXP_ANALOGIN_PIN_NUMBER   = 3;

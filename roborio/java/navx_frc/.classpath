@@ -3,7 +3,7 @@
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="var" path="networktables" sourcepath="networktables.sources"/>
 	<classpathentry kind="var" path="wpilib" sourcepath="/wpilib.sources"/>
-	<classpathentry exported="true" kind="lib" path="/navx/jar/navx.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="C:/Users/Scott/Documents/GitHub/navxmxp/java/navx/jar/navx.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

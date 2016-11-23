@@ -57,6 +57,13 @@ class Robot: public SampleRobot, public PIDOutput
     double rotateToAngleRate;           // Current rotation rate
 
 public:
+
+    /* This function is invoked periodically by the PID Controller, */
+    /* based upon navX MXP yaw angle input and PID Coefficients.    */
+    virtual void PIDWrite(double output) {
+        this->rotateToAngleRate = output;
+    }
+
 	Robot() :
             robotDrive(frontLeftChannel, rearLeftChannel,
                        frontRightChannel, rearRightChannel), // initialize variables in same
@@ -71,7 +78,7 @@ public:
             /* Alternatively:  I2C::Port::kMXP, SerialPort::Port::kMXP or SerialPort::Port::kUSB */
             /* See http://navx-mxp.kauailabs.com/guidance/selecting-an-interface/ for details.   */
             ahrs = new AHRS(SPI::Port::kMXP);
-        } catch (std::exception ex ) {
+        } catch (std::exception& ex ) {
             std::string err_string = "Error instantiating navX MXP:  ";
             err_string += ex.what();
             DriverStation::ReportError(err_string.c_str());
@@ -132,18 +139,13 @@ public:
                 /* depending upon whether "rotate to angle" is active.    */
                 robotDrive.MecanumDrive_Cartesian(stick.GetX(), stick.GetY(),
                                                   currentRotationRate ,ahrs->GetAngle());
-            } catch (std::exception ex ) {
+            } catch (std::exception& ex ) {
                 std::string err_string = "Error communicating with Drive System:  ";
                 err_string += ex.what();
                 DriverStation::ReportError(err_string.c_str());
             }
             Wait(0.005); // wait 5ms to avoid hogging CPU cycles
         }
-    }
-    /* This function is invoked periodically by the PID Controller, */
-    /* based upon navX MXP yaw angle input and PID Coefficients.    */
-    void PIDWrite(float output) {
-        rotateToAngleRate = output;
     }
 };
 

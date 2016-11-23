@@ -148,7 +148,8 @@ class SerialIO implements IIOProvider {
         }
         return packet_length;
     }    
-    
+
+    @SuppressWarnings("unused") /* The following variables are debug-only. */    
     public void run() {
 
         stop = false;
@@ -156,7 +157,7 @@ class SerialIO implements IIOProvider {
         double last_stream_command_sent_timestamp = 0.0;
         double last_data_received_timestamp = 0;
         double last_second_start_time = 0;
-
+               
         int partial_binary_packet_count = 0;
         int stream_response_receive_count = 0;
         int timeout_count = 0;

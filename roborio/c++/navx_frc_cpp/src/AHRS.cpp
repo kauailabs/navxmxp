@@ -24,11 +24,8 @@ static const uint8_t    NAVX_DEFAULT_UPDATE_RATE_HZ         = 60;
 static const int        YAW_HISTORY_LENGTH                  = 10;
 static const int16_t    DEFAULT_ACCEL_FSR_G                 = 2;
 static const int16_t    DEFAULT_GYRO_FSR_DPS                = 2000;
-static const uint32_t   MAX_SPI_BITRATE                     = 2000000;
-static const uint32_t   MIN_SPI_BITRATE                     = 100000;
 static const uint32_t   DEFAULT_SPI_BITRATE                 = 500000;
 static const uint8_t    NAVX_MXP_I2C_ADDRESS                = 0x32;
-static const float  	QUATERNION_HISTORY_SECONDS			= 5.0f;
 
 class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
     AHRS *ahrs;
@@ -36,6 +33,8 @@ class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
     AHRSInternal(AHRS* ahrs) {
         this->ahrs = ahrs;
     }
+
+    virtual ~AHRSInternal() {}
 
     /***********************************************************/
     /* IIOCompleteNotification Interface Implementation        */
@@ -881,20 +880,20 @@ float AHRS::GetDisplacementZ() {
 void AHRS::SPIInit( SPI::Port spi_port_id, uint32_t bitrate, uint8_t update_rate_hz ) {
     commonInit( update_rate_hz );
     io = new RegisterIO(new RegisterIO_SPI(new SPI(spi_port_id), bitrate), update_rate_hz, ahrs_internal, ahrs_internal);
-    task = new Task(NAVX_IO_THREAD_NAME, (FUNCPTR)AHRS::ThreadFunc,io);
+    task = new std::thread(AHRS::ThreadFunc, io);
 }
 
 void AHRS::I2CInit( I2C::Port i2c_port_id, uint8_t update_rate_hz ) {
     commonInit(update_rate_hz);
     io = new RegisterIO(new RegisterIO_I2C(new I2C(i2c_port_id, NAVX_MXP_I2C_ADDRESS)), update_rate_hz, ahrs_internal, ahrs_internal);
-    task = new Task(NAVX_IO_THREAD_NAME, (FUNCPTR)AHRS::ThreadFunc,io);
+    task = new std::thread(AHRS::ThreadFunc, io);
 }
 
 void AHRS::SerialInit(SerialPort::Port serial_port_id, AHRS::SerialDataType data_type, uint8_t update_rate_hz) {
     commonInit(update_rate_hz);
     bool processed_data = (data_type == SerialDataType::kProcessedData);
     io = new SerialIO(serial_port_id, update_rate_hz, processed_data, ahrs_internal, ahrs_internal);
-    task = new Task(NAVX_IO_THREAD_NAME, (FUNCPTR)AHRS::ThreadFunc,io);
+    task = new std::thread(AHRS::ThreadFunc, io);
 }
 
 void AHRS::commonInit( uint8_t update_rate_hz ) {
