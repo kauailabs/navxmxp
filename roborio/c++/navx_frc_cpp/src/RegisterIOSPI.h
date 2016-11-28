@@ -25,6 +25,7 @@ private:
     SPI *port;
     uint32_t bitrate;
     uint8_t rx_buffer[MAX_SPI_MSG_LENGTH];
+    bool trace;
 };
 
 #endif /* SRC_REGISTERIOSPI_H_ */

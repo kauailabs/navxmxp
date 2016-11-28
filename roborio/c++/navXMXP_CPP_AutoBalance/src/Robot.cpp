@@ -53,7 +53,7 @@ public:
             /* Alternatively:  I2C::Port::kMXP, SerialPort::Port::kMXP or SerialPort::Port::kUSB */
             /* See http://navx-mxp.kauailabs.com/guidance/selecting-an-interface/ for details.   */
             ahrs = new AHRS(SPI::Port::kMXP);
-        } catch (std::exception ex ) {
+        } catch (std::exception& ex ) {
             std::string err_string = "Error instantiating navX MXP:  ";
             err_string += ex.what();
             DriverStation::ReportError(err_string.c_str());
@@ -116,7 +116,7 @@ public:
             try {
                 // Use the joystick X axis for lateral movement, Y axis for forward movement, and Z axis for rotation.
                 robotDrive.MecanumDrive_Cartesian(xAxisRate, yAxisRate,stick.GetZ());
-            } catch (std::exception ex ) {
+            } catch (std::exception& ex ) {
                 std::string err_string = "Drive system error:  ";
                 err_string += ex.what();
                 DriverStation::ReportError(err_string.c_str());

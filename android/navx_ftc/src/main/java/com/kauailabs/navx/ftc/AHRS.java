@@ -32,8 +32,10 @@ import com.kauailabs.navx.IMUProtocol;
 import com.kauailabs.navx.IMURegisters;
 
 import com.qualcomm.robotcore.hardware.DeviceInterfaceModule;
+import com.qualcomm.robotcore.hardware.I2cAddr;
 import com.qualcomm.robotcore.hardware.I2cController;
 import com.qualcomm.robotcore.hardware.I2cDevice;
+import com.qualcomm.robotcore.hardware.I2cDeviceImpl;
 
 import java.util.Arrays;
 
@@ -1133,7 +1135,7 @@ public class AHRS {
             if ( enable_logging ) {
                 Log.i("navx_ftc", "Opening device on DIM port " + Integer.toString(dim_port));
             }
-            navXDevice = new I2cDevice(dim, dim_port);
+            navXDevice = new I2cDeviceImpl(dim, dim_port);
 
             navxReader[0] = new DimI2cDeviceReader(navXDevice, NAVX_I2C_DEV_8BIT_ADDRESS,
                                                    NAVX_REGISTER_FIRST, DIM_MAX_I2C_READ_LEN);
@@ -1436,7 +1438,7 @@ public class AHRS {
             if ( !state_tracker.isModeCurrent(false,dev_address, mem_address, data.length)) {
                 this.state_tracker.setMode(false,dev_address, mem_address, data.length);
                 state_tracker.setState(DimState.WAIT_FOR_MODE_CONFIG_COMPLETE);
-                device.enableI2cWriteMode(i2cAddress, memAddress, data.length);
+                device.enableI2cWriteMode(I2cAddr.create8bit(i2cAddress), memAddress, data.length);
                 if ( enable_logging ) {
                     Log.i("navx_ftc", "Writer enableI2cWiteMode");
                 }
@@ -1585,7 +1587,7 @@ public class AHRS {
                 /* Force a read-mode transition (if address changed, or of was in write mode) */
                 state_tracker.setMode(true, dev_address, mem_address, num_bytes);
                 state_tracker.setState(DimState.WAIT_FOR_MODE_CONFIG_COMPLETE);
-                device.enableI2cReadMode(dev_address, mem_address, num_bytes);
+                device.enableI2cReadMode(I2cAddr.create8bit(dev_address), mem_address, num_bytes);
                 if ( enable_logging ) {
                     Log.i("navx_ftc", "Reader enableI2cReadMode");
                 }

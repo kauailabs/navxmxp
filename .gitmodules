@@ -7,3 +7,4 @@
 [submodule "android/ftc_app"]
 	path = android/ftc_app
 	url = https://github.com/ftctechnh/ftc_app.git
+	branch = beta

@@ -21,6 +21,7 @@ public:
     bool Shutdown();
 private:
     I2C *port;
+    bool trace;
 };
 
 #endif /* SRC_REGISTERIOI2C_H_ */

@@ -53,9 +53,16 @@ public class Robot extends SampleRobot implements PIDOutput {
     static final double kF = 0.00;
     
     static final double kToleranceDegrees = 2.0f;
-    
+
+    // Channels for the wheels
+    final static int frontLeftChannel	= 2;
+    final static int rearLeftChannel	= 3;
+    final static int frontRightChannel	= 1;
+    final static int rearRightChannel	= 0;
+        
     public Robot() {
-        myRobot = new RobotDrive(0, 1);
+        myRobot = new RobotDrive(frontLeftChannel, rearLeftChannel,
+        		frontRightChannel, rearRightChannel);
         myRobot.setExpiration(0.1);
         stick = new Joystick(0);
         try {

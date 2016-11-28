@@ -283,6 +283,7 @@ typedef int32_t     s_1616_float;
 #define NAVX_CAPABILITY_FLAG_OMNIMOUNT_CONFIG_MASK  0x0038
 #define NAVX_CAPABILITY_FLAG_VEL_AND_DISP           0x0040
 #define NAVX_CAPABILITY_FLAG_YAW_RESET              0x0080
+#define NAVX_CAPABILITY_FLAG_AHRSPOS_TS				0x0100
 
 /* NAVX_OMNIMOUNT_CONFIG */
 
@@ -302,6 +303,7 @@ typedef int32_t     s_1616_float;
 #define NAVX_INTEGRATION_CTL_RESET_DISP_X           0x08
 #define NAVX_INTEGRATION_CTL_RESET_DISP_Y           0x10
 #define NAVX_INTEGRATION_CTL_RESET_DISP_Z           0x20
+#define NAVX_INTEGRATION_CTL_VEL_AND_DISP_MASK      0x3F
 
 #define NAVX_INTEGRATION_CTL_RESET_YAW              0x80
 
@@ -326,6 +328,10 @@ public:
     static inline void encodeProtocolInt16( int16_t val, char *int16_bytes) {
         *((int16_t *)int16_bytes) = val;
     }
+	
+    static inline uint32_t decodeProtocolUint32( char *uint32_bytes ) {
+        return *((uint32_t *)uint32_bytes);
+    }	
 
     static inline int32_t decodeProtocolInt32( char *int32_bytes ) {
         return *((int32_t *)int32_bytes);

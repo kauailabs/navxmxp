@@ -11,7 +11,7 @@
 #include "WPILIb.h"
 #include "IIOProvider.h"
 #include <stdint.h>
-#include "AHRSProtocol.h"
+#include <AHRSProtocol.h>
 #include "IMUProtocol.h"
 #include "IIOCompleteNotification.h"
 #include "IBoardCapabilities.h"
@@ -33,6 +33,7 @@ class SerialIO : public IIOProvider {
     IMUProtocol::GyroUpdate gyro_update_data;
     AHRSProtocol::AHRSUpdate ahrs_update_data;
     AHRSProtocol::AHRSPosUpdate ahrspos_update_data;
+    AHRSProtocol::AHRSPosTSUpdate ahrspos_ts_update_data;
     AHRSProtocol::BoardID board_id;
     IIOCompleteNotification *notify_sink;
     IIOCompleteNotification::BoardState board_state;

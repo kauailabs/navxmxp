@@ -14,47 +14,61 @@ class ContinuousAngleTracker {
     private float last_angle;
     private double last_rate;
     private int zero_crossing_count;
+    private boolean first_sample;
     
     public ContinuousAngleTracker() {
         last_angle = 0.0f;
         zero_crossing_count = 0;
         last_rate = 0;
+        first_sample = true;
     }
     
     public void nextAngle( float newAngle ) {
         
-        int angle_last_direction;
-        float adjusted_last_angle = ( last_angle < 0.0f ) ? last_angle + 360.0f : last_angle;
-        float adjusted_curr_angle = ( newAngle < 0.0f ) ? newAngle + 360.0f : newAngle;
-        float delta_angle = adjusted_curr_angle - adjusted_last_angle;
+    	/* If the first received sample is negative, 
+    	 * ensure that the zero crossing count is
+    	 * decremented.
+    	 */
+    	
+    	if ( first_sample ) {
+    		first_sample = false;
+    		if ( newAngle < 0.0f ) {
+    			zero_crossing_count--;
+    		}
+    	}
+    	
+    	/* Calculate delta angle, adjusting appropriately
+    	 * if the current sample crossed the -180/180
+    	 * point.
+    	 */
+    	
+    	boolean bottom_crossing = false;
+    	float delta_angle = newAngle - last_angle;
+        /* Adjust for wraparound at -180/+180 point */
+        if ( delta_angle >= 180.0f ){
+        	delta_angle = 360.0f - delta_angle;
+        	bottom_crossing = true;
+        } else if ( delta_angle <= -180.0f ){
+        	delta_angle = 360.0f + delta_angle;
+        	bottom_crossing = true;
+        }
         this.last_rate = delta_angle;
 
-        angle_last_direction = 0;
-        if ( adjusted_curr_angle < adjusted_last_angle ) {
-            if ( delta_angle < -180.0f ) {
-                angle_last_direction = -1;
-            } else {
-                angle_last_direction = 1;
-            }
-        } else if ( adjusted_curr_angle > adjusted_last_angle ) {
-            if ( delta_angle > 180.0f ) {
-                angle_last_direction = -1;
-            } else {
-                angle_last_direction = 1;
-            }
+        /* If a zero crossing occurred, increment/decrement
+         * the zero crossing count appropriately.
+         */
+        if ( !bottom_crossing ) {
+	        if ( delta_angle < 0.0f ) {
+	        	if ( (newAngle < 0.0f) && (last_angle >= 0.0f) ) {
+	        		zero_crossing_count--;
+	        	}
+	        } else if ( delta_angle >= 0.0f ) {
+	        	if ( (newAngle >= 0.0f) && (last_angle < 0.0f) ) {
+	        		zero_crossing_count++;
+	        	}
+	        }
         }
-
-        if ( angle_last_direction < 0 ) {
-            if ( ( adjusted_curr_angle < 0.0f ) && ( adjusted_last_angle >= 0.0f ) ) {
-                zero_crossing_count--;
-            }           
-        } else if ( angle_last_direction > 0 ) {
-            if ( ( adjusted_curr_angle >= 0.0f ) && ( adjusted_last_angle < 0.0f ) ) {
-                zero_crossing_count++;
-            }           
-        }
-        last_angle = newAngle;
-        
+        this.last_angle = newAngle;
     }
     
     public double getAngle() {

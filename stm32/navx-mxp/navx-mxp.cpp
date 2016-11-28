@@ -41,6 +41,11 @@ extern "C" {
 #include "FlashStorage.h"
 #include "ext_interrupts.h"
 
+#ifdef NAVX_PI_BOARD_TEST
+#include "NavXPiBoardTest.h"
+NavXPiBoardTest *p_navxpi_boardtest;
+#endif
+
 extern I2C_HandleTypeDef hi2c3; /* External I2C Interface */
 extern I2C_HandleTypeDef hi2c2; /* Internal I2C Interface (to MPU, etc.) */
 extern SPI_HandleTypeDef hspi1; /* External SPI Interface */
@@ -60,7 +65,7 @@ uint8_t i2c3_RxBuffer[RXBUFFERSIZE];
 uint8_t spi1_RxBuffer[RXBUFFERSIZE];
 
 #define MIN_SAMPLE_RATE_HZ 4
-#define MAX_SAMPLE_RATE_HZ 60
+#define MAX_SAMPLE_RATE_HZ 200
 
 #define UART_RX_PACKET_TIMEOUT_MS 	30 /* Max wait after start of packet */
 #define MIN_UART_MESSAGE_LENGTH		STREAM_CMD_MESSAGE_LENGTH
@@ -282,7 +287,8 @@ uint16_t get_capability_flags()
     uint16_t capability_flags = 0;
     capability_flags |= (NAVX_CAPABILITY_FLAG_OMNIMOUNT +
             NAVX_CAPABILITY_FLAG_VEL_AND_DISP +
-            NAVX_CAPABILITY_FLAG_YAW_RESET);
+            NAVX_CAPABILITY_FLAG_YAW_RESET +
+            NAVX_CAPABILITY_FLAG_AHRSPOS_TS);
     uint16_t yaw_axis_info =
             (((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis << 1) +
             ((((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up) ? 1 : 0);
@@ -353,11 +359,11 @@ _EXTERN_ATTRIB void nav10_init()
 
     /* Power on the on-board I2C devices */
     HAL_I2C_Power_On();
-    HAL_Delay(50);
+    HAL_Delay(1000);
 
     FlashStorage.init(sizeof(flash_cal_data));
 
-    mpu_initialize(GPIO_PIN_8);
+    mpu_initialize(MPU9250_INT_Pin);
     enable_dmp();
 
     HAL_LED1_On(0);
@@ -439,21 +445,26 @@ _EXTERN_ATTRIB void nav10_init()
     GPIO_InitTypeDef GPIO_InitStruct;
 
     /*Configure GPIO pin : PC8 (MPU) for rising-edge interrupts */
-    GPIO_InitStruct.Pin = GPIO_PIN_8;
+    GPIO_InitStruct.Pin = MPU9250_INT_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+    HAL_GPIO_Init(MPU9250_INT_GPIO_Port, &GPIO_InitStruct);
 
     /* Configure GPIO pin : PC9 (CAL Button) for dual-edge interrupts */
-    GPIO_InitStruct.Pin = GPIO_PIN_9;
+    GPIO_InitStruct.Pin = CAL_BTN_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+    HAL_GPIO_Init(CAL_BTN_GPIO_Port, &GPIO_InitStruct);
 
     /* EXTI interrupt initialization */
+    /* TODO:  Review this priority post-integration of navX-PI HAL. */
     HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4/*NVIC_PRIORITYGROUP_0*/);
     HAL_NVIC_SetPriority((IRQn_Type)EXTI9_5_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ((IRQn_Type)EXTI9_5_IRQn);
+
+    if((MPU9250_INT_Pin > 9) ||(CAL_BTN_Pin > 9)) {
+    	HAL_NVIC_EnableIRQ((IRQn_Type)EXTI15_10_IRQn);
+    }
 
     /* Initiate Data Reception on slave SPI Interface, if it is enabled. */
     if ( HAL_SPI_Slave_Enabled() ) {
@@ -464,6 +475,11 @@ _EXTERN_ATTRIB void nav10_init()
 #ifndef DISABLE_EXTERNAL_I2C_INTERFACE
     prepare_next_i2c_receive();
 #endif
+
+#ifdef NAVX_PI_BOARD_TEST
+    p_navxpi_boardtest = new NavXPiBoardTest();
+#endif
+
 }
 
 struct mpu_data mpudata;
@@ -607,7 +623,7 @@ bool sample_rate_update = true;
 uint8_t new_sample_rate = 0;
 /* Signal that integration control has been updated by remote user */
 bool integration_control_update = true;
-uint8_t new_integration_control = 0;
+volatile uint8_t new_integration_control = 0;
 uint32_t i2c_bus_reset_count = 0;
 uint32_t i2c_interrupt_reset_count = 0;
 
@@ -627,6 +643,10 @@ _EXTERN_ATTRIB void nav10_main()
 
     while (1)
     {
+#ifdef NAVX_PI_BOARD_TEST
+    	p_navxpi_boardtest->loop();
+#endif
+
         bool send_stream_response[2] = { false, false };
         bool send_mag_cal_response[2] = { false, false };
         bool send_tuning_var_set_response[2] = { false, false };
@@ -640,7 +660,9 @@ _EXTERN_ATTRIB void nav10_main()
         int32_t integration_control_parameter = 0;
         int num_update_bytes[2] = { 0, 0 };
         int num_resp_bytes[2] = { 0, 0 };
+
         periodic_compass_update();
+
         if ( sample_rate_update ) {
             if ( new_sample_rate != 0 ) {
                 mpu_set_new_sample_rate(new_sample_rate);
@@ -652,19 +674,48 @@ _EXTERN_ATTRIB void nav10_main()
             send_stream_response[0] = true;
             send_stream_response[1] = true;
         }
+
         if ( integration_control_update ) {
-            reset_velocity_and_dispacement_integrator(&mpudata,new_integration_control);
-            if ( new_integration_control & 0x80 ) {
+
+        	/* Read/Modify/Write integration control register */
+			NVIC_DisableIRQ((IRQn_Type)I2C3_EV_IRQn);
+			NVIC_DisableIRQ((IRQn_Type)SPI1_IRQn);
+	        NVIC_DisableIRQ((IRQn_Type)DMA2_Stream0_IRQn);
+			integration_control_update = false;
+			uint8_t curr_vel_disp_int_control = new_integration_control & NAVX_INTEGRATION_CTL_VEL_AND_DISP_MASK;
+			uint8_t curr_yaw_int_control = new_integration_control & NAVX_INTEGRATION_CTL_RESET_YAW;
+			new_integration_control &= ~(curr_vel_disp_int_control | curr_yaw_int_control);
+	        NVIC_EnableIRQ((IRQn_Type)DMA2_Stream0_IRQn);
+			NVIC_EnableIRQ((IRQn_Type)SPI1_IRQn);
+			NVIC_EnableIRQ((IRQn_Type)I2C3_EV_IRQn);
+
+        	if ( curr_vel_disp_int_control != 0 ) {
+        		reset_velocity_and_dispacement_integrator(&mpudata,curr_vel_disp_int_control);
+        	}
+
+            if ( curr_yaw_int_control != 0 ) {
                 if ( yaw_offset_calibration_complete ) {
                     /* Current yaw angle now becomes zero degrees */
                     float curr_yaw_offset;
+                    /* Disable MPU interrupts around the following
+                     * pair of calls to get_yaw_offset() and set_yaw_offset(),
+                     * while changing the yaw offset (which is used in the
+                     * interrupt handler).
+                     */
+                    HAL_NVIC_DisableIRQ((IRQn_Type)EXTI9_5_IRQn);
                     get_yaw_offset(&curr_yaw_offset);
                     calibrated_yaw_offset = mpudata.yaw + curr_yaw_offset;
-                    registers.yaw_offset = calibrated_yaw_offset;
+                    registers.yaw_offset = IMURegisters::encodeSignedHundredthsFloat(calibrated_yaw_offset);
+                    /* Note:  protect against a race condition in which multiple
+                     * Zero Yaw commands are received before the next MPU
+                     * interrupt occurs.  In this condition, the mpudata.yaw value
+                     * will not have been updated by the MPU interrupt.  Therefore,
+                     * set the mpudata.yaw value to 0 immediately here. */
+                    mpudata.yaw = 0.0f;
                     set_yaw_offset(calibrated_yaw_offset);
+                    HAL_NVIC_EnableIRQ((IRQn_Type)EXTI9_5_IRQn);
                 }
             }
-            integration_control_update = false;
         }
 
         if ( schedule_caldata_clear && ( caldata_clear_count < 3 ) ) {
@@ -770,7 +821,36 @@ _EXTERN_ATTRIB void nav10_main()
 
                 for ( int ifx = 0; ifx < num_serial_interfaces; ifx++ ) {
 
-                    if ( update_type[ifx] == MSGID_AHRSPOS_UPDATE ) {
+                    if ( update_type[ifx] == MSGID_AHRSPOS_TS_UPDATE ) {
+
+                        num_update_bytes[ifx] = AHRSProtocol::encodeAHRSPosTSUpdate( update_buffer[ifx],
+                                mpudata.yaw,
+                                mpudata.pitch,
+                                mpudata.roll,
+                                mpudata.heading,
+                                0.0, 							/* TODO:  Calc altitude    */
+                                mpudata.fused_heading,
+                                mpudata.world_linear_accel[0],
+                                mpudata.world_linear_accel[1],
+                                mpudata.world_linear_accel[2],
+                                mpudata.temp_c,
+                                (((float)mpudata.quaternion[0])/65536), /* Cvt 16:16 -> Float */
+                                (((float)mpudata.quaternion[1])/65536), /* Cvt 16:16 -> Float */
+                                (((float)mpudata.quaternion[2])/65536), /* Cvt 16:16 -> Float */
+                                (((float)mpudata.quaternion[3])/65536), /* Cvt 16:16 -> Float */
+                                mpudata.velocity[0],
+                                mpudata.velocity[1],
+                                mpudata.velocity[2],
+                                mpudata.displacement[0],
+                                mpudata.displacement[1],
+                                mpudata.displacement[2],
+                                registers.op_status,
+                                registers.sensor_status,
+                                registers.cal_status,
+                                registers.selftest_status,
+                                registers.timestamp);
+                    }
+                    else if ( update_type[ifx] == MSGID_AHRSPOS_UPDATE ) {
 
                         num_update_bytes[ifx] = AHRSProtocol::encodeAHRSPosUpdate( update_buffer[ifx],
                                 mpudata.yaw,
@@ -1155,7 +1235,8 @@ _EXTERN_ATTRIB void nav10_main()
                                 ( new_stream_type == MSGID_QUATERNION_UPDATE ) ||
                                 ( new_stream_type == MSGID_GYRO_UPDATE ) ||
                                 ( new_stream_type == MSGID_AHRS_UPDATE ) ||
-                                ( new_stream_type == MSGID_AHRSPOS_UPDATE ) ) {
+                                ( new_stream_type == MSGID_AHRSPOS_UPDATE ) ||
+                                ( new_stream_type == MSGID_AHRSPOS_TS_UPDATE )) {
                             update_type[ifx] = new_stream_type;
                         }
                     }
@@ -1166,7 +1247,7 @@ _EXTERN_ATTRIB void nav10_main()
                             newcal.earth_mag_field_norm ) ) ) {
                         if ( data_action == DATA_SET ) {
                             if ( newcal.earth_mag_field_norm == 0.0f ) {
-                                /* Disallow 0 value, to avoid divide by zero. */
+                                /* Disallow 0 value, to avoid divide by . */
                                 newcal.earth_mag_field_norm = 0.001f;
                             }
                             float previous_mag_disturbance_ratio = ((struct flash_cal_data *)flashdata)->magcaldata.mag_disturbance_ratio;
@@ -1193,8 +1274,8 @@ _EXTERN_ATTRIB void nav10_main()
                             &inbound_data[i], bytes_remaining,
                             integration_control_action, integration_control_parameter ) ) ) {
                         send_integration_control_response[ifx] = true;
+                        new_integration_control |= integration_control_action;
                         integration_control_update = true;
-                        new_integration_control = integration_control_action;
                     }
                     if ( packet_length > 0 ) {
                         i += packet_length;
@@ -1293,7 +1374,9 @@ _EXTERN_ATTRIB void nav10_main()
         if ( num_update_bytes[0] > 0 ) {
             NVIC_DisableIRQ((IRQn_Type)I2C3_EV_IRQn);
             NVIC_DisableIRQ((IRQn_Type)SPI1_IRQn);
+            NVIC_DisableIRQ((IRQn_Type)DMA2_Stream0_IRQn);
             memcpy(&shadow_registers, &registers, sizeof(registers));
+            NVIC_EnableIRQ((IRQn_Type)DMA2_Stream0_IRQn);
             NVIC_EnableIRQ((IRQn_Type)SPI1_IRQn);
             if ( prepare_i2c_receive_timeout_count > 0 ) {
                 if ( (HAL_GetTick() - prepare_i2c_receive_last_attempt_timestamp) > (unsigned long)5000) {
@@ -1400,8 +1483,10 @@ void process_writable_register_update( uint8_t requested_address, uint8_t *reg_a
         new_sample_rate = *reg_addr;
         sample_rate_update = true;
     } else if ( requested_address == NAVX_REG_INTEGRATION_CTL) {
-        /* This is a write-only register */
-        new_integration_control = value;
+        /* This is a write-only register                        */
+    	/* Thus, only setting of bits is allowed here (clearing */
+    	/* of bits is performed in the foreground).             */
+        new_integration_control |= value;
         integration_control_update = true;
     }
 }

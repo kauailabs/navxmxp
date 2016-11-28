@@ -38,6 +38,7 @@
 /* USER CODE BEGIN Includes */
 #include "navx-mxp.h"
 #include "navx-mxp_hal.h"
+#include "gpio_navx-pi.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -46,6 +47,7 @@ I2C_HandleTypeDef hi2c3;
 DMA_HandleTypeDef hdma_i2c3_tx;
 
 SPI_HandleTypeDef hspi1;
+SPI_HandleTypeDef hspi2;
 DMA_HandleTypeDef hdma_spi1_tx;
 DMA_HandleTypeDef hdma_spi1_rx;
 
@@ -67,6 +69,28 @@ static void MX_USART6_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
+
+/* NavX-PI has these fundamental differences from previous navX-Family devices:
+ *
+ * I2C:
+ * I2C2 is still used to communicate w/on-board I2C devices.
+ * I2C3 is not used on the navX-PI.
+ *
+ * SPI:
+ * SPI1 is still used as a slave interface.  In order to communicate with the
+ * Raspberry PI, the mode must be changed to 0 or 2.  (Per online docs in the
+ * pigpio library, modes 1 and 3 don't work on the RPI Aux spi interface).
+ * SPI2 is new - and is used to communicate to the MCP25625 CAN Interface.
+ *
+ * UART:
+ * The UART is NOT used on the navX-PI.
+ *
+ * TIMERS:
+ * Timers 1 through 5 are used on the navX-PI.
+ *
+ * ADC:
+ * ADC1 (Inputs 8, 9, 14 & 15) are used on the navX-PI.
+ */
 
 /* USER CODE BEGIN 0 */
 
@@ -132,6 +156,24 @@ int main(void)
         MX_USART6_UART_Init();
     }
 
+#ifdef ENABLE_CAN_TRANSCEIVER
+    MX_SPI2_Init();
+    HAL_MCP25625_Wake();
+    //HAL_MCP25625_Test();
+#endif
+
+#if (defined(ENABLE_QUAD_DECODERS) || defined(ENABLE_PWM_GENERATION))
+    MX_TIM1_Init();
+    MX_TIM2_Init();
+    MX_TIM3_Init();
+    MX_TIM4_Init();
+    MX_TIM5_Init();
+#endif
+
+#if defined(ENABLE_ADC)
+    MX_ADC1_Init();
+#endif
+
     MX_USB_DEVICE_Init();
     /* USER CODE BEGIN 2 */
     nav10_init();
@@ -171,7 +213,7 @@ void SystemClock_Config(void)
 void MX_I2C2_Init(void)
 {
     hi2c2.Instance = I2C2;
-    hi2c2.Init.ClockSpeed = 100000;
+    hi2c2.Init.ClockSpeed = 200000;
     hi2c2.Init.DutyCycle = I2C_DUTYCYCLE_2;
     hi2c2.Init.OwnAddress1 = 0;
     hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
@@ -185,6 +227,7 @@ void MX_I2C2_Init(void)
 /* I2C3 init function */
 void MX_I2C3_Init(void)
 {
+#ifndef DISABLE_EXTERNAL_I2C_INTERFACE
     hi2c3.Instance = I2C3;
     hi2c3.Init.ClockSpeed = 400000;
     hi2c3.Init.DutyCycle = I2C_DUTYCYCLE_2;
@@ -195,28 +238,63 @@ void MX_I2C3_Init(void)
     hi2c3.Init.GeneralCallMode = I2C_GENERALCALL_DISABLED;
     hi2c3.Init.NoStretchMode = I2C_NOSTRETCH_DISABLED;
     HAL_I2C_Init(&hi2c3);
+#endif
 }
 
 /* SPI1 init function */
+/* Note:  Default is SPI Transfer Mode 3 (Clk Polarity = 1, Clk Phase = 1)
+ * However in the case of navX-PI, since the Raspberry PI Aux SPI interface
+ * only supports SPI Modes 0 and 2, SPI Transfer Mode 0 is used
+ * (Clk Polarity = 0, Clk Phase = 0)
+ */
 void MX_SPI1_Init(void)
 {
+#ifndef	DISABLE_EXTERNAL_SPI_INTERFACE
     hspi1.Instance = SPI1;
     hspi1.Init.Mode = SPI_MODE_SLAVE;
     hspi1.Init.Direction = SPI_DIRECTION_2LINES;
     hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+#ifdef EXTERNAL_SPI_INTERFACE_MODE_0
+    hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+    hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+#else
     hspi1.Init.CLKPolarity = SPI_POLARITY_HIGH;
     hspi1.Init.CLKPhase = SPI_PHASE_2EDGE;
+#endif
     hspi1.Init.NSS = SPI_NSS_HARD_INPUT;
     hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
     hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
     hspi1.Init.TIMode = SPI_TIMODE_DISABLED;
     hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLED;
     HAL_SPI_Init(&hspi1);
+#endif
+}
+
+/* SPI2 init function */
+void MX_SPI2_Init(void)
+{
+#ifdef ENABLE_CAN_TRANSCEIVER
+  hspi2.Instance = SPI2;
+  hspi2.Init.Mode = SPI_MODE_MASTER;
+  hspi2.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
+  /* Configure for MODE 0 (which is used by the MCP25625) */
+  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi2.Init.NSS = SPI_NSS_HARD_OUTPUT;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi2.Init.TIMode = SPI_TIMODE_DISABLED;
+  hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLED;
+  hspi2.Init.CRCPolynomial = 10;
+  HAL_SPI_Init(&hspi2);
+#endif
 }
 
 /* USART6 init function */
 void MX_USART6_UART_Init(void)
 {
+#ifndef DISABLE_EXTERNAL_UART_INTERFACE
     huart6.Instance = USART6;
     huart6.Init.BaudRate = 57600;
     huart6.Init.WordLength = UART_WORDLENGTH_8B;
@@ -226,6 +304,7 @@ void MX_USART6_UART_Init(void)
     huart6.Init.HwFlowCtl = UART_HWCONTROL_NONE;
     huart6.Init.OverSampling = UART_OVERSAMPLING_16;
     HAL_UART_Init(&huart6);
+#endif
 }
 /** Configure pins as 
  * Analog
@@ -238,10 +317,15 @@ void MX_USART6_UART_Init(void)
  */
 void MX_GPIO_Init(void)
 {
-    GPIO_InitTypeDef GPIO_InitStruct;
+#ifdef GPIO_MAP_NAVX_PI
+    MX_GPIO_Init_NavX_PI();
+#else
+	GPIO_InitTypeDef GPIO_InitStruct;
 
-    /* GPIO Ports Clock Enable */__GPIOC_CLK_ENABLE();
+    /* GPIO Ports Clock Enable */
+
     __GPIOH_CLK_ENABLE();
+    __GPIOC_CLK_ENABLE();
     __GPIOA_CLK_ENABLE();
     __GPIOB_CLK_ENABLE();
     __GPIOD_CLK_ENABLE();
@@ -303,6 +387,7 @@ void MX_GPIO_Init(void)
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+#endif
 }
 
 /**
@@ -315,14 +400,24 @@ void MX_DMA_Init(void)
     __DMA2_CLK_ENABLE();
 
     /* DMA interrupt init */
+#ifndef DISABLE_EXTERNAL_SPI_INTERFACE
     HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 1, 0); /* SPI */
     HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
     HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 1, 0); /* SPI */
     HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
+#endif
+#ifndef DISABLE_EXTERNAL_I2C_INTERFACE
     HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 2, 0); /* I2C */
     HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
+#endif
+#ifndef DISABLE_EXTERNAL_UART_INTERFACE
     HAL_NVIC_SetPriority(DMA2_Stream6_IRQn, 3, 0); /* UART */
     HAL_NVIC_EnableIRQ(DMA2_Stream6_IRQn);
+#endif
+#ifdef ENABLE_ADC
+    HAL_NVIC_SetPriority(DMA2_Stream4_IRQn, 6, 0); /* ADC */
+    //HAL_NVIC_EnableIRQ(DMA2_Stream4_IRQn);
+#endif
 }
 
 /* USER CODE BEGIN 4 */

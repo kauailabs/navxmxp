@@ -34,6 +34,7 @@
  */
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
+#include "navx-mxp_hal.h"
 extern DMA_HandleTypeDef hdma_i2c3_tx;
 
 extern DMA_HandleTypeDef hdma_spi1_tx;
@@ -41,6 +42,14 @@ extern DMA_HandleTypeDef hdma_spi1_tx;
 extern DMA_HandleTypeDef hdma_spi1_rx;
 
 extern DMA_HandleTypeDef hdma_usart6_tx;
+
+#ifdef GPIO_MAP_NAVX_PI
+#	define I2C2_SDA_GPIO_PIN GPIO_PIN_9
+#	define SPI1_NSS_GPIO_PIN GPIO_PIN_4
+#else
+#	define I2C2_SDA_GPIO_PIN GPIO_PIN_3
+#	define SPI1_NSS_GPIO_PIN GPIO_PIN_15
+#endif
 
 /* USER CODE BEGIN 0 */
 
@@ -54,6 +63,7 @@ extern DMA_HandleTypeDef hdma_usart6_tx;
 /* 3 - UART               */
 /* 4 - USB                */
 /* 5 - MPU                */
+/* 6 - ADC                */
 /* Lower priority numbers */
 /* Should preempt higher  */
 
@@ -94,7 +104,7 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
 
         /**I2C2 GPIO Configuration
     PB10     ------> I2C2_SCL
-    PB3     ------> I2C2_SDA 
+    PB3     ------> I2C2_SDA (PB9 if on STM32F411VET6)
          */
         GPIO_InitStruct.Pin = GPIO_PIN_10;
         GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
@@ -103,7 +113,7 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
         GPIO_InitStruct.Alternate = GPIO_AF4_I2C2;
         HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-        GPIO_InitStruct.Pin = GPIO_PIN_3;
+        GPIO_InitStruct.Pin = I2C2_SDA_GPIO_PIN;
         GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
         GPIO_InitStruct.Pull = GPIO_NOPULL;
         GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
@@ -152,7 +162,7 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
         hdma_i2c3_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
         hdma_i2c3_tx.Init.Mode = DMA_NORMAL;
         hdma_i2c3_tx.Init.Priority = DMA_PRIORITY_LOW;
-        hdma_i2c3_tx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+        hdma_i2c3_tx.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
         hdma_i2c3_tx.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_HALFFULL;
         HAL_DMA_Init(&hdma_i2c3_tx);
 
@@ -184,9 +194,9 @@ void HAL_I2C_MspDeInit(I2C_HandleTypeDef* hi2c)
 
         /**I2C2 GPIO Configuration
     PB10     ------> I2C2_SCL
-    PB3     ------> I2C2_SDA 
+    PB3     ------> I2C2_SDA  (PB9 if on STM32F411VET6)
          */
-        HAL_GPIO_DeInit(GPIOB, GPIO_PIN_10|GPIO_PIN_3);
+        HAL_GPIO_DeInit(GPIOB, GPIO_PIN_10|I2C2_SDA_GPIO_PIN);
 
         /* USER CODE BEGIN I2C2_MspDeInit 1 */
 
@@ -244,27 +254,27 @@ void HAL_I2C_Reset(I2C_HandleTypeDef* hi2c)
             HAL_I2C_DeInit(hi2c);
 
             HAL_GPIO_WritePin(GPIOB,GPIO_PIN_10,GPIO_PIN_SET);
-            HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_SET);
+            HAL_GPIO_WritePin(GPIOB,I2C2_SDA_GPIO_PIN,GPIO_PIN_SET);
             GPIO_InitStruct.Pin = GPIO_PIN_10;
             GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
             GPIO_InitStruct.Pull = GPIO_NOPULL;
             GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
             HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-            GPIO_InitStruct.Pin = GPIO_PIN_3;
+            GPIO_InitStruct.Pin = I2C2_SDA_GPIO_PIN;
             GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
             GPIO_InitStruct.Pull = GPIO_NOPULL;
             GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
             HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
             HAL_GPIO_WritePin(GPIOB,GPIO_PIN_10,GPIO_PIN_SET);
-            HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_SET);
+            HAL_GPIO_WritePin(GPIOB,I2C2_SDA_GPIO_PIN,GPIO_PIN_SET);
 
             /* Try to send out a pseudo-stop bit.  */
-            if ( ( HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) == GPIO_PIN_SET ) &&
+            if ( ( HAL_GPIO_ReadPin(GPIOB, I2C2_SDA_GPIO_PIN) == GPIO_PIN_SET ) &&
                  ( HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_SET ) ) {
-                HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(GPIOB,I2C2_SDA_GPIO_PIN,GPIO_PIN_RESET);
                 HAL_Delay(1);
-                HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_SET);
+                HAL_GPIO_WritePin(GPIOB,I2C2_SDA_GPIO_PIN,GPIO_PIN_SET);
                 HAL_Delay(1);
             } else {
                 /* One more clock in case device was trying to ack address */
@@ -272,18 +282,18 @@ void HAL_I2C_Reset(I2C_HandleTypeDef* hi2c)
                 HAL_Delay(1);
                 HAL_GPIO_WritePin(GPIOB,GPIO_PIN_10,GPIO_PIN_SET);
                 HAL_Delay(1);
-                if ( ( HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) == GPIO_PIN_SET ) &&
+                if ( ( HAL_GPIO_ReadPin(GPIOB, I2C2_SDA_GPIO_PIN) == GPIO_PIN_SET ) &&
                      ( HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_SET ) ) {
-                    HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_RESET);
+                    HAL_GPIO_WritePin(GPIOB,I2C2_SDA_GPIO_PIN,GPIO_PIN_RESET);
                     HAL_Delay(1);
-                    HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_SET);
+                    HAL_GPIO_WritePin(GPIOB,I2C2_SDA_GPIO_PIN,GPIO_PIN_SET);
                     HAL_Delay(1);
                 }
             }
 #if 0
             /* Detect if SDA is high, and if so toggle clock pin */
             int max_retry_count = 1000;
-            while ( max_retry_count > 0 && (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) == GPIO_PIN_SET) ) {
+            while ( max_retry_count > 0 && (HAL_GPIO_ReadPin(GPIOB, I2C2_SDA_GPIO_PIN) == GPIO_PIN_SET) ) {
                 HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_10);
                 HAL_Delay(1);
                 max_retry_count--;
@@ -299,25 +309,25 @@ void HAL_I2C_Reset(I2C_HandleTypeDef* hi2c)
                 }
             }
 
-            if ( ( HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) == GPIO_PIN_SET ) &&
+            if ( ( HAL_GPIO_ReadPin(GPIOB, I2C2_SDA_GPIO_PIN) == GPIO_PIN_SET ) &&
                  ( HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_SET ) ) {
-                HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(GPIOB,I2C2_SDA_GPIO_PIN,GPIO_PIN_RESET);
                 HAL_Delay(1);
-                HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_SET);
+                HAL_GPIO_WritePin(GPIOB,I2C2_SDA_GPIO_PIN,GPIO_PIN_SET);
                 HAL_Delay(1);
             }
 
             HAL_GPIO_WritePin(GPIOB,GPIO_PIN_10,GPIO_PIN_SET);
-            HAL_GPIO_WritePin(GPIOB,GPIO_PIN_3,GPIO_PIN_SET);
+            HAL_GPIO_WritePin(GPIOB,I2C2_SDA_GPIO_PIN,GPIO_PIN_SET);
 
 
         /* Set SDA Pin as INPUT */
-        GPIO_InitStruct.Pin = GPIO_PIN_3;
+        GPIO_InitStruct.Pin = I2C2_SDA_GPIO_PIN;
         GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
         GPIO_InitStruct.Pull = GPIO_NOPULL;
         GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
         HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-        sda_busy = (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) == GPIO_PIN_RESET);
+        sda_busy = (HAL_GPIO_ReadPin(GPIOB, I2C2_SDA_GPIO_PIN) == GPIO_PIN_RESET);
 
         /* Set SCL Pin as INPUT */
         GPIO_InitStruct.Pin = GPIO_PIN_10;
@@ -369,9 +379,9 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     PA5     ------> SPI1_SCK
     PA6     ------> SPI1_MISO
     PA7     ------> SPI1_MOSI
-    PA15     ------> SPI1_NSS 
+    PA15     ------> SPI1_NSS (PA7 if on STM32F411VET6)
          */
-        GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_15;
+        GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7|SPI1_NSS_GPIO_PIN;
         GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
         GPIO_InitStruct.Pull = GPIO_NOPULL;
         GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
@@ -388,8 +398,8 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
         hdma_spi1_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
         hdma_spi1_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
         hdma_spi1_tx.Init.Mode = DMA_NORMAL;
-        hdma_spi1_tx.Init.Priority = DMA_PRIORITY_LOW;
-        hdma_spi1_tx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+        hdma_spi1_tx.Init.Priority = DMA_PRIORITY_VERY_HIGH;
+        hdma_spi1_tx.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
         hdma_spi1_tx.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_HALFFULL;
         hdma_spi1_tx.Init.MemBurst = DMA_MBURST_SINGLE;
         hdma_spi1_tx.Init.PeriphBurst = DMA_PBURST_SINGLE;
@@ -405,8 +415,11 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
         hdma_spi1_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
         hdma_spi1_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
         hdma_spi1_rx.Init.Mode = DMA_NORMAL;
-        hdma_spi1_rx.Init.Priority = DMA_PRIORITY_LOW;
+        hdma_spi1_rx.Init.Priority = DMA_PRIORITY_HIGH;
         hdma_spi1_rx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+        hdma_spi1_rx.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_1QUARTERFULL;
+        hdma_spi1_rx.Init.MemBurst = DMA_MBURST_SINGLE;
+        hdma_spi1_rx.Init.PeriphBurst = DMA_PBURST_SINGLE;
         HAL_DMA_Init(&hdma_spi1_rx);
 
         __HAL_LINKDMA(hspi,hdmarx,hdma_spi1_rx);
@@ -416,6 +429,31 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
         /* USER CODE BEGIN SPI1_MspInit 1 */
 
         /* USER CODE END SPI1_MspInit 1 */
+    }
+    else if(hspi->Instance==SPI2)
+    {
+    /* USER CODE BEGIN SPI2_MspInit 0 */
+
+    /* USER CODE END SPI2_MspInit 0 */
+      /* Peripheral clock enable */
+      __SPI2_CLK_ENABLE();
+
+      /**SPI2 GPIO Configuration
+      PB12     ------> SPI2_NSS
+      PB13     ------> SPI2_SCK
+      PB14     ------> SPI2_MISO
+      PB15     ------> SPI2_MOSI
+      */
+      GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
+      GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+      GPIO_InitStruct.Pull = GPIO_NOPULL;
+      GPIO_InitStruct.Speed = GPIO_SPEED_FAST;
+      GPIO_InitStruct.Alternate = GPIO_AF5_SPI2;
+      HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+    /* USER CODE BEGIN SPI2_MspInit 1 */
+
+    /* USER CODE END SPI2_MspInit 1 */
     }
 }
 
@@ -435,7 +473,7 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
     PA7     ------> SPI1_MOSI
     PA15     ------> SPI1_NSS 
          */
-        HAL_GPIO_DeInit(GPIOA, GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_15);
+        HAL_GPIO_DeInit(GPIOA, GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7|SPI1_NSS_GPIO_PIN);
 
         /* Peripheral DMA DeInit*/
         HAL_DMA_DeInit(hspi->hdmatx);
@@ -446,6 +484,26 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
         /* USER CODE BEGIN SPI1_MspDeInit 1 */
 
         /* USER CODE END SPI1_MspDeInit 1 */
+    }
+    else if(hspi->Instance==SPI2)
+    {
+    /* USER CODE BEGIN SPI2_MspDeInit 0 */
+
+    /* USER CODE END SPI2_MspDeInit 0 */
+      /* Peripheral clock disable */
+      __SPI2_CLK_DISABLE();
+
+      /**SPI2 GPIO Configuration
+      PB12     ------> SPI2_NSS
+      PB13     ------> SPI2_SCK
+      PB14     ------> SPI2_MISO
+      PB15     ------> SPI2_MOSI
+      */
+      HAL_GPIO_DeInit(GPIOB, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15);
+
+    /* USER CODE BEGIN SPI2_MspDeInit 1 */
+
+    /* USER CODE END SPI2_MspDeInit 1 */
     }
 }
 
@@ -482,7 +540,11 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
         hdma_usart6_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
         hdma_usart6_tx.Init.Mode = DMA_NORMAL;
         hdma_usart6_tx.Init.Priority = DMA_PRIORITY_LOW;
-        hdma_usart6_tx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+        hdma_usart6_tx.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
+        hdma_usart6_tx.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_HALFFULL;
+        hdma_usart6_tx.Init.MemBurst = DMA_MBURST_SINGLE;
+        hdma_usart6_tx.Init.PeriphBurst = DMA_PBURST_SINGLE;
+
         HAL_DMA_Init(&hdma_usart6_tx);
 
         __HAL_LINKDMA(huart,hdmatx,hdma_usart6_tx);

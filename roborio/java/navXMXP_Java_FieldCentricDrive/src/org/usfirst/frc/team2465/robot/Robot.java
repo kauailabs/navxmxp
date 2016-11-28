@@ -27,8 +27,15 @@ public class Robot extends SampleRobot {
     RobotDrive myRobot;
     Joystick stick;
 
+    // Channels for the wheels
+    final static int frontLeftChannel	= 2;
+    final static int rearLeftChannel	= 3;
+    final static int frontRightChannel	= 1;
+    final static int rearRightChannel	= 0;
+    
     public Robot() {
-        myRobot = new RobotDrive(0, 1);
+        myRobot = new RobotDrive(frontLeftChannel, rearLeftChannel,
+        		frontRightChannel, rearRightChannel);
         myRobot.setExpiration(0.1);
         stick = new Joystick(0);
         try {
@@ -57,7 +64,7 @@ public class Robot extends SampleRobot {
     public void operatorControl() {
         myRobot.setSafetyEnabled(true);
         while (isOperatorControl() && isEnabled()) {
-            if ( stick.getRawButton(0)) {
+            if ( stick.getRawButton(1)) {
                 ahrs.reset();
             }
             try {
