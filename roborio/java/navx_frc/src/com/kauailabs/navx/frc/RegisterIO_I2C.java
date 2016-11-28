@@ -40,9 +40,9 @@ class RegisterIO_I2C implements IRegisterIO{
         int buffer_offset = 0;
         while ( len > 0 ) {
             int read_len = (len > MAX_WPILIB_I2C_READ_BYTES) ? MAX_WPILIB_I2C_READ_BYTES : len;
-            byte[] read_buffer = new byte[read_len];
-            if (!port.write(first_address + buffer_offset, read_len) && 
-                !port.readOnly(read_buffer, read_len) ) {
+            byte[] read_buffer = new byte[read_len];            
+            if (port.write(first_address + buffer_offset, read_len) && 
+                port.readOnly(read_buffer, read_len) ) {
                 System.arraycopy(read_buffer, 0,  buffer, buffer_offset, read_len);
                 buffer_offset += read_len;
                 len -= read_len;

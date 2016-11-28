@@ -41,6 +41,11 @@ extern "C" {
 #include "FlashStorage.h"
 #include "ext_interrupts.h"
 
+#ifdef NAVX_PI_BOARD_TEST
+#include "NavXPiBoardTest.h"
+NavXPiBoardTest *p_navxpi_boardtest;
+#endif
+
 extern I2C_HandleTypeDef hi2c3; /* External I2C Interface */
 extern I2C_HandleTypeDef hi2c2; /* Internal I2C Interface (to MPU, etc.) */
 extern SPI_HandleTypeDef hspi1; /* External SPI Interface */
@@ -358,7 +363,7 @@ _EXTERN_ATTRIB void nav10_init()
 
     FlashStorage.init(sizeof(flash_cal_data));
 
-    mpu_initialize(GPIO_PIN_8);
+    mpu_initialize(MPU9250_INT_Pin);
     enable_dmp();
 
     HAL_LED1_On(0);
@@ -440,21 +445,26 @@ _EXTERN_ATTRIB void nav10_init()
     GPIO_InitTypeDef GPIO_InitStruct;
 
     /*Configure GPIO pin : PC8 (MPU) for rising-edge interrupts */
-    GPIO_InitStruct.Pin = GPIO_PIN_8;
+    GPIO_InitStruct.Pin = MPU9250_INT_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+    HAL_GPIO_Init(MPU9250_INT_GPIO_Port, &GPIO_InitStruct);
 
     /* Configure GPIO pin : PC9 (CAL Button) for dual-edge interrupts */
-    GPIO_InitStruct.Pin = GPIO_PIN_9;
+    GPIO_InitStruct.Pin = CAL_BTN_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+    HAL_GPIO_Init(CAL_BTN_GPIO_Port, &GPIO_InitStruct);
 
     /* EXTI interrupt initialization */
+    /* TODO:  Review this priority post-integration of navX-PI HAL. */
     HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4/*NVIC_PRIORITYGROUP_0*/);
     HAL_NVIC_SetPriority((IRQn_Type)EXTI9_5_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ((IRQn_Type)EXTI9_5_IRQn);
+
+    if((MPU9250_INT_Pin > 9) ||(CAL_BTN_Pin > 9)) {
+    	HAL_NVIC_EnableIRQ((IRQn_Type)EXTI15_10_IRQn);
+    }
 
     /* Initiate Data Reception on slave SPI Interface, if it is enabled. */
     if ( HAL_SPI_Slave_Enabled() ) {
@@ -465,6 +475,11 @@ _EXTERN_ATTRIB void nav10_init()
 #ifndef DISABLE_EXTERNAL_I2C_INTERFACE
     prepare_next_i2c_receive();
 #endif
+
+#ifdef NAVX_PI_BOARD_TEST
+    p_navxpi_boardtest = new NavXPiBoardTest();
+#endif
+
 }
 
 struct mpu_data mpudata;
@@ -628,6 +643,10 @@ _EXTERN_ATTRIB void nav10_main()
 
     while (1)
     {
+#ifdef NAVX_PI_BOARD_TEST
+    	p_navxpi_boardtest->loop();
+#endif
+
         bool send_stream_response[2] = { false, false };
         bool send_mag_cal_response[2] = { false, false };
         bool send_tuning_var_set_response[2] = { false, false };
@@ -661,10 +680,12 @@ _EXTERN_ATTRIB void nav10_main()
         	/* Read/Modify/Write integration control register */
 			NVIC_DisableIRQ((IRQn_Type)I2C3_EV_IRQn);
 			NVIC_DisableIRQ((IRQn_Type)SPI1_IRQn);
+	        NVIC_DisableIRQ((IRQn_Type)DMA2_Stream0_IRQn);
 			integration_control_update = false;
 			uint8_t curr_vel_disp_int_control = new_integration_control & NAVX_INTEGRATION_CTL_VEL_AND_DISP_MASK;
 			uint8_t curr_yaw_int_control = new_integration_control & NAVX_INTEGRATION_CTL_RESET_YAW;
 			new_integration_control &= ~(curr_vel_disp_int_control | curr_yaw_int_control);
+	        NVIC_EnableIRQ((IRQn_Type)DMA2_Stream0_IRQn);
 			NVIC_EnableIRQ((IRQn_Type)SPI1_IRQn);
 			NVIC_EnableIRQ((IRQn_Type)I2C3_EV_IRQn);
 
@@ -1353,7 +1374,9 @@ _EXTERN_ATTRIB void nav10_main()
         if ( num_update_bytes[0] > 0 ) {
             NVIC_DisableIRQ((IRQn_Type)I2C3_EV_IRQn);
             NVIC_DisableIRQ((IRQn_Type)SPI1_IRQn);
+            NVIC_DisableIRQ((IRQn_Type)DMA2_Stream0_IRQn);
             memcpy(&shadow_registers, &registers, sizeof(registers));
+            NVIC_EnableIRQ((IRQn_Type)DMA2_Stream0_IRQn);
             NVIC_EnableIRQ((IRQn_Type)SPI1_IRQn);
             if ( prepare_i2c_receive_timeout_count > 0 ) {
                 if ( (HAL_GetTick() - prepare_i2c_receive_last_attempt_timestamp) > (unsigned long)5000) {

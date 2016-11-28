@@ -283,71 +283,50 @@ class AHRSProtocol : public IMUProtocol
 {
 public:
 
-    struct AHRSUpdate {
-        float   yaw;
-        float   pitch;
-        float   roll;
-        float   compass_heading;
-        float   altitude;
-        float   fused_heading;
-        float   linear_accel_x;
-        float   linear_accel_y;
-        float   linear_accel_z;
+	struct AHRSUpdateBase {
+        float yaw;
+        float pitch;
+        float roll;
+        float compass_heading;
+        float altitude;
+        float fused_heading;
+        float linear_accel_x;
+        float linear_accel_y;
+        float linear_accel_z;    	
+        float mpu_temp;
+        float quat_w;
+        float quat_x;
+        float quat_y;
+        float quat_z;
+        float barometric_pressure;
+        float baro_temp;
+        uint8_t op_status;
+        uint8_t  sensor_status;
+        uint8_t  cal_status;
+        uint8_t  selftest_status;       	
+	};
+
+    struct AHRSUpdate : public AHRSUpdateBase {
         short   cal_mag_x;
         short   cal_mag_y;
         short   cal_mag_z;
         float   mag_field_norm_ratio;
         float   mag_field_norm_scalar;
-        float   mpu_temp;
         short   raw_mag_x;
         short   raw_mag_y;
         short   raw_mag_z;
-        short   quat_w;
-        short   quat_x;
-        short   quat_y;
-        short   quat_z;
-        float   barometric_pressure;
-        float   baro_temp;
-        uint8_t op_status;
-        uint8_t sensor_status;
-        uint8_t cal_status;
-        uint8_t selftest_status;
     };
 
-    struct AHRSPosUpdate {
-        float   yaw;
-        float   pitch;
-        float   roll;
-        float   compass_heading;
-        float   altitude;
-        float   fused_heading;
-        float   linear_accel_x;
-        float   linear_accel_y;
-        float   linear_accel_z;
+    struct AHRSPosUpdate : public AHRSUpdateBase {
         float   vel_x;
         float   vel_y;
         float   vel_z;
         float   disp_x;
         float   disp_y;
         float   disp_z;
-        float   mpu_temp;
-        short   quat_w;
-        short   quat_x;
-        short   quat_y;
-        short   quat_z;
-        float   barometric_pressure;
-        float   baro_temp;
-        uint8_t op_status;
-        uint8_t sensor_status;
-        uint8_t cal_status;
-        uint8_t selftest_status;
     };
 
     struct AHRSPosTSUpdate : public AHRSPosUpdate {
-        float   quat_w_f;
-        float   quat_x_f;
-        float   quat_y_f;
-        float   quat_z_f;
         uint32_t timestamp;
     };
 
@@ -551,10 +530,11 @@ public:
             update.raw_mag_x = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_RAW_MAG_X_VALUE_INDEX]);
             update.raw_mag_y = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_RAW_MAG_Y_VALUE_INDEX]);
             update.raw_mag_z = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_RAW_MAG_Z_VALUE_INDEX]);
-            update.quat_w = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_QUAT_W_VALUE_INDEX]);
-            update.quat_x = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_QUAT_X_VALUE_INDEX]);
-            update.quat_y = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_QUAT_Y_VALUE_INDEX]);
-            update.quat_z = IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_QUAT_Z_VALUE_INDEX]);
+			/* AHRSPosUpdate:  Quaternions are signed int (16-bit resolution); divide by 16384 to yield +/- 2 radians */            
+            update.quat_w = ((float)IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_QUAT_W_VALUE_INDEX]) / 16384.0f);
+            update.quat_x = ((float)IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_QUAT_X_VALUE_INDEX]) / 16384.0f);
+            update.quat_y = ((float)IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_QUAT_Y_VALUE_INDEX]) / 16384.0f);
+            update.quat_z = ((float)IMURegisters::decodeProtocolInt16(&buffer[AHRS_UPDATE_QUAT_Z_VALUE_INDEX]) / 16384.0f);
             update.barometric_pressure = IMURegisters::decodeProtocol1616Float(&buffer[AHRS_UPDATE_BARO_PRESSURE_VALUE_INDEX]);
             update.baro_temp = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRS_UPDATE_BARO_TEMP_VAUE_INDEX]);
             update.op_status = buffer[AHRS_UPDATE_OPSTATUS_VALUE_INDEX];
@@ -640,10 +620,11 @@ public:
             update.disp_y = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_UPDATE_DISP_Y_VALUE_INDEX]);
             update.disp_z = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_UPDATE_DISP_Z_VALUE_INDEX]);
             update.mpu_temp = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRSPOS_UPDATE_MPU_TEMP_VAUE_INDEX]);
-            update.quat_w = IMURegisters::decodeProtocolInt16(&buffer[AHRSPOS_UPDATE_QUAT_W_VALUE_INDEX]);
-            update.quat_x = IMURegisters::decodeProtocolInt16(&buffer[AHRSPOS_UPDATE_QUAT_X_VALUE_INDEX]);
-            update.quat_y = IMURegisters::decodeProtocolInt16(&buffer[AHRSPOS_UPDATE_QUAT_Y_VALUE_INDEX]);
-            update.quat_z = IMURegisters::decodeProtocolInt16(&buffer[AHRSPOS_UPDATE_QUAT_Z_VALUE_INDEX]);
+			/* AHRSPosUpdate:  Quaternions are signed int (16-bit resolution); divide by 16384 to yield +/- 2 radians */            
+            update.quat_w = ((float)IMURegisters::decodeProtocolInt16(&buffer[AHRSPOS_UPDATE_QUAT_W_VALUE_INDEX]) / 16384.0f);
+            update.quat_x = ((float)IMURegisters::decodeProtocolInt16(&buffer[AHRSPOS_UPDATE_QUAT_X_VALUE_INDEX]) / 16384.0f);
+            update.quat_y = ((float)IMURegisters::decodeProtocolInt16(&buffer[AHRSPOS_UPDATE_QUAT_Y_VALUE_INDEX]) / 16384.0f);
+            update.quat_z = ((float)IMURegisters::decodeProtocolInt16(&buffer[AHRSPOS_UPDATE_QUAT_Z_VALUE_INDEX]) / 16384.0f);
             update.op_status = buffer[AHRSPOS_UPDATE_OPSTATUS_VALUE_INDEX];
             update.sensor_status = buffer[AHRSPOS_UPDATE_SENSOR_STATUS_VALUE_INDEX];
             update.cal_status = buffer[AHRSPOS_UPDATE_CAL_STATUS_VALUE_INDEX];
@@ -731,14 +712,10 @@ public:
             update.disp_y = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_TS_UPDATE_DISP_Y_VALUE_INDEX]);
             update.disp_z = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_TS_UPDATE_DISP_Z_VALUE_INDEX]);
             update.mpu_temp = IMURegisters::decodeProtocolSignedHundredthsFloat(&buffer[AHRSPOS_TS_UPDATE_MPU_TEMP_VAUE_INDEX]);
-            update.quat_w_f = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_TS_UPDATE_QUAT_W_VALUE_INDEX]);
-            update.quat_x_f = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_TS_UPDATE_QUAT_X_VALUE_INDEX]);
-            update.quat_y_f = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_TS_UPDATE_QUAT_Y_VALUE_INDEX]);
-            update.quat_z_f = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_TS_UPDATE_QUAT_Z_VALUE_INDEX]);
-            update.quat_w = (short)((int32_t)update.quat_w_f);
-            update.quat_x = (short)((int32_t)update.quat_x_f);
-            update.quat_y = (short)((int32_t)update.quat_y_f);
-            update.quat_z = (short)((int32_t)update.quat_z_f);
+            update.quat_w = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_TS_UPDATE_QUAT_W_VALUE_INDEX]) / 16384.0f;
+            update.quat_x = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_TS_UPDATE_QUAT_X_VALUE_INDEX]) / 16384.0f;
+            update.quat_y = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_TS_UPDATE_QUAT_Y_VALUE_INDEX]) / 16384.0f;
+            update.quat_z = IMURegisters::decodeProtocol1616Float(&buffer[AHRSPOS_TS_UPDATE_QUAT_Z_VALUE_INDEX]) / 16384.0f;
             update.op_status = buffer[AHRSPOS_TS_UPDATE_OPSTATUS_VALUE_INDEX];
             update.sensor_status = buffer[AHRSPOS_TS_UPDATE_SENSOR_STATUS_VALUE_INDEX];
             update.cal_status = buffer[AHRSPOS_TS_UPDATE_CAL_STATUS_VALUE_INDEX];

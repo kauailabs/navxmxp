@@ -122,6 +122,7 @@ public class Robot extends SampleRobot {
             SmartDashboard.putNumber(   "RawMag_Y",             ahrs.getRawMagY());
             SmartDashboard.putNumber(   "RawMag_Z",             ahrs.getRawMagZ());
             SmartDashboard.putNumber(   "IMU_Temp_C",           ahrs.getTempC());
+            SmartDashboard.putNumber(   "IMU_Timestamp",        ahrs.getLastSensorTimestamp());
             
             /* Omnimount Yaw Axis Information                                           */
             /* For more info, see http://navx-mxp.kauailabs.com/installation/omnimount  */

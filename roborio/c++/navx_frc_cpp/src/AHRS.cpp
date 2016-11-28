@@ -9,6 +9,7 @@
 #include <string>
 #include <iomanip>
 #include <AHRS.h>
+#include <AHRSProtocol.h>
 #include "IIOProvider.h"
 #include "IIOCompleteNotification.h"
 #include "IBoardCapabilities.h"
@@ -18,17 +19,13 @@
 #include "RegisterIOSPI.h"
 #include "RegisterIOI2C.h"
 #include "SerialIO.h"
-#include "TimestampedQuaternionHistory.h"
 
 static const uint8_t    NAVX_DEFAULT_UPDATE_RATE_HZ         = 60;
 static const int        YAW_HISTORY_LENGTH                  = 10;
 static const int16_t    DEFAULT_ACCEL_FSR_G                 = 2;
 static const int16_t    DEFAULT_GYRO_FSR_DPS                = 2000;
-static const uint32_t   MAX_SPI_BITRATE                     = 2000000;
-static const uint32_t   MIN_SPI_BITRATE                     = 100000;
 static const uint32_t   DEFAULT_SPI_BITRATE                 = 500000;
 static const uint8_t    NAVX_MXP_I2C_ADDRESS                = 0x32;
-static const float  	QUATERNION_HISTORY_SECONDS			= 5.0f;
 
 class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
     AHRS *ahrs;
@@ -36,6 +33,8 @@ class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
     AHRSInternal(AHRS* ahrs) {
         this->ahrs = ahrs;
     }
+
+    virtual ~AHRSInternal() {}
 
     /***********************************************************/
     /* IIOCompleteNotification Interface Implementation        */
@@ -104,12 +103,16 @@ class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
 
         ahrs->last_sensor_timestamp	= sensor_timestamp;
 
-        if ( ahrs->quaternion_history ) {
-        	ahrs->quaternion_history->Add( 	ahrs->quaternionW,
-											ahrs->quaternionX,
-											ahrs->quaternionY,
-											ahrs->quaternionZ,
-											sensor_timestamp);
+        /* Notify external data arrival subscribers, if any. */
+        for (int i = 0; i < MAX_NUM_CALLBACKS; i++) {
+            ITimestampedDataSubscriber *callback = ahrs->callbacks[i];
+            if (callback != NULL) {
+            	long system_timestamp = (long)(Timer::GetFPGATimestamp() * 1000);
+                callback->timestampedDataReceived(system_timestamp,
+                		sensor_timestamp,
+                		ahrs_update,
+                		ahrs->callback_contexts[i]);
+            }
         }
 
         ahrs->velocity[0]     = ahrs_update.vel_x;
@@ -197,12 +200,16 @@ class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
 
         ahrs->last_sensor_timestamp	= sensor_timestamp;
 
-        if ( ahrs->quaternion_history ) {
-        	ahrs->quaternion_history->Add( 	ahrs->quaternionW,
-											ahrs->quaternionX,
-											ahrs->quaternionY,
-											ahrs->quaternionZ,
-											sensor_timestamp);
+        /* Notify external data arrival subscribers, if any. */
+        for (int i = 0; i < MAX_NUM_CALLBACKS; i++) {
+            ITimestampedDataSubscriber *callback = ahrs->callbacks[i];
+            if (callback != NULL) {
+            	long system_timestamp = (long)(Timer::GetFPGATimestamp() * 1000);
+                callback->timestampedDataReceived(system_timestamp,
+                		sensor_timestamp,
+                		ahrs_update,
+                		ahrs->callback_contexts[i]);
+            }
         }
 
         ahrs->UpdateDisplacement( ahrs->world_linear_accel_x,
@@ -710,7 +717,7 @@ bool AHRS::IsMagnetometerCalibrated()
  * @return Returns the imaginary portion (W) of the quaternion.
  */
 float AHRS::GetQuaternionW() {
-    return ((float)quaternionW / 16384.0f);
+    return quaternionW;
 }
 /**
  * Returns the real portion (X axis) of the Orientation Quaternion which
@@ -725,7 +732,7 @@ float AHRS::GetQuaternionW() {
  * @return Returns the real portion (X) of the quaternion.
  */
 float AHRS::GetQuaternionX() {
-    return ((float)quaternionX / 16384.0f);
+    return quaternionX;
 }
 /**
  * Returns the real portion (X axis) of the Orientation Quaternion which
@@ -743,7 +750,7 @@ float AHRS::GetQuaternionX() {
  * @return Returns the real portion (X) of the quaternion.
  */
 float AHRS::GetQuaternionY() {
-    return ((float)quaternionY / 16384.0f);
+    return quaternionY;
 }
 /**
  * Returns the real portion (X axis) of the Orientation Quaternion which
@@ -761,7 +768,7 @@ float AHRS::GetQuaternionY() {
  * @return Returns the real portion (X) of the quaternion.
  */
 float AHRS::GetQuaternionZ() {
-    return ((float)quaternionZ / 16384.0f);
+    return quaternionZ;
 }
 
 /**
@@ -868,23 +875,25 @@ float AHRS::GetDisplacementZ() {
     return (ahrs_internal->IsDisplacementSupported() ? displacement[2] : 0.f);
 }
 
+#define NAVX_IO_THREAD_NAME "navXIOThread"
+
 void AHRS::SPIInit( SPI::Port spi_port_id, uint32_t bitrate, uint8_t update_rate_hz ) {
     commonInit( update_rate_hz );
     io = new RegisterIO(new RegisterIO_SPI(new SPI(spi_port_id), bitrate), update_rate_hz, ahrs_internal, ahrs_internal);
-    task = new Task("navX-MXP_IO", (FUNCPTR)AHRS::ThreadFunc,io);
+    task = new std::thread(AHRS::ThreadFunc, io);
 }
 
 void AHRS::I2CInit( I2C::Port i2c_port_id, uint8_t update_rate_hz ) {
     commonInit(update_rate_hz);
     io = new RegisterIO(new RegisterIO_I2C(new I2C(i2c_port_id, NAVX_MXP_I2C_ADDRESS)), update_rate_hz, ahrs_internal, ahrs_internal);
-    task = new Task("navX-MXP_IO", (FUNCPTR)AHRS::ThreadFunc,io);
+    task = new std::thread(AHRS::ThreadFunc, io);
 }
 
 void AHRS::SerialInit(SerialPort::Port serial_port_id, AHRS::SerialDataType data_type, uint8_t update_rate_hz) {
     commonInit(update_rate_hz);
     bool processed_data = (data_type == SerialDataType::kProcessedData);
     io = new SerialIO(serial_port_id, update_rate_hz, processed_data, ahrs_internal, ahrs_internal);
-    task = new Task("navX-MXP_IO", (FUNCPTR)AHRS::ThreadFunc,io);
+    task = new std::thread(AHRS::ThreadFunc, io);
 }
 
 void AHRS::commonInit( uint8_t update_rate_hz ) {
@@ -959,9 +968,10 @@ void AHRS::commonInit( uint8_t update_rate_hz ) {
     table = 0;
     io = 0;
 
-    int history_size = (int)(((float)(this->update_rate_hz & 0xFF)) * QUATERNION_HISTORY_SECONDS);
-    this->quaternion_history = new TimestampedQuaternionHistory(history_size);
-
+    for ( int i = 0; i < MAX_NUM_CALLBACKS; i++) {
+    	callbacks[i] = NULL;
+    	callback_contexts[i] = NULL;
+    }
 }
 
 /**
@@ -1208,41 +1218,6 @@ std::string AHRS::GetFirmwareVersion() {
     return fw_version;
 }
 
-bool AHRS::GetQuaternionAtTime( long requested_timestamp, TimestampedQuaternion& out ) {
-	bool match = false;
-	if ( quaternion_history ) {
-		match = quaternion_history->Get(requested_timestamp, out);
-	}
-	return match;
-}
-
-float AHRS::GetYawAtTime( long requested_timestamp ) {
-	float yaw_val = 0.0f;
-	TimestampedQuaternion match;
-	if ( GetQuaternionAtTime( requested_timestamp, match ) ) {
-		yaw_val = match.GetYaw();
-	}
-	return yaw_val;
-}
-
-float AHRS::GetPitchAtTime( long requested_timestamp ) {
-	float pitch_val = 0.0f;
-	TimestampedQuaternion match;
-	if ( GetQuaternionAtTime( requested_timestamp, match ) ) {
-		pitch_val = match.GetPitch();
-	}
-	return pitch_val;
-}
-
-float AHRS::GetRollAtTime( long requested_timestamp ) {
-	float roll_val = 0.0f;
-	TimestampedQuaternion match;
-	if ( GetQuaternionAtTime( requested_timestamp, match ) ) {
-		roll_val = match.GetPitch();
-	}
-	return roll_val;
-}
-
     /***********************************************************/
     /* LiveWindowSendable Interface Implementation             */
     /***********************************************************/
@@ -1292,4 +1267,94 @@ int AHRS::ThreadFunc(IIOProvider *io_provider) {
     io_provider->Run();
     return 0;
 }
+
+/**
+ * Registers a callback interface.  This interface
+ * will be called back when new data is available,
+ * based upon a change in the sensor timestamp.
+ *<p>
+ * Note that this callback will occur within the context of the
+ * device IO thread, which is not the same thread context the
+ * caller typically executes in.
+ */
+bool AHRS::RegisterCallback( ITimestampedDataSubscriber *callback, void *callback_context) {
+    bool registered = false;
+    for ( int i = 0; i < MAX_NUM_CALLBACKS; i++ ) {
+        if (callbacks[i] == NULL) {
+            callbacks[i] = callback;
+            callback_contexts[i] = callback_context;
+            registered = true;
+            break;
+        }
+    }
+    return registered;
+}
+
+/**
+ * Deregisters a previously registered callback interface.
+ *
+ * Be sure to deregister any callback which have been
+ * previously registered, to ensure that the object
+ * implementing the callback interface does not continue
+ * to be accessed when no longer necessary.
+ */
+bool AHRS::DeregisterCallback( ITimestampedDataSubscriber *callback ) {
+    bool deregistered = false;
+    for ( int i = 0; i < MAX_NUM_CALLBACKS; i++ ) {
+        if (callbacks[i] == callback) {
+            callbacks[i] = NULL;
+            deregistered = true;
+            break;
+        }
+    }
+    return deregistered;
+}
+
+/**
+ * Returns the navX-Model device's currently configured update
+ * rate.  Note that the update rate that can actually be realized
+ * is a value evenly divisible by the navX-Model device's internal
+ * motion processor sample clock (200Hz).  Therefore, the rate that
+ * is returned may be lower than the requested sample rate.
+ *
+ * The actual sample rate is rounded down to the nearest integer
+ * that is divisible by the number of Digital Motion Processor clock
+ * ticks.  For instance, a request for 58 Hertz will result in
+ * an actual rate of 66Hz (200 / (200 / 58), using integer
+ * math.
+ *
+ * @return Returns the current actual update rate in Hz
+ * (cycles per second).
+ */
+
+int AHRS::GetActualUpdateRate() {
+    uint8_t actual_update_rate = GetActualUpdateRateInternal(GetRequestedUpdateRate());
+    return (int)actual_update_rate;
+}
+
+uint8_t AHRS::GetActualUpdateRateInternal(uint8_t update_rate) {
+#define NAVX_MOTION_PROCESSOR_UPDATE_RATE_HZ 200
+    int integer_update_rate = (int)update_rate;
+    int realized_update_rate = NAVX_MOTION_PROCESSOR_UPDATE_RATE_HZ /
+            (NAVX_MOTION_PROCESSOR_UPDATE_RATE_HZ / integer_update_rate);
+    return (uint8_t)realized_update_rate;
+}
+
+/**
+ * Returns the currently requested update rate.
+ * rate.  Note that not every update rate can actually be realized,
+ * since the actual update rate must be a value evenly divisible by
+ * the navX-Model device's internal motion processor sample clock (200Hz).
+ *
+ * To determine the actual update rate, use the
+ * {@link #getActualUpdateRate()} method.
+ *
+ * @return Returns the requested update rate in Hz
+ * (cycles per second).
+ */
+
+int AHRS::GetRequestedUpdateRate() {
+    return (int)update_rate_hz;
+}
+
 

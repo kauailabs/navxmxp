@@ -55,7 +55,7 @@ public:
             /* Alternatively:  I2C::Port::kMXP, SerialPort::Port::kMXP or SerialPort::Port::kUSB */
             /* See http://navx-mxp.kauailabs.com/guidance/selecting-an-interface/ for details.   */
             ahrs = new AHRS(SPI::Port::kMXP);
-        } catch (std::exception ex ) {
+        } catch (std::exception& ex ) {
             std::string err_string = "Error instantiating navX MXP:  ";
             err_string += ex.what();
             DriverStation::ReportError(err_string.c_str());
@@ -94,7 +94,7 @@ public:
                 /* Use navX MXP yaw angle to define Field-centric transform */
                 robotDrive.MecanumDrive_Cartesian(stick.GetX(), stick.GetY(),
                                                   stick.GetZ(),ahrs->GetAngle());
-            } catch (std::exception ex ) {
+            } catch (std::exception& ex ) {
                 std::string err_string = "Error communicating with Drive System:  ";
                 err_string += ex.what();
                 DriverStation::ReportError(err_string.c_str());

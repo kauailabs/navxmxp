@@ -32,7 +32,6 @@ private:
     double last_update_time;
     int byte_count;
     int update_count;
-    Task *task;
     long last_sensor_timestamp;
 public:
     RegisterIO( IRegisterIO *io_provider,

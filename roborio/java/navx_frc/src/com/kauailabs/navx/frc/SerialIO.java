@@ -134,7 +134,7 @@ class SerialIO implements IIOProvider {
         if ( (packet_length = IMUProtocol.decodeYPRUpdate(received_data, offset, bytes_remaining, ypr_update_data)) > 0) {
             notify_sink.setYawPitchRoll(ypr_update_data, sensor_timestamp);
         } else if ( ( packet_length = AHRSProtocol.decodeAHRSPosTSUpdate(received_data, offset, bytes_remaining, ahrspos_ts_update_data)) > 0) {
-            notify_sink.setAHRSPosData(ahrspos_update_data, ahrspos_ts_update_data.timestamp);
+            notify_sink.setAHRSPosData(ahrspos_ts_update_data, ahrspos_ts_update_data.timestamp);
         } else if ( ( packet_length = AHRSProtocol.decodeAHRSPosUpdate(received_data, offset, bytes_remaining, ahrspos_update_data)) > 0) {
             notify_sink.setAHRSPosData(ahrspos_update_data, sensor_timestamp);
         } else if ( ( packet_length = AHRSProtocol.decodeAHRSUpdate(received_data, offset, bytes_remaining, ahrs_update_data)) > 0) {
@@ -148,7 +148,8 @@ class SerialIO implements IIOProvider {
         }
         return packet_length;
     }    
-    
+
+    @SuppressWarnings("unused") /* The following variables are debug-only. */    
     public void run() {
 
         stop = false;
@@ -156,7 +157,7 @@ class SerialIO implements IIOProvider {
         double last_stream_command_sent_timestamp = 0.0;
         double last_data_received_timestamp = 0;
         double last_second_start_time = 0;
-
+               
         int partial_binary_packet_count = 0;
         int stream_response_receive_count = 0;
         int timeout_count = 0;

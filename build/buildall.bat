@@ -27,8 +27,8 @@ REM
 
 cp ./stm32/navx-mxp/IMU*.h  ./arduino/navXTestJig/
 cp ./stm32/navx-mxp/AHRS*.h ./arduino/navXTestJig/
-cp ./stm32/navx-mxp/IMU*.h  ./roborio/c++/navx_frc_cpp/src
-cp ./stm32/navx-mxp/AHRS*.h ./roborio/c++/navx_frc_cpp/src
+cp ./stm32/navx-mxp/IMU*.h  ./roborio/c++/navx_frc_cpp/include
+cp ./stm32/navx-mxp/AHRS*.h ./roborio/c++/navx_frc_cpp/include
 
 REM
 REM Begin a command-line "clean build" of the navx frc C++ library
