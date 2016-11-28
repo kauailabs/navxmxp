@@ -8,7 +8,7 @@
 #ifndef SRC_SERIALIO_H_
 #define SRC_SERIALIO_H_
 
-#include "WPILIb.h"
+#include "WPILib.h"
 #include "IIOProvider.h"
 #include <stdint.h>
 #include <AHRSProtocol.h>
