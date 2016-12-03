@@ -1,9 +1,8 @@
 ##########Known Bug List and Updates Needed
 
 •	When I click the zero yaw button when using USB it does not completely zero. I'm not sure if we need to do something different in the hardware to make this better.
-•	We need to add user instruction to show how to use the software.
+•		
 •	
-•	Test GitHub
 
 ######### Wish List
 
@@ -11,8 +10,7 @@
 •	gyro drift compensation change the time component to the navX time base.
 •	Make the library easily installable in the FIRST WPI Menu.
 •	We need to add a NavX Micro vi that only allows the operator to us USB 1, USB 2 or I2C On-Board options.
-•	Add the additional information to the serial information. "t" command. We will need to address the Strict Type Def "Z900_navX_DeviceRegisters.ctl" to make it so we can have the indexes match the resolution for the new system. Most of the indexes are set for two. We need to have indexes that have four steps between them.
-•	
+•	Add the additional information to the serial information. "t" command
 
 
 ########## COMPLETE
@@ -30,4 +28,6 @@
 •	The serial and USB were not initilizing correctly on start up. I changed the way the system initializes.
 •	Changed CRC to warning because throwing an error was making the coms reset.
 •	Removed offsets display and action enigne from the software.
-•	We had an I2C write error when I tried to use the WPI I2C read. It has one extra connection that allows for the I2C Register to connect. This was causing a problem with communication and causing the navX board to hang. I removed the I2C Write from the diagram and replaced it with i2clib_write.vi which does not have the input for the I2C Register. THis fixed the communication problems.
+•	Rewrote the CRC to get rid of the formula node. 
+•	Insure that the loops are running at the desired speed when the user changes the acquisition rate.
+•	Changed all of the vi's that I could to preallocated reentrant operation with inlining. 
