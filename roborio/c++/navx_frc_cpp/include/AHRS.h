@@ -170,6 +170,8 @@ public:
     float  GetDisplacementZ();
     double GetAngle();
     double GetRate();
+    void   SetAngleAdjustment(double angle);
+    double GetAngleAdjustment();
     void   Reset();
     float  GetRawGyroX();
     float  GetRawGyroY();

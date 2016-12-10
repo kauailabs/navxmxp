@@ -217,10 +217,14 @@ class SerialIO implements IIOProvider {
                     } catch (RuntimeException ex2) {
                         ex2.printStackTrace();
                     }
+                    if ((integration_control.action & AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_YAW)!=0) {
+                    	this.notify_sink.yawResetComplete();
+                    }                    
                 }               
 
                 if ( !stop && ( remainder_bytes == 0 ) && ( serial_port.getBytesReceived() < 1 ) ) {
-                    Timer.delay(1.0/update_rate_hz);
+                    double update_rate = 1.0/((double)((int)(this.update_rate_hz & 0xFF)));
+                    Timer.delay(update_rate);
                 }
 
                 int packets_received = 0;
@@ -480,7 +484,8 @@ class SerialIO implements IIOProvider {
                     else {                        
                         // If no bytes remain in the buffer, and not awaiting a response, sleep a bit
                         if ( stream_response_received && ( serial_port.getBytesReceived() == 0 ) ) {
-                            Timer.delay(1.0/update_rate_hz);
+                            double update_rate = 1.0/((double)((int)(this.update_rate_hz & 0xFF)));      
+                        	Timer.delay(update_rate);
                         }        
                     }
 

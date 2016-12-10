@@ -225,8 +225,9 @@ class RegisterIO implements IIOProvider {
     
     @Override
     public void zeroYaw() {
-        io_provider.write( IMURegisters.NAVX_REG_INTEGRATION_CTL, 
-                                   AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_YAW );       
+		io_provider.write( IMURegisters.NAVX_REG_INTEGRATION_CTL, 
+		                           AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_YAW );
+		this.notify_sink.yawResetComplete();       
     }
 
     @Override

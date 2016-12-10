@@ -392,8 +392,11 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     public void zeroYaw() {
         if ( board_capabilities.isBoardYawResetSupported() ) {
             io.zeroYaw();
+            /* Notification is deferred until action is complete. */
         } else {
             yaw_offset_tracker.setOffset();
+            /* Notification occurs immediately. */
+            io_complete_sink.yawResetComplete();
         }
     }
 
@@ -980,6 +983,37 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     }
 
     /**
+     * Sets an amount of angle to be automatically added before returning a
+     * angle from the getAngle() method.  This allows users of the getAngle() method
+     * to logically rotate the sensor by a given amount of degrees.
+     * <p>
+     * NOTE 1:  The adjustment angle is <b>only</b> applied to the value returned 
+     * from getAngle() - it does not adjust the value returned from getYaw(), nor
+     * any of the quaternion values.
+     * <p>
+     * NOTE 2:  The adjustment angle is <b>not</b>automatically cleared whenever the
+     * sensor yaw angle is reset.
+     * <p>
+     * If not set, the default adjustment angle is 0 degrees (no adjustment).
+     * @param adjustment, in degrees (range:  -360 to 360)
+     */
+    public void setAngleAdjustment(double adjustment) {
+    	yaw_angle_tracker.setAngleAdjustment(adjustment);
+    }
+    
+    /**
+     * Returns the currently configured adjustment angle.  See 
+     * setAngleAdjustment() for more details.
+     * 
+     * If this method returns 0 degrees, no adjustment to the value returned
+     * via getAngle() will occur.
+     * @param adjustment, in degrees (range:  -360 to 360)
+     */
+    public double getAngleAdjustment(double adjustment) {
+    	return yaw_angle_tracker.getAngleAdjustment();
+    }        
+    
+    /**
      * Reset the Yaw gyro.
      *<p>
      * Resets the Gyro Z (Yaw) axis to a heading of zero. This can be used if 
@@ -1453,6 +1487,11 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
             cal_status = board_state.cal_status;
             selftest_status = board_state.selftest_status;
         }
+
+		@Override
+		public void yawResetComplete() {
+			AHRS.this.yaw_angle_tracker.reset();
+		}
     };
     
     /***********************************************************/
