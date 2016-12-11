@@ -26,9 +26,9 @@
 //          send a "STOP" signal between reads.  This approach is used by the 
 //          Core Device Interface Module from Modern Robotics, Inc.  With this feature,
 //          the navX MXP is now compatible with the Android-based FTC Robotics 
-//          controller system released in Summer/Fall, 2015.
 // 2.2:  Fifth Release Version (10/16/2015)
 //       -  Added a "shadow" of the calibration state into the previously unused portion
 //          of the sensor status register.  This replication allows Android-based FTC
 //          Robotics systems to acquire all processed data, sensor status and timestamp
 //          in one single 26-byte I2C bus transaction.
+//          controller system released in Summer/Fall, 2015.
