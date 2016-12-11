@@ -1007,9 +1007,9 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
      * 
      * If this method returns 0 degrees, no adjustment to the value returned
      * via getAngle() will occur.
-     * @param adjustment, in degrees (range:  -360 to 360)
+     * @return adjustment, in degrees (range:  -360 to 360)
      */
-    public double getAngleAdjustment(double adjustment) {
+    public double getAngleAdjustment() {
     	return yaw_angle_tracker.getAngleAdjustment();
     }        
     
