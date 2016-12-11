@@ -1,0 +1,33 @@
+##########Known Bug List and Updates Needed
+
+•	When I click the zero yaw button when using USB it does not completely zero. I'm not sure if we need to do something different in the hardware to make this better.
+•		
+•	
+
+######### Wish List
+
+•	Integrate SF2.
+•	gyro drift compensation change the time component to the navX time base.
+•	Make the library easily installable in the FIRST WPI Menu.
+•	We need to add a NavX Micro vi that only allows the operator to us USB 1, USB 2 or I2C On-Board options.
+•	Add the additional information to the serial information. "t" command
+
+
+########## COMPLETE
+2016 October 27
+	Current Version is NavX Library 3.00 - This is the first launch of the software version tracking system with Tim Easterling as developer.
+
+•	Added the action engine model to make the software easier to use. This is why this version of the library is called NavX AE.
+•	Added polymorphic vi to place on main diagram. This allows the operator to choose what format they want to use to run the NavX hardware.
+•	Added the ability to run two devices easily just by updating the device number.
+•	Added USB support.
+•	Rebuilt the examples to run with the new system.
+•	Reformatted the library to allow for easy integration into the FIRST WPI menu so the VI will show up in the tool palette on LabVIEW.
+•	Removed older versions of the NavX library to make code support easier.
+•	Built a test window feature so the developrs can see what is going on with the hardware.
+•	The serial and USB were not initilizing correctly on start up. I changed the way the system initializes.
+•	Changed CRC to warning because throwing an error was making the coms reset.
+•	Removed offsets display and action enigne from the software.
+•	Rewrote the CRC to get rid of the formula node. 
+•	Insure that the loops are running at the desired speed when the user changes the acquisition rate.
+•	Changed all of the vi's that I could to preallocated reentrant operation with inlining. 

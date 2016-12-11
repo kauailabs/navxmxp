@@ -25,8 +25,8 @@
  */
 class Robot: public IterativeRobot
 {
-    NetworkTable *table;
-    Joystick stick; // only joystick
+	std::shared_ptr<NetworkTable> table;
+	Joystick stick; // only joystick
     AHRS *ahrs;
     LiveWindow *lw;
     int autoLoopCounter;
@@ -51,7 +51,7 @@ private:
             /* Alternatively:  I2C::Port::kMXP, SerialPort::Port::kMXP or SerialPort::Port::kUSB */
             /* See http://navx-mxp.kauailabs.com/guidance/selecting-an-interface/ for details.   */
             ahrs = new AHRS(SPI::Port::kMXP);
-        } catch (std::exception ex ) {
+        } catch (std::exception& ex ) {
             std::string err_string = "Error instantiating navX MXP:  ";
             err_string += ex.what();
             DriverStation::ReportError(err_string.c_str());
@@ -83,7 +83,7 @@ private:
     {
         if ( !ahrs ) return;
 
-        bool reset_yaw_button_pressed = DriverStation::GetInstance()->GetStickButton(0,1);
+        bool reset_yaw_button_pressed = DriverStation::GetInstance().GetStickButton(0,1);
         if ( reset_yaw_button_pressed ) {
             ahrs->ZeroYaw();
         }
@@ -95,6 +95,7 @@ private:
         SmartDashboard::PutNumber(  "IMU_CompassHeading",   ahrs->GetCompassHeading());
         SmartDashboard::PutNumber(  "IMU_Update_Count",     ahrs->GetUpdateCount());
         SmartDashboard::PutNumber(  "IMU_Byte_Count",       ahrs->GetByteCount());
+        SmartDashboard::PutNumber(  "IMU_Timestamp",        ahrs->GetLastSensorTimestamp());
 
         /* These functions are compatible w/the WPI Gyro Class */
         SmartDashboard::PutNumber(  "IMU_TotalYaw",         ahrs->GetAngle());

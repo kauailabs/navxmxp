@@ -1,0 +1,2 @@
+# Use a custom driver to diff merge LabVIEW files
+*.vi merge=labview diff=labview

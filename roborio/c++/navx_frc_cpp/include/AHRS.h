@@ -9,6 +9,8 @@
 #define SRC_AHRS_H_
 
 #include "WPILib.h"
+#include "ITimestampedDataSubscriber.h"
+#include <thread>
 
 class IIOProvider;
 class ContinuousAngleTracker;
@@ -67,10 +69,10 @@ private:
     volatile bool       altitude_valid;
     volatile bool       is_magnetometer_calibrated;
     volatile bool       magnetic_disturbance;
-    volatile int16_t    quaternionW;
-    volatile int16_t    quaternionX;
-    volatile int16_t    quaternionY;
-    volatile int16_t    quaternionZ;
+    volatile float    	quaternionW;
+    volatile float    	quaternionX;
+    volatile float    	quaternionY;
+    volatile float    	quaternionZ;
 
     /* Integrated Data */
     float velocity[3];
@@ -107,14 +109,18 @@ private:
     long                last_sensor_timestamp;
     double              last_update_time;
 
-    ITable *            table;
+    std::shared_ptr<ITable>	table;
 
     InertialDataIntegrator *integrator;
     ContinuousAngleTracker *yaw_angle_tracker;
     OffsetTracker *         yaw_offset_tracker;
     IIOProvider *           io;
 
-    Task *                  task;
+    std::thread *           task;
+
+#define MAX_NUM_CALLBACKS 3
+    ITimestampedDataSubscriber *callbacks[MAX_NUM_CALLBACKS];
+    void *callback_contexts[MAX_NUM_CALLBACKS];
 
 public:
     AHRS(SPI::Port spi_port_id);
@@ -137,6 +143,7 @@ public:
     bool   IsConnected();
     double GetByteCount();
     double GetUpdateCount();
+    long   GetLastSensorTimestamp();
     float  GetWorldLinearAccelX();
     float  GetWorldLinearAccelY();
     float  GetWorldLinearAccelZ();
@@ -163,6 +170,8 @@ public:
     float  GetDisplacementZ();
     double GetAngle();
     double GetRate();
+    void   SetAngleAdjustment(double angle);
+    double GetAngleAdjustment();
     void   Reset();
     float  GetRawGyroX();
     float  GetRawGyroY();
@@ -178,6 +187,12 @@ public:
     AHRS::BoardYawAxis GetBoardYawAxis();
     std::string GetFirmwareVersion();
 
+    bool RegisterCallback( ITimestampedDataSubscriber *callback, void *callback_context);
+    bool DeregisterCallback( ITimestampedDataSubscriber *callback );
+
+    int GetActualUpdateRate();
+    int GetRequestedUpdateRate();
+
 private:
     void SPIInit( SPI::Port spi_port_id, uint32_t bitrate, uint8_t update_rate_hz );
     void I2CInit( I2C::Port i2c_port_id, uint8_t update_rate_hz );
@@ -186,15 +201,17 @@ private:
     static int ThreadFunc(IIOProvider *io_provider);
 
     /* LiveWindowSendable implementation */
-    void InitTable(ITable* subtable);
-    ITable* GetTable();
-    std::string GetSmartDashboardType();
+    void InitTable(std::shared_ptr<ITable> subtable);
+    std::shared_ptr<ITable> GetTable() const;
+    std::string GetSmartDashboardType() const;
     void UpdateTable();
     void StartLiveWindowMode();
     void StopLiveWindowMode();
 
     /* PIDSource implementation */
     double PIDGet();
+
+    uint8_t GetActualUpdateRateInternal(uint8_t update_rate);
 };
 
 #endif /* SRC_AHRS_H_ */

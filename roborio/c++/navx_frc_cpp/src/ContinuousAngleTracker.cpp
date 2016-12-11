@@ -7,61 +7,114 @@
 
 #include <ContinuousAngleTracker.h>
 
-float last_angle;
-double last_rate;
-int zero_crossing_count;
 ContinuousAngleTracker::ContinuousAngleTracker() {
-    last_angle = 0.0f;
-    zero_crossing_count = 0;
-    last_rate = 0;
+	Init();
+    angleAdjust = 0.0f;
+}
+
+void ContinuousAngleTracker::Init() {
+    gyro_prevVal = 0.0;
+    ctrRollOver  = 0;
+    fFirstUse = true;
+    last_yaw_angle = 0.0f;
+    curr_yaw_angle = 0.0f;
 }
 
 void ContinuousAngleTracker::NextAngle( float newAngle ) {
-
-    int angle_last_direction;
-    float adjusted_last_angle = ( last_angle < 0.0f ) ? last_angle + 360.0f : last_angle;
-    float adjusted_curr_angle = ( newAngle < 0.0f ) ? newAngle + 360.0f : newAngle;
-    float delta_angle = adjusted_curr_angle - adjusted_last_angle;
-    this->last_rate = delta_angle;
-
-    angle_last_direction = 0;
-    if ( adjusted_curr_angle < adjusted_last_angle ) {
-        if ( delta_angle < -180.0f ) {
-            angle_last_direction = -1;
-        } else {
-            angle_last_direction = 1;
-        }
-    } else if ( adjusted_curr_angle > adjusted_last_angle ) {
-        if ( delta_angle > 180.0f ) {
-            angle_last_direction = -1;
-        } else {
-            angle_last_direction = 1;
-        }
-    }
-
-    if ( angle_last_direction < 0 ) {
-        if ( ( adjusted_curr_angle < 0.0f ) && ( adjusted_last_angle >= 0.0f ) ) {
-            zero_crossing_count--;
-        }
-    } else if ( angle_last_direction > 0 ) {
-        if ( ( adjusted_curr_angle >= 0.0f ) && ( adjusted_last_angle < 0.0f ) ) {
-            zero_crossing_count++;
-        }
-    }
-    last_angle = newAngle;
-
+	std::unique_lock<priority_mutex> sync(tracker_mutex);
+	last_yaw_angle = curr_yaw_angle;
+	curr_yaw_angle = newAngle;
 }
 
+/* Invoked (internally) whenever yaw reset occurs. */
+void ContinuousAngleTracker::Reset() {
+	std::unique_lock<priority_mutex> sync(tracker_mutex);
+	Init();
+}
+
+
 double ContinuousAngleTracker::GetAngle() {
-    double accumulated_angle = (double)zero_crossing_count * 360.0f;
-    double curr_angle = (double)last_angle;
-    if ( curr_angle < 0.0f ) {
-        curr_angle += 360.0f;
-    }
-    accumulated_angle += curr_angle;
-    return accumulated_angle;
+	// First case
+	// Old reading: +150 degrees
+	// New reading: +170 degrees
+	// Difference:  (170 - 150) = +20 degrees
+
+	// Second case
+	// Old reading: -20 degrees
+	// New reading: -50 degrees
+	// Difference : (-50 - -20) = -30 degrees
+
+	// Third case
+	// Old reading: +179 degrees
+	// New reading: -179 degrees
+	// Difference:  (-179 - 179) = -358 degrees
+
+	// Fourth case
+	// Old reading: -179  degrees
+	// New reading: +179 degrees
+	// Difference:  (+179 - -179) = +358 degrees
+
+	double difference;
+	double gyroVal;
+	double yawVal;
+
+	{
+		std::unique_lock<priority_mutex> sync(tracker_mutex);
+
+		yawVal = curr_yaw_angle;
+
+		// Has gyro_prevVal been previously set?
+		// If not, return do not calculate, return current value
+		if( !fFirstUse )
+		{
+			// Determine count for rollover counter
+			difference = yawVal - gyro_prevVal;
+
+			/* Clockwise past +180 degrees
+			 * If difference > 180*, increment rollover counter */
+			if( difference < -180.0 ) {
+				ctrRollOver++;
+
+			/* Counter-clockwise past -180 degrees:
+			 * If difference > 180*, decrement rollover counter */
+			}
+			else if ( difference > 180.0 ) {
+				ctrRollOver--;
+			}
+		}
+
+		// Mark gyro_prevVal as being used
+		fFirstUse = false;
+
+		// Calculate value to return back to calling function
+		// e.g. +720 degrees or -360 degrees
+		gyroVal = yawVal + (360.0 * ctrRollOver);
+		gyro_prevVal = yawVal;
+
+		return gyroVal + angleAdjust;
+	}
+}
+
+void ContinuousAngleTracker::SetAngleAdjustment(double adjustment) {
+	angleAdjust = adjustment;
+}
+
+double ContinuousAngleTracker::GetAngleAdjustment() {
+	return angleAdjust;
 }
 
 double ContinuousAngleTracker::GetRate() {
-    return last_rate;
+	float difference;
+	{
+		std::unique_lock<priority_mutex> sync(tracker_mutex);
+		difference = curr_yaw_angle - last_yaw_angle;
+	}
+	if ( difference > 180.0f) {
+		/* Clockwise past +180 degrees */
+		difference = 360.0f - difference;
+	} else if ( difference < -180.0f) {
+		/* Counter-clockwise past -180 degrees */
+		difference = 360.0f + difference;
+	}
+	return difference;
 }

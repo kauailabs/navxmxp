@@ -38,11 +38,17 @@ import com.kauailabs.navx.*;
 
 import java.util.*;
 import g4p_controls.*;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.File;
+import java.text.SimpleDateFormat;
 
 GButton btnResetYaw;
 GButton btnBoardInfo;
+GButton btnFileSave;
 GButton btnAdvanced;
 GDropList dplComPorts;
+GDropList dplUpdateRates;
 
 String[] currComPortNames = null;
 int num_curr_com_port_names = 0;
@@ -51,6 +57,10 @@ GWindow windowBoardInfo = null;
 GWindow windowAdvanced = null;
 
 String g_boardtype = "Unknown";
+
+FileWriter outputStream = null;
+boolean save_to_file = false;
+String datafile_name;
 
 int tray_height_px = 60;
 
@@ -100,6 +110,8 @@ float curr_velocity_x = 0.0;
 float curr_velocity_y = 0.0;
 float curr_displacement_x = 0.0;
 float curr_displacement_y = 0.0;
+
+long curr_sensor_timestamp = 0;
             
 static final int ACCEL_HISTORY_SIZE = 10;
 float world_acceleration_history[] = new float[ACCEL_HISTORY_SIZE];
@@ -112,7 +124,7 @@ boolean navx_device_moving = false;
 boolean yaw_stable = true;
 int last_update_ms = 0;
 
-int updateRateHz = 0;
+int updateRateHz = 50;
 int gyroFSRDPS = 0;
 int accelFSRG = 0;
 float yaw_offset_degrees = 0.0;
@@ -120,6 +132,7 @@ boolean initial_calibration_in_process = false;
 boolean yaw_reset_supported = false;
 boolean omnimount_supported = false;
 boolean vel_and_disp_supported = false;
+boolean ahrspos_timestamp_supported = false;
 boolean mag_disturbance = true;
 boolean altitude_valid = false;
 boolean compass_calibrated = false;
@@ -135,10 +148,16 @@ int lf = 10;      // ASCII linefeed
 // this table is used to store all command line parameters
 // in the form: name=value
 static Hashtable params=new Hashtable();
+
+byte stream_type = AHRSProtocol.MSGID_AHRS_UPDATE;
  
 PFont smallTextFont;
 PFont mediumTextFont;
 PFont largeTextFont;
+ 
+String[] valid_update_rates = new String[] {"4","5","6","7","8","9","10","11",
+                                            "12","13","14","15","16","18","20","22",
+                                            "25","28","33","40","50","66","100","200"};
  
 // here we overwrite PApplet's main entry point (for application mode)
 // we're parsing all commandline arguments and copy only the relevant ones
@@ -176,6 +195,7 @@ boolean reopen_serial_port( String portName )
       }
       port = null;
     }
+	curr_sensor_timestamp = 0;
     // open the serial port
     try {
       port_open_in_progress = true;
@@ -294,6 +314,50 @@ void enableAHRSPosUpdateMode(int rate) {
     }
 }
 
+void enableAHRSPosTSUpdateMode(int rate) {
+    if ( port == null ) return;
+    int length = IMUProtocol.encodeStreamCommand(protocol_buffer, (byte) AHRSProtocol.MSGID_AHRSPOS_TS_UPDATE,(byte)rate);
+    if (length != 0) {
+      byte[] stream_command = new byte[length];
+      arrayCopy(protocol_buffer,0,stream_command,0,length);
+      try
+      {
+        port.write(stream_command);
+      }
+      catch(RuntimeException ex)
+      {
+        println("Exception:  " + ex.toString() );
+      }
+      println("Sending " + new String(protocol_buffer,0,length));
+    }
+    else {
+      println("Error encoding stream command.");
+    }
+}
+
+void updateUpdateRateListSelection() {
+  int index = getIndexInUpdateRateList(updateRateHz);
+  dplUpdateRates.setSelected(index);
+}
+
+int getIndexInUpdateRateList( int update_rate ) {
+  int highest_matching_index = 0;
+  for ( int i = 0; i < valid_update_rates.length; i++ ) {
+    double update_rate_hz_f = Double.parseDouble(valid_update_rates[i]);
+    int update_rate_hz_i = (int)update_rate_hz_f;
+    if ( update_rate == update_rate_hz_i ) {
+      return i;
+    }
+    if ( update_rate > update_rate_hz_i ) {
+      highest_matching_index = i+1;
+    }
+  }
+  if ( highest_matching_index >= valid_update_rates.length ) {
+    highest_matching_index = valid_update_rates.length - 1;
+  }
+  return highest_matching_index;
+}
+
 int last_port_list_update_timestamp = 0;
 
 int getIndexInStringList( String[] array, String str )
@@ -321,8 +385,11 @@ void update_port_list()
     dplComPorts.removeItem(i);
   }
   currComPortNames = MySerialList.list();
-  println(currComPortNames);
+  //println(currComPortNames);
   dplComPorts.setVisible(currComPortNames.length != 0);
+  if ( dplUpdateRates != null ) {
+    dplUpdateRates.setVisible(currComPortNames.length != 0);
+  }
   int index = 0;
   if ( ( dplComPorts != null ) && ( currComPortNames.length > 0 ) && ( currComPortNames != null ) ){
     if ( opened_port_name != null ) {
@@ -354,7 +421,7 @@ void setup() {
     // 500px square viewport using OpenGL rendering
     size(500, 560, OPENGL);
     gfx = new ToxiclibsSupport(this);
-    println("Sketh Path:  " + sketchPath(""));
+    println("Sketch Path:  " + sketchPath(""));
     println("Data Path:  " + dataPath(""));
     try {
     smallTextFont = loadFont("ArialMT-16.vlw");
@@ -439,15 +506,19 @@ void setup() {
     }
     
     G4P.setGlobalColorScheme(5);
-    btnResetYaw = new GButton(this, 20, ((height-tray_height_px)+15), 120, 30, "ResetYaw");
-    btnBoardInfo = new GButton(this, (width/2)-60, ((height-tray_height_px)+15), 120, 30, "BoardInfo...");
-    btnAdvanced = new GButton(this, width-140, ((height-tray_height_px)+15), 120, 30, "Experimental...");
+    btnResetYaw = new GButton(this, 20, ((height-tray_height_px)+15), 100, 30, "ResetYaw");
+    btnBoardInfo = new GButton(this, (width/2)-110, ((height-tray_height_px)+15), 100, 30, "BoardInfo...");
+    btnFileSave  = new GButton(this, (width/2)+10, ((height-tray_height_px)+15), 100, 30, "Save Data...");
+    btnAdvanced = new GButton(this, width-120, ((height-tray_height_px)+15), 100, 30, "Experimental...");
     
     dplComPorts = new GDropList(this,400,40,80,70);
     dplComPorts.setItems(new String[] {"<None>"}, 0 );
     num_curr_com_port_names = 1;
     update_port_list();
 
+    dplUpdateRates = new GDropList(this,20,120,80,70);
+    dplUpdateRates.setItems(valid_update_rates, valid_update_rates.length);
+    dplUpdateRates.setSelected(20);
     if ( port != null ) {
       int lf=10;
       port.bufferUntil(lf);
@@ -457,10 +528,11 @@ void setup() {
       
       // Send command to navX-Model device requesting streaming data in 'raw' format
       //enableRawUpdateMode(100);    
-      enableAHRSUpdateMode(100);
+      //enableAHRSUpdateMode(50);
       //enableAHRSUpdateMode(100);
       //enableAHRSUpdateMode(100);
-    }
+      requestUpdateModeAndRate();
+    }    
 }
 
 void handleDropListEvents(GDropList list, GEvent event)
@@ -474,6 +546,17 @@ void handleDropListEvents(GDropList list, GEvent event)
         }
       }
     }
+  }
+  if ( list == dplUpdateRates ) {
+    println("Update Rate list event" + event.toString() );
+    if ( event == GEvent.SELECTED  ) {
+      //println("Selected index:  " + list.getSelectedIndex() + " (" + list.getSelectedText() + ")" );
+      double update_rate_hz_f = Double.parseDouble(list.getSelectedText());
+      int update_rate_hz_i = (int)update_rate_hz_f;
+      println("Selected update Rate:  " + update_rate_hz_i + " Hz");
+      updateRateHz = update_rate_hz_i;
+      requestUpdateModeAndRate();
+    }    
   }
 }
 
@@ -514,6 +597,9 @@ void draw() {
         text("Connected",width-100,30);
       } else {
         text("Disconnected",(width/2)-100,((height-tray_height_px)/2)-100);
+        g_boardtype = "<Unknown>";
+        gyroFSRDPS = 0;
+        accelFSRG = 0;        
       }
       disconnected = true;
       if ( millis() - last_port_open_attempt_timestamp > timeout_ms ) {
@@ -522,7 +608,7 @@ void draw() {
         } else {
           reopen_serial_port(attempted_open_serial_port_name);
         }
-        enableAHRSUpdateMode(100);
+        requestUpdateModeAndRate();
       }
     }
     else {
@@ -565,9 +651,15 @@ void draw() {
     text(accelfsr,20,90);
     String updaterate = "Update Rate:  " + updateRateHz + " Hz";
     text(updaterate,20,110);
+
+    fill(255,255,255);
+    if ( curr_sensor_timestamp != 0 ) {
+      textAlign(RIGHT);
+      String timestamp = "Time:  " + curr_sensor_timestamp + " ms";
+      text(timestamp,width-20,110);
+    }
     
     textSize(16);
-    fill(255,255,255);
 
     textAlign(LEFT);
     text("Accel X:",20, (height-tray_height_px)-60);
@@ -592,11 +684,11 @@ void draw() {
     textAlign(LEFT);
     text("Roll (Y):",width-150,(height-tray_height_px)-100);
     textAlign(RIGHT);
-    text(nfp(pitch_degrees,3,2),width-15, (height-tray_height_px)-100);
+    text(nfp(roll_degrees,3,2),width-15, (height-tray_height_px)-100);
     textAlign(LEFT);
     text("Pitch (X):",width-150,(height-tray_height_px)-120);
     textAlign(RIGHT);
-    text(nfp(roll_degrees,3,2),width-15, (height-tray_height_px)-120);
+    text(nfp(pitch_degrees,3,2),width-15, (height-tray_height_px)-120);
     textAlign(LEFT);
     if ( !compass_calibrated ) {
       fill(128,128,128);
@@ -631,6 +723,14 @@ void draw() {
       rotation_state = "Rotating";
     }
     text(rotation_state,(width/2)-35,(height-tray_height_px)-40);
+    
+    if ( save_to_file ) {
+      textSize(14);
+      fill(255,255,255);
+      String save_string = "<Saving to " + datafile_name + ">";
+      textAlign(LEFT);
+      text(save_string,20, height-tray_height_px);
+    }
     
     // translate everything to the middle of the viewport
     pushMatrix();
@@ -679,6 +779,20 @@ void draw() {
     endShape();
     
     popMatrix();
+}
+
+public void requestUpdateModeAndRate() 
+{
+  if ( stream_type == AHRSProtocol.MSGID_AHRS_UPDATE ) {
+    print("Enabling AHRS Update Mode.");
+    enableAHRSUpdateMode(updateRateHz);
+  } else if ( stream_type == AHRSProtocol.MSGID_AHRSPOS_UPDATE ) {
+    print("Enabling AHRS Pos Update Mode.");
+    enableAHRSPosUpdateMode(updateRateHz);
+  } else if ( stream_type == AHRSProtocol.MSGID_AHRSPOS_TS_UPDATE ) {
+    print("Enabling AHRS Pos Timestamp Update Mode.");    
+    enableAHRSPosTSUpdateMode(updateRateHz);
+  }  
 }
 
 public void createBoardInfoWindow()
@@ -787,6 +901,42 @@ public void handleButtonEvents(GButton button, GEvent event)
       }
     }
   } 
+  if ( button == btnFileSave ) 
+  {
+    save_to_file = !save_to_file;
+    if ( save_to_file ) {
+      println("Opening data file.");
+      try {
+        String user_dir = System.getProperty("user.home");
+        Date date = new Date();
+        SimpleDateFormat sdf = new SimpleDateFormat("MM_dd_yyyy_h_mm_ss");
+        String formattedDate = sdf.format(date);
+        datafile_name = user_dir + File.separator + "navXData_" + formattedDate + ".csv";
+        println("Datafile name:  " + datafile_name);
+        outputStream = new FileWriter(datafile_name);
+        String header = "Timestamp,QuatW,QuatX,QuatY,QuatZ,Yaw,Pitch,Roll,LinearAccelX,LinearAccelY,VelocityX,VelocityY,DisplacementX,DisplacementY\r\n";
+        outputStream.write(header);
+        btnFileSave.setText("Stop Saving Data", GAlign.CENTER, GAlign.MIDDLE );
+        btnFileSave.setLocalColorScheme(3);
+      } catch (IOException ex) {
+        println("IOException opening file.");
+        ex.printStackTrace();
+      }
+    } else {
+      if (outputStream != null) {
+          println("Closing data file.");
+          btnFileSave.setText("Save Data...", GAlign.CENTER, GAlign.MIDDLE );
+          btnFileSave.setLocalColorScheme(5);
+        try {
+          outputStream.close();
+          outputStream = null;
+        } catch (IOException ex) {
+          println("Exception closing data file.");
+          ex.printStackTrace();
+        }
+      }
+    }
+  }
 }
 
 // The serialEvent() method will be invoked whenever one or more
@@ -798,7 +948,7 @@ IMUProtocol.QuaternionUpdate raw_update = new IMUProtocol.QuaternionUpdate();
 IMUProtocol.YPRUpdate ypr_update = new IMUProtocol.YPRUpdate();
 IMUProtocol.StreamResponse stream_response = new IMUProtocol.StreamResponse();
 AHRSProtocol.AHRSUpdate ahrs_update = new AHRSProtocol.AHRSUpdate();
-AHRSProtocol.AHRSPosUpdate ahrs_pos_update = new AHRSProtocol.AHRSPosUpdate();
+AHRSProtocol.AHRSPosTSUpdate ahrs_pos_update = new AHRSProtocol.AHRSPosTSUpdate();
 AHRSProtocol.BoardID board_id = new AHRSProtocol.BoardID();
 
 long update_count = 0;
@@ -844,13 +994,17 @@ void serialEvent(MySerial port) {
           initial_bytes_received = 0;
           while ( ( port.available() > 0 ) && !end_of_packet ) {
             protocol_buffer2[initial_bytes_received] = (byte)port.read();
-            if ( protocol_buffer2[initial_bytes_received] == (byte)'n' ) {
+            if ( protocol_buffer2[initial_bytes_received] == (byte)lf ) {
               end_of_packet = true;
             }
             initial_bytes_received++;
           }
           //initial_bytes_received = port.readBytesUntil((int)'n',protocol_buffer2);
-          println("Got more bytes.  More Len = " + String.valueOf(initial_bytes_received) + " Remaining available:  " + String.valueOf(port.available()) );
+          if ( end_of_packet ) {
+            println("Got end of partial packet.");            
+          } else {
+            println("Got more bytes.  More Len = " + String.valueOf(initial_bytes_received) + " Remaining available:  " + String.valueOf(port.available()) );
+          }
           if ( initial_bytes_received == 0 ) return;
           int x = 0;
           for ( int i = last_partial_packet_bytes_received; i < last_partial_packet_bytes_received + initial_bytes_received; i++, x++ ) {
@@ -889,6 +1043,8 @@ void serialEvent(MySerial port) {
               } else {
                 //println("Got complete binary packet.  Len = " + String.valueOf(msg_len));
               }
+          } else {
+            println("Received packet, but not a valid binary packet.");
           }
         }
         //println(msg_len);
@@ -1041,12 +1197,13 @@ void serialEvent(MySerial port) {
           // initialization.
           decode_length = IMUProtocol.decodeYPRUpdate(full_message, 0, full_message.length, ypr_update);
           if ( decode_length > 0 ) {
-            enableAHRSUpdateMode(100);
+            requestUpdateModeAndRate();
           }
           else {
             decode_length = IMUProtocol.decodeStreamResponse(full_message,0, full_message.length,stream_response);
             if ( decode_length > 0 ) {
               updateRateHz = stream_response.update_rate_hz;
+              updateUpdateRateListSelection();
               gyroFSRDPS = stream_response.gyro_fsr_dps;
               accelFSRG = stream_response.accel_fsr_g;
               yaw_offset_degrees = stream_response.yaw_offset_degrees;
@@ -1057,10 +1214,23 @@ void serialEvent(MySerial port) {
                 btnResetYaw.setVisible(yaw_reset_supported);
               }
               vel_and_disp_supported = ((stream_response.flags & AHRSProtocol.NAVX_CAPABILITY_FLAG_VEL_AND_DISP) != 0);
+              ahrspos_timestamp_supported = ((stream_response.flags & AHRSProtocol.NAVX_CAPABILITY_FLAG_AHRSPOS_TS) != 0);
+              println("Stream Response:  Type:  " + stream_response.stream_type + ", Vel/Disp:  " + vel_and_disp_supported + ", Timestamp:  " + ahrspos_timestamp_supported);
               if ( btnAdvanced != null ) {
-                btnAdvanced.setVisible(vel_and_disp_supported); 
-                if ( stream_response.stream_type != AHRSProtocol.MSGID_AHRSPOS_UPDATE ) {
-                  enableAHRSPosUpdateMode(100);
+                btnAdvanced.setVisible(vel_and_disp_supported);
+                if ( ahrspos_timestamp_supported ) {
+                  if ( stream_response.stream_type != AHRSProtocol.MSGID_AHRSPOS_TS_UPDATE ) {
+                    stream_type = AHRSProtocol.MSGID_AHRSPOS_TS_UPDATE;
+                    requestUpdateModeAndRate();
+                  }
+                }
+                else {
+                  if ( vel_and_disp_supported ) {
+                    if ( stream_response.stream_type != AHRSProtocol.MSGID_AHRSPOS_UPDATE ) {
+                      stream_type = AHRSProtocol.MSGID_AHRSPOS_UPDATE;
+                      requestUpdateModeAndRate();
+                    }
+                  }
                 }
               }
               omnimount_supported = ((stream_response.flags & AHRSProtocol.NAVX_CAPABILITY_FLAG_OMNIMOUNT) != 0);
@@ -1095,10 +1265,10 @@ void serialEvent(MySerial port) {
                 world_linear_acceleration_y = ahrs_update.linear_accel_y;
                 world_linear_acceleration_z = ahrs_update.linear_accel_z;
                 
-                q[0] = ((float)ahrs_update.quat_w) / 16384.0f;
-                q[1] = ((float)ahrs_update.quat_x) / 16384.0f;
-                q[2] = ((float)ahrs_update.quat_y) / 16384.0f;
-                q[3] = ((float)ahrs_update.quat_z) / 16384.0f;
+                q[0] = ((float)ahrs_update.quat_w); // / 16384.0f; // This now occurs in decodeAHRSUpdate()
+                q[1] = ((float)ahrs_update.quat_x); // / 16384.0f; // This now occurs in decodeAHRSUpdate()
+                q[2] = ((float)ahrs_update.quat_y); // / 16384.0f; // This now occurs in decodeAHRSUpdate()
+                q[3] = ((float)ahrs_update.quat_z); // / 16384.0f; // This now occurs in decodeAHRSUpdate()
                 for (int i = 0; i < 4; i++) if (q[i] >= 2) q[i] = -4 + q[i]; // Range-check quaternion values
                 
                 // set our toxilibs quaternion to new data
@@ -1117,10 +1287,15 @@ void serialEvent(MySerial port) {
                   ((float)ahrs_update.raw_mag_z * (float)ahrs_update.raw_mag_z) );
                 //println(ahrs_update.raw_mag_x + ", " + ahrs_update.raw_mag_y + ", " + ahrs_update.raw_mag_z + ", ", mag_field_norm);
               } else {
-                decode_length = AHRSProtocol.decodeAHRSPosUpdate(full_message, 0, full_message.length, ahrs_pos_update);
+                decode_length = AHRSProtocol.decodeAHRSPosTSUpdate(full_message, 0, full_message.length, ahrs_pos_update);
+                if ( decode_length == 0 ) {
+                  decode_length = AHRSProtocol.decodeAHRSPosUpdate(full_message, 0, full_message.length, ahrs_pos_update);
+                } else {
+                  curr_sensor_timestamp = ahrs_pos_update.timestamp;
+                }
                 if (decode_length != 0) {
                   update_count++;
-                  println("AHRSPos Update Count:  " + String.valueOf(update_count));
+                  //println("AHRSPos Update Count:  " + String.valueOf(update_count) + ", time:  " + String.valueOf(curr_sensor_timestamp));
                   last_update_ms = millis();
             
                   current_temp_c = ahrs_pos_update.mpu_temp;
@@ -1136,10 +1311,10 @@ void serialEvent(MySerial port) {
                   world_linear_acceleration_y = ahrs_pos_update.linear_accel_y;
                   world_linear_acceleration_z = ahrs_pos_update.linear_accel_z;
                   
-                  q[0] = ((float)ahrs_pos_update.quat_w) / 16384.0f;
-                  q[1] = ((float)ahrs_pos_update.quat_x) / 16384.0f;
-                  q[2] = ((float)ahrs_pos_update.quat_y) / 16384.0f;
-                  q[3] = ((float)ahrs_pos_update.quat_z) / 16384.0f;
+                  q[0] = ((float)ahrs_pos_update.quat_w); // / 16384.0f; // This now occurs in decodeAHRSPosUpdate()
+                  q[1] = ((float)ahrs_pos_update.quat_x); // / 16384.0f; // This now occurs in decodeAHRSPosUpdate()
+                  q[2] = ((float)ahrs_pos_update.quat_y); // / 16384.0f; // This now occurs in decodeAHRSPosUpdate()
+                  q[3] = ((float)ahrs_pos_update.quat_z); // / 16384.0f; // This now occurs in decodeAHRSPosUpdate()
                   for (int i = 0; i < 4; i++) if (q[i] >= 2) q[i] = -4 + q[i]; // Range-check quaternion values
                   
                   // set our toxilibs quaternion to new data
@@ -1155,6 +1330,16 @@ void serialEvent(MySerial port) {
                   curr_velocity_y = ahrs_pos_update.vel_y;
                   curr_displacement_x = ahrs_pos_update.disp_x;
                   curr_displacement_y = ahrs_pos_update.disp_y;
+
+                  String file_data = new String();
+                  file_data = curr_sensor_timestamp + "," + q[0] + "," + q[1] + "," + q[2] + "," + q[3] + "," + 
+                                yaw_degrees + "," + pitch_degrees + "," + roll_degrees + "," + 
+                                world_linear_acceleration_x + "," + world_linear_acceleration_y + "," + 
+                                curr_velocity_x + "," + curr_velocity_y + "," + 
+                                curr_displacement_x + "," + curr_displacement_y + "\r\n"; 
+                  if ( outputStream != null ) {
+                    outputStream.write(file_data);
+                  }
                 } else {               
                   decode_length = AHRSProtocol.decodeBoardIDGetResponse(full_message, 0, full_message.length, board_id);
                   if (decode_length != 0) {

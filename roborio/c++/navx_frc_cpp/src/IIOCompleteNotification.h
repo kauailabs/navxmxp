@@ -26,12 +26,13 @@ public:
         int16_t accel_fsr_g;
         int16_t gyro_fsr_dps;
     };
-    virtual void SetYawPitchRoll(IMUProtocol::YPRUpdate& ypr_update) = 0;
-    virtual void SetAHRSData(AHRSProtocol::AHRSUpdate& ahrs_update) = 0;
-    virtual void SetAHRSPosData(AHRSProtocol::AHRSPosUpdate& ahrs_update) = 0;
-    virtual void SetRawData(IMUProtocol::GyroUpdate& raw_data_update) = 0;
+    virtual void SetYawPitchRoll(IMUProtocol::YPRUpdate& ypr_update, long sensor_timestamp) = 0;
+    virtual void SetAHRSData(AHRSProtocol::AHRSUpdate& ahrs_update, long sensor_timestamp) = 0;
+    virtual void SetAHRSPosData(AHRSProtocol::AHRSPosUpdate& ahrs_update, long sensor_timestamp) = 0;
+    virtual void SetRawData(IMUProtocol::GyroUpdate& raw_data_update, long sensor_timestamp) = 0;
     virtual void SetBoardID(AHRSProtocol::BoardID& board_id) = 0;
     virtual void SetBoardState( BoardState& board_state) = 0;
+    virtual void YawResetComplete() = 0;
 };
 
 #endif /* SRC_IIOCOMPLETENOTIFICATION_H_ */

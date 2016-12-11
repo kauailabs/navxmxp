@@ -6,6 +6,7 @@
  */
 
 #include <SerialIO.h>
+#include "delay.h"
 
 static const double IO_TIMEOUT_SECONDS = 1.0;
 
@@ -19,19 +20,27 @@ SerialIO::SerialIO( SerialPort::Port port_id,
     this->serial_port_id = port_id;
     ypr_update_data = {0};
     gyro_update_data = {0};
-    ahrs_update_data = {0};;
-    ahrspos_update_data = {0};
+    ahrs_update_data = {};
+    ahrspos_update_data = {};
+    ahrspos_ts_update_data = {};
     board_id = {0};
     board_state = {0};
     this->notify_sink = notify_sink;
     this->board_capabilities = board_capabilities;
+    serial_port = 0;
     serial_port = GetMaybeCreateSerialPort();
     this->update_rate_hz = update_rate_hz;
     if ( processed_data ) {
-        update_type = MSGID_AHRSPOS_UPDATE;
+        update_type = MSGID_AHRSPOS_TS_UPDATE;
     } else {
         update_type = MSGID_GYRO_UPDATE;
     }
+    signal_transmit_integration_control = false;
+    signal_retransmit_stream_config = false;
+    stop = true;
+    byte_count = 0;
+    update_count = 0;
+    last_valid_packet_time = 0;
 }
 
 SerialPort *SerialIO::ResetSerialPort()
@@ -39,7 +48,7 @@ SerialPort *SerialIO::ResetSerialPort()
     if (serial_port != 0) {
         try {
             delete serial_port;
-        } catch (std::exception  ex) {
+        } catch (std::exception& ex) {
             // This has been seen to happen before....
         }
         serial_port = 0;
@@ -57,7 +66,7 @@ SerialPort *SerialIO::GetMaybeCreateSerialPort()
             serial_port->SetTimeout(1.0);
             serial_port->EnableTermination('\n');
             serial_port->Reset();
-        } catch (std::exception ex) {
+        } catch (std::exception& ex) {
             /* Error opening serial port. Perhaps it doesn't exist... */
             serial_port = 0;
         }
@@ -80,27 +89,39 @@ void SerialIO::DispatchStreamResponse(IMUProtocol::StreamResponse& response) {
     board_state.gyro_fsr_dps = response.gyro_fsr_dps;
     board_state.update_rate_hz = (uint8_t) response.update_rate_hz;
     notify_sink->SetBoardState(board_state);
-    /* If AHRSPOS is update type is request, but board doesn't support it, */
-    /* retransmit the stream config, falling back to AHRS Update mode.     */
-    if ( this->update_type == MSGID_AHRSPOS_UPDATE ) {
-        if ( !board_capabilities->IsDisplacementSupported() ) {
-            this->update_type = MSGID_AHRS_UPDATE;
-            signal_retransmit_stream_config = true;
+    /* If AHRSPOS_TS is update type is requested, but board doesn't support it, */
+    /* retransmit the stream config, falling back to AHRSPos update mode, if    */
+    /* the board supports it, otherwise fall all the way back to AHRS Update mode. */
+    if ( response.stream_type != this->update_type ) {
+        if ( this->update_type == MSGID_AHRSPOS_TS_UPDATE ) {
+        	if ( board_capabilities->IsAHRSPosTimestampSupported() ) {
+        		this->update_type = MSGID_AHRSPOS_TS_UPDATE;
+        	}
+        	else if ( board_capabilities->IsDisplacementSupported() ) {
+                this->update_type = MSGID_AHRSPOS_UPDATE;
+            }
+        	else {
+        		this->update_type = MSGID_AHRS_UPDATE;
+        	}
+    		signal_retransmit_stream_config = true;
         }
     }
 }
 
 int SerialIO::DecodePacketHandler(char * received_data, int bytes_remaining) {
     int packet_length;
+    long sensor_timestamp = 0; /* Serial protocols do not provide sensor timestamps. */
 
     if ( (packet_length = IMUProtocol::decodeYPRUpdate(received_data, bytes_remaining, ypr_update_data)) > 0) {
-        notify_sink->SetYawPitchRoll(ypr_update_data);
+        notify_sink->SetYawPitchRoll(ypr_update_data, sensor_timestamp);
+    } else if ( ( packet_length = AHRSProtocol::decodeAHRSPosTSUpdate(received_data, bytes_remaining, ahrspos_ts_update_data)) > 0) {
+        notify_sink->SetAHRSPosData(ahrspos_ts_update_data, ahrspos_ts_update_data.timestamp);
     } else if ( ( packet_length = AHRSProtocol::decodeAHRSPosUpdate(received_data, bytes_remaining, ahrspos_update_data)) > 0) {
-        notify_sink->SetAHRSPosData(ahrspos_update_data);
+        notify_sink->SetAHRSPosData(ahrspos_update_data, sensor_timestamp);
     } else if ( ( packet_length = AHRSProtocol::decodeAHRSUpdate(received_data, bytes_remaining, ahrs_update_data)) > 0) {
-        notify_sink->SetAHRSData(ahrs_update_data);
+        notify_sink->SetAHRSData(ahrs_update_data, sensor_timestamp);
     } else if ( ( packet_length = IMUProtocol::decodeGyroUpdate(received_data, bytes_remaining, gyro_update_data)) > 0) {
-        notify_sink->SetRawData(gyro_update_data);
+        notify_sink->SetRawData(gyro_update_data, sensor_timestamp);
     } else if ( ( packet_length = AHRSProtocol::decodeBoardIdentityResponse(received_data, bytes_remaining, board_id)) > 0) {
         notify_sink->SetBoardID(board_id);
     } else {
@@ -130,7 +151,7 @@ void SerialIO::Run() {
         serial_port->EnableTermination('\n');
         serial_port->Flush();
         serial_port->Reset();
-    } catch (std::exception ex) {
+    } catch (std::exception& ex) {
         printf("SerialPort Run() Port Initialization Exception:  %s\n", ex.what());
     }
 
@@ -152,7 +173,7 @@ void SerialIO::Run() {
         SmartDashboard::PutNumber("navX Port Resets", (double)port_reset_count);
         #endif
         last_stream_command_sent_timestamp = Timer::GetFPGATimestamp();
-    } catch (std::exception ex) {
+    } catch (std::exception& ex) {
         printf("SerialPort Run() Port Send Encode Stream Command Exception:  %s\n", ex.what());
     }
 
@@ -173,9 +194,12 @@ void SerialIO::Run() {
                 next_integration_control_action = 0;
                 cmd_packet_length = AHRSProtocol::encodeIntegrationControlCmd( integration_control_command, integration_control );
                 try {
-                    serial_port->Write( integration_control_command, cmd_packet_length );
+                    int num_written = serial_port->Write( integration_control_command, cmd_packet_length );
                 } catch (std::exception ex) {
-                    printf("SerialPort Run() IntegrationControl Send Exception:  %s\n", ex.what());
+                    printf("SerialPort Run() IntegrationControl Send Exception during Serial Port Write:  %s\n", ex.what());
+                }
+                if ((integration_control.action & NAVX_INTEGRATION_CTL_RESET_YAW)!=0) {
+                	notify_sink->YawResetComplete();
                 }
             }
 
@@ -456,7 +480,7 @@ void SerialIO::Run() {
                     ResetSerialPort();
                 }
             }
-        } catch (std::exception ex) {
+        } catch (std::exception& ex) {
             // This exception typically indicates a Timeout, but can also be a buffer overrun error.
             stream_response_received = false;
             timeout_count++;

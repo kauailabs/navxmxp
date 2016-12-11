@@ -202,4 +202,8 @@ public class navXPerformanceMonitor implements IDataArrivalSubscriber {
         last_sensor_timestamp = curr_sensor_timestamp;
         last_system_timestamp = curr_system_timestamp;
     }
+
+    @Override
+    public void yawReset() {
+    }
 }

@@ -1,6 +1,10 @@
 [submodule "latest"]
 	path = roborio/labview/navx-MXP-LabVIEW
-	url = https://github.com/FRC900/navx-MXP-LabVIEW
+	url = https://github.com/FRC900/navX-MXP-LabVIEW
 [submodule "roborio/labview"]
 	path = roborio/labview
-	url = https://github.com/FRC900/navx-MXP-LabVIEW
+	url = https://github.com/FRC900/navX-MXP-LabVIEW
+[submodule "android/ftc_app"]
+	path = android/ftc_app
+	url = https://github.com/ftctechnh/ftc_app.git
+	branch = beta
