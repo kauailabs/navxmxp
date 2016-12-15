@@ -217,9 +217,6 @@ class SerialIO implements IIOProvider {
                     } catch (RuntimeException ex2) {
                         ex2.printStackTrace();
                     }
-                    if ((integration_control.action & AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_YAW)!=0) {
-                    	this.notify_sink.yawResetComplete();
-                    }                    
                 }               
 
                 if ( !stop && ( remainder_bytes == 0 ) && ( serial_port.getBytesReceived() < 1 ) ) {
@@ -337,6 +334,9 @@ class SerialIO implements IIOProvider {
                                         SmartDashboard.putNumber("navX Integration Control Response Count", integration_response_receive_count);
                                     }
                                     i += packet_length;
+                                    if ((integration_control.action & AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_YAW)!=0) {
+                                    	this.notify_sink.yawResetComplete();
+                                    }                    
                                 } else {
                                     /* Even though a start-of-packet indicator was found, the  */
                                     /* current index is not the start of a packet if interest. */
