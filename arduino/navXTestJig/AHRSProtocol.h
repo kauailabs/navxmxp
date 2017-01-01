@@ -722,7 +722,7 @@ public:
             update.selftest_status = buffer[AHRSPOS_TS_UPDATE_SELFTEST_STATUS_VALUE_INDEX];
             update.timestamp = (uint32_t)IMURegisters::decodeProtocolInt32(&buffer[AHRSPOS_TS_UPDATE_TIMESTAMP_INDEX]);
 
-            return AHRSPOS_UPDATE_MESSAGE_LENGTH;
+            return AHRSPOS_TS_UPDATE_MESSAGE_LENGTH;
         }
         return 0;
     }

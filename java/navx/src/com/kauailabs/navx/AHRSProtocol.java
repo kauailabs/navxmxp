@@ -250,7 +250,7 @@ public class AHRSProtocol extends IMUProtocol {
     final static int INTEGRATION_CONTROL_CMD_MESSAGE_LENGTH	=   13;
 
     /* Integration Control Response Packet */
-    public final static byte MSGID_INTEGRATION_CONTROL_RESP =   'i';
+    public final static byte MSGID_INTEGRATION_CONTROL_RESP =   'j';
     final static int INTEGRATION_CONTROL_RESP_ACTION_INDEX =    4;
     final static int INTEGRATION_CONTROL_RESP_PARAMETER_INDEX = 5;
     final static int INTEGRATION_CONTROL_RESP_MESSAGE_CHECKSUM_INDEX = 9;

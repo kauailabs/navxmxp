@@ -194,9 +194,12 @@ void SerialIO::Run() {
                 next_integration_control_action = 0;
                 cmd_packet_length = AHRSProtocol::encodeIntegrationControlCmd( integration_control_command, integration_control );
                 try {
-                    serial_port->Write( integration_control_command, cmd_packet_length );
+                    int num_written = serial_port->Write( integration_control_command, cmd_packet_length );
                 } catch (std::exception ex) {
-                    printf("SerialPort Run() IntegrationControl Send Exception:  %s\n", ex.what());
+                    printf("SerialPort Run() IntegrationControl Send Exception during Serial Port Write:  %s\n", ex.what());
+                }
+                if ((integration_control.action & NAVX_INTEGRATION_CTL_RESET_YAW)!=0) {
+                	notify_sink->YawResetComplete();
                 }
             }
 

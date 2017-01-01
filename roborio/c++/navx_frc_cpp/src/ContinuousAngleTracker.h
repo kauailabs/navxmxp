@@ -8,16 +8,28 @@
 #ifndef SRC_CONTINUOUSANGLETRACKER_H_
 #define SRC_CONTINUOUSANGLETRACKER_H_
 
+#include "WPILib.h"
+
 class ContinuousAngleTracker {
-    float last_angle;
-    double last_rate;
-    int zero_crossing_count;
-    bool first_sample;
+private:
+    bool fFirstUse;
+    double gyro_prevVal;
+    int ctrRollOver;
+    float curr_yaw_angle;
+    float last_yaw_angle;
+    double angleAdjust;
+    priority_mutex tracker_mutex;
+
+    void Init();
+
 public:
     ContinuousAngleTracker();
+    void Reset();
     void NextAngle( float newAngle );
     double GetAngle();
     double GetRate();
+	void SetAngleAdjustment(double adjustment);
+	double GetAngleAdjustment();
 };
 
 #endif /* SRC_CONTINUOUSANGLETRACKER_H_ */

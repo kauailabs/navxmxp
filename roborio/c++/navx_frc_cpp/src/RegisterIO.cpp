@@ -56,6 +56,7 @@ void RegisterIO::SetUpdateRateHz(uint8_t update_rate) {
 void RegisterIO::ZeroYaw() {
     io_provider->Write( NAVX_REG_INTEGRATION_CTL,
                         NAVX_INTEGRATION_CTL_RESET_YAW );
+    notify_sink->YawResetComplete();
 }
 
 void RegisterIO::ZeroDisplacement() {
