@@ -190,16 +190,20 @@ void SerialIO::Run() {
 
             if ( signal_transmit_integration_control ) {
                 integration_control.action = next_integration_control_action;
+                integration_control.parameter = 0xFFFFFFFF;
                 signal_transmit_integration_control = false;
                 next_integration_control_action = 0;
                 cmd_packet_length = AHRSProtocol::encodeIntegrationControlCmd( integration_control_command, integration_control );
                 try {
                     int num_written = serial_port->Write( integration_control_command, cmd_packet_length );
+                    if ( num_written != cmd_packet_length ) {
+                    	printf("Error writing integration control command.  Only %d of %d bytes were sent.\n", num_written, cmd_packet_length);
+                    } else {
+                    	printf("Checksum:  %X %X\n", integration_control_command[9], integration_control_command[10]);
+                    }
+                    serial_port->Flush();
                 } catch (std::exception ex) {
                     printf("SerialPort Run() IntegrationControl Send Exception during Serial Port Write:  %s\n", ex.what());
-                }
-                if ((integration_control.action & NAVX_INTEGRATION_CTL_RESET_YAW)!=0) {
-                	notify_sink->YawResetComplete();
                 }
             }
 
@@ -310,6 +314,9 @@ void SerialIO::Run() {
                                     SmartDashboard::PutNumber("navX Integration Control Response Count", integration_response_receive_count);
                                 #endif
                                 i += packet_length;
+                                if ((integration_control.action & NAVX_INTEGRATION_CTL_RESET_YAW)!=0) {
+                                	notify_sink->YawResetComplete();
+                                }
                             } else {
                                 /* Even though a start-of-packet indicator was found, the  */
                                 /* current index is not the start of a packet if interest. */
