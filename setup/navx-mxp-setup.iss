@@ -76,6 +76,7 @@ Source: "..\roborio\c++\navXMXP_CPP_MotionDetection\*.*"; Excludes: "build,dist,
 Source: "..\roborio\c++\navXMXP_CPP_ExpansionIO\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\ExpansionIO"; Flags: createallsubdirs recursesubdirs
 
 Source: "..\roborio\labview\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\labview"; Flags: createallsubdirs recursesubdirs
+Source: "..\roborio\labviewae\*.*"; DestDir: "{code:GetLabVIEWDirName}vi.lib\Rock Robotics\WPI\ThirdParty\sensors\navX"; Flags: createallsubdirs recursesubdirs
 
 Source: "..\android\navx_ftc\build\outputs\aar\*.aar"; DestDir: "{%HOMEPATH}\navx-mxp\android\libs" 
 Source: "..\android\OpModes\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\android\examples"; Flags: createallsubdirs recursesubdirs
@@ -99,6 +100,19 @@ Name: "{app}\installers"
 Name: "{app}\navXUI"; Flags: uninsalwaysuninstall
 
 [Code]
+
+function GetLabVIEWDirName(Value: string): string;
+var          
+  InstallPath: string;
+begin
+  // initialize default path, which will be returned when the following registry
+  // key queries fail due to missing keys or for some different reason
+  Result := 'C:\Program Files (x86)\National Instruments\LabVIEW 2016\';
+  // query the first registry value; if this succeeds, return the obtained value
+  if RegQueryStringValue(HKLM, 'Software\National Instruments\LabVIEW\Current Version', 'Path', InstallPath) then
+    Result := InstallPath;
+end;
+
 function InitializeSetup(): Boolean;
 var
  ErrorCode: Integer;
