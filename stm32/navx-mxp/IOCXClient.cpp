@@ -111,11 +111,6 @@ bool IOCXClient::get_gpio_interrupt_status(uint16_t& value)
 	return read(IOCX_REGISTER_BANK, offsetof(struct IOCX_REGS, gpio_intstat), value);
 }
 
-bool IOCXClient::get_external_power_voltage(uint16_t& value)
-{
-	return read(IOCX_REGISTER_BANK, offsetof(struct IOCX_REGS, ext_pwr_voltage), value);
-}
-
 bool IOCXClient::get_timer_config(int timer_index, IOCX_TIMER_MODE& mode)
 {
 	if ( timer_index > get_num_timers()-1) return false;
