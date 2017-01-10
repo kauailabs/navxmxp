@@ -24,8 +24,13 @@ THE SOFTWARE.
 
 #include "stm32f4xx_hal.h"
 #include "navx-mxp_hal.h"
-#include "tim_navx-pi.h"
+#include <string.h>
+
+#ifdef ENABLE_IOCX
+#include "gpiomap_navx-pi.h"
 #include "adc_navx-pi.h"
+#include "IOCXRegisters.h"
+#endif
 
 void read_unique_id(struct unique_id *id)
 {
@@ -242,6 +247,38 @@ void HAL_RN4020_Set_CMD_MLDP(int value)
 #endif
 }
 
+#ifdef ENABLE_IOCX
+typedef struct {
+	GPIO_TypeDef *p_gpio;
+	uint16_t pin;
+	uint8_t timer_index;
+	uint8_t channel_index;
+	uint8_t alt_function;
+} GPIO_Channel;
+
+#define MAX_VALID_STM32_AF_VALUE 0x0F
+#define GPIO_AF_SW_RESET_COUNTER (MAX_VALID_STM32_AF_VALUE + 1)
+
+static GPIO_Channel gpio_channels[IOCX_NUM_GPIOS] =
+{
+	{PWM_GPIO1_GPIO_Port, 	PWM_GPIO1_Pin, 	4,  0, GPIO_AF2_TIM5},
+	{PWM_GPIO2_GPIO_Port, 	PWM_GPIO2_Pin, 	4,  1, GPIO_AF2_TIM5},
+	{PWM_GPIO3_GPIO_Port, 	PWM_GPIO3_Pin, 	5,  0, GPIO_AF3_TIM9},
+	{PWM_GPIO4_GPIO_Port, 	PWM_GPIO4_Pin, 	5,  1, GPIO_AF3_TIM9},
+	{QE1_IDX_GPIO_Port, 	QE1_IDX_Pin, 	0, -1, GPIO_AF_SW_RESET_COUNTER},
+	{QE1_A_GPIO_Port, 		QE1_A_Pin, 		0,  0, GPIO_AF1_TIM1},
+	{QE1_B_GPIO_Port, 		QE1_B_Pin, 		0,  1, GPIO_AF1_TIM1},
+	{QE2_IDX_GPIO_Port, 	QE2_IDX_Pin, 	1, -1, GPIO_AF_SW_RESET_COUNTER},
+	{QE2_A_GPIO_Port, 		QE2_A_Pin, 		1,  0, GPIO_AF1_TIM2},
+	{QE2_B_GPIO_Port, 		QE2_B_Pin, 		1,  1, GPIO_AF1_TIM2},
+	{QE3_IDX_GPIO_Port, 	QE3_IDX_Pin, 	2, -1, GPIO_AF_SW_RESET_COUNTER},
+	{QE3_A_GPIO_Port, 		QE3_A_Pin, 		2,  0, GPIO_AF2_TIM3},
+	{QE3_B_GPIO_Port, 		QE3_B_Pin, 		2,  1, GPIO_AF2_TIM3},
+	{QE4_IDX_GPIO_Port, 	QE4_IDX_Pin, 	3, -1, GPIO_AF_SW_RESET_COUNTER},
+	{QE4_A_GPIO_Port, 		QE4_A_Pin, 		3,  0, GPIO_AF2_TIM5},
+	{QE4_B_GPIO_Port, 		QE4_B_Pin, 		3,  1, GPIO_AF2_TIM5},
+};
+
 /***************************************************************************/
 /* Timer section                                                           */
 /*                                                                         */
@@ -255,134 +292,287 @@ void HAL_RN4020_Set_CMD_MLDP(int value)
 /* 48Mhz.                                                                  */
 /***************************************************************************/
 
+TIM_HandleTypeDef htim1 = {TIM1};
+TIM_HandleTypeDef htim2 = {TIM2};
+TIM_HandleTypeDef htim3 = {TIM3};
+TIM_HandleTypeDef htim4 = {TIM4};
+TIM_HandleTypeDef htim5 = {TIM5};
+TIM_HandleTypeDef htim9 = {TIM9};
 
-#ifdef ENABLE_PWM_GENERATION
+//#ifdef ENABLE_PWM_GENERATION
 typedef struct {
 	TIM_HandleTypeDef *p_tim_handle;
-	uint32_t tim_channel_number;
-} PWM_Timer_Channel;
+	uint32_t core_clock_divider;
+	uint32_t first_channel_number;
+	uint32_t second_channel_number;
+} Timer_Config;
 
 #define TIMER_CLOCK_FREQUENCY 48000000
 #define TIMER_TICKS_PER_MICROSECOND (TIMER_CLOCK_FREQUENCY/1000000)
 
-static PWM_Timer_Channel pwm_timer_channels[10] =
+static Timer_Config timer_configs[IOCX_NUM_TIMERS] =
 {
-		{&htim2, TIM_CHANNEL_3},
-		{&htim2, TIM_CHANNEL_4},
-		{&htim5, TIM_CHANNEL_2},
-		{&htim5, TIM_CHANNEL_1},
-		{&htim1, TIM_CHANNEL_4},
-		{&htim1, TIM_CHANNEL_3},
-		{&htim3, TIM_CHANNEL_4},
-		{&htim3, TIM_CHANNEL_3},
-		{&htim4, TIM_CHANNEL_3},
-		{&htim4, TIM_CHANNEL_4},
+	{&htim1, TIM_CLOCKDIVISION_DIV2, TIM_CHANNEL_1, TIM_CHANNEL_2},
+	{&htim2, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_1, TIM_CHANNEL_2},
+	{&htim3, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_1, TIM_CHANNEL_2},
+	{&htim4, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_1, TIM_CHANNEL_2},
+	{&htim5, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_3, TIM_CHANNEL_4},
+	{&htim9, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_1, TIM_CHANNEL_2},
 };
+
+uint16_t timer_channel_ccr[IOCX_NUM_TIMERS][IOCX_NUM_CHANNELS_PER_TIMER];
+
+//#endif
+
+void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
+
+	if ( gpio_index > (IOCX_NUM_GPIOS-1) ) return;
+
+	IOCX_GPIO_TYPE type = iocx_decode_gpio_type(&config);
+	IOCX_GPIO_INPUT input = iocx_decode_gpio_input(&config);
+	//IOCX_GPIO_INTERRUPT interrupt = iocx_decode_gpio_interrupt(&config); // TODO:  Implement
+
+	GPIO_InitTypeDef GPIO_InitStruct;
+	GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+	GPIO_InitStruct.Pin = gpio_channels[gpio_index].pin;
+
+	switch(type){
+	case GPIO_TYPE_INPUT:
+		GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+		/* Enable the Pin as Input */
+		switch(input){
+		default:
+		case GPIO_INPUT_FLOAT:
+			GPIO_InitStruct.Pull = GPIO_NOPULL;
+			break;
+		case GPIO_INPUT_PULLUP:
+			GPIO_InitStruct.Pull = GPIO_PULLUP;
+			break;
+		case GPIO_INPUT_PULLDOWN:
+			GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+			break;
+		}
+		break;
+	case GPIO_TYPE_OUTPUT_PUSHPULL:
+		GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+		break;
+	case GPIO_TYPE_OUTPUT_OPENDRAIN:
+		GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+		break;
+	case GPIO_TYPE_AF:
+		if ( gpio_channels[gpio_index].alt_function <= MAX_VALID_STM32_AF_VALUE ) {
+			GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+			GPIO_InitStruct.Alternate = gpio_channels[gpio_index].alt_function;
+		} else {
+			GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+			GPIO_InitStruct.Pull = GPIO_PULLDOWN; // ???
+			// TODO:  Enable Interrupt if alt_function == GPIO_AF_SW_RESET_COUNTER
+			// TODO:  Enable Software function
+		}
+		/* TODO:  If the timer is running, stop it? */
+		/* TODO:  If the timer was stopped above, restart it? */
+		break;
+	case GPIO_TYPE_DISABLED:
+	default:
+		// TODO:  If a software alternate function, disable that function
+		HAL_GPIO_DeInit(gpio_channels[gpio_index].p_gpio, GPIO_InitStruct.Pin);
+		return;
+	}
+	HAL_GPIO_Init(gpio_channels[gpio_index].p_gpio, &GPIO_InitStruct);
+}
+
+void HAL_IOCX_GPIO_Get(uint8_t first_gpio_index, int count, uint8_t *values)
+{
+	int i;
+	if ( first_gpio_index > (IOCX_NUM_GPIOS-1) ) return;
+	if ( first_gpio_index + count > IOCX_NUM_TIMERS) {
+		count = IOCX_NUM_TIMERS - first_gpio_index;
+	}
+	for ( i = first_gpio_index; i < first_gpio_index + count; i++ ) {
+		*values = (HAL_GPIO_ReadPin(gpio_channels[i].p_gpio, gpio_channels[i].pin) == GPIO_PIN_SET) ?
+			IOCX_GPIO_SET : IOCX_GPIO_RESET;
+	}
+}
+
+void HAL_IOCX_GPIO_Set(uint8_t gpio_index, uint8_t value)
+{
+	if ( gpio_index > (IOCX_NUM_GPIOS-1) ) return;
+    HAL_GPIO_WritePin( gpio_channels[gpio_index].p_gpio, gpio_channels[gpio_index].pin,
+    		(value != IOCX_GPIO_RESET) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+}
+
+void HAL_IOCX_TIMER_Enable_Clocks(uint8_t timer_index, int enable)
+{
+	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
+
+	switch(timer_index){
+	case 0: enable ? __TIM1_CLK_ENABLE() : __TIM1_CLK_DISABLE(); break;
+	case 1: enable ? __TIM2_CLK_ENABLE() : __TIM2_CLK_DISABLE(); break;
+	case 2: enable ? __TIM3_CLK_ENABLE() : __TIM3_CLK_DISABLE(); break;
+	case 3: enable ? __TIM4_CLK_ENABLE() : __TIM4_CLK_DISABLE(); break;
+	case 4: enable ? __TIM5_CLK_ENABLE() : __TIM5_CLK_DISABLE(); break;
+	case 5: enable ? __TIM9_CLK_ENABLE() : __TIM9_CLK_DISABLE(); break;
+	}
+}
+
+#define BOTH_ENCODER_TIMER_CHANNELS 0xFF /*(TIM_CHANNEL_1 and TIM_CHANNEL_2)*/
+
+void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
+{
+	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
+
+	IOCX_TIMER_MODE mode = iocx_decode_timer_mode(&config);
+	switch(mode){
+	case TIMER_MODE_DISABLED:
+		// TODO:  IF was in PWM Mode, stop PWM?
+		// TODO:  IF was in QEMode, stop QE?
+		__HAL_TIM_DISABLE(timer_configs[timer_index].p_tim_handle);
+		break;
+	case TIMER_MODE_QUAD_ENCODER:
+		{
+			TIM_Encoder_InitTypeDef sConfig;
+			TIM_MasterConfigTypeDef sMasterConfig;
+
+			TIM_HandleTypeDef * p_htim = timer_configs[timer_index].p_tim_handle;
+			p_htim->Init.ClockDivision = timer_configs[timer_index].core_clock_divider;
+			p_htim->Init.Prescaler = p_htim->Instance->PSC;
+			p_htim->Init.CounterMode = TIM_COUNTERMODE_UP;
+			p_htim->Init.Period = p_htim->Instance->ARR;
+			sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+			sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+			sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+			sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+			sConfig.IC1Filter = 2;
+			sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+			sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+			sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+			sConfig.IC2Filter = 2;
+			HAL_TIM_Encoder_Init(p_htim, &sConfig);
+
+			sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+			sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+			HAL_TIMEx_MasterConfigSynchronization(p_htim, &sMasterConfig);
+
+			/* Be sure to configure the auto-reload register (ARR) to the max possible value. */
+			p_htim->Instance->ARR = 0xFFFF;
+			HAL_TIM_Encoder_Start(p_htim, BOTH_ENCODER_TIMER_CHANNELS);
+		}
+		break;
+	case TIMER_MODE_PWM_OUT:
+		{
+			TIM_OC_InitTypeDef sConfigOC;
+			TIM_HandleTypeDef * p_htim = timer_configs[timer_index].p_tim_handle;
+
+			// Prescaler and Period must be already set before enabling.
+			p_htim->Init.CounterMode = TIM_COUNTERMODE_UP;
+			p_htim->Init.ClockDivision = timer_configs[timer_index].core_clock_divider;
+			HAL_TIM_PWM_Init(p_htim);
+
+			// Periods (CCR) for both channels must be already set before enabling.
+			sConfigOC.OCMode = TIM_OCMODE_PWM1;
+			sConfigOC.Pulse = timer_channel_ccr[timer_index][0];
+			sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+			sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+			HAL_TIM_PWM_ConfigChannel(p_htim, &sConfigOC, timer_configs[timer_index].first_channel_number);
+			sConfigOC.Pulse = timer_channel_ccr[timer_index][1];
+			HAL_TIM_PWM_ConfigChannel(p_htim, &sConfigOC, timer_configs[timer_index].second_channel_number);
+
+			HAL_TIM_PWM_Start(p_htim, timer_configs[timer_index].first_channel_number);
+			HAL_TIM_PWM_Start(p_htim, timer_configs[timer_index].second_channel_number);
+		}
+		break;
+	default:
+		return;
+	}
+}
+
+void HAL_IOCX_TIMER_Set_Control(uint8_t timer_index, uint8_t* control)
+{
+	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
+	IOCX_TIMER_COUNTER_RESET reset = iocx_decode_timer_counter_reset(control);
+	if (reset == RESET_REQUEST) {
+		/* Generate a Timer Update event - which clears the counter (and prescaler counter) */
+		HAL_TIM_GenerateEvent(timer_configs[timer_index].p_tim_handle, TIM_EventSource_Update);
+		iocx_clear_timer_counter_reset(control);
+	}
+}
+
+void HAL_IOCX_TIMER_Set_Prescaler(uint8_t timer_index, uint16_t ticks_per_clock)
+{
+	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
+	timer_configs[timer_index].p_tim_handle->Init.Prescaler = (uint32_t)ticks_per_clock;
+}
+
+void HAL_IOCX_TIMER_Get_Prescaler(uint8_t first_timer_index, int count, uint16_t *values)
+{
+	uint8_t i;
+	if ( first_timer_index > (IOCX_NUM_TIMERS-1) ) return;
+	if ( first_timer_index + count > IOCX_NUM_TIMERS) {
+		count = IOCX_NUM_TIMERS - first_timer_index;
+	}
+
+	for ( i = first_timer_index; i < first_timer_index + count; i++ ) {
+		*values++ = (uint16_t)timer_configs[i].p_tim_handle->Init.Prescaler;
+	}
+}
+
+void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, uint16_t *values)
+{
+	uint8_t i;
+	if ( first_timer_index > (IOCX_NUM_TIMERS-1) ) return;
+	if ( first_timer_index + count > IOCX_NUM_TIMERS) {
+		count = IOCX_NUM_TIMERS - first_timer_index;
+	}
+	for ( i = first_timer_index; i < first_timer_index + count; i++ ) {
+		*values++ = (uint16_t)timer_configs[i].p_tim_handle->Instance->CNT;
+	}
+}
+
+void HAL_IOCX_TIMER_PWM_Set_FramePeriod(uint8_t timer_index, uint16_t clocks_per_frame_period)
+{
+	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
+	timer_configs[timer_index].p_tim_handle->Init.Period = clocks_per_frame_period;
+}
+
+void HAL_IOCX_TIMER_PWM_Get_FramePeriod(uint8_t first_timer_index, int count, uint16_t* values)
+{
+	uint8_t i;
+	if ( first_timer_index > (IOCX_NUM_TIMERS-1) ) return;
+	if ( first_timer_index + count > IOCX_NUM_TIMERS) {
+		count = IOCX_NUM_TIMERS - first_timer_index;
+	}
+	for ( i = first_timer_index; i < first_timer_index + count; i++ ) {
+		*values++ = (uint16_t)timer_configs[i].p_tim_handle->Init.Period;
+	}
+}
+
+void HAL_IOCX_TIMER_PWM_Set_DutyCycle(uint8_t timer_index, uint8_t channel_index, uint16_t clocks_per_active_period)
+{
+	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
+	timer_channel_ccr[timer_index][channel_index] = clocks_per_active_period;
+}
+
+void HAL_IOCX_TIMER_PWM_Get_DutyCycle(uint8_t first_timer_index, uint8_t first_channel_index, int channel_count, uint16_t *values)
+{
+	if ( first_timer_index > (IOCX_NUM_TIMERS-1) ) return;
+	if ( first_channel_index > (IOCX_NUM_CHANNELS_PER_TIMER-1) ) return;
+	size_t curr_struct_index = (first_timer_index * IOCX_NUM_CHANNELS_PER_TIMER) + first_channel_index;
+	size_t num_entries = (sizeof(timer_channel_ccr) / sizeof(timer_channel_ccr[0]))-1;
+	if ( channel_count > (num_entries - curr_struct_index) ) {
+		channel_count = num_entries - curr_struct_index;
+	}
+	uint16_t *p_curr_entry = &(timer_channel_ccr[first_timer_index][first_channel_index]);
+	int i;
+	for ( i = 0; i < channel_count; i++) {
+		*values++ = *p_curr_entry++;;
+	}
+}
 #endif
 
 /* PWM Mode signals are generated with a frequency determined by the value  */
 /* of the TIMx_ARR register and a duty cycle determined by the value of the */
 /* TIMx_CCRx register                                                       */
-/* NOTE:  Since the QuadEncoder interface also uses the ARR register, a     */
-/* single Timer's QuadEncoder interface and PWM Generator cannot be used    */
-/* simultaneously - unless the ARR register value works well for both.      */
 
-void HAL_PWM_Set_Rate(int channel, uint32_t frequency_us, uint32_t duty_cycle_us)
-{
-#ifdef ENABLE_PWM_GENERATION
-	uint32_t frequency = frequency_us * TIMER_TICKS_PER_MICROSECOND;
-	uint32_t duty_cycle = duty_cycle_us * TIMER_TICKS_PER_MICROSECOND;
-	if ( channel < sizeof(pwm_timer_channels)/sizeof(pwm_timer_channels[0])) {
-		__HAL_TIM_SetAutoreload(pwm_timer_channels[channel].p_tim_handle, duty_cycle);
-		__HAL_TIM_SetCompare(pwm_timer_channels[channel].p_tim_handle,
-				pwm_timer_channels[channel].tim_channel_number, frequency);
-	}
-#endif
-}
-
-void HAL_PWM_Enable(int channel, int enable)
-{
-#ifdef ENABLE_PWM_GENERATION
-	if ( channel < sizeof(pwm_timer_channels)/sizeof(pwm_timer_channels[0])) {
-		if ( enable != 0 ) {
-			HAL_TIM_PWM_Start(pwm_timer_channels[channel].p_tim_handle,
-					pwm_timer_channels[channel].tim_channel_number);
-		} else {
-			HAL_TIM_PWM_Stop(pwm_timer_channels[channel].p_tim_handle,
-					pwm_timer_channels[channel].tim_channel_number);
-		}
-	}
-#endif
-}
-
-int HAL_PWM_Get_Num_Channels()
-{
-#ifdef ENABLE_PWM_GENERATION
-	return sizeof(pwm_timer_channels)/sizeof(pwm_timer_channels[0]);
-#else
-	return 0;
-#endif
-}
-
-#ifdef ENABLE_QUAD_DECODERS
-TIM_HandleTypeDef *p_quad_encoder_channels[4] =
-{
-		&htim1,
-		&htim2,
-		&htim3,
-		&htim4
-};
-#endif
-
-uint32_t HAL_QuadEncoder_Get_Count(int channel)
-{
-#ifdef ENABLE_QUAD_DECODERS
-	uint32_t curr_count;
-	if (channel < (sizeof(p_quad_encoder_channels)/sizeof(p_quad_encoder_channels[0]))){
-		curr_count = __HAL_TIM_GetCounter(p_quad_encoder_channels[channel]);
-	} else {
-		curr_count = 0;
-	}
-	return curr_count;
-#else
-	return 0;
-#endif
-}
-
-int HAL_QuadEncoder_Get_Num_Channels()
-{
-#ifdef ENABLE_QUAD_DECODERS
-	return (sizeof(p_quad_encoder_channels)/sizeof(p_quad_encoder_channels[0]));
-#else
-	return 0;
-#endif
-}
-
-#define BOTH_ENCODER_TIMER_CHANNELS 0xFF /*(TIM_CHANNEL_1 and TIM_CHANNEL_2)*/
-
-/* Quad Encoder pulses are input on Timer Channel 1 and 2.  Direction is    */
-/* determined by the DIR bit; the direction cause the count to be increased */
-/* or decreased.  The CNT register contains the current count.  The CNT     */
-/* register is reset to 0 when it's value reaches that of the ARR register. */
-/*                                                                          */
-/* NOTE:  Since the PWM Generator also uses the ARR register, a single      */
-/* Timer's QuadEncoder interface and PWM Generator cannot be used           */
-/* simultaneously - unless the ARR register value works well for both.      */
-
-void HAL_QuadEncoder_Enable(int channel, int enable)
-{
-#ifdef ENABLE_QUAD_DECODERS
-	if (channel < (sizeof(p_quad_encoder_channels)/sizeof(p_quad_encoder_channels[0]))){
-		if (enable != 0 ) {
-			/* Be sure to configure the auto-reload register (ARR) to the max possible value. */
-			p_quad_encoder_channels[channel]->Instance->ARR = 0xFFFF;
-			HAL_TIM_Encoder_Start(p_quad_encoder_channels[channel], BOTH_ENCODER_TIMER_CHANNELS);
-		} else {
-			HAL_TIM_Encoder_Stop(p_quad_encoder_channels[channel], BOTH_ENCODER_TIMER_CHANNELS);
-		}
-	}
-#endif
-}
 
 /***************************************************************************/
 /* ADC section                                                             */
@@ -414,22 +604,38 @@ void HAL_QuadEncoder_Enable(int channel, int enable)
 /* data from the currently inactive buffer, avoiding contention.           */
 /***************************************************************************/
 
+#ifdef ENABLE_ADC
 #define ADC_CLOCK_FREQUENCY 24000000
 #define ADC_CLOCKS_PER_SAMPLE 40
-#define ADC_NUM_CHANNELS 4
+#define ADC_NUM_CHANNELS 6
+#define ADC_CHANNEL_ANALOG_VOLTAGE_SWITCH 4
+#define ADC_CHANNEL_EXT_POWER_VOLTAGE_DIV 5
+/* NOTE:  The last two ADC channels are reserved for internal use; the preceding  */
+/* ADC channels are user GPIOs.                                                   */
+/* The next-to-last channel is the 5V vs 3.3V Analog Input Voltage measure        */
+/*   (if this value is > 2.5V, then the Analog Voltage Input High Level is 5V)    */
+/* The last channel measures the 12VDC input voltage (w/a voltage divider 4.45:1, */
+/*   to ensure that the max voltage does not exceed 3.3V).                        */
 
-ADC_Samples adc_samples[100];
+typedef struct {
+	uint16_t data[ADC_NUM_CHANNELS];
+} ADC_Samples;
+
+#define MAX_NUM_ADC_SAMPLES 100
+ADC_Samples adc_samples[MAX_NUM_ADC_SAMPLES];
 int adc_enabled = 0;
+#endif
 
-/* Danger!!!!!:  as of 8/27/2016, HAL_ADC_Enable() was found to be overwriting */
-/* expected memory and causing a hard fault!                                   */
+/* Note:  ADC DMA is configured for 16-bit words.  The "Length" Parameter to HAL_ADC_Start_DMA */
+/* below is the number of 16-bit words transferred - NOT the number of bytes.                  */
 
-void HAL_ADC_Enable(int enable)
+void HAL_IOCX_ADC_Enable(int enable)
 {
 #ifdef ENABLE_ADC
 	if ( (adc_enabled == 0) && (enable != 0) ) {
 		memset(&adc_samples,0, sizeof(adc_samples));
-		HAL_StatusTypeDef status = HAL_ADC_Start_DMA(&hadc1, (uint32_t *)&adc_samples, sizeof(adc_samples));
+		HAL_StatusTypeDef status = HAL_ADC_Start_DMA(&hadc1,
+				(uint32_t *)&adc_samples, sizeof(adc_samples) / sizeof(uint16_t));
 		adc_enabled = ( status == HAL_OK ) ? 1 : 0;
 	} else {
 		if (adc_enabled != 0) {
@@ -439,31 +645,76 @@ void HAL_ADC_Enable(int enable)
 #endif
 }
 
-void HAL_ADC_Get_Samples( ADC_Samples* p_samples, uint8_t n_samples_to_average )
+void HAL_IOCX_ADC_Get_Samples( int start_channel, int n_channels, uint16_t* p_samples, uint8_t n_samples_to_average )
 {
 #ifdef ENABLE_ADC
+	/* Range-check inputs */
 	if ( n_samples_to_average > (sizeof(adc_samples)/sizeof(adc_samples[0]))) {
 		n_samples_to_average = (sizeof(adc_samples)/sizeof(adc_samples[0]));
 	}
-	uint32_t accum[ADC_NUM_CHANNELS] = {0,0,0,0};
+	if (start_channel > (ADC_NUM_CHANNELS-1)) {
+		return;
+	}
+	if ((start_channel + n_channels) > (ADC_NUM_CHANNELS-1)) {
+		n_channels = ADC_NUM_CHANNELS - start_channel;
+	}
+	if (n_samples_to_average > MAX_NUM_ADC_SAMPLES ) {
+		n_samples_to_average = MAX_NUM_ADC_SAMPLES;
+	}
+	/* Zero Accumulator */
+	uint32_t accum[ADC_NUM_CHANNELS];
 	int i, j;
+	for ( i = 0; i < ADC_NUM_CHANNELS; i++ ) {
+		accum[i] = 0;
+	}
+	/* Accumulate */
 	for ( i = 0; i < n_samples_to_average; i++ ) {
-		for ( j = 0; j < ADC_NUM_CHANNELS; j++ ) {
-			accum[j] += adc_samples[i].data[j];
+		uint16_t *p_samples = &(adc_samples[i].data[start_channel]);
+		for ( j = 0; j < n_channels; j++ ) {
+			accum[j] += *p_samples++;
 		}
 	}
-	for ( i = 0; i < ADC_NUM_CHANNELS; i++ ) {
-		p_samples->data[i] = accum[i] / n_samples_to_average;
+	/* Average */
+	for ( i = 0; i < n_channels; i++ ) {
+		p_samples[i] = accum[i] / n_samples_to_average;
 	}
 #endif
 }
 
-int HAL_ADC_Get_Num_Channels()
+#define ADC_VOLTAGE_SAMPLES_TO_AVG 10
+/* Returns 0 if 3.3V, non-zero of 5V VDA */
+int HAL_IOCX_ADC_Voltage_5V( int n_samples_to_average )
 {
 #ifdef ENABLE_ADC
-	return ADC_NUM_CHANNELS;
+	if ( adc_enabled ) {
+		uint16_t sample;
+		HAL_IOCX_ADC_Get_Samples(ADC_CHANNEL_ANALOG_VOLTAGE_SWITCH, 1, &sample, ADC_VOLTAGE_SAMPLES_TO_AVG);
+		return (sample > 3500) ? 1 : 0;
+	} else {
+		return 0;
+	}
 #else
-	return 0;
+    return 0;
+#endif
+}
+
+#define ADC_EXT_POWER_SAMPLES_TO_AVG 10
+const float vdiv_ratio = 3.24f / (11.5f + 3.24f);
+
+float HAL_IOCX_Get_ExtPower_Voltage()
+{
+#ifdef ENABLE_ADC
+	if ( adc_enabled ) {
+		uint16_t sample;
+		HAL_IOCX_ADC_Get_Samples(ADC_CHANNEL_EXT_POWER_VOLTAGE_DIV, 1, &sample, ADC_EXT_POWER_SAMPLES_TO_AVG);
+		float ext_pwr_voltage = (((float)sample) / 4096) * 3.3f;
+		ext_pwr_voltage *= (1.0f/vdiv_ratio);
+		return ext_pwr_voltage;
+	} else {
+		return 0.0f;
+	}
+#else
+    return 0.0f;
 #endif
 }
 
@@ -491,7 +742,9 @@ void HAL_MCP25625_Wake()
 #define MCP25625_STATUS_REG 0x0E
 #define MCP25625_CTL_REG    0x0F
 
+#ifdef ENABLE_CAN_TRANSCEIVER
 extern SPI_HandleTypeDef hspi2; /* TODO:  Relocate this */
+#endif
 
 void HAL_MCP25625_Test()
 {

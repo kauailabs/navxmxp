@@ -59,7 +59,7 @@ void MX_ADC1_Init(void)
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 4;
+  hadc1.Init.NbrOfConversion = 6;
   hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.EOCSelection = EOC_SEQ_CONV;
   HAL_ADC_Init(&hadc1);
@@ -92,6 +92,19 @@ void MX_ADC1_Init(void)
   sConfig.SamplingTime = ADC_SAMPLETIME_28CYCLES; /* Set to 28 cycles to reduce sampling noise. */
   HAL_ADC_ConfigChannel(&hadc1, &sConfig);
 
+  /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_10;
+  sConfig.Rank = 5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_28CYCLES; /* Set to 28 cycles to reduce sampling noise. */
+  HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+
+  /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_11;
+  sConfig.Rank = 6;
+  sConfig.SamplingTime = ADC_SAMPLETIME_28CYCLES; /* Set to 28 cycles to reduce sampling noise. */
+  HAL_ADC_ConfigChannel(&hadc1, &sConfig);
 }
 
 void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
@@ -106,13 +119,15 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
     /* Peripheral clock enable */
     __ADC1_CLK_ENABLE();
   
-    /**ADC1 GPIO Configuration    
+    /**ADC1 GPIO Configuration
+    PC0     ------> ADC1_IN10
+    PC1     ------> ADC1_IN11
     PC4     ------> ADC1_IN14
     PC5     ------> ADC1_IN15
     PB0     ------> ADC1_IN8
     PB1     ------> ADC1_IN9 
     */
-    GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5;
+    GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_4|GPIO_PIN_5;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
@@ -156,12 +171,14 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
     __ADC1_CLK_DISABLE();
   
     /**ADC1 GPIO Configuration    
+    PC0     ------> ADC1_IN10
+    PC1     ------> ADC1_IN11
     PC4     ------> ADC1_IN14
     PC5     ------> ADC1_IN15
     PB0     ------> ADC1_IN8
     PB1     ------> ADC1_IN9 
     */
-    HAL_GPIO_DeInit(GPIOC, GPIO_PIN_4|GPIO_PIN_5);
+    HAL_GPIO_DeInit(GPIOC, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_4|GPIO_PIN_5);
 
     HAL_GPIO_DeInit(GPIOB, GPIO_PIN_0|GPIO_PIN_1);
 

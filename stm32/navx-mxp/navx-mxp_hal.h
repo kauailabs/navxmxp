@@ -56,6 +56,8 @@ THE SOFTWARE.
 #	define GPIO_MAP_NAVX_PI
 #	define EXTERNAL_SPI_INTERFACE_MODE_0
 #	define NAVX_PI_BOARD_TEST /* Undef this for production. */
+#   define ENABLE_BANKED_REGISTERS
+#   define ENABLE_IOCX
 #else
 #   define NAVX_HARDWARE_REV 33         /* v. 3.3 EXPIO, v3.4, v3.5 */
 //  !ENABLE_USB_VBUS
@@ -104,26 +106,39 @@ void HAL_I2C_Power_Off();
 int  HAL_SPI_Slave_Enabled();
 int  HAL_UART_Slave_Enabled();
 
-/* PWM Generator Access */
-void HAL_PWM_Set_Rate(int channel, uint32_t frequency_us, uint32_t duty_cycle_us);
-void HAL_PWM_Enable(int channel, int enable);
-int HAL_PWM_Get_Num_Channels();
+/**********************/
+/* Reconfigurable IOs */
+/**********************/
 
-/* Quadrature Encoder Access */
-uint32_t HAL_QuadEncoder_Get_Count(int channel);
-void HAL_QuadEncoder_Enable(int channel, int enable);
-int HAL_QuadEncoder_Get_Num_Channels();
+/* GPIOs */
+void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config);
+void HAL_IOCX_GPIO_Get_Config(uint8_t first_gpio_index, int count, uint8_t *values);
+void HAL_IOCX_GPIO_Set(uint8_t gpio_index, uint8_t value);
+void HAL_IOCX_GPIO_Get(uint8_t first_gpio_index, int count, uint8_t *values);
 
-/* ADC Access */
+/* Timers (QuadEncoder/PWM) */
+void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config);
+void HAL_IOCX_TIMER_Set_Control(uint8_t timer_index, uint8_t* control); /* E.g., Reset Counter */
+void HAL_IOCX_TIMER_Enable_Clocks(uint8_t timer_index, int enable); /* Internal use only? */
+void HAL_IOCX_TIMER_Get_Config(uint8_t first_timer_index, int count, uint8_t *values);
+void HAL_IOCX_TIMER_Set_Prescaler(uint8_t timer_index, uint16_t ticks_per_clock);
+void HAL_IOCX_TIMER_Get_Prescaler(uint8_t first_timer_index, int count, uint16_t *values);
 
-#define NUM_NAVX_ADC_CHANNELS 4
-typedef struct {
-	uint16_t data[NUM_NAVX_ADC_CHANNELS];
-} ADC_Samples;
+/* Quad Encoder Data */
+void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, uint16_t *values);
 
-void HAL_ADC_Enable(int enable);
-void HAL_ADC_Get_Samples( ADC_Samples* p_samples, uint8_t n_samples_to_average );
-void HAL_ADC_Get_NumChannels();
+/* PWM Configuration */
+void HAL_IOCX_TIMER_PWM_Set_FramePeriod(uint8_t timer_index, uint16_t clocks_per_frame_period);
+void HAL_IOCX_TIMER_PWM_Get_FramePeriod(uint8_t first_timer_index, int count, uint16_t* values);
+void HAL_IOCX_TIMER_PWM_Set_DutyCycle(uint8_t timer_index, uint8_t channel_index, uint16_t clocks_per_active_period);
+void HAL_IOCX_TIMER_PWM_Get_DutyCycle(uint8_t first_timer_index, uint8_t first_channel_index, int count, uint16_t *values);
+
+/* ADC Access [DONE] */
+
+void HAL_IOCX_ADC_Enable(int enable);
+void HAL_IOCX_ADC_Get_Samples( int start_channel, int n_channels, uint16_t* p_samples, uint8_t n_samples_to_average );
+int HAL_IOCX_ADC_Voltage_5V(); /* Returns 0 if 3.3V, non-zero of 5V VDA */
+float HAL_IOCX_Get_ExtPower_Voltage();
 
 /* RN4020 Access */
 void HAL_RN4020_IO_Init();

@@ -7,38 +7,86 @@
 
 #include "NavXPiBoardTest.h"
 #include "navx-mxp_hal.h"
+#include "IOCXRegisters.h"
 
 NavXPiBoardTest::NavXPiBoardTest() {
 	/* Configure PWM output frequency */
-	/*
-	for ( int i = 0; i < HAL_PWM_Get_Num_Channels(); i++ ) {
-		HAL_PWM_Set_Rate(i, (i+1)*50,1000);
-		HAL_PWM_Enable(i,1);
-	}
-	*/
-	/* Enable PWM on those two channels not overlapping w/Quad Encoders */
-	//HAL_PWM_Enable(2,1);
-	//HAL_PWM_Enable(3,1);
+	uint8_t gpio_cfg = 0;
+	iocx_encode_gpio_type(&gpio_cfg, GPIO_TYPE_AF);
+	HAL_IOCX_GPIO_Set_Config(0, gpio_cfg);
+	HAL_IOCX_GPIO_Set_Config(1, gpio_cfg);
+	HAL_IOCX_GPIO_Set_Config(2, gpio_cfg);
+	HAL_IOCX_GPIO_Set_Config(3, gpio_cfg);
+
+	HAL_IOCX_TIMER_Set_Prescaler(4,48);
+	HAL_IOCX_TIMER_PWM_Set_FramePeriod(4, 20000);
+	HAL_IOCX_TIMER_PWM_Set_DutyCycle(4, 0, 1000);
+	HAL_IOCX_TIMER_PWM_Set_DutyCycle(4, 1, 2000);
+	HAL_IOCX_TIMER_Set_Prescaler(5,48);
+	HAL_IOCX_TIMER_PWM_Set_FramePeriod(5, 20000);
+	HAL_IOCX_TIMER_PWM_Set_DutyCycle(5, 0, 3000);
+	HAL_IOCX_TIMER_PWM_Set_DutyCycle(5, 1, 4000);
+	uint8_t timer_cfg = 0;
+	iocx_encode_timer_mode(&timer_cfg, TIMER_MODE_PWM_OUT);
+	HAL_IOCX_TIMER_Set_Config(4, timer_cfg);
+	HAL_IOCX_TIMER_Set_Config(5, timer_cfg);
+
 	/* Enable all Quad Encoder interfaces */
-    HAL_QuadEncoder_Enable(0,1);
-	HAL_QuadEncoder_Enable(1,1);
-	HAL_QuadEncoder_Enable(2,1);
-	HAL_QuadEncoder_Enable(3,1);
+	iocx_encode_gpio_type(&gpio_cfg, GPIO_TYPE_AF);
+	HAL_IOCX_GPIO_Set_Config(4, gpio_cfg);
+	HAL_IOCX_GPIO_Set_Config(5, gpio_cfg);
+	HAL_IOCX_GPIO_Set_Config(6, gpio_cfg);
+	HAL_IOCX_GPIO_Set_Config(7, gpio_cfg);
+	HAL_IOCX_GPIO_Set_Config(8, gpio_cfg);
+	HAL_IOCX_GPIO_Set_Config(9, gpio_cfg);
+	HAL_IOCX_GPIO_Set_Config(10, gpio_cfg);
+	HAL_IOCX_GPIO_Set_Config(11, gpio_cfg);
+	HAL_IOCX_GPIO_Set_Config(12, gpio_cfg);
+	HAL_IOCX_GPIO_Set_Config(13, gpio_cfg);
+	HAL_IOCX_GPIO_Set_Config(14, gpio_cfg);
+	HAL_IOCX_GPIO_Set_Config(15, gpio_cfg);
+
+#if 0
+	iocx_encode_timer_mode(&timer_cfg, TIMER_MODE_QUAD_ENCODER);
+#else
+	iocx_encode_timer_mode(&timer_cfg, TIMER_MODE_PWM_OUT);
+	HAL_IOCX_TIMER_Set_Prescaler(0,48);
+	HAL_IOCX_TIMER_PWM_Set_FramePeriod(0, 20000);
+	HAL_IOCX_TIMER_PWM_Set_DutyCycle(0, 0, 5000);
+	HAL_IOCX_TIMER_PWM_Set_DutyCycle(0, 1, 6000);
+	HAL_IOCX_TIMER_Set_Prescaler(1,48);
+	HAL_IOCX_TIMER_PWM_Set_FramePeriod(1, 20000);
+	HAL_IOCX_TIMER_PWM_Set_DutyCycle(1, 0, 7000);
+	HAL_IOCX_TIMER_PWM_Set_DutyCycle(1, 1, 8000);
+	HAL_IOCX_TIMER_Set_Prescaler(2,48);
+	HAL_IOCX_TIMER_PWM_Set_FramePeriod(2, 20000);
+	HAL_IOCX_TIMER_PWM_Set_DutyCycle(2, 0, 9000);
+	HAL_IOCX_TIMER_PWM_Set_DutyCycle(2, 1,10000);
+	HAL_IOCX_TIMER_Set_Prescaler(3,48);
+	HAL_IOCX_TIMER_PWM_Set_FramePeriod(3, 20000);
+	HAL_IOCX_TIMER_PWM_Set_DutyCycle(3, 0,11000);
+	HAL_IOCX_TIMER_PWM_Set_DutyCycle(3, 1,12000);
+#endif
+	HAL_IOCX_TIMER_Set_Config(0, timer_cfg);
+	HAL_IOCX_TIMER_Set_Config(1, timer_cfg);
+	HAL_IOCX_TIMER_Set_Config(2, timer_cfg);
+	HAL_IOCX_TIMER_Set_Config(3, timer_cfg);
+
 	/* Enable the ADC */
-	//HAL_ADC_Enable(1); /* Danger:  as of 8/27/2016, this was found to be overwriting */
-	/* expected memory and causing a hard fault! */
+	HAL_IOCX_ADC_Enable(1);
 }
 
 NavXPiBoardTest::~NavXPiBoardTest() {
 }
 
-#define NUM_AVERAGED_SAMPLES 10
-
-static ADC_Samples test_adc_samples;
-uint32_t quad_encoder_count[4];
+static uint16_t adc_samples[4];
+static uint16_t encoder_counts[4];
+static bool is_adc_5V = false;
+static float ext_pwr_voltage = 0.0f;
 void NavXPiBoardTest::loop() {
-	for ( int i = 0; i < 4; i++ ) {
-		quad_encoder_count[i] = HAL_QuadEncoder_Get_Count(i);
-	}
-	HAL_ADC_Get_Samples(&test_adc_samples, NUM_AVERAGED_SAMPLES);
+	HAL_IOCX_ADC_Get_Samples(0, 4, adc_samples, 10);
+	HAL_IOCX_TIMER_Get_Count(2, 4, encoder_counts);
+
+	is_adc_5V = (HAL_IOCX_ADC_Voltage_5V() != 0);
+	ext_pwr_voltage = HAL_IOCX_Get_ExtPower_Voltage();
 }

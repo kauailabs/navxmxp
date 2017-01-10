@@ -21,8 +21,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ===============================================
 */
-#ifndef NAVX_MXP_H_
-#define NAVX_MXP_H_
+#ifndef IOCX_H_
+#define IOCX_H_
 
 #ifdef __cplusplus
 #define _EXTERN_ATTRIB extern "C"
@@ -30,14 +30,11 @@ THE SOFTWARE.
 #define _EXTERN_ATTRIB
 #endif
 
-typedef void (*loop_func)();
-typedef uint8_t *(*register_lookup_func)(uint8_t bank, uint8_t register_offset, uint16_t* size );
-typedef void (*register_write_func)(uint8_t bank, uint8_t register_offset, uint8_t *p_reg, uint8_t count, uint8_t *p_new_data );
+#include <stdint.h>
 
-_EXTERN_ATTRIB void nav10_init();
-_EXTERN_ATTRIB void nav10_main();
-_EXTERN_ATTRIB void nav10_set_loop(loop_func);
-_EXTERN_ATTRIB void nav10_set_register_lookup_func(register_lookup_func);
-_EXTERN_ATTRIB void nav10_set_register_write_func(register_write_func);
+_EXTERN_ATTRIB void IOCX_init();
+_EXTERN_ATTRIB void IOCX_loop();
+_EXTERN_ATTRIB uint8_t *IOCX_get_reg_addr_and_max_size( uint8_t bank, uint8_t register_offset, uint16_t* size );
+_EXTERN_ATTRIB void IOCX_banked_writable_reg_update_func(uint8_t bank, uint8_t reg_offset, uint8_t *p_reg, uint8_t count, uint8_t *p_new_values );
 
-#endif /* NAVX_MXP_H_ */
+#endif /* IOCX_H_ */

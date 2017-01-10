@@ -117,7 +117,7 @@
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="MPU9250"/>
 						<entry excluding="ST/STM32_USB_Device_Library/Core/Src/usbd_conf_template.c" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="Middlewares"/>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="Src"/>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="navx-mxp"/>
+						<entry excluding="NavXSPIMessage.cpp|NavXPiBoardTest.cpp|IOCXClient.cpp|IOCX.cpp" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="navx-mxp"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="startup_src"/>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="wirish"/>
 					</sourceEntries>
@@ -232,7 +232,7 @@
 						</tool>
 					</fileInfo>
 					<sourceEntries>
-						<entry excluding="Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_conf_template.c|Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_msp_template.c|FlashStorage" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="navx-mxp/NavXSPIMessage.cpp|navx-mxp/NavXPiBoardTest.cpp|navx-mxp/IOCXClient.cpp|navx-mxp/IOCX.cpp|Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_conf_template.c|Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_msp_template.c|FlashStorage" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="FlashStorage"/>
 					</sourceEntries>
 				</configuration>
@@ -355,7 +355,7 @@
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="MPU9250"/>
 						<entry excluding="ST/STM32_USB_Device_Library/Core/Src/usbd_conf_template.c" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="Middlewares"/>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="Src"/>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="navx-mxp"/>
+						<entry excluding="NavXSPIMessage.cpp|NavXPiBoardTest.cpp|IOCXClient.cpp|IOCX.cpp" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="navx-mxp"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="startup_src"/>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="wirish"/>
 					</sourceEntries>
@@ -479,7 +479,7 @@
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="MPU9250"/>
 						<entry excluding="ST/STM32_USB_Device_Library/Core/Src/usbd_conf_template.c" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="Middlewares"/>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="Src"/>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="navx-mxp"/>
+						<entry excluding="NavXSPIMessage.cpp|NavXPiBoardTest.cpp|IOCXClient.cpp|IOCX.cpp" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="navx-mxp"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="startup_src"/>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="wirish"/>
 					</sourceEntries>
@@ -603,7 +603,7 @@
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="MPU9250"/>
 						<entry excluding="ST/STM32_USB_Device_Library/Core/Src/usbd_conf_template.c" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="Middlewares"/>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="Src"/>
-						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="navx-mxp"/>
+						<entry excluding="NavXSPIMessage.cpp|NavXPiBoardTest.cpp|IOCXClient.cpp|IOCX.cpp" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="navx-mxp"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="startup_src"/>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="wirish"/>
 					</sourceEntries>
@@ -718,7 +718,7 @@
 						</tool>
 					</fileInfo>
 					<sourceEntries>
-						<entry excluding="Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_conf_template.c|Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_msp_template.c|FlashStorage" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="navx-mxp/NavXSPIMessage.cpp|navx-mxp/NavXPiBoardTest.cpp|navx-mxp/IOCXClient.cpp|navx-mxp/IOCX.cpp|Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_conf_template.c|Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_msp_template.c|FlashStorage" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="FlashStorage"/>
 					</sourceEntries>
 				</configuration>
@@ -834,6 +834,18 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<fileInfo id="cdt.managedbuild.config.gnu.cross.exe.debug.1980068213.1039400770.994895904" name="IOCXClient.cpp" rcbsApplicability="disable" resourcePath="navx-mxp/IOCXClient.cpp" toolsToInvoke="cdt.managedbuild.tool.gnu.cross.cpp.compiler.1373305468.1741652051">
+						<tool id="cdt.managedbuild.tool.gnu.cross.cpp.compiler.1373305468.1741652051" name="Cross G++ Compiler" superClass="cdt.managedbuild.tool.gnu.cross.cpp.compiler.1373305468">
+							<option id="gnu.cpp.compiler.option.other.other.16977979" name="Other flags" superClass="gnu.cpp.compiler.option.other.other" value="-c -mthumb -mcpu=cortex-m3 -ffunction-sections -fdata-sections -gdwarf-2  -march=armv7-m -std=c++0x " valueType="string"/>
+							<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.1337108222" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
+						</tool>
+						<tool customBuildStep="true" id="org.eclipse.cdt.managedbuilder.ui.rcbs.1181414541" name="Resource Custom Build Step">
+							<inputType id="org.eclipse.cdt.managedbuilder.ui.rcbs.inputtype.1862808525" name="Resource Custom Build Step Input Type">
+								<additionalInput kind="additionalinputdependency" paths=""/>
+							</inputType>
+							<outputType id="org.eclipse.cdt.managedbuilder.ui.rcbs.outputtype.589354670" name="Resource Custom Build Step Output Type"/>
+						</tool>
+					</fileInfo>
 					<sourceEntries>
 						<entry excluding="navx-mxp|Drivers|MPU9250|Src|startup_src|mapleSDfat|Middlewares|FlashStorage|wirish" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 						<entry excluding="STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_msp_template.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>

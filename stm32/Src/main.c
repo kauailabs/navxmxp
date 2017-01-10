@@ -37,8 +37,12 @@
 #include "usb_device.h"
 /* USER CODE BEGIN Includes */
 #include "navx-mxp.h"
+#include "iocx.h"
 #include "navx-mxp_hal.h"
+#ifdef ENABLE_IOCX
 #include "gpio_navx-pi.h"
+#include "adc_navx-pi.h"
+#endif
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -65,6 +69,7 @@ static void MX_DMA_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_I2C3_Init(void);
 static void MX_SPI1_Init(void);
+static void MX_SPI2_Init(void);
 static void MX_USART6_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
@@ -162,14 +167,6 @@ int main(void)
     //HAL_MCP25625_Test();
 #endif
 
-#if (defined(ENABLE_QUAD_DECODERS) || defined(ENABLE_PWM_GENERATION))
-    MX_TIM1_Init();
-    MX_TIM2_Init();
-    MX_TIM3_Init();
-    MX_TIM4_Init();
-    MX_TIM5_Init();
-#endif
-
 #if defined(ENABLE_ADC)
     MX_ADC1_Init();
 #endif
@@ -177,6 +174,12 @@ int main(void)
     MX_USB_DEVICE_Init();
     /* USER CODE BEGIN 2 */
     nav10_init();
+#ifdef ENABLE_IOCX
+    iocx_init();
+    nav10_set_loop(IOCX_loop);
+    nav10_set_register_lookup_func(IOCX_get_reg_addr_and_max_size);
+    nav10_set_register_write_func(IOCX_banked_writable_reg_update_func);
+#endif
     /* USER CODE END 2 */
 
     nav10_main();
