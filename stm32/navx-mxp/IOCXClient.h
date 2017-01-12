@@ -36,7 +36,6 @@ public:
 	bool get_capability_flags(uint16_t& value);
 	bool get_interrupt_config(uint16_t& value);
 	bool get_gpio_interrupt_status(uint16_t& value);
-	bool get_external_power_voltage(uint16_t& value);
 	bool get_timer_config(int timer_index, IOCX_TIMER_MODE& mode);
 	bool set_timer_config(int timer_index, IOCX_TIMER_MODE mode);
 	bool get_timer_control(int timer_index, IOCX_TIMER_COUNTER_RESET& mode);
