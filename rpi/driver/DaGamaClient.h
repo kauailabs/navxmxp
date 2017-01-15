@@ -9,7 +9,7 @@
 #define DAGAMACLIENT_H_
 
 #include <stdint.h>
-#include "../stm32/navx-mxp/IOCXClient.h"
+#include "IOCXClient.h"
 
 class DaGamaClient : public IOCXClient {
 private:
