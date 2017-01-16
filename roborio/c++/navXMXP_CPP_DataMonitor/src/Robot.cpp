@@ -47,9 +47,17 @@ private:
         table = NetworkTable::GetTable("datatable");
         lw = LiveWindow::GetInstance();
         try {
-            /* Communicate w/navX MXP via the MXP SPI Bus.                                       */
-            /* Alternatively:  I2C::Port::kMXP, SerialPort::Port::kMXP or SerialPort::Port::kUSB */
-            /* See http://navx-mxp.kauailabs.com/guidance/selecting-an-interface/ for details.   */
+			/***********************************************************************
+			 * navX-MXP:
+			 * - Communication via RoboRIO MXP (SPI, I2C, TTL UART) and USB.
+			 * - See http://navx-mxp.kauailabs.com/guidance/selecting-an-interface.
+			 *
+			 * navX-Micro:
+			 * - Communication via I2C (RoboRIO MXP or Onboard) and USB.
+			 * - See http://navx-micro.kauailabs.com/guidance/selecting-an-interface.
+			 *
+			 * Multiple navX-model devices on a single robot are supported.
+			 ************************************************************************/
             ahrs = new AHRS(SPI::Port::kMXP);
         } catch (std::exception& ex ) {
             std::string err_string = "Error instantiating navX MXP:  ";
