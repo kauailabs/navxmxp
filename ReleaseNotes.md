@@ -6,7 +6,7 @@ Kauai Labs has been working with FIRST and National Instruments on an issue disc
 
 The issue occurs when writing to USB serial devices on the RoboRIO while simultaneously receiving data from the device.
 
-Updated FRC RoboRIO LabVIEW, C++ and Java Libraries containing a workaround for this issue are now available.
+[Updated FRC RoboRIO LabVIEW, C++ and Java Libraries](http://www.pdocs.kauailabs.com/navx-mxp/software/roborio-libraries/) containing a workaround for this issue are now available.
 
 <b>What do I need to do?</b>
 
