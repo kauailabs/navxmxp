@@ -21,7 +21,7 @@ public:
 	bool is_open() { return pigpio_initialized; }
 
 	virtual bool transmit(uint8_t *p_data, uint8_t len);
-	virtual bool receive(uint8_t *p_data, uint8_t len);
+	virtual bool transmit_and_receive(uint8_t *p_tx_data, uint8_t tx_len, uint8_t *p_rx_data, uint8_t rx_len);
 
 	virtual ~DaGamaClient();
 };

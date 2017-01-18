@@ -16,7 +16,7 @@ class IOCXClient {
 
 protected:
 	virtual bool transmit(uint8_t *p_data, uint8_t len){return false;}
-	virtual bool receive(uint8_t *p_data, uint8_t len) {return false;}
+	virtual bool transmit_and_receive(uint8_t *p_tx_data, uint8_t tx_len, uint8_t *p_rx_data, uint8_t rx_len) { return false; }
 	bool write(NavXSPIMessage& write);
 	bool read(NavXSPIMessage& request, uint8_t *p_response, uint8_t response_len);
 	template<typename T> bool read(uint8_t bank, uint8_t offset, T& response);

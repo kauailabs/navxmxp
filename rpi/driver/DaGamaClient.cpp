@@ -5,9 +5,12 @@
  *      Author: pi
  */
 
+#include <mutex>
 #include <stdio.h>
 #include <pigpio.h>
 #include "DaGamaClient.h"
+
+static std::mutex imu_mutex;
 
 DaGamaClient::DaGamaClient() {
 	int ret = gpioInitialise();
@@ -51,8 +54,7 @@ DaGamaClient::~DaGamaClient() {
 	}
 }
 
-bool DaGamaClient::transmit(uint8_t *p_data, uint8_t len)
-{
+static bool transmit_internal(int spi_handle, uint8_t *p_data, uint8_t len) {
 	if(spi_handle == PI_BAD_HANDLE) return false;
 	int write_ret = spiWrite(spi_handle, (char *)p_data, len);
 	if ( write_ret < 0 ) {
@@ -64,8 +66,7 @@ bool DaGamaClient::transmit(uint8_t *p_data, uint8_t len)
 	return (write_ret == len);
 }
 
-bool DaGamaClient::receive(uint8_t *p_data, uint8_t len)
-{
+bool receive_internal(int spi_handle, uint8_t *p_data, uint8_t len) {
 	if(spi_handle == PI_BAD_HANDLE) return false;
 	int read_ret = spiRead(spi_handle,(char *)p_data, len);
 	if ( read_ret < 0 ) {
@@ -74,6 +75,22 @@ bool DaGamaClient::receive(uint8_t *p_data, uint8_t len)
 	   //printf("Read %d bytes over SPI interface.\n", read_ret);
 	}
 	return (read_ret == len);
+}
+
+bool DaGamaClient::transmit(uint8_t *p_data, uint8_t len)
+{
+	std::unique_lock<std::mutex> sync(imu_mutex);
+	return transmit_internal(spi_handle, p_data, len);
+}
+
+bool DaGamaClient::transmit_and_receive(uint8_t *p_tx_data, uint8_t tx_len, uint8_t *p_rx_data, uint8_t rx_len)
+{
+	std::unique_lock<std::mutex> sync(imu_mutex);
+	if(transmit_internal(spi_handle, p_tx_data, tx_len)) {
+		return receive_internal(spi_handle, p_rx_data, rx_len);
+	} else {
+		return false;
+	}
 }
 
 

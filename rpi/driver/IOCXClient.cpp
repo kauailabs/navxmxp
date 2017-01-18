@@ -20,8 +20,7 @@ bool IOCXClient::write(NavXSPIMessage& request)
 
 bool IOCXClient::read(NavXSPIMessage& request, uint8_t *p_response, uint8_t response_len)
 {
-	if (write(request) &&
-	   receive(p_response, response_len)){
+	if (transmit_and_receive(request.get_packet_ptr(), request.get_packet_size(), p_response, response_len)){
 		if (NavXSPIMessage::validate_read_response(p_response,response_len)){
 			return true;
 		} else {
