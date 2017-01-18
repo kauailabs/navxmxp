@@ -8,6 +8,7 @@
 #include <stdio.h>
 
 #include "DaGamaClient.h"
+#include "AHRS.h"
 #include <pigpio.h>
 #include <unistd.h> /* sleep() */
 #include <time.h> /* nanosleep() */
@@ -23,6 +24,8 @@ void test_navx_pi_ext_i2c();
 int main(int argc, char *argv[])
 {
 	DaGamaClient client;
+	uint8_t update_rate_hz = 200;
+	AHRS ahrs(&client, update_rate_hz);
 	if(client.is_open()) {
 
 		const int first_stm32_gpio = 0;
