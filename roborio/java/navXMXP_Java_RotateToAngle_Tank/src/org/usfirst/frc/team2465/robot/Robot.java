@@ -20,7 +20,7 @@ import edu.wpi.first.wpilibj.livewindow.LiveWindow;
  * If Left Joystick Button 0 is pressed, a "turn" PID controller will 
  * set to point to a target angle, and while the button is held the drive
  * system will rotate to that angle (NOTE:  tank drive systems cannot simultaneously
- * move forward/reverse while rotating)..
+ * move forward/reverse while rotating).
  *
  * This example also includes a feature allowing the driver to "reset"
  * the "yaw" angle.  When the reset occurs, the new gyro angle will be
@@ -113,8 +113,8 @@ public class Robot extends SampleRobot implements PIDOutput {
         			rotateToAngleRate = 0; // This value will be updated in the pidWrite() method.
         			turnController.enable();
         		}
-        		double leftStickValue = leftStick.getY() + rotateToAngleRate;
-        		double rightStickValue = rightStick.getY() - rotateToAngleRate;
+        		double leftStickValue = rotateToAngleRate;
+        		double rightStickValue = rotateToAngleRate;
         		myRobot.tankDrive(leftStickValue,  rightStickValue);
         	} else if ( leftStick.getRawButton(1)) {
         		/* "Zero" the yaw (whatever direction the sensor is 
