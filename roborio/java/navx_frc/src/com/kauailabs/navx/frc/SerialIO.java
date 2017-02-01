@@ -40,9 +40,13 @@ class SerialIO implements IIOProvider {
     double last_valid_packet_time;
 
     final boolean debug = false; /* Set to true to enable debug output (to smart dashboard) */
+    boolean is_usb;
     
     public SerialIO( SerialPort.Port port_id, byte update_rate_hz, boolean processed_data, IIOCompleteNotification notify_sink, IBoardCapabilities board_capabilities ) {
         this.serial_port_id = port_id;
+        is_usb = ((port_id == SerialPort.Port.kUSB) ||
+        		  (port_id == SerialPort.Port.kUSB1)||
+        		  (port_id == SerialPort.Port.kUSB2));
         ypr_update_data = new IMUProtocol.YPRUpdate();
         gyro_update_data = new IMUProtocol.GyroUpdate();
         ahrs_update_data = new AHRSProtocol.AHRSUpdate();
@@ -204,6 +208,12 @@ class SerialIO implements IIOProvider {
         while (!stop) {
             try {
 
+            	if( serial_port == null) {
+                    double update_rate = 1.0/((double)((int)(this.update_rate_hz & 0xFF)));
+            		Timer.delay(update_rate);
+            		resetSerialPort();
+            		continue;
+            	}
                 // Wait, with delays to conserve CPU resources, until
                 // bytes have arrived.
 
@@ -213,6 +223,11 @@ class SerialIO implements IIOProvider {
                     next_integration_control_action = 0;
                     cmd_packet_length = AHRSProtocol.encodeIntegrationControlCmd( integration_control_command, integration_control );
                     try {
+                    	/* Ugly Hack.  This is a workaround for ARTF5478:           */
+                    	/* (USB Serial Port Write hang if receive buffer not empty. */
+                    	if (is_usb) {
+                    		serial_port.reset();
+                    	}
                         serial_port.write( integration_control_command, cmd_packet_length );
                     } catch (RuntimeException ex2) {
                         ex2.printStackTrace();
@@ -473,6 +488,11 @@ class SerialIO implements IIOProvider {
                         try {
                             resetSerialPort();
                             last_stream_command_sent_timestamp = Timer.getFPGATimestamp();
+                        	/* Ugly Hack.  This is a workaround for ARTF5478:           */
+                        	/* (USB Serial Port Write hang if receive buffer not empty. */
+                        	if (is_usb) {
+                        		serial_port.reset();
+                        	}                            
                             serial_port.write( stream_command, cmd_packet_length );
                             cmd_packet_length = AHRSProtocol.encodeDataGetRequest( stream_command,  AHRSProtocol.AHRS_DATA_TYPE.BOARD_IDENTITY, (byte)0 ); 
                             serial_port.write( stream_command, cmd_packet_length );

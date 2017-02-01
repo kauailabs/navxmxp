@@ -18,6 +18,8 @@ SerialIO::SerialIO( SerialPort::Port port_id,
                     IIOCompleteNotification *notify_sink,
                     IBoardCapabilities *board_capabilities ) {
     this->serial_port_id = port_id;
+    is_usb = ((port_id != SerialPort::Port::kMXP) &&
+    		  (port_id != SerialPort::Port::kOnboard));
     ypr_update_data = {0};
     gyro_update_data = {0};
     ahrs_update_data = {};
@@ -185,6 +187,12 @@ void SerialIO::Run() {
     while (!stop) {
         try {
 
+        	if( serial_port == NULL) {
+                delayMillis(1000/update_rate_hz);
+        		ResetSerialPort();
+        		continue;
+        	}
+
             // Wait, with delays to conserve CPU resources, until
             // bytes have arrived.
 
@@ -195,6 +203,11 @@ void SerialIO::Run() {
                 next_integration_control_action = 0;
                 cmd_packet_length = AHRSProtocol::encodeIntegrationControlCmd( integration_control_command, integration_control );
                 try {
+                	/* Ugly Hack.  This is a workaround for ARTF5478:           */
+                	/* (USB Serial Port Write hang if receive buffer not empty. */
+                	if (is_usb) {
+                		serial_port->Reset();
+                	}
                     int num_written = serial_port->Write( integration_control_command, cmd_packet_length );
                     if ( num_written != cmd_packet_length ) {
                     	printf("Error writing integration control command.  Only %d of %d bytes were sent.\n", num_written, cmd_packet_length);
@@ -457,6 +470,11 @@ void SerialIO::Run() {
                     try {
                         ResetSerialPort();
                         last_stream_command_sent_timestamp = Timer::GetFPGATimestamp();
+                    	/* Ugly Hack.  This is a workaround for ARTF5478:           */
+                    	/* (USB Serial Port Write hang if receive buffer not empty. */
+                    	if (is_usb) {
+                    		serial_port->Reset();
+                    	}
                         serial_port->Write( stream_command, cmd_packet_length );
                         cmd_packet_length = AHRSProtocol::encodeDataGetRequest( stream_command,  AHRS_DATA_TYPE::BOARD_IDENTITY, AHRS_TUNING_VAR_ID::UNSPECIFIED );
                         serial_port->Write( stream_command, cmd_packet_length );
