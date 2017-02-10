@@ -66,8 +66,13 @@ void MX_GPIO_Init_NavX_PI(void)
   __GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pins : PEPin PEPin */
-  GPIO_InitStruct.Pin = NAVX_2_RPI_INT_Pin|_CAN_INT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pin = NAVX_2_RPI_INT_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = _CAN_INT_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 

@@ -50,6 +50,8 @@
 #define _CAN_INT_GPIO_Port GPIOE
 #define _I2C_DEV_ON_Pin GPIO_PIN_12
 #define _I2C_DEV_ON_GPIO_Port GPIOE
+#define CAN_CS_Pin GPIO_PIN_12
+#define CAN_CS_Port GPIOB
 #define MPU9250_INT_Pin GPIO_PIN_8
 #define MPU9250_INT_GPIO_Port GPIOD
 #define CAL_LED_Pin GPIO_PIN_9

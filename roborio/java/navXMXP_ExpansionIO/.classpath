@@ -5,5 +5,10 @@
 	<classpathentry kind="var" path="networktables" sourcepath="networktables.sources"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="var" path="navx-mxp"/>
+	<classpathentry kind="var" path="opencv" sourcepath="opencv.sources"/>
+	<classpathentry kind="var" path="cscore" sourcepath="cscore.sources"/>
+	<classpathentry kind="var" path="USERLIBS_DIR/navx_frc.jar"/>
+	<classpathentry kind="var" path="USERLIBS_DIR/sf2-frc.jar"/>
+	<classpathentry kind="var" path="USERLIBS_DIR/CTRLib.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

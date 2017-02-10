@@ -226,6 +226,7 @@ void EXTI9_5_IRQHandler(void)
 {
   HAL_NVIC_ClearPendingIRQ(EXTI9_5_IRQn);
 
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_7); /* MCP25625 Interrupt on navX-PI */
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_8); /* MPU9250 on navX-MXP, navX-PI */
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_9); /* CAL BTN on navX-MXP */
 }

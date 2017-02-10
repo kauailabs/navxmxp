@@ -43,6 +43,9 @@
 #include "gpio_navx-pi.h"
 #include "adc_navx-pi.h"
 #endif
+#ifdef ENABLE_CAN_TRANSCEIVER
+#include "CAN.h"
+#endif
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -163,8 +166,6 @@ int main(void)
 
 #ifdef ENABLE_CAN_TRANSCEIVER
     MX_SPI2_Init();
-    HAL_MCP25625_Wake();
-    //HAL_MCP25625_Test();
 #endif
 
 #if defined(ENABLE_ADC)
@@ -174,11 +175,19 @@ int main(void)
     MX_USB_DEVICE_Init();
     /* USER CODE BEGIN 2 */
     nav10_init();
+#ifdef ENABLE_CAN_TRANSCEIVER
+    CAN_init();
+    nav10_set_loop(CAN_loop);
+    nav10_set_register_lookup_func(CAN_get_reg_addr_and_max_size);
+    nav10_set_register_write_func(CAN_banked_writable_reg_update_func);
+#endif
+#if 0
 #ifdef ENABLE_IOCX
     iocx_init();
     nav10_set_loop(IOCX_loop);
     nav10_set_register_lookup_func(IOCX_get_reg_addr_and_max_size);
     nav10_set_register_write_func(IOCX_banked_writable_reg_update_func);
+#endif
 #endif
     /* USER CODE END 2 */
 
@@ -284,12 +293,11 @@ void MX_SPI2_Init(void)
   /* Configure for MODE 0 (which is used by the MCP25625) */
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi2.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi2.Init.NSS = SPI_NSS_SOFT; /* NOTE:  Software SPI Chip select used (HW CS doesn't work w/MCP256525) */
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8; /* APB1(48Mhz)/8 = 6Mhz.  MCP25625:  Max 10Mhz */
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLED;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLED;
-  hspi2.Init.CRCPolynomial = 10;
   HAL_SPI_Init(&hspi2);
 #endif
 }

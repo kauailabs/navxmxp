@@ -183,14 +183,14 @@ struct WritableRegSetGroup
 
 WritableRegSetGroup writable_reg_set_groups[] =
 {
-	{ gpio_reg_sets[0].start_offset,
-		gpio_reg_sets[SIZEOF_STRUCT(gpio_reg_sets)-1].start_offset + gpio_reg_sets[SIZEOF_STRUCT(gpio_reg_sets)-1].num_bytes,
-		gpio_reg_sets,
-		SIZEOF_STRUCT(gpio_reg_sets) },
 	{ timer_reg_sets[0].start_offset,
 		timer_reg_sets[SIZEOF_STRUCT(timer_reg_sets)-1].start_offset + timer_reg_sets[SIZEOF_STRUCT(timer_reg_sets)-1].num_bytes,
 		timer_reg_sets,
 		SIZEOF_STRUCT(timer_reg_sets) },
+	{ gpio_reg_sets[0].start_offset,
+		gpio_reg_sets[SIZEOF_STRUCT(gpio_reg_sets)-1].start_offset + gpio_reg_sets[SIZEOF_STRUCT(gpio_reg_sets)-1].num_bytes,
+		gpio_reg_sets,
+		SIZEOF_STRUCT(gpio_reg_sets) },
 };
 
 _EXTERN_ATTRIB void IOCX_banked_writable_reg_update_func(uint8_t bank, uint8_t reg_offset, uint8_t *p_reg, uint8_t count, uint8_t *p_new_values )
@@ -204,15 +204,17 @@ _EXTERN_ATTRIB void IOCX_banked_writable_reg_update_func(uint8_t bank, uint8_t r
 					if ((reg_offset >= p_set->start_offset) &&
 						(reg_offset < (p_set->start_offset + p_set->num_bytes))){
 						int first_offset = (reg_offset - p_set->start_offset);
+						int max_bytes_to_write_in_set = p_set->num_bytes-first_offset;
+						int num_bytes_in_set_to_modify = (count < max_bytes_to_write_in_set) ? count : max_bytes_to_write_in_set;
 						int num_bytes_in_set_changed = 0;
-						if ( count > 0 ) {
+						while (num_bytes_in_set_changed < num_bytes_in_set_to_modify )  {
 							*p_reg++ = *p_new_values++;
 							reg_offset++;
 							num_bytes_in_set_changed++;
 							count--;
 						}
-						if ((count == 0) || ( reg_offset == (p_set->start_offset + p_set->num_bytes))){
-							/* Either no more bytes to write, or at end of register group. */
+						if (num_bytes_in_set_changed > 0){
+							/* At least one byte in this set was modified. */
 							p_set->changed(first_offset, num_bytes_in_set_changed);
 						}
 					}

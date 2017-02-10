@@ -149,12 +149,6 @@ int HAL_RN4020_Get_RTS();
 void HAL_RN4020_Set_CTS(int value);
 void HAL_RN4020_Set_CMD_MLDP(int value);
 
-/* MCP25625 CAN Interface Access */
-void HAL_MCP25625_IO_Init();
-void HAL_MCP25625_Wake();
-void HAL_MCP25625_Sleep();
-void HAL_MCP25625_Test();
-
 #ifdef __cplusplus
 }
 #endif
