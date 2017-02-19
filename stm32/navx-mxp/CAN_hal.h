@@ -39,9 +39,9 @@ HAL_StatusTypeDef HAL_MCP25625_HW_Ctl_Set(void *value);
 HAL_StatusTypeDef HAL_MCP25625_HW_Ctl_Update(void *value);
 HAL_StatusTypeDef HAL_MCP25625_HW_Ctl_Get(void *result);
 HAL_StatusTypeDef HAL_MCP25625_HW_Data_Set(MCP25625_TX_BUFFER_INDEX num,
-		CAN_TRANSFER *tx_data);
+		CAN_TRANSFER_PADDED *tx_data);
 HAL_StatusTypeDef HAL_MCP25625_HW_Data_Get(MCP25625_RX_BUFFER_INDEX num,
-		CAN_TRANSFER *rx_data);
+		CAN_TRANSFER_PADDED *rx_data);
 HAL_StatusTypeDef HAL_MCP25625_HW_Filter_Set(MCP25625_RX_FILTER_INDEX reg,
 		CAN_ID *filter);
 HAL_StatusTypeDef HAL_MCP25625_HW_Mask_Set(MCP25625_RX_BUFFER_INDEX reg,

@@ -77,8 +77,8 @@ HAL_StatusTypeDef HAL_MCP25625_RTS(MCP25625_TX_BUFFER_INDEX tx_index) {
 }
 
 HAL_StatusTypeDef HAL_MCP25625_Read_Status(MCP25625_CAN_QUICK_STATUS* p_status) {
-	uint8_t faststatus_cmd[2];
-	uint8_t faststatus_resp[2];
+	uint8_t faststatus_cmd[3];
+	uint8_t faststatus_resp[3];
 	faststatus_cmd[0] = MCP25625_READ_STAT_CMD;
 	HAL_GPIO_WritePin( CAN_CS_Port, CAN_CS_Pin, GPIO_PIN_RESET);
 	HAL_StatusTypeDef spi_status = HAL_SPI_TransmitReceive(&hspi2,
@@ -93,8 +93,8 @@ HAL_StatusTypeDef HAL_MCP25625_Read_Status(MCP25625_CAN_QUICK_STATUS* p_status) 
 
 HAL_StatusTypeDef HAL_MCP25625_Get_Read_Rx_Status(
 		MCP25625_RX_STATUS_INFO* p_status) {
-	uint8_t faststatus_cmd[2] = {0,0};
-	uint8_t faststatus_resp[2] = {0,0};
+	uint8_t faststatus_cmd[3] = {0,0,0};
+	uint8_t faststatus_resp[3] = {0,0,0};
 	faststatus_cmd[0] = MCP25625_RX_STATUS_CMD;
 	HAL_GPIO_WritePin( CAN_CS_Port, CAN_CS_Pin, GPIO_PIN_RESET);
 	HAL_StatusTypeDef spi_status = HAL_SPI_TransmitReceive(&hspi2,
@@ -188,28 +188,23 @@ HAL_StatusTypeDef HAL_MCP25625_HW_Ctl_Get(void *result) {
 }
 
 HAL_StatusTypeDef HAL_MCP25625_HW_Data_Set(MCP25625_TX_BUFFER_INDEX num,
-		CAN_TRANSFER *tx_data) {
-	mcp25625_write_buffer[0] = MCP25625_LOAD_TX_CMD + MCP25625_TX( num );
-	memcpy(&mcp25625_write_buffer[1], tx_data, 13);
+		CAN_TRANSFER_PADDED *tx_data) {
+	tx_data->cmd = MCP25625_LOAD_TX_CMD + MCP25625_TX( num );
 	HAL_GPIO_WritePin( CAN_CS_Port, CAN_CS_Pin, GPIO_PIN_RESET);
-	HAL_StatusTypeDef status =  HAL_SPI_Transmit(&hspi2, mcp25625_write_buffer, 14,
+	HAL_StatusTypeDef status =  HAL_SPI_Transmit(&hspi2, (uint8_t *)tx_data, 14,
 			MCP25625_SPI_TIMEOUT_MS);
 	HAL_GPIO_WritePin( CAN_CS_Port, CAN_CS_Pin, GPIO_PIN_SET);
 	return status;
 }
 
 HAL_StatusTypeDef HAL_MCP25625_HW_Data_Get(MCP25625_RX_BUFFER_INDEX num,
-		CAN_TRANSFER *rx_data) {
-	mcp25625_write_buffer[0] = MCP25625_READ_RX_CMD + MCP25625_RX( num );
-	memset(mcp25625_read_buffer,0,14);
+		CAN_TRANSFER_PADDED *rx_data) {
+	rx_data->cmd = MCP25625_READ_RX_CMD + MCP25625_RX( num );
 	HAL_GPIO_WritePin( CAN_CS_Port, CAN_CS_Pin, GPIO_PIN_RESET);
 	HAL_StatusTypeDef spi_status = HAL_SPI_TransmitReceive(&hspi2,
-			mcp25625_write_buffer, mcp25625_read_buffer, 14,
+			(uint8_t *)rx_data, (uint8_t *)rx_data, 14,
 			MCP25625_SPI_TIMEOUT_MS);
 	HAL_GPIO_WritePin( CAN_CS_Port, CAN_CS_Pin, GPIO_PIN_SET);
-	if (spi_status == HAL_OK) {
-		memcpy(rx_data, &mcp25625_read_buffer[1], 13);
-	}
 	return spi_status;
 }
 

@@ -247,6 +247,20 @@ void HAL_RN4020_Set_CMD_MLDP(int value)
 #endif
 }
 
+void HAL_RPI_CAN_Int_Assert() /* Active:  Low */
+{
+#ifdef ENABLE_RPI_INTERRUPT
+	  HAL_GPIO_WritePin(NAVX_2_RPI_INT_GPIO_Port, NAVX_2_RPI_INT_Pin, GPIO_PIN_RESET);
+#endif
+}
+
+void HAL_RPI_CAN_Int_Deassert()
+{
+#ifdef ENABLE_RPI_INTERRUPT
+	  HAL_GPIO_WritePin(NAVX_2_RPI_INT_GPIO_Port, NAVX_2_RPI_INT_Pin, GPIO_PIN_SET);
+#endif
+}
+
 #ifdef ENABLE_IOCX
 typedef struct {
 	GPIO_TypeDef *p_gpio;

@@ -14,7 +14,10 @@
  * Private Function Definitions
  *******************************************************************************/
 
+/* TODO:  When debugging complete, make these variables static */
 CANInterface *CANInterface::p_singleton = (CANInterface *) NULL;
+CAN_IFX_INT_FLAGS CAN_isr_flag_mask;
+CAN_TRANSFER_PADDED CAN_isr_overflow_read_buffer;
 
 void CANInterface::mcp25625_isr(void) {
 	if (p_singleton != NULL) {
@@ -24,63 +27,110 @@ void CANInterface::mcp25625_isr(void) {
 
 CANInterface::CANInterface(uint16_t stm32_gpio_pin) {
 	p_singleton = this;
-	message_error_interrupt_count =
-		error_interrupt_count =
-		wake_interrupt_count =
-		tx0_complete_count =
-		tx1_complete_count =
-		tx2_complete_count =
-		rx0_complete_count =
-		rx1_complete_count = 0;
+	p_isr_flag_func = NULL;
+	/* The following states are updated in the CAN isr */
+	*(uint8_t *)&CAN_isr_flag_mask = 0;
+	CAN_isr_flag_mask.bus_error = true;
+	CAN_isr_flag_mask.message_error = true;
+	CAN_isr_flag_mask.rx_fifo_nonempty = true;
+	CAN_isr_flag_mask.sw_rx_overflow = true;
+	CAN_isr_flag_mask.wake = true;
+
 	attachInterrupt(stm32_gpio_pin, &mcp25625_isr, FALLING);
 }
 
+void CANInterface::register_interrupt_flag_function(CAN_interrupt_flag_func p_isr_flag_func) {
+	disable_CAN_interrupts();
+	this->p_isr_flag_func = p_isr_flag_func;
+	enable_CAN_interrupts();
+}
+
 void CANInterface::interrupt_handler() {
+	bool rx_fifo_full = false;
+	bool read_fail = false;
+	bool done = false;
+	bool rx_fifo_nonempty = false;
 	if(HAL_MCP25625_HW_Ctl_Get(&ie_ctl_isr)==HAL_OK){
-		if(ie_ctl_isr.rx0) {
-			/* Read Receive Buffer 0 Contents */
-			CAN_TRANSFER *p_rx = rx_fifo.enqueue_reserve();
-			if(p_rx) {
-				if(HAL_MCP25625_HW_Data_Get(RXB0, p_rx)==HAL_OK) {
-					rx_fifo.enqueue_commit(p_rx);
-					ie_ctl_isr.rx0 = false;
-					rx0_complete_count++;
+		while (!done) {
+			if(ie_ctl_isr.rx0) {
+				/* Read Receive Buffer 0 Contents */
+				CAN_TRANSFER_PADDED *p_rx = rx_fifo.enqueue_reserve();
+				if(p_rx) {
+					if(HAL_MCP25625_HW_Data_Get(RXB0, p_rx)==HAL_OK) {
+						rx_fifo.enqueue_commit(p_rx);
+						rx_fifo_nonempty = true;
+						ie_ctl_isr.rx0 = false;
+						rx0_complete_count++;
+					} else {
+						read_fail = true;
+					}
+				} else {
+					HAL_MCP25625_HW_Data_Get(RXB0, &CAN_isr_overflow_read_buffer);
+					rx_fifo_full = true;
 				}
 			}
-		}
-		if(ie_ctl_isr.rx1) {
-			/* Read Receive Buffer 1 Contents */
-			CAN_TRANSFER *p_rx = rx_fifo.enqueue_reserve();
-			if(p_rx) {
-				if(HAL_MCP25625_HW_Data_Get(RXB1, p_rx)==HAL_OK) {
-					rx_fifo.enqueue_commit(p_rx);
-					ie_ctl_isr.rx1 = false;
-					rx1_complete_count++;
+			if(ie_ctl_isr.rx1) {
+				/* Read Receive Buffer 1 Contents */
+				CAN_TRANSFER_PADDED *p_rx = rx_fifo.enqueue_reserve();
+				if(p_rx) {
+					if(HAL_MCP25625_HW_Data_Get(RXB1, p_rx)==HAL_OK) {
+						rx_fifo.enqueue_commit(p_rx);
+						rx_fifo_nonempty = true;
+						ie_ctl_isr.rx1 = false;
+						rx1_complete_count++;
+					} else {
+						read_fail = true;
+					}
+				} else {
+					HAL_MCP25625_HW_Data_Get(RXB0, &CAN_isr_overflow_read_buffer);
+					rx_fifo_full = true;
 				}
 			}
+			uint8_t remaining_int_flags = *((uint8_t *)&ie_ctl_isr);
+			if (remaining_int_flags != 0){
+				if (ie_ctl_isr.merre) {
+					message_error_interrupt_count++;
+				}
+				if (ie_ctl_isr.err) {
+					error_interrupt_count++;
+				}
+				if (ie_ctl_isr.wak) {
+					wake_interrupt_count++;
+				}
+				if (ie_ctl_isr.tx0) {
+					tx0_complete_count++;
+				}
+				if (ie_ctl_isr.tx1) {
+					tx1_complete_count++;
+				}
+				if (ie_ctl_isr.tx2) {
+					tx2_complete_count++;
+				}
+				uint8_t clear_all = 0;
+				HAL_MCP25625_BitModify(ie_ctl_isr.reg, remaining_int_flags, &clear_all);
+			}
+			if(HAL_MCP25625_HW_Ctl_Get(&ie_ctl_isr)==HAL_OK){
+				if ((*((uint8_t *)&ie_ctl_isr) == 0) ||
+					(rx_fifo_full)) {
+					if (rx_fifo_full) {
+						rx_buff_full_count++;
+					}
+					done = true;
+				} else {
+					more_interrupt_pending_count++;
+				}
+			} else {
+				done = true;
+			}
 		}
-		uint8_t remaining_int_flags = *((uint8_t *)&ie_ctl_isr);
-		if (remaining_int_flags != 0){
-			if (ie_ctl_isr.merre) {
-				message_error_interrupt_count++;
-			}
-			if (ie_ctl_isr.err) {
-				error_interrupt_count++;
-			}
-			if (ie_ctl_isr.wak) {
-				wake_interrupt_count++;
-			}
-			if (ie_ctl_isr.tx0) {
-				tx0_complete_count++;
-			}
-			if (ie_ctl_isr.tx1) {
-				tx1_complete_count++;
-			}
-			if (ie_ctl_isr.tx2) {
-				tx2_complete_count++;
-			}
-			uint8_t clear_all = 0;
-			HAL_MCP25625_BitModify(ie_ctl_isr.reg, remaining_int_flags, &clear_all);
+		if(p_isr_flag_func != NULL){
+			CAN_IFX_INT_FLAGS int_flags;
+			int_flags.sw_rx_overflow = rx_fifo_full;
+			int_flags.bus_error = ie_ctl_isr.err;
+			int_flags.message_error = ie_ctl_isr.merre;
+			int_flags.rx_fifo_nonempty = rx_fifo_nonempty;
+			int_flags.wake = ie_ctl_isr.wak;
+			p_isr_flag_func(CAN_isr_flag_mask, int_flags);
 		}
 	}
 }
@@ -89,27 +139,29 @@ bool CANInterface::clear_rx_overflow() {
 	eflg_ctl.rx0ovr = false;
 	eflg_ctl.rx1ovr = false;
 	eflg_ctl.mask = (MCP25625_ERRORFLAG_CTL_MASK)(FLG_RX0OVR | FLG_RX1OVR);
-	HAL_NVIC_DisableIRQ((IRQn_Type)EXTI9_5_IRQn);
+	ie_ctl.reg = REG_INT_FLG;
+	uint8_t clear_all = 0;
+	uint8_t clear_rx_full_flags_mask = (uint8_t)QSTAT_RX0IF | (uint8_t)QSTAT_RX1IF;
+	disable_CAN_interrupts();
+	/* Clear Error Flags */
 	CAN_INTERFACE_STATUS s = HAL_MCP25625_HW_Ctl_Update(&eflg_ctl);
-	HAL_NVIC_EnableIRQ((IRQn_Type)EXTI9_5_IRQn);
+	/* Clear RX Buffer Full Flags */
+	s = HAL_MCP25625_BitModify(ie_ctl.reg, clear_rx_full_flags_mask, &clear_all);
+	enable_CAN_interrupts();
 	return (s == MCP25625_OK);
 }
 
-bool CANInterface::get_errors(CAN_ERROR_FLAGS& error_flags,
+bool CANInterface::get_errors(bool& rx_overflow, CAN_ERROR_FLAGS& error_flags,
 		uint8_t& tx_err_count, uint8_t& rx_err_count) {
 	uint8_t err_cnt[2] = {0, 0};
 	*((uint8_t *)&error_flags) = 0;
 
-	bool remove_me;
-	HAL_NVIC_DisableIRQ((IRQn_Type)EXTI9_5_IRQn);
+	disable_CAN_interrupts();
 	CAN_INTERFACE_STATUS s1 = HAL_MCP25625_HW_Ctl_Get((void*) &eflg_ctl);
 	CAN_INTERFACE_STATUS s2 = HAL_MCP25625_Read(REG_STAT_TEC, err_cnt,sizeof(err_cnt));
-	HAL_NVIC_EnableIRQ((IRQn_Type)EXTI9_5_IRQn);
+	enable_CAN_interrupts();
 	if(s1 == MCP25625_OK){
-		error_flags.rx_overflow = (eflg_ctl.rx0ovr | eflg_ctl.rx1ovr);
-		if(eflg_ctl.rx1ovr){
-			remove_me = true;
-		}
+		rx_overflow = (eflg_ctl.rx0ovr | eflg_ctl.rx1ovr);
 		error_flags.can_bus_warn = eflg_ctl.ewarn;
 		error_flags.can_bus_err_pasv = (eflg_ctl.rxerr | eflg_ctl.txerr);
 		error_flags.can_bux_tx_off = (eflg_ctl.txbo);
@@ -121,11 +173,18 @@ bool CANInterface::get_errors(CAN_ERROR_FLAGS& error_flags,
 	return (*((uint8_t *)&error_flags) !=0);
 }
 
+CAN_INTERFACE_STATUS CANInterface::get_quick_status(MCP25625_CAN_QUICK_STATUS& status) {
+	disable_CAN_interrupts();
+	HAL_StatusTypeDef spi_status = HAL_MCP25625_Read_Status(&status);
+	enable_CAN_interrupts();
+	return spi_status;
+}
+
 void CANInterface::process_transmit_fifo() {
 	MCP25625_CAN_QUICK_STATUS status;
-	HAL_NVIC_DisableIRQ((IRQn_Type)EXTI9_5_IRQn);
+	disable_CAN_interrupts();
 	HAL_StatusTypeDef spi_status = HAL_MCP25625_Read_Status(&status);
-//	HAL_NVIC_EnableIRQ((IRQn_Type)EXTI9_5_IRQn);
+	enable_CAN_interrupts();
 	if(spi_status==HAL_OK){
 		while(!tx_fifo.is_empty()) {
 			MCP25625_TX_BUFFER_INDEX available_tx_index;
@@ -133,27 +192,15 @@ void CANInterface::process_transmit_fifo() {
 				available_tx_index = TXB0;
 			} else if(!(status & QSTAT_TX1REQ)) {
 				available_tx_index = TXB1;
-#if 0
 			} else if(!(status & QSTAT_TX2REQ)) {
 				available_tx_index = TXB2;
-#endif
 			} else {
 				break;
 			}
-			CAN_DATA *p_data = tx_fifo.dequeue();
+			CAN_TRANSFER_PADDED *p_data = tx_fifo.dequeue();
 			if(p_data) {
-				uint32_t ID;
-				bool IDE;
-				bool RTR;
-				IDE = own_id.sidl.ide;
-				RTR = own_id.sidl.srr;
-				if (IDE) {
-					CAN_unpack_extended_id(&own_id, &ID);
-				} else {
-					CAN_unpack_standard_id(&own_id, &ID);
-				}
-				//HAL_NVIC_DisableIRQ((IRQn_Type)EXTI9_5_IRQn);
-				CAN_INTERFACE_STATUS s = msg_load(available_tx_index, p_data->buff, p_data->dlc.len, ID, IDE, RTR);
+				disable_CAN_interrupts();
+				CAN_INTERFACE_STATUS s = msg_load(available_tx_index, p_data);
 				if(s == MCP25625_OK){
 					if(this->msg_send(available_tx_index)==MCP25625_OK){
 						if(available_tx_index == TXB0) {
@@ -165,15 +212,24 @@ void CANInterface::process_transmit_fifo() {
 						}
 					}
 				}
-				//HAL_NVIC_EnableIRQ((IRQn_Type)EXTI9_5_IRQn);
+				enable_CAN_interrupts();
 			}
 		}
 	}
-	/* TODO:  Remove this artificial receiver loading code. */
-	HAL_NVIC_EnableIRQ((IRQn_Type)EXTI9_5_IRQn);
 }
 
 CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
+
+	message_error_interrupt_count =
+		error_interrupt_count =
+		wake_interrupt_count =
+		tx0_complete_count =
+		tx1_complete_count =
+		tx2_complete_count =
+		rx0_complete_count =
+		rx1_complete_count =
+		rx_buff_full_count =
+		more_interrupt_pending_count = 0;
 
 	tx_pending[0] = tx_pending[1] = tx_pending[2] = false;
 
@@ -314,6 +370,12 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 		 ie_ctl_copy = ie_ctl;
 	}
 
+	uint8_t BRP, SJW, PRSEG, PHSEG1, PHSEG2;
+	bool SAM, BTLMODE, WAKFIL, SOFR;
+	get_btl_config(BRP, SJW, PRSEG, PHSEG1, PHSEG2, SAM, BTLMODE, WAKFIL, SOFR);
+
+	btl_config(0,1,1,1,2,1,1,0,0);
+
 	if (set_mode(default_mode))
 		return MCP25625_MODE_FAULT;
 
@@ -354,6 +416,29 @@ CAN_INTERFACE_STATUS CANInterface::com_error(bool clear) {
 
 	return MCP25625_OK;
 }
+
+CAN_INTERFACE_STATUS CANInterface::get_btl_config(uint8_t& BRP, uint8_t& SJW,
+		uint8_t& PRSEG, uint8_t& PHSEG1, uint8_t& PHSEG2, bool& SAM, bool& BTLMODE,
+		bool& WAKFIL, bool& SOFR) {
+
+	if (HAL_MCP25625_HW_Ctl_Get((void*) &cnf_1)
+			|| HAL_MCP25625_HW_Ctl_Get((void*) &cnf_2)
+			|| HAL_MCP25625_HW_Ctl_Get((void*) &cnf_3))
+		return MCP25625_CTL_ERR;
+
+	BRP = cnf_1.brp;
+	SJW = cnf_1.sjw;
+	BTLMODE = cnf_2.btlmode;
+	SAM = cnf_2.sam;
+	PRSEG = cnf_2.prseg;
+	PHSEG1 = cnf_2.phseg1;
+	PHSEG2 = cnf_3.phseg2;
+	SOFR = cnf_3.sof;
+	WAKFIL = cnf_3.wakfil;
+
+	return MCP25625_OK;
+}
+
 
 CAN_INTERFACE_STATUS CANInterface::btl_config(uint8_t BRP, uint8_t SJW,
 		uint8_t PRSEG, uint8_t PHSEG1, uint8_t PHSEG2, bool SAM, bool BTLMODE,
@@ -468,18 +553,11 @@ CAN_INTERFACE_STATUS CANInterface::rx_config(MCP25625_RX_BUFFER_INDEX rx_buff,
 }
 
 CAN_INTERFACE_STATUS CANInterface::filter_config(
-		MCP25625_RX_FILTER_INDEX rx_filter, uint16_t SID, uint32_t EID,
-		bool EXIDE) {
+		MCP25625_RX_FILTER_INDEX rx_filter, CAN_ID *p_id) {
 	if (set_mode(CAN_MODE_CONFIG))
 		return MCP25625_MODE_FAULT;
 
-	transfer.id.sidl.ide = EXIDE;
-	if (EXIDE)
-		CAN_pack_extended_id(EID, &transfer.id);
-	else
-		CAN_pack_standard_id(SID, &transfer.id);
-
-	if (HAL_MCP25625_HW_Filter_Set(rx_filter, &transfer.id))
+	if (HAL_MCP25625_HW_Filter_Set(rx_filter, p_id))
 		return MCP25625_CTL_ERR;
 
 	if (set_mode(default_mode))
@@ -489,16 +567,21 @@ CAN_INTERFACE_STATUS CANInterface::filter_config(
 }
 
 CAN_INTERFACE_STATUS CANInterface::mask_config(MCP25625_RX_BUFFER_INDEX rx_mask,
-		uint16_t SID, uint32_t EID) {
-	CAN_pack_extended_id(EID, &transfer.id);
-	CAN_pack_standard_id(SID, &transfer.id);
+		CAN_ID *p_id) {
+	if (set_mode(CAN_MODE_CONFIG))
+		return MCP25625_MODE_FAULT;
 
-	if (HAL_MCP25625_HW_Mask_Set(rx_mask, &transfer.id))
+	if (HAL_MCP25625_HW_Mask_Set(rx_mask, p_id)) {
 		return MCP25625_CTL_ERR;
+	}
+
+	if (set_mode(default_mode))
+		return MCP25625_MODE_FAULT;
 
 	return MCP25625_OK;
 }
 
+#if 0
 CAN_INTERFACE_STATUS CANInterface::msg_load(MCP25625_TX_BUFFER_INDEX tx_buff,
 		uint8_t *msg, uint8_t count, uint32_t ID, bool IDE, bool RTR) {
 	tx_ctl.buffer = tx_buff;
@@ -518,20 +601,46 @@ CAN_INTERFACE_STATUS CANInterface::msg_load(MCP25625_TX_BUFFER_INDEX tx_buff,
 		return MCP25625_MODE_FAULT;
 #endif
 
-	transfer.id.sidl.ide = IDE;
+	write_transfer.transfer.id.sidl.ide = IDE;
 	if (IDE)
-		CAN_pack_extended_id(ID, &transfer.id);
+		CAN_pack_extended_id(ID, &write_transfer.transfer.id);
 	else
-		CAN_pack_standard_id(ID, &transfer.id);
-	transfer.id.sidl.unused = 0;
-	transfer.id.sidl.srr = 0;
+		CAN_pack_standard_id(ID, &write_transfer.transfer.id);
+	write_transfer.transfer.id.sidl.invalid = 0;
+	write_transfer.transfer.id.sidl.srr = 0;
 
-	*(uint8_t *)&(transfer.payload.dlc) = 0;
-	transfer.payload.dlc.rtr = RTR;
-	transfer.payload.dlc.len = count;
-	memcpy((void*) &transfer.payload.buff, (void*) msg, count);
+	*(uint8_t *)&(write_transfer.transfer.payload.dlc) = 0;
+	write_transfer.transfer.payload.dlc.rtr = RTR;
+	write_transfer.transfer.payload.dlc.len = count;
+	memcpy((void*) &write_transfer.transfer.payload.buff, (void*) msg, count);
 
-	if (HAL_MCP25625_HW_Data_Set(tx_buff, &transfer))
+	if (HAL_MCP25625_HW_Data_Set(tx_buff, &write_transfer))
+		return MCP25625_TX_ERR;
+
+	return MCP25625_OK;
+}
+#endif
+
+CAN_INTERFACE_STATUS CANInterface::msg_load(MCP25625_TX_BUFFER_INDEX tx_buff,
+		CAN_TRANSFER_PADDED *p_tx) {
+	tx_ctl.buffer = tx_buff;
+	tx_ctl.txreq = false;
+	tx_ctl.mask = TXB_TXREQ;
+
+#if 0 /* This is not necessary, per datasheet */
+	if (set_mode(OPMODE_CONFIG))
+		return MCP25625_MODE_FAULT;
+#endif
+
+	if (HAL_MCP25625_HW_Ctl_Update(&tx_ctl))
+		return MCP25625_CTL_ERR;
+
+#if 0 /* This is not necessary, per datasheet */
+	if (set_mode(default_mode))
+		return MCP25625_MODE_FAULT;
+#endif
+
+	if (HAL_MCP25625_HW_Data_Set(tx_buff, p_tx))
 		return MCP25625_TX_ERR;
 
 	return MCP25625_OK;
@@ -551,7 +660,7 @@ CAN_INTERFACE_STATUS CANInterface::msg_send(MCP25625_TX_BUFFER_INDEX tx_buff) {
 #endif
 	return MCP25625_OK;
 }
-
+#if 0
 CAN_INTERFACE_STATUS CANInterface::msg_ready(bool& rxb0_ready, bool& rxb1_ready) {
 	MCP25625_RX_STATUS_INFO rx_status;
 
@@ -567,21 +676,21 @@ CAN_INTERFACE_STATUS CANInterface::msg_ready(bool& rxb0_ready, bool& rxb1_ready)
 
 CAN_INTERFACE_STATUS CANInterface::msg_read(MCP25625_RX_BUFFER_INDEX rx_buffer,
 		uint8_t *msg, uint8_t *count, uint32_t *ID, bool *IDE, bool *RTR) {
-	if (HAL_MCP25625_HW_Data_Get(rx_buffer, &transfer))
+	if (HAL_MCP25625_HW_Data_Get(rx_buffer, &read_transfer))
 		return MCP25625_RX_ERR;
 
-	*IDE = transfer.id.sidl.ide;
+	*IDE = read_transfer.transfer.id.sidl.ide;
 	if (*IDE) {
-		*RTR = transfer.payload.dlc.rtr;
-		CAN_unpack_extended_id(&transfer.id, ID);
+		*RTR = read_transfer.transfer.payload.dlc.rtr;
+		CAN_unpack_extended_id(&read_transfer.transfer.id, ID);
 
 	} else {
-		*RTR = transfer.id.sidl.srr;
-		CAN_unpack_standard_id(&transfer.id, ID);
+		*RTR = read_transfer.transfer.id.sidl.srr;
+		CAN_unpack_standard_id(&read_transfer.transfer.id, ID);
 	}
 
-	*count = transfer.payload.dlc.len;
-	memcpy((void*) msg, (void*) transfer.payload.buff, 8);
+	*count = read_transfer.transfer.payload.dlc.len;
+	memcpy((void*) msg, (void*) read_transfer.transfer.payload.buff, 8);
 
 	ie_ctl.rx0 = false;
 	ie_ctl.rx1 = false;
@@ -592,7 +701,7 @@ CAN_INTERFACE_STATUS CANInterface::msg_read(MCP25625_RX_BUFFER_INDEX rx_buffer,
 
 	return MCP25625_OK;
 }
-
+#endif
 CANInterface::~CANInterface() {
 }
 

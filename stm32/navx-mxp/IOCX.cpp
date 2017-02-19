@@ -52,7 +52,7 @@ _EXTERN_ATTRIB void IOCX_loop()
 
 }
 
-_EXTERN_ATTRIB uint8_t *IOCX_get_reg_addr_and_max_size( uint8_t bank, uint8_t register_offset, uint16_t* size )
+_EXTERN_ATTRIB uint8_t *IOCX_get_reg_addr_and_max_size( uint8_t bank, uint8_t register_offset, uint8_t requested_count, uint16_t* size )
 {
 	if ( bank == IOCX_REGISTER_BANK) {
 	    if ( register_offset >= offsetof(struct IOCX_REGS, end_of_bank) ) {
@@ -65,13 +65,6 @@ _EXTERN_ATTRIB uint8_t *IOCX_get_reg_addr_and_max_size( uint8_t bank, uint8_t re
 	}
 	return 0;
 }
-
-struct WritableRegSet
-{
-	uint8_t start_offset;
-	uint8_t num_bytes;
-	void (*changed)(uint8_t first_offset, uint8_t count);
-};
 
 template<typename T, void (*HAL_FUNC)(uint8_t, T)>
 void reg_set_modified(uint8_t first_offset, uint8_t count, T* data) {
@@ -170,16 +163,6 @@ WritableRegSet timer_reg_sets[] =
 	{ offsetof(struct IOCX_REGS, timer_aar), sizeof(IOCX_REGS::timer_aar), timer_aar_modified },
 	{ offsetof(struct IOCX_REGS, timer_chx_ccr), sizeof(IOCX_REGS::timer_chx_ccr), timer_chx_ccr_modified },
 };
-
-struct WritableRegSetGroup
-{
-	uint8_t first_offset;
-	uint8_t last_offset;
-	WritableRegSet *p_sets;
-	uint8_t set_count;
-};
-
-#define SIZEOF_STRUCT(s) (sizeof(s)/sizeof(s[0]))
 
 WritableRegSetGroup writable_reg_set_groups[] =
 {

@@ -343,4 +343,9 @@ typedef struct {
 	uint8_t						mask;
 } MCP25625_CAN_STATUS_REG;
 
+typedef struct {
+	uint8_t		   cmd;
+	CAN_TRANSFER   transfer;
+} CAN_TRANSFER_PADDED;
+
 #endif /* CAN_HAL_TYPES_H_ */

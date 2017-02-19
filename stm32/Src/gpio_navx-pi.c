@@ -121,16 +121,12 @@ void MX_GPIO_Init_NavX_PI(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(QE3_IDX_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin Output Level */
+  /*Configure default GPIO pin Output Levels */
   HAL_GPIO_WritePin(GPIOC, S2_LED_Pin|S1_LED_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(GPIOC, _CAN_RESET_Pin, GPIO_PIN_SET);
-
-  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(_I2C_DEV_ON_GPIO_Port, _I2C_DEV_ON_Pin, GPIO_PIN_SET);
-
-  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, CAL_LED_Pin|CAN_STANDBY_Pin, GPIO_PIN_RESET);
-
+  HAL_GPIO_WritePin(NAVX_2_RPI_INT_GPIO_Port, NAVX_2_RPI_INT_Pin, GPIO_PIN_SET);
 }
 
 /* USER CODE BEGIN 2 */

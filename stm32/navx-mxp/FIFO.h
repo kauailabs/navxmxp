@@ -63,16 +63,23 @@ public:
 		T* p_t;
     	if(count > 0) {
     		p_t = &t[tail];
-    		tail++;
-    		if(tail >= N){
-    			tail = 0;
-    		}
-			/* Atomically decrement the count */
-			__sync_fetch_and_sub(&count, 1);
 		} else {
 			p_t = FIFO_NULL;
 		}
 		return p_t;
+    }
+
+    bool dequeue_return(T* p_t) {
+		if(p_t == &t[tail]) {
+			tail++;
+			if(tail >= N) {
+				tail = 0;
+			}
+			/* Atomically decrement the count */
+			__sync_fetch_and_sub(&count, 1);
+			return true;
+		}
+		return false;
     }
 };
 

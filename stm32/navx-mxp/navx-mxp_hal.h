@@ -58,6 +58,7 @@ THE SOFTWARE.
 #	define NAVX_PI_BOARD_TEST /* Undef this for production. */
 #   define ENABLE_BANKED_REGISTERS
 #   define ENABLE_IOCX
+#	define ENABLE_RPI_INTERRUPT
 #else
 #   define NAVX_HARDWARE_REV 33         /* v. 3.3 EXPIO, v3.4, v3.5 */
 //  !ENABLE_USB_VBUS
@@ -106,6 +107,9 @@ void HAL_I2C_Power_Off();
 int  HAL_SPI_Slave_Enabled();
 int  HAL_UART_Slave_Enabled();
 
+void HAL_RPI_CAN_Int_Assert();
+void HAL_RPI_CAN_Int_Deassert();
+
 /**********************/
 /* Reconfigurable IOs */
 /**********************/
@@ -148,6 +152,23 @@ int HAL_RN4020_Get_MLDP_EV();
 int HAL_RN4020_Get_RTS();
 void HAL_RN4020_Set_CTS(int value);
 void HAL_RN4020_Set_CMD_MLDP(int value);
+
+struct WritableRegSet
+{
+	uint8_t start_offset;
+	uint8_t num_bytes;
+	void (*changed)(uint8_t first_offset, uint8_t count);
+};
+
+struct WritableRegSetGroup
+{
+	uint8_t first_offset;
+	uint8_t last_offset;
+	struct WritableRegSet *p_sets;
+	uint8_t set_count;
+};
+
+#define SIZEOF_STRUCT(s) (sizeof(s)/sizeof(s[0]))
 
 #ifdef __cplusplus
 }

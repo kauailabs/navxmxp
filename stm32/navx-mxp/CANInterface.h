@@ -24,8 +24,10 @@ typedef int CAN_INTERFACE_STATUS;
 #define MCP25625_RTS_ERR    	8
 #define MCP25625_RXP_ERR    	9
 
-#define RECEIVE_FIFO_DEPTH	10
+#define RECEIVE_FIFO_DEPTH	64
 #define TRANSMIT_FIFO_DEPTH 10
+
+typedef void (*CAN_interrupt_flag_func)(CAN_IFX_INT_FLAGS mask, CAN_IFX_INT_FLAGS flags);
 
 class CANInterface {
 
@@ -42,8 +44,9 @@ class CANInterface {
 	MCP25625_CONFIG3_CTL 		cnf_3;
 	MCP25625_ERRORFLAG_CTL		eflg_ctl;
 	MCP25625_ERRORFLAG_CTL		eflg_ctl_isr;
-	CAN_MODE      		default_mode;
-	CAN_TRANSFER   		transfer;
+	CAN_MODE      				default_mode;
+	CAN_TRANSFER_PADDED			write_transfer;
+	CAN_TRANSFER_PADDED   		read_transfer;
 	MCP25625_CAN_STATUS			can_stat;
 	MCP25625_RX_STATUS_INFO  	rx_status;
 	MCP25625_CAN_STATUS_REG 	status_reg;
@@ -57,14 +60,17 @@ class CANInterface {
 	uint32_t tx2_complete_count;
 	uint32_t rx0_complete_count;
 	uint32_t rx1_complete_count;
+	uint32_t rx_buff_full_count;
+	uint32_t more_interrupt_pending_count;
 
-	FIFO<CAN_TRANSFER, RECEIVE_FIFO_DEPTH> rx_fifo;
-	FIFO<CAN_DATA, TRANSMIT_FIFO_DEPTH> tx_fifo;
-	CAN_ID own_id;
+	FIFO<CAN_TRANSFER_PADDED, RECEIVE_FIFO_DEPTH> rx_fifo;
+	FIFO<CAN_TRANSFER_PADDED, TRANSMIT_FIFO_DEPTH> tx_fifo;
 
 	static void mcp25625_isr(void);
 	static CANInterface *p_singleton;
 	void interrupt_handler();
+
+	CAN_interrupt_flag_func p_isr_flag_func;
 
 public:
 	CANInterface(uint16_t stm32_gpio_pin = GPIO_PIN_7);
@@ -87,6 +93,10 @@ public:
 		bool SOFR 	  	/* True: = CLKOUT pin enabled for Start-of-Frame (SOF) signal                    */
 	);
 
+	CAN_INTERFACE_STATUS get_btl_config(uint8_t& BRP, uint8_t& SJW,
+			uint8_t& PRSEG, uint8_t& PHSEG1, uint8_t& PHSEG2, bool& SAM, bool& BTLMODE,
+			bool& WAKFIL, bool& SOFR);
+
 	CAN_INTERFACE_STATUS tx_config(
 			MCP25625_TX_BUFFER_INDEX tx_buff,
 	        uint8_t TXP /* Valid range is 0-3, 3 is highest priority */
@@ -102,18 +112,15 @@ public:
 	CAN_INTERFACE_STATUS filter_config
 	(
 			MCP25625_RX_FILTER_INDEX rx_filter,
-	        uint16_t SID,
-	        uint32_t EID,
-	        bool EXIDE /* Extended ID Enable bit (True:  Transmit 29-bit EID, False: Transmit 11-bit SID) */
+	        CAN_ID *p_id
 	);
 
 	CAN_INTERFACE_STATUS mask_config
 	(
 			MCP25625_RX_BUFFER_INDEX rx_mask,
-	        uint16_t SID,
-	        uint32_t EID
+	        CAN_ID *p_id
 	);
-
+#if 0
 	CAN_INTERFACE_STATUS msg_load
 	(
 			MCP25625_TX_BUFFER_INDEX tx_buff,
@@ -124,9 +131,15 @@ public:
 	        bool RTR  /* True:  Transmitted Message will be a Remote Transmit Request */
 	        		  /* False: Transmitted Message will be a Data Frame */
 	);
+#endif
+	CAN_INTERFACE_STATUS msg_load(MCP25625_TX_BUFFER_INDEX tx_buff,
+		CAN_TRANSFER_PADDED *p_tx);
 
 	CAN_INTERFACE_STATUS msg_send(MCP25625_TX_BUFFER_INDEX tx_buff);
 
+	CAN_INTERFACE_STATUS get_quick_status(MCP25625_CAN_QUICK_STATUS& status);
+
+#if 0
 	CAN_INTERFACE_STATUS msg_ready(bool& rxb0_ready, bool& rxb1_ready);
 
 	CAN_INTERFACE_STATUS msg_read
@@ -139,18 +152,27 @@ public:
 	        bool *RTR  /*  Extended Frame Remote Transmission Request bit     */
 	        		   /* (valid only when IDE bit in RXBnSID register is 1). */
 	);
+#endif
 
 	bool clear_rx_overflow();
 
-	bool get_errors(CAN_ERROR_FLAGS& error_flags,
+	bool get_errors(bool& rx_overflow, CAN_ERROR_FLAGS& error_flags,
 			uint8_t& tx_err_count, uint8_t& rx_err_count);
 
 	void process_transmit_fifo();
 
-	FIFO<CAN_DATA, TRANSMIT_FIFO_DEPTH>& get_tx_fifo() { return tx_fifo; }
-	FIFO<CAN_TRANSFER, RECEIVE_FIFO_DEPTH>& get_rx_fifo() { return rx_fifo; }
+	FIFO<CAN_TRANSFER_PADDED, TRANSMIT_FIFO_DEPTH>& get_tx_fifo() { return tx_fifo; }
+	FIFO<CAN_TRANSFER_PADDED, RECEIVE_FIFO_DEPTH>& get_rx_fifo() { return rx_fifo; }
 
-	CAN_ID& get_own_id() { return own_id; }
+	void register_interrupt_flag_function(CAN_interrupt_flag_func p_isr_flag_func);
+
+	inline void disable_CAN_interrupts() {
+		HAL_NVIC_DisableIRQ((IRQn_Type)EXTI9_5_IRQn);
+	}
+
+	inline void enable_CAN_interrupts() {
+		HAL_NVIC_EnableIRQ((IRQn_Type)EXTI9_5_IRQn);
+	}
 
 	virtual ~CANInterface();
 };

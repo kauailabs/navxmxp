@@ -1725,7 +1725,7 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                     }
 #ifdef ENABLE_BANKED_REGISTERS
                     if ( ( bank > 0 ) && ( p_reg_lookup_func != NULL) ) {
-                    	reg_addr = p_reg_lookup_func(bank, reg_address, &max_size);
+                    	reg_addr = p_reg_lookup_func(bank, reg_address, reg_count, &max_size);
                     }
                     else
 #endif
