@@ -9,20 +9,20 @@
 #define SRC_REGISTERIOSPI_H_
 
 #include "RegisterIO.h"
-#include "DaGamaClient.h"
+#include "SPIClient.h"
 
 static const int MAX_SPI_MSG_LENGTH = 256;
 
 class RegisterIO_SPI: public IRegisterIO {
 public:
-    RegisterIO_SPI(DaGamaClient *client);
+    RegisterIO_SPI(SPIClient& client);
     virtual ~RegisterIO_SPI() {}
     bool Init();
     bool Write(uint8_t address, uint8_t value );
     bool Read(uint8_t first_address, uint8_t* buffer, uint8_t buffer_len);
     bool Shutdown();
 private:
-    DaGamaClient *client;
+    SPIClient& client;
     uint8_t rx_buffer[MAX_SPI_MSG_LENGTH];
     bool trace;
 };

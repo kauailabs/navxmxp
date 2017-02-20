@@ -8,6 +8,7 @@
 #include <sstream>
 #include <string>
 #include <iomanip>
+#include <thread>
 #include <AHRSProtocol.h>
 #include "AHRS.h"
 #include "IIOProvider.h"
@@ -17,7 +18,8 @@
 #include "RegisterIOSPI.h"
 #include "Timer.h"
 
-static const uint8_t    NAVX_DEFAULT_UPDATE_RATE_HZ         = 60;
+using namespace std;
+
 static const int16_t    DEFAULT_ACCEL_FSR_G                 = 2;
 static const int16_t    DEFAULT_GYRO_FSR_DPS                = 2000;
 
@@ -254,11 +256,11 @@ class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
     }
 };
 
-AHRS::AHRS(DaGamaClient *client, uint8_t update_rate_hz)
+AHRS::AHRS(SPIClient& client, uint8_t update_rate_hz)
 {
     commonInit( update_rate_hz );
     io = new RegisterIO(new RegisterIO_SPI(client), update_rate_hz, ahrs_internal, ahrs_internal);
-    task = new std::thread(AHRS::ThreadFunc, io);
+    task = new thread(AHRS::ThreadFunc, io);
 }
 
 

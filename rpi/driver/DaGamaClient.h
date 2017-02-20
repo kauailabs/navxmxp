@@ -9,19 +9,14 @@
 #define DAGAMACLIENT_H_
 
 #include <stdint.h>
+#include "SPIClient.h"
+#include "AHRS.h"
 #include "IOCXClient.h"
+#include "CANClient.h"
 
-class DaGamaClient : public IOCXClient {
-private:
-	bool pigpio_initialized;
-	int spi_handle;
+class DaGamaClient : public SPIClient, public AHRS, public IOCXClient, public CANClient {
 public:
-	DaGamaClient();
-
-	bool is_open() { return pigpio_initialized; }
-
-	virtual bool transmit(uint8_t *p_data, uint8_t len);
-	virtual bool transmit_and_receive(uint8_t *p_tx_data, uint8_t tx_len, uint8_t *p_rx_data, uint8_t rx_len);
+	DaGamaClient(uint8_t ahrs_update_rate_hz);
 
 	virtual ~DaGamaClient();
 };

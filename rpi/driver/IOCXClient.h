@@ -9,21 +9,16 @@
 #define IOCXCLIENT_H_
 
 #include <stdint.h>
+#include "SPIClient.h"
 #include "IOCXRegisters.h"
-#include "NavXSPIMessage.h"
 
 class IOCXClient {
 
-protected:
-	virtual bool transmit(uint8_t *p_data, uint8_t len){return false;}
-	virtual bool transmit_and_receive(uint8_t *p_tx_data, uint8_t tx_len, uint8_t *p_rx_data, uint8_t rx_len) { return false; }
-	bool write(NavXSPIMessage& write);
-	bool read(NavXSPIMessage& request, uint8_t *p_response, uint8_t response_len);
-	template<typename T> bool read(uint8_t bank, uint8_t offset, T& response);
-	template<typename T> bool write(uint8_t bank, uint8_t offset, T value);
+private:
+	SPIClient& client;
 
 public:
-	IOCXClient();
+	IOCXClient(SPIClient& client);
 
 	uint8_t get_num_gpios() { return IOCX_NUM_GPIOS; }
 	uint8_t get_num_timers() { return IOCX_NUM_TIMERS; }
