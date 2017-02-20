@@ -76,12 +76,12 @@ typedef struct {
     uint8_t         : 1;
 } CAN_DLC;
 
-typedef struct {
+typedef struct __attribute__ ((__packed__)) {
 	CAN_DLC        	dlc;
     uint8_t         buff[ 8 ];
 } CAN_DATA;
 
-typedef struct {
+typedef struct __attribute__ ((__packed__)) {
 	CAN_ID			id;
 	CAN_DATA		payload;
 } CAN_TRANSFER;
@@ -98,7 +98,7 @@ typedef struct {
 	uint8_t unused	: 5;
 } CAN_ADV_CONFIG_OPTIONS;
 
-struct __attribute__ ((__packed__)) CAN_ADV_CONFIG {
+typedef struct __attribute__ ((__packed__)) {
 	/*-- Bit Timing Configuration - see MCP25625 Datasheet section 3.8. --*/
 	uint8_t baud_rate_prescaler; /* (0-63) */
 	uint8_t sjw; /* Synchronization Jump Width Length (0-3) */
@@ -108,7 +108,7 @@ struct __attribute__ ((__packed__)) CAN_ADV_CONFIG {
 	uint8_t phseg2; /* Phase Segment 2 compensates for phase shift on edges. */
 	/* Advanced Configuration Flags */
 	CAN_ADV_CONFIG_OPTIONS adv_config_options;
-};
+} CAN_ADV_CONFIG;
 
 #define MAX_TX_ENTRIES		10 /* See CANRegisters.h */
 #define MAX_RX_ENTRIES		10 /* See CANRegisters.h */
@@ -240,7 +240,7 @@ struct __attribute__ ((__packed__)) CAN_REGS {
 	/*                                                               */
 	/* NOTE:  Must be in CAN_MODE_CONFIG for changes to take effect! */
 	/*****************************************************************/
-	struct CAN_ADV_CONFIG advanced_config;
+	CAN_ADV_CONFIG advanced_config;
 	uint8_t end_of_bank;
 };
 
