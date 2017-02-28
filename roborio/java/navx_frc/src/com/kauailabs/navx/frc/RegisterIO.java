@@ -238,4 +238,8 @@ class RegisterIO implements IIOProvider {
                                    AHRSProtocol.NAVX_INTEGRATION_CTL_RESET_DISP_Z ) );       
     }
     
+    @Override
+    public void enableLogging(boolean enable) {
+    	io_provider.enableLogging(enable);
+    }
 }

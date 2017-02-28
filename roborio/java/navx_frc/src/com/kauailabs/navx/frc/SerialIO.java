@@ -596,5 +596,8 @@ class SerialIO implements IIOProvider {
         stop = true;
     }
     
+    @Override
+    public void enableLogging(boolean enable) {
+    }
     
 }

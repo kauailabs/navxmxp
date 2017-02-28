@@ -18,13 +18,17 @@ class RegisterIO_SPI implements IRegisterIO{
 
     SPI port;
     int bitrate;
-    boolean trace = true;
+    boolean trace = false;
     
     static final int   DEFAULT_SPI_BITRATE_HZ         = 500000;
     
     public RegisterIO_SPI( SPI spi_port ) {
         port = spi_port;
         bitrate = DEFAULT_SPI_BITRATE_HZ;
+    }
+    
+    public void enableLogging(boolean enable) {
+    	trace = enable;
     }
     
     public RegisterIO_SPI( SPI spi_port, int bitrate ) {

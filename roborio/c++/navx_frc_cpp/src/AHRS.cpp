@@ -882,6 +882,18 @@ float AHRS::GetDisplacementZ() {
     return (ahrs_internal->IsDisplacementSupported() ? displacement[2] : 0.f);
 }
 
+/**
+ * Enables or disables logging (via Console I/O) of AHRS library internal
+ * behaviors, including events such as transient communication errors.
+ * @param enable
+ */
+void AHRS::EnableLogging(bool enable) {
+	if ( this->io != NULL) {
+		io->EnableLogging(enable);
+	}
+}
+
+
 #define NAVX_IO_THREAD_NAME "navXIOThread"
 
 void AHRS::SPIInit( SPI::Port spi_port_id, uint32_t bitrate, uint8_t update_rate_hz ) {

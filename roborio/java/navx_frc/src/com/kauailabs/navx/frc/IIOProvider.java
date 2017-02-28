@@ -18,4 +18,5 @@ interface IIOProvider {
     public void     zeroDisplacement();
     public void     run();
     public void     stop();
+    public void		enableLogging(boolean enable);
 }

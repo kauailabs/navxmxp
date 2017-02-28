@@ -11,7 +11,7 @@
 static priority_mutex imu_mutex;
 RegisterIO_I2C::RegisterIO_I2C(I2C* port) {
     this->port = port;
-    this->trace = true;
+    this->trace = false;
 }
 
 bool RegisterIO_I2C::Init() {
@@ -51,4 +51,7 @@ bool RegisterIO_I2C::Shutdown() {
     return true;
 }
 
+void RegisterIO_I2C::EnableLogging(bool enable) {
+	trace = enable;
+}
 

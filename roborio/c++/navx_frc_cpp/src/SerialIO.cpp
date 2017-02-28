@@ -549,3 +549,5 @@ void SerialIO::Stop() {
     stop = true;
 }
 
+void SerialIO::EnableLogging(bool enable) {
+}

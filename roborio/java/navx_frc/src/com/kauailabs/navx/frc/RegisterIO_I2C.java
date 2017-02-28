@@ -14,7 +14,7 @@ import edu.wpi.first.wpilibj.I2C;
 class RegisterIO_I2C implements IRegisterIO{
 
     I2C port;
-    boolean trace = true;
+    boolean trace = false;
     
     public RegisterIO_I2C( I2C i2c_port ) {
         port = i2c_port;
@@ -25,6 +25,11 @@ class RegisterIO_I2C implements IRegisterIO{
         return true;
     }
 
+    @Override
+    public void enableLogging(boolean enable) {
+    	trace = enable;
+    }    
+    
     @Override
     public boolean write(byte address, byte value ) {
     	boolean success;

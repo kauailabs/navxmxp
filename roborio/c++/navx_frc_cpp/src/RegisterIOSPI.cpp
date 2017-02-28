@@ -11,7 +11,7 @@ static priority_mutex imu_mutex;
 RegisterIO_SPI::RegisterIO_SPI(SPI *port, uint32_t bitrate) {
     this->port = port;
     this->bitrate = bitrate;
-    this->trace = true;
+    this->trace = false;
 }
 
 bool RegisterIO_SPI::Init() {
@@ -64,4 +64,8 @@ bool RegisterIO_SPI::Read(uint8_t first_address, uint8_t* buffer, uint8_t buffer
 
 bool RegisterIO_SPI::Shutdown() {
     return true;
+}
+
+void RegisterIO_SPI::EnableLogging(bool enable) {
+	trace = enable;
 }
