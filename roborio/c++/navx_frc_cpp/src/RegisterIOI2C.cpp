@@ -20,9 +20,9 @@ bool RegisterIO_I2C::Init() {
 
 bool RegisterIO_I2C::Write(uint8_t address, uint8_t value ) {
 	std::unique_lock<priority_mutex> sync(imu_mutex);
-    bool success = port->Write(address | 0x80, value);
-    if ( !success && trace ) printf("navX-MXP I2C Write error\n");
-    return success;
+    bool aborted = port->Write(address | 0x80, value);
+    if (aborted && trace) printf("navX-MXP I2C Write error\n");
+    return !aborted;
 }
 
 static int MAX_WPILIB_I2C_READ_BYTES = 127;
@@ -34,8 +34,8 @@ bool RegisterIO_I2C::Read(uint8_t first_address, uint8_t* buffer, uint8_t buffer
     uint8_t read_buffer[MAX_WPILIB_I2C_READ_BYTES];
     while ( len > 0 ) {
         int read_len = (len > MAX_WPILIB_I2C_READ_BYTES) ? MAX_WPILIB_I2C_READ_BYTES : len;
-        if (port->Write(first_address + buffer_offset, read_len) &&
-            port->ReadOnly(read_len, read_buffer) ) {
+        if (!port->Write(first_address + buffer_offset, read_len) &&
+            !port->ReadOnly(read_len, read_buffer) ) {
             memcpy(buffer + buffer_offset, read_buffer, read_len);
             buffer_offset += read_len;
             len -= read_len;
