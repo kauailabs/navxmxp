@@ -12,6 +12,7 @@
 #include <pigpio.h>
 #include <unistd.h> /* sleep() */
 #include <time.h> /* nanosleep() */
+#include <string.h>
 
 /* Forward declaration */
 void test_navx_pi_spi();
@@ -23,118 +24,170 @@ void test_navx_pi_ext_i2c();
 
 int main(int argc, char *argv[])
 {
-	uint8_t update_rate_hz = 200;
+	uint8_t update_rate_hz = 50;
 	DaGamaClient client(update_rate_hz);
-	if(client.is_open()) {
+	try {
+		if(client.is_open()) {
 
-		/* AHRS test */
+			struct timespec ts_delay;
+			ts_delay.tv_sec = 3;
+			ts_delay.tv_nsec = 0; /* 3s */
+			nanosleep(&ts_delay, NULL);
 
-		printf("AHRS Connected:  %s\n", (client.IsConnected() ? "Yes" : "No"));
-		for ( int i = 0; i < 10; i++) {
-			printf("Yaw, Pitch, Roll:  %f, %f, %f\n", client.GetYaw(), client.GetPitch(), client.GetRoll());
-			gpioDelay(10000); /* 10ms delay */
-		}
+			/* AHRS test */
 
-		/* IOCX test */
-
-		const int first_stm32_gpio = 0;
-		const int num_stm32_gpios = client.get_num_gpios();
-
-		const int first_stm32_timer = 0;
-		const int num_stm32_timers = client.get_num_timers();
-		/* Configure Quad Encoder Inputs (driven by timers 0-3) */
-		/* These quad encoders consume to STM32 GPIOs 4-15      */
-		const int first_qe_timer = 0;
-		const int num_qe_timers = 4;
-		for ( int qe_timer = first_qe_timer; qe_timer < first_qe_timer + num_qe_timers; qe_timer++) {
-			client.set_timer_config(qe_timer, TIMER_MODE_QUAD_ENCODER);
-		}
-
-		/* Configure first 4 STM32 GPIOs as PWM Outputs */
-		const int first_pwm_timer = 4;
-		const int num_pwm_timers = 2;
-		/* Disable PWM timers during configuration */
-		for (int pwm_timer = first_pwm_timer; pwm_timer < first_pwm_timer + num_pwm_timers; pwm_timer++ ) {
-			client.set_timer_config(pwm_timer, TIMER_MODE_DISABLED);
-		}
-
-		for ( int pwm_out_index = 0; pwm_out_index < 4; pwm_out_index++) {
-			client.set_gpio_config(pwm_out_index, GPIO_TYPE_AF,
-					GPIO_INPUT_FLOAT, GPIO_INTERRUPT_DISABLED);
-			// All timers driven off of 48Mhz clock.
-			client.set_timer_prescaler(pwm_out_index, 48000); 	/* 1 ms/tick */
-			client.set_timer_aar(pwm_out_index, 50); 			/* Frame Period:  50 ticks */
-			client.set_timer_chx_ccr(pwm_out_index,0,25);		/* Duty Cycle:  25 ticks */
-			client.set_timer_config(4, TIMER_MODE_PWM_OUT);
-		}
-
-		/* Re-enable PWM timers now that configuration is complete. */
-		for (int pwm_timer = first_pwm_timer; pwm_timer < first_pwm_timer + num_pwm_timers; pwm_timer++ ) {
-			client.set_timer_config(pwm_timer, TIMER_MODE_PWM_OUT);
-		}
-
-		for ( int i = 0; i < 10; i++) {
-			/* Display External Power Voltage */
-			float ext_power_voltage;
-			if(client.get_ext_power_voltage(ext_power_voltage)){
-				printf("External Power Voltage:  %f\n", ext_power_voltage);
+			printf("AHRS Connected:  %s\n", (client.IsConnected() ? "Yes" : "No"));
+			for ( int i = 0; i < 10; i++) {
+				printf("Yaw, Pitch, Roll:  %f, %f, %f\n", client.GetYaw(), client.GetPitch(), client.GetRoll());
+				struct timespec ts;
+				ts.tv_sec = 0;
+				ts.tv_nsec = 20000000;
+				nanosleep(&ts, NULL);
 			}
-			/* Display Analog Input Values */
-			for (int j = 0; j < client.get_num_analog_inputs(); j++){
-				float an_in_voltage;
-				if(client.get_analog_input_voltage(j, an_in_voltage)){
-					printf("Analog In %d Voltage:  %f\n", j, an_in_voltage);
-				}
-			}
-			/* Display Quad Encoder Input Counts */
+			//client.Stop(); /* Stop background AHRS data acquisition thread (during debugging, this can be useful... */
+
+			/* IOCX test */
+
+			const int first_stm32_gpio = 0;
+			const int num_stm32_gpios = client.get_num_gpios();
+
+			const int first_stm32_timer = 0;
+			const int num_stm32_timers = client.get_num_timers();
+			/* Configure Quad Encoder Inputs (driven by timers 0-3) */
+			/* These quad encoders consume to STM32 GPIOs 4-15      */
+			const int first_qe_timer = 0;
+			const int num_qe_timers = 4;
 			for ( int qe_timer = first_qe_timer; qe_timer < first_qe_timer + num_qe_timers; qe_timer++) {
-				uint16_t counter;
-				if(client.get_timer_counter(qe_timer, counter)){
-					printf("QE %d counter:  %d.\n", qe_timer, counter);
-					uint8_t timer_status;
-					if(client.get_timer_status(qe_timer, timer_status)) {
-						IOCX_TIMER_DIRECTION direction = iocx_decode_timer_direction(&timer_status);
-						printf("QE %d direction:  %s.\n", qe_timer, (direction == UP) ? "Positive" : "Negative");
+				client.set_timer_config(qe_timer, TIMER_MODE_QUAD_ENCODER);
+			}
+
+			/* Configure first 4 STM32 GPIOs as PWM Outputs */
+			const int first_pwm_timer = 4;
+			const int num_pwm_timers = 2;
+			/* Disable PWM timers during configuration */
+			for (int pwm_timer = first_pwm_timer; pwm_timer < first_pwm_timer + num_pwm_timers; pwm_timer++ ) {
+				client.set_timer_config(pwm_timer, TIMER_MODE_DISABLED);
+			}
+
+			for ( int pwm_out_index = 0; pwm_out_index < 4; pwm_out_index++) {
+				client.set_gpio_config(pwm_out_index, GPIO_TYPE_AF,
+						GPIO_INPUT_FLOAT, GPIO_INTERRUPT_DISABLED);
+				// All timers driven off of 48Mhz clock.
+				client.set_timer_prescaler(pwm_out_index, 48000); 	/* 1 ms/tick */
+				client.set_timer_aar(pwm_out_index, 50); 			/* Frame Period:  50 ticks */
+				client.set_timer_chx_ccr(pwm_out_index,0,25);		/* Duty Cycle:  25 ticks */
+				client.set_timer_config(4, TIMER_MODE_PWM_OUT);
+			}
+
+			/* Re-enable PWM timers now that configuration is complete. */
+			for (int pwm_timer = first_pwm_timer; pwm_timer < first_pwm_timer + num_pwm_timers; pwm_timer++ ) {
+				client.set_timer_config(pwm_timer, TIMER_MODE_PWM_OUT);
+			}
+
+			for ( int i = 0; i < 10; i++) {
+				/* Display External Power Voltage */
+				float ext_power_voltage = -1.0f;
+				if(client.get_ext_power_voltage(ext_power_voltage)){
+					printf("External Power Voltage:  %f\n", ext_power_voltage);
+				}
+				/* Display Analog Input Values */
+				for (int j = 0; j < client.get_num_analog_inputs(); j++){
+					float an_in_voltage = -1.0f;
+					if(client.get_analog_input_voltage(j, an_in_voltage)){
+						printf("Analog In %d Voltage:  %f\n", j, an_in_voltage);
+					}
+				}
+				/* Display Quad Encoder Input Counts */
+				for ( int qe_timer = first_qe_timer; qe_timer < first_qe_timer + num_qe_timers; qe_timer++) {
+					uint16_t counter = 65535;
+					if(client.get_timer_counter(qe_timer, counter)){
+						printf("QE %d counter:  %d.\n", qe_timer, counter);
+						uint8_t timer_status;
+						if(client.get_timer_status(qe_timer, timer_status)) {
+							IOCX_TIMER_DIRECTION direction = iocx_decode_timer_direction(&timer_status);
+							printf("QE %d direction:  %s.\n", qe_timer, (direction == UP) ? "Positive" : "Negative");
+						}
+					}
+				}
+				struct timespec ts;
+				ts.tv_sec = 0;
+				ts.tv_nsec = 10000000;
+				nanosleep(&ts, NULL);
+			}
+
+			/* Next, reconfigure all GPIOs as outputs, and toggle them. */
+			/* 1) disable the timers which had been enabled previously. */
+			for ( int i = first_stm32_timer; i < num_stm32_timers; i++) {
+				client.set_timer_config(i, TIMER_MODE_DISABLED);
+			}
+
+			/* 2) Configure all GPIOs as outputs. */
+			for ( int i = first_stm32_gpio; i < first_stm32_gpio + num_stm32_gpios; i++) {
+				client.set_gpio_config(i, GPIO_TYPE_OUTPUT_PUSHPULL, GPIO_INPUT_FLOAT, GPIO_INTERRUPT_DISABLED);
+			}
+
+			/* 3) Set all GPIOs high. */
+			for ( int i = first_stm32_gpio; i < first_stm32_gpio + num_stm32_gpios; i++) {
+				client.set_gpio(i, 1);
+			}
+
+			/* 4) Set all GPIOs low. */
+			for ( int i = first_stm32_gpio; i < first_stm32_gpio + num_stm32_gpios; i++) {
+				client.set_gpio(i, 0);
+			}
+
+			/* 5) Reconfigure all GPIOs as outputs. */
+			for ( int i = first_stm32_gpio; i < first_stm32_gpio + num_stm32_gpios; i++) {
+				client.set_gpio_config(i, GPIO_TYPE_INPUT, GPIO_INPUT_FLOAT, GPIO_INTERRUPT_DISABLED);
+			}
+
+			/* 6) Display current input values. */
+			for ( int i = first_stm32_gpio; i < first_stm32_gpio + num_stm32_gpios; i++) {
+				bool gpio;
+				client.get_gpio(i, gpio);
+				printf("GPIO Input %d value:  %s.\n", i, gpio ? "High": "Low");
+			}
+
+			client.set_mode(CAN_MODE::CAN_MODE_LOOP);
+			for ( int i = 0; i < 1; i++) {
+				CAN_TRANSFER tx_data;
+				CAN_pack_extended_id(0x123456,&tx_data.id);
+				tx_data.payload.dlc.len = 8;
+				tx_data.payload.dlc.rtr = false;
+				memcpy(tx_data.payload.buff,"Hello!!",8);
+				client.enqueue_transmit_data(&tx_data);
+			}
+
+			struct timespec ts;
+			ts.tv_sec = 0;
+			ts.tv_nsec = 100000000;
+			nanosleep(&ts, NULL);
+
+			uint8_t rx_fifo_count;
+			if(client.get_receive_fifo_entry_count(rx_fifo_count)){
+				for ( int i = 0; i < rx_fifo_count; i++ ) {
+					CAN_TRANSFER rx_data;
+					if(client.get_receive_data(&rx_data,1)){
+						uint32_t eid;
+						if(rx_data.id.sidl.ide) {
+							CAN_unpack_extended_id(&rx_data.id, &eid);
+						} else {
+							CAN_unpack_standard_id(&rx_data.id, &eid);
+						}
+						printf("Received %d bytes of data from ID %x:  %s\n",
+								rx_data.payload.dlc.len,
+								eid,
+								rx_data.payload.buff);
 					}
 				}
 			}
-			gpioDelay(10000);
-		}
-
-		/* Next, reconfigure all GPIOs as outputs, and toggle them. */
-		/* 1) disable the timers which had been enabled previously. */
-		for ( int i = first_stm32_timer; i < num_stm32_timers; i++) {
-			client.set_timer_config(i, TIMER_MODE_DISABLED);
-		}
-
-		/* 2) Configure all GPIOs as outputs. */
-		for ( int i = first_stm32_gpio; i < first_stm32_gpio + num_stm32_gpios; i++) {
-			client.set_gpio_config(i, GPIO_TYPE_OUTPUT_PUSHPULL, GPIO_INPUT_FLOAT, GPIO_INTERRUPT_DISABLED);
-		}
-
-		/* 3) Set all GPIOs high. */
-		for ( int i = first_stm32_gpio; i < first_stm32_gpio + num_stm32_gpios; i++) {
-			client.set_gpio(i, 1);
-		}
-
-		/* 4) Set all GPIOs low. */
-		for ( int i = first_stm32_gpio; i < first_stm32_gpio + num_stm32_gpios; i++) {
-			client.set_gpio(i, 0);
-		}
-
-		/* 5) Reconfigure all GPIOs as outputs. */
-		for ( int i = first_stm32_gpio; i < first_stm32_gpio + num_stm32_gpios; i++) {
-			client.set_gpio_config(i, GPIO_TYPE_INPUT, GPIO_INPUT_FLOAT, GPIO_INTERRUPT_DISABLED);
-		}
-
-		/* 6) Display current input values. */
-		for ( int i = first_stm32_gpio; i < first_stm32_gpio + num_stm32_gpios; i++) {
-			bool gpio;
-			client.get_gpio(i, gpio);
-			printf("GPIO Input %d value:  %s.\n", i, gpio ? "High": "Low");
-		}
-
 		//test_navx_pi_spi();
+		} else {
+			printf("Error:  Unable to open client.  Is pigpio functional/running?");
+		}
+	}
+	catch(const std::exception& ex){
+		printf("Caught exception:  %s", ex.what());
 	}
 }
 

@@ -45,6 +45,7 @@ public:
     void   ZeroDisplacement();
     void   Run();
     void   Stop();
+    bool   IsRunning();
     virtual ~RegisterIO();
 private:
     bool   GetConfiguration();

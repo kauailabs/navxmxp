@@ -15,6 +15,7 @@ DaGamaClient::DaGamaClient(uint8_t ahrs_update_rate_hz) :
 }
 
 DaGamaClient::~DaGamaClient() {
+	this->Stop();
 }
 
 

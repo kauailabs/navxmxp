@@ -6,6 +6,7 @@
  */
 
 #include "RegisterIOSPI.h"
+#include "NavXSPIMessage.h"
 #include <mutex>
 #include <string.h>
 
@@ -20,25 +21,21 @@ bool RegisterIO_SPI::Init() {
 }
 
 bool RegisterIO_SPI::Write(uint8_t address, uint8_t value ) {
-    uint8_t cmd[3];
-    cmd[0] = address | 0x80;
-    cmd[1] = value;
-    cmd[2] = IMURegisters::getCRC(cmd, 2);
-    if (!client.transmit(cmd, sizeof(cmd))) {
+	NavXSPIMessage write_cmd(0, address, 1, &value);
+    if (!client.write(write_cmd)) {
          return false; // WRITE ERROR
     }
     return true;
 }
 
 bool RegisterIO_SPI::Read(uint8_t first_address, uint8_t* buffer, uint8_t buffer_len) {
-    uint8_t cmd[3];
-    cmd[0] = first_address;
-    cmd[1] = buffer_len;
-    cmd[2] = IMURegisters::getCRC(cmd, 2);
-    if (!client.transmit_and_receive(cmd, sizeof(cmd), rx_buffer, buffer_len+1)) {
+	NavXSPIMessage read_cmd(0 /* IMU REGISTER BANK */, first_address, buffer_len);
+	uint8_t response_packet[buffer_len + 1]; /* Reserve one extra byte for CRC */
+	if(!client.read(read_cmd, response_packet, buffer_len + 1)) {
         return false; // READ ERROR
+    } else {
+    	memcpy(buffer, response_packet, buffer_len);
     }
-    memcpy(buffer, rx_buffer, buffer_len);
     return true;
 }
 

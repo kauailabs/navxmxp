@@ -6,6 +6,8 @@
  */
 
 #include "CANClient.h"
+#include <string.h>
+#include <time.h> /* nanosleep() */
 
 CANClient::CANClient(SPIClient& client_ref) :
 	client(client_ref) {
@@ -52,10 +54,15 @@ bool CANClient::get_receive_fifo_entry_count(uint8_t& count) {
 
 bool CANClient::get_receive_data(CAN_TRANSFER *p_transfer, int n_transfers) {
 	uint8_t bytes_to_transfer = n_transfers * sizeof(CAN_TRANSFER);
-	if ( bytes_to_transfer >= 255) return false;
+	if ( bytes_to_transfer > 254) return false;
+	uint8_t transfer_buffer[255];
 
 	NavXSPIMessage msg(CAN_REGISTER_BANK, offsetof(struct CAN_REGS, rx_fifo_tail), bytes_to_transfer);
-	return client.read(msg, (uint8_t *)p_transfer, bytes_to_transfer);
+	if (client.read(msg, transfer_buffer, bytes_to_transfer+1 /* Add 1 for CRC */ )) {
+		memcpy((uint8_t *)p_transfer, transfer_buffer, bytes_to_transfer);
+		return true;
+	}
+	return false;
 }
 
 bool CANClient::get_transmit_fifo_entry_count(uint8_t& count) {
@@ -87,9 +94,24 @@ bool CANClient::get_mode(CAN_MODE& mode) {
 }
 
 bool CANClient::set_mode(CAN_MODE mode) {
-	return client.write(CAN_REGISTER_BANK,
+	bool success = client.write(CAN_REGISTER_BANK,
 			offsetof(struct CAN_REGS, opmode),
 			mode);
+
+	/* Note:  This command may take several milliseconds      */
+	/* to complete.  To help avoid communication errors,      */
+	/* delay approximately 10 ms after invoking this command. */
+	/* Todo:  This delay should occur within the SPIClient,   */
+	/* within the context of the communication mutex - in     */
+	/* order to ensure that communication in other threads    */
+	/* are not impacted by this case.                         */
+
+	struct timespec ts;
+	ts.tv_sec = 0;
+	ts.tv_nsec = 10000000;
+	nanosleep(&ts, NULL);
+
+	return success;
 }
 
 bool CANClient::reset() {

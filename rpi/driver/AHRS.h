@@ -118,6 +118,7 @@ private:
 
 public:
     AHRS(SPIClient& client, uint8_t update_rate_hz);
+    virtual ~AHRS();
 
     float  GetPitch();
     float  GetRoll();
@@ -175,6 +176,8 @@ public:
 
     int GetActualUpdateRate();
     int GetRequestedUpdateRate();
+
+    void Stop();
 
 private:
     void commonInit( uint8_t update_rate_hz );

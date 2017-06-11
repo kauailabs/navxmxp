@@ -1,7 +1,11 @@
 #include <iostream>
 #include <chrono>
 #include <thread>
+#include <time.h> /* nanosleep() */
 
 inline void delayMillis(int ms) {
-	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+	struct timespec ts;
+	ts.tv_sec = 0;
+	ts.tv_nsec = ms * 1000000;
+	nanosleep(&ts, NULL);
 }
