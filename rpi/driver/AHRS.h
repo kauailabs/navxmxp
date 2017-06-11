@@ -10,11 +10,13 @@
 
 #include <thread>
 #include "ITimestampedDataSubscriber.h"
-#include "DaGamaClient.h"
+#include "SPIClient.h"
 
 class IIOProvider;
 class ContinuousAngleTracker;
 class AHRSInternal;
+
+using namespace std;
 
 class AHRS {
 public:
@@ -108,14 +110,14 @@ private:
     ContinuousAngleTracker *yaw_angle_tracker;
     IIOProvider *           io;
 
-    std::thread *           task;
+    thread *           task;
 
 #define MAX_NUM_CALLBACKS 3
     ITimestampedDataSubscriber *callbacks[MAX_NUM_CALLBACKS];
     void *callback_contexts[MAX_NUM_CALLBACKS];
 
 public:
-    AHRS(DaGamaClient *client, uint8_t update_rate_hz);
+    AHRS(SPIClient& client, uint8_t update_rate_hz);
 
     float  GetPitch();
     float  GetRoll();

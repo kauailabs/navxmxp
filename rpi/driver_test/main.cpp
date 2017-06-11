@@ -23,10 +23,19 @@ void test_navx_pi_ext_i2c();
 
 int main(int argc, char *argv[])
 {
-	DaGamaClient client;
 	uint8_t update_rate_hz = 200;
-	AHRS ahrs(&client, update_rate_hz);
+	DaGamaClient client(update_rate_hz);
 	if(client.is_open()) {
+
+		/* AHRS test */
+
+		printf("AHRS Connected:  %s\n", (client.IsConnected() ? "Yes" : "No"));
+		for ( int i = 0; i < 10; i++) {
+			printf("Yaw, Pitch, Roll:  %f, %f, %f\n", client.GetYaw(), client.GetPitch(), client.GetRoll());
+			gpioDelay(10000); /* 10ms delay */
+		}
+
+		/* IOCX test */
 
 		const int first_stm32_gpio = 0;
 		const int num_stm32_gpios = client.get_num_gpios();
