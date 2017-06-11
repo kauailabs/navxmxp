@@ -343,7 +343,7 @@ typedef struct {
 	uint8_t						mask;
 } MCP25625_CAN_STATUS_REG;
 
-typedef struct {
+typedef struct __attribute__ ((__packed__)) {
 	uint8_t		   cmd;
 	CAN_TRANSFER   transfer;
 } CAN_TRANSFER_PADDED;

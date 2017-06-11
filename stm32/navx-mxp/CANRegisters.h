@@ -55,14 +55,14 @@ typedef enum {
 } CAN_MODE;
 
 typedef struct {
-    uint8_t	eidt	: 2; /* Lowest 2 bits of Extended Identifier */
+    uint8_t	eidt	: 2; /* Highest 2 bits of Extended Identifier */
     uint8_t invalid : 1; /* If set, data is not valid */
     uint8_t ide     : 1; /* Extended Identifier Flag */
     uint8_t srr     : 1; /* Frame Remote Transmit Request (Standard only) */
     uint8_t sidl    : 3; /* Lowest 3 bits of Standard Identifier */
 } CAN_ID_FLAGS;
 
-typedef struct {
+typedef struct __attribute__ ((__packed__)) {
 	uint8_t     	sidh;
     CAN_ID_FLAGS    sidl;
     uint8_t         eidh;
@@ -71,9 +71,9 @@ typedef struct {
 
 typedef struct {
     uint8_t len     : 4;
-    uint8_t         : 2;
+    uint8_t unused1 : 2;
     uint8_t rtr     : 1;
-    uint8_t         : 1;
+    uint8_t unused2 : 1;
 } CAN_DLC;
 
 typedef struct __attribute__ ((__packed__)) {
@@ -265,16 +265,21 @@ inline void CAN_unpack_extended_id(CAN_ID *id, uint32_t *EXTENDED_ID) {
 }
 
 inline void CAN_pack_standard_id(uint32_t SID, CAN_ID *id) {
-	id->sidh = (SID & 0x07F8) >> 3;
 	id->sidl.sidl = (SID & 0x0007);
+	SID >>= 3;
+	id->sidh =      (SID & 0x00FF);
 }
 
 inline void CAN_pack_extended_id(uint32_t EID, CAN_ID *id) {
-	id->sidh = (EID & 0x1FE00000) >> 21;
-	id->sidl.sidl = (EID & 0x001C0000) >> 18;
-	id->sidl.eidt = (EID & 0x00030000) >> 16;
-	id->eidh = (EID & 0x0000FF00) >> 8;
 	id->eidl = (EID & 0x000000FF);
+	EID >>= 8;
+	id->eidh = (EID & 0x000000FF);
+	EID >>= 2;
+	id->sidl.eidt = (EID & 0x00000003);
+	EID >>= 3;
+	id->sidl.sidl = (EID & 0x00000007);
+	EID >>= 8;
+	id->sidh =      (EID & 0x000000FF);
 }
 
 #endif /* CANREGISTERS_H_ */

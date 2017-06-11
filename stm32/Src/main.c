@@ -175,19 +175,19 @@ int main(void)
     MX_USB_DEVICE_Init();
     /* USER CODE BEGIN 2 */
     nav10_init();
-#ifdef ENABLE_CAN_TRANSCEIVER
-    CAN_init();
-    nav10_set_loop(CAN_loop);
-    nav10_set_register_lookup_func(CAN_get_reg_addr_and_max_size);
-    nav10_set_register_write_func(CAN_banked_writable_reg_update_func);
-#endif
-#if 0
 #ifdef ENABLE_IOCX
+#define IOCX_BANK_NUMBER 1
     iocx_init();
-    nav10_set_loop(IOCX_loop);
-    nav10_set_register_lookup_func(IOCX_get_reg_addr_and_max_size);
-    nav10_set_register_write_func(IOCX_banked_writable_reg_update_func);
+    nav10_set_loop(IOCX_BANK_NUMBER, IOCX_loop);
+    nav10_set_register_lookup_func(IOCX_BANK_NUMBER, IOCX_get_reg_addr_and_max_size);
+    nav10_set_register_write_func(IOCX_BANK_NUMBER, IOCX_banked_writable_reg_update_func);
 #endif
+#ifdef ENABLE_CAN_TRANSCEIVER
+#define CAN_BANK_NUMBER 2
+    CAN_init();
+    nav10_set_loop(CAN_BANK_NUMBER, CAN_loop);
+    nav10_set_register_lookup_func(CAN_BANK_NUMBER, CAN_get_reg_addr_and_max_size);
+    nav10_set_register_write_func(CAN_BANK_NUMBER, CAN_banked_writable_reg_update_func);
 #endif
     /* USER CODE END 2 */
 
