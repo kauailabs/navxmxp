@@ -36,8 +36,8 @@ typedef void (*register_write_func)(uint8_t bank, uint8_t register_offset, uint8
 
 _EXTERN_ATTRIB void nav10_init();
 _EXTERN_ATTRIB void nav10_main();
-_EXTERN_ATTRIB void nav10_set_loop(loop_func);
-_EXTERN_ATTRIB void nav10_set_register_lookup_func(register_lookup_func);
-_EXTERN_ATTRIB void nav10_set_register_write_func(register_write_func);
+_EXTERN_ATTRIB void nav10_set_loop(uint8_t bank, loop_func);
+_EXTERN_ATTRIB void nav10_set_register_lookup_func(uint8_t bank, register_lookup_func);
+_EXTERN_ATTRIB void nav10_set_register_write_func(uint8_t bank, register_write_func);
 
 #endif /* NAVX_MXP_H_ */

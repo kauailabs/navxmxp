@@ -213,6 +213,7 @@ void CANInterface::process_transmit_fifo() {
 					}
 				}
 				enable_CAN_interrupts();
+				tx_fifo.dequeue_return(p_data);
 			}
 		}
 	}
@@ -263,8 +264,8 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 		return MCP25625_CTL_ERR;
 
 	// Setup Control
-	can_ctl.clkpre = 0;
-	can_ctl.clken = false;
+	can_ctl.clkpre = 1; /* Divide Crystal oscillator /1 */
+	can_ctl.clken = true;
 	can_ctl.abat = true; /* Clear any transmission in progress */
 	can_ctl.osm = false;
 	can_ctl.reqop = CAN_MODE_CONFIG;
@@ -350,6 +351,16 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 		 ie_ctl_copy = ie_ctl;
 	}
 
+	// Configure CAN bus timing
+	uint8_t BRP, SJW, PRSEG, PHSEG1, PHSEG2;
+	bool SAM, BTLMODE, WAKFIL, SOFR;
+	get_btl_config(BRP, SJW, PRSEG, PHSEG1, PHSEG2, SAM, BTLMODE, WAKFIL, SOFR);
+
+	btl_config(0,2,7,2,2,1,1,0,0); /* 24Mhz Crystal 2TQ; 11-meter max bus len */
+	//btl_config(0,1,8,1,2,1,1,0,0); /* 24Mhz Crystal 1TQ; 19-meter max bus len */
+
+	get_btl_config(BRP, SJW, PRSEG, PHSEG1, PHSEG2, SAM, BTLMODE, WAKFIL, SOFR);
+
 	// Enable interrupts
 	ie_ctl.err = true;
 	ie_ctl.mask = (MCP25625_INT_CTL_MASK) 0xFF;
@@ -369,12 +380,6 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 	{
 		 ie_ctl_copy = ie_ctl;
 	}
-
-	uint8_t BRP, SJW, PRSEG, PHSEG1, PHSEG2;
-	bool SAM, BTLMODE, WAKFIL, SOFR;
-	get_btl_config(BRP, SJW, PRSEG, PHSEG1, PHSEG2, SAM, BTLMODE, WAKFIL, SOFR);
-
-	btl_config(0,1,1,1,2,1,1,0,0);
 
 	if (set_mode(default_mode))
 		return MCP25625_MODE_FAULT;
@@ -427,12 +432,12 @@ CAN_INTERFACE_STATUS CANInterface::get_btl_config(uint8_t& BRP, uint8_t& SJW,
 		return MCP25625_CTL_ERR;
 
 	BRP = cnf_1.brp;
-	SJW = cnf_1.sjw;
+	SJW = cnf_1.sjw + 1;
 	BTLMODE = cnf_2.btlmode;
 	SAM = cnf_2.sam;
-	PRSEG = cnf_2.prseg;
-	PHSEG1 = cnf_2.phseg1;
-	PHSEG2 = cnf_3.phseg2;
+	PRSEG = cnf_2.prseg + 1;
+	PHSEG1 = cnf_2.phseg1 + 1;
+	PHSEG2 = cnf_3.phseg2 + 1;
 	SOFR = cnf_3.sof;
 	WAKFIL = cnf_3.wakfil;
 
@@ -447,12 +452,12 @@ CAN_INTERFACE_STATUS CANInterface::btl_config(uint8_t BRP, uint8_t SJW,
 		return MCP25625_MODE_FAULT;
 
 	cnf_1.brp = BRP;
-	cnf_1.sjw = SJW;
+	cnf_1.sjw = SJW - 1;
 	cnf_2.btlmode = BTLMODE;
 	cnf_2.sam = SAM;
-	cnf_2.prseg = PRSEG;
-	cnf_2.phseg1 = PHSEG1;
-	cnf_3.phseg2 = PHSEG2;
+	cnf_2.prseg = PRSEG - 1;
+	cnf_2.phseg1 = PHSEG1 - 1;
+	cnf_3.phseg2 = PHSEG2 - 1;
 	cnf_3.sof = SOFR;
 	cnf_3.wakfil = WAKFIL;
 

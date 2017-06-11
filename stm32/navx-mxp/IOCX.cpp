@@ -200,6 +200,9 @@ _EXTERN_ATTRIB void IOCX_banked_writable_reg_update_func(uint8_t bank, uint8_t r
 							/* At least one byte in this set was modified. */
 							p_set->changed(first_offset, num_bytes_in_set_changed);
 						}
+						if (count == 0) {
+							break;
+						}
 					}
 				}
 			}

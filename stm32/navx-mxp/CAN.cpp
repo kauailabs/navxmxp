@@ -41,7 +41,7 @@ _EXTERN_ATTRIB void CAN_init()
 	can_regs.capability_flags.unused = 0;
 	p_CAN = new CANInterface();
 	p_CAN->register_interrupt_flag_function(CAN_ISR_Flag_Function); /* Updated in ISR */
-	p_CAN->init(CAN_MODE_LOOP);
+	p_CAN->init(CAN_MODE_LISTEN);
 }
 
 static uint32_t last_loop_timestamp;
@@ -73,7 +73,6 @@ _EXTERN_ATTRIB void CAN_loop()
 				p_CAN->process_transmit_fifo();
 			}
 
-#if 0
 			while(!p_CAN->get_rx_fifo().is_empty()){
 				CAN_TRANSFER_PADDED *p_rx = p_CAN->get_rx_fifo().dequeue();
 				if(p_rx){
@@ -86,13 +85,17 @@ _EXTERN_ATTRIB void CAN_loop()
 					}
 					uint8_t len = p_rx->transfer.payload.dlc.len;
 					uint8_t buff[8];
-					memcpy(buff,p_rx->transfer.payload.buff,len);
+					int copy_len = len;
+					if ( copy_len > 8) {
+						copy_len = 8;
+					}
+
+					memcpy(buff,p_rx->transfer.payload.buff,copy_len);
 					bool RTR = p_rx->transfer.payload.dlc.rtr;
 					p_CAN->get_rx_fifo().dequeue_return(p_rx);
 					uint8_t len_copy = len;
 				}
 			}
-#endif
 
 			/* If CAN Rx is not currently active (because of inbound buffer
 			 * overflow), re-enable reception.
@@ -326,6 +329,9 @@ _EXTERN_ATTRIB void CAN_banked_writable_reg_update_func(uint8_t bank, uint8_t re
 							if (num_bytes_in_set_changed > 0){
 								/* At least one byte in this set was modified. */
 								p_set->changed(first_offset, num_bytes_in_set_changed);
+							}
+							if (count == 0) {
+								break;
 							}
 						}
 					}

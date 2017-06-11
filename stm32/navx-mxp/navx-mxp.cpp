@@ -59,13 +59,15 @@ HAL_StatusTypeDef prepare_next_i2c_receive();
 uint8_t i2c3_RxBuffer[RXBUFFERSIZE];
 uint8_t spi1_RxBuffer[RXBUFFERSIZE];
 
-loop_func p_loop_func = NULL;
-register_lookup_func p_reg_lookup_func = NULL;
-register_write_func p_reg_write_func = NULL;
+#define NUM_SPI_BANKS 3
 
-_EXTERN_ATTRIB void nav10_set_loop(loop_func p) { p_loop_func = p; }
-_EXTERN_ATTRIB void nav10_set_register_lookup_func(register_lookup_func p) { p_reg_lookup_func = p; }
-_EXTERN_ATTRIB void nav10_set_register_write_func(register_write_func p) { p_reg_write_func = p; }
+loop_func p_loop_func[NUM_SPI_BANKS] = { NULL, NULL, NULL };
+register_lookup_func p_reg_lookup_func[NUM_SPI_BANKS] = { NULL, NULL, NULL };
+register_write_func p_reg_write_func[NUM_SPI_BANKS] = { NULL, NULL, NULL };
+
+_EXTERN_ATTRIB void nav10_set_loop(uint8_t bank, loop_func p) { p_loop_func[bank] = p; }
+_EXTERN_ATTRIB void nav10_set_register_lookup_func(uint8_t bank, register_lookup_func p) { p_reg_lookup_func[bank] = p; }
+_EXTERN_ATTRIB void nav10_set_register_write_func(uint8_t bank, register_write_func p) { p_reg_write_func[bank] = p; }
 
 #define MIN_SAMPLE_RATE_HZ 4
 #define MAX_SAMPLE_RATE_HZ 200
@@ -77,7 +79,7 @@ _EXTERN_ATTRIB void nav10_set_register_write_func(register_write_func p) { p_reg
 #define		SPI_RECV_LENGTH 20	/* SPI Requests:  Write:  [Bank] [0x80 | RegAddr] [Count (1-16)] [16 bytes of write data] [CRC] */
 								/*                *If bank = 0, 1-byte write is used, and count is the byte to be written.      */
 								/*                Read:   [Bank] [RegAddr] [Count] [CRC] [16 bytes of zeros, ignored]           */
-#define		MAX_VALID_BANK  1
+#define		MAX_VALID_BANK  NUM_SPI_BANKS
 #else
 #define		SPI_RECV_LENGTH 3	/* SPI Requests:  [0x80 | RegAddr] [Count] [CRC] (Bank 0 is implicitly used) */
 #define     MAX_VALID_BANK  0
@@ -1406,8 +1408,10 @@ _EXTERN_ATTRIB void nav10_main()
             }
         }
 
-        if ( p_loop_func != NULL ) {
-        	p_loop_func();
+        for ( int i = 0; i < NUM_SPI_BANKS; i++) {
+        	if ( p_loop_func[i] != NULL ) {
+        		p_loop_func[i]();
+        	}
         }
     }
 }
@@ -1724,8 +1728,12 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                         reg_address &= ~0x80;
                     }
 #ifdef ENABLE_BANKED_REGISTERS
-                    if ( ( bank > 0 ) && ( p_reg_lookup_func != NULL) ) {
-                    	reg_addr = p_reg_lookup_func(bank, reg_address, reg_count, &max_size);
+                    if (( bank >= 0 ) && (bank <= NUM_SPI_BANKS)) {
+                    	if (bank == 0) {
+                           	reg_addr = GetRegisterAddressAndMaximumSize(reg_address, max_size);
+                    	} else if (p_reg_lookup_func[bank] != NULL) {
+                    		reg_addr = p_reg_lookup_func[bank](bank, reg_address, reg_count, &max_size);
+                    	}
                     }
                     else
 #endif
@@ -1735,12 +1743,13 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                     if ( reg_addr ) {
                     	if ( write ) {
 #ifdef ENABLE_BANKED_REGISTERS
-                    		if ( ( bank > 0 ) && ( p_reg_write_func != NULL) ) {
-                    			p_reg_write_func(bank, reg_address, reg_addr, reg_count, received_data);
+                    		if ((bank >= 0) && (bank <= NUM_SPI_BANKS)) {
+                    			if (bank == 0) {
+                               		process_writable_register_update( reg_address, reg_addr, reg_count /* value */ );
+                    			} else if(p_reg_write_func[bank] != NULL) {
+                    				p_reg_write_func[bank](bank, reg_address, reg_addr, reg_count, received_data);
+                    			}
                     		}
-                    		else {
-                        		process_writable_register_update( reg_address, reg_addr, reg_count /* value */ );
-                        	}
 #else
                     		process_writable_register_update( reg_address, reg_addr, reg_count /* value */ );
 #endif
