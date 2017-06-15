@@ -12,6 +12,7 @@
 
 #define CAN_REGISTER_BANK 2
 
+#define NUM_RX_BUFFERS					 2
 #define NUM_ACCEPT_FILTERS_RX0_BUFFER 	 2
 #define NUM_ACCEPT_FILTERS_RX1_BUFFER	 4
 
@@ -85,6 +86,13 @@ typedef struct __attribute__ ((__packed__)) {
 	CAN_ID			id;
 	CAN_DATA		payload;
 } CAN_TRANSFER;
+
+typedef enum {
+	CAN_RX_FILTER_ALL,
+	CAN_RX_FILTER_SID_ONLY,
+	CAN_RX_FILTER_EID_ONLY,
+	CAN_RX_DISABLE_FILTERS
+} CAN_RX_FILTER_MODE;
 
 typedef struct {
 	uint8_t sam		: 1; /* True: one sample point is located between PHSEG1 and
@@ -230,6 +238,7 @@ struct __attribute__ ((__packed__)) CAN_REGS {
 	/*                                                                      */
 	/* NOTE:  Must be in CAN_MODE_CONFIG for changes to take effect!        */
 	/************************************************************************/
+	CAN_RX_FILTER_MODE rx_filter_mode[NUM_RX_BUFFERS];
 	CAN_ID accept_mask_rxb0;
 	CAN_ID accept_filter_rxb0[NUM_ACCEPT_FILTERS_RX0_BUFFER];
 	CAN_ID accept_mask_rxb1;
