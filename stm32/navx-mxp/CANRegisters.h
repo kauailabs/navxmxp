@@ -274,11 +274,11 @@ inline void CAN_pack_extended_id(uint32_t EID, CAN_ID *id) {
 	id->eidl = (EID & 0x000000FF);
 	EID >>= 8;
 	id->eidh = (EID & 0x000000FF);
-	EID >>= 2;
-	id->sidl.eidt = (EID & 0x00000003);
-	EID >>= 3;
-	id->sidl.sidl = (EID & 0x00000007);
 	EID >>= 8;
+	id->sidl.eidt = (EID & 0x00000003);
+	EID >>= 2;
+	id->sidl.sidl = (EID & 0x00000007);
+	EID >>= 3;
 	id->sidh =      (EID & 0x000000FF);
 }
 
