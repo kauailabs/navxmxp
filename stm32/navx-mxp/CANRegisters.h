@@ -268,6 +268,7 @@ inline void CAN_pack_standard_id(uint32_t SID, CAN_ID *id) {
 	id->sidl.sidl = (SID & 0x0007);
 	SID >>= 3;
 	id->sidh =      (SID & 0x00FF);
+	id->sidl.ide = 0;
 }
 
 inline void CAN_pack_extended_id(uint32_t EID, CAN_ID *id) {
@@ -280,6 +281,7 @@ inline void CAN_pack_extended_id(uint32_t EID, CAN_ID *id) {
 	id->sidl.sidl = (EID & 0x00000007);
 	EID >>= 3;
 	id->sidh =      (EID & 0x000000FF);
+	id->sidl.ide = 1;
 }
 
 #endif /* CANREGISTERS_H_ */
