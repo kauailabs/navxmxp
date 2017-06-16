@@ -87,6 +87,11 @@ typedef struct __attribute__ ((__packed__)) {
 	CAN_DATA		payload;
 } CAN_TRANSFER;
 
+typedef struct __attribute__ ((__packed__)) {
+	CAN_TRANSFER	transfer;
+	uint32_t 		timestamp_ms;
+} TIMESTAMPED_CAN_TRANSFER;
+
 typedef enum {
 	CAN_RX_FILTER_ALL,
 	CAN_RX_FILTER_SID_ONLY,
@@ -148,17 +153,18 @@ typedef struct __attribute__ ((__packed__)) {
 
 /* Transmit FIFO Read Command:
  *
- * Allows one or more CAN_TRANSFER structures (13 bytes each) to be read from
- * the receive fifo.  The receive fifo count will be automatically decremented
- * by the number of CAN_TRANSFER structures read.
+ * Allows one or more TIMESTAMPED_CAN_TRANSFER structures (17 bytes each) to be
+ * read from the receive fifo.  The receive fifo count will be automatically
+ * decremented by the number of TIMESTAMPED_CAN_TRANSFER structures read.
  *
- * Note:  The Count of bytes to be returned must be a multiple of 13 bytes.  If
- * the count is not an integer multiple of 13, the fifo count will be
- * decremented by the number of complete CAN_TRANSFER structures read.
+ * Note:  The Count of bytes to be returned must be a multiple of 17 bytes.  If
+ * the count is not an integer multiple of 17, the fifo count will be
+ * decremented by the number of complete TIMESTAMPED_CAN_TRANSFER structures
+ * read.
  *
  * If the receive fifo is empty, the "invalid" flag will be set in returned
- * CAN_TRANSFER structures, and also the dlc length and all data bytes will be
- * set to 0.
+ * TIMESTAMPED_CAN_TRANSFER structures, and also the dlc length and all data
+ * bytes will be set to 0.
  *
  * This command is only treated as a Receive FIFO Read Command if the
  * register address is the RxFifoTailAddress; otherwise, this will be treated
@@ -215,7 +221,7 @@ struct __attribute__ ((__packed__)) CAN_REGS {
 	/****************************/
 	/* Receive FIFO (Read-only) */
 	/****************************/
-	uint8_t rx_fifo_tail; /* Up to MAX_RX_ENTRIES of CAN_TRANSFER entries */
+	uint8_t rx_fifo_tail; /* Up to MAX_RX_ENTRIES of TIMESTAMPED_CAN_TRANSFER entries */
 
 	/*********************************************/
 	/* Interrupt Status/Acknowledge (Read/Write) */
