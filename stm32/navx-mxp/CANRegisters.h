@@ -226,7 +226,7 @@ struct __attribute__ ((__packed__)) CAN_REGS {
 	/************************************/
 	/* Basic Configuration (Read/Write) */
 	/************************************/
-	CAN_MODE opmode;
+	uint8_t opmode;	/* CAN_MODE */
 
 	/************************************/
 	/* Reset (Write-only) */
@@ -238,7 +238,7 @@ struct __attribute__ ((__packed__)) CAN_REGS {
 	/*                                                                      */
 	/* NOTE:  Must be in CAN_MODE_CONFIG for changes to take effect!        */
 	/************************************************************************/
-	CAN_RX_FILTER_MODE rx_filter_mode[NUM_RX_BUFFERS];
+	uint8_t rx_filter_mode[NUM_RX_BUFFERS]; /* CAN_RX_FILTER_MODE */
 	CAN_ID accept_mask_rxb0;
 	CAN_ID accept_filter_rxb0[NUM_ACCEPT_FILTERS_RX0_BUFFER];
 	CAN_ID accept_mask_rxb1;
