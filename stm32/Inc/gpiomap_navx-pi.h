@@ -38,8 +38,8 @@
 
 /* Private define ------------------------------------------------------------*/
 
-#define NAVX_2_RPI_INT_Pin GPIO_PIN_2
-#define NAVX_2_RPI_INT_GPIO_Port GPIOE
+#define NAVX_2_RPI_SPI_Comm_Ready_Pin GPIO_PIN_2
+#define NAVX_2_RPI_SPI_Comm_Ready_GPIO_Port GPIOE
 #define S2_LED_Pin GPIO_PIN_2
 #define S2_LED_GPIO_Port GPIOC
 #define S1_LED_Pin GPIO_PIN_3

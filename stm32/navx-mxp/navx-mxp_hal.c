@@ -247,18 +247,42 @@ void HAL_RN4020_Set_CMD_MLDP(int value)
 #endif
 }
 
-void HAL_RPI_CAN_Int_Assert() /* Active:  Low */
+void HAL_SPI_Comm_Ready_Assert() /* Active:  Low */
 {
 #ifdef ENABLE_RPI_INTERRUPT
-	  HAL_GPIO_WritePin(NAVX_2_RPI_INT_GPIO_Port, NAVX_2_RPI_INT_Pin, GPIO_PIN_RESET);
+	  HAL_GPIO_WritePin(NAVX_2_RPI_SPI_Comm_Ready_GPIO_Port, NAVX_2_RPI_SPI_Comm_Ready_Pin, GPIO_PIN_RESET);
 #endif
 }
 
-void HAL_RPI_CAN_Int_Deassert()
+void HAL_SPI_Comm_Ready_Deassert()
 {
 #ifdef ENABLE_RPI_INTERRUPT
-	  HAL_GPIO_WritePin(NAVX_2_RPI_INT_GPIO_Port, NAVX_2_RPI_INT_Pin, GPIO_PIN_SET);
+	  HAL_GPIO_WritePin(NAVX_2_RPI_SPI_Comm_Ready_GPIO_Port, NAVX_2_RPI_SPI_Comm_Ready_Pin, GPIO_PIN_SET);
 #endif
+}
+
+void HAL_CAN_Int_Assert()
+{
+}
+
+void HAL_CAN_Int_Deassert()
+{
+}
+
+void HAL_AHRS_Int_Assert()
+{
+}
+
+void HAL_AHRS_Int_Deassert()
+{
+}
+
+void HAL_IOCX_Int_Assert()
+{
+}
+
+void HAL_IOCX_Int_Deassert()
+{
 }
 
 #ifdef ENABLE_IOCX

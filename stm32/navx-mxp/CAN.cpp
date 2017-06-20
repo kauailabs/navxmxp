@@ -17,7 +17,7 @@ static CANInterface *p_CAN;
 #define READ_BUFFER_TRANSFER_COUNT	 MAX_SPI_READ_DATA_SIZE / sizeof(CAN_TRANSFER)
 
 CAN_REGS can_regs;
-CAN_TRANSFER read_buffer[READ_BUFFER_TRANSFER_COUNT];
+TIMESTAMPED_CAN_TRANSFER read_buffer[READ_BUFFER_TRANSFER_COUNT];
 
 void CAN_ISR_Flag_Function(CAN_IFX_INT_FLAGS mask, CAN_IFX_INT_FLAGS flags)
 {
@@ -31,7 +31,20 @@ void CAN_ISR_Flag_Function(CAN_IFX_INT_FLAGS mask, CAN_IFX_INT_FLAGS flags)
 	uint8_t curr_flags = *(uint8_t *)(&can_regs.int_status);
 	uint8_t curr_enable_mask = *(uint8_t *)(&can_regs.int_enable);
 	if((curr_flags & curr_enable_mask) != 0) {
-		HAL_RPI_CAN_Int_Assert();
+		HAL_CAN_Int_Assert();
+	}
+}
+
+static void CAN_int_flags_modified(uint8_t first_offset, uint8_t count) {
+	if(can_regs.int_flags.hw_rx_overflow){
+		p_CAN->clear_rx_overflow();
+		can_regs.int_flags.hw_rx_overflow = false;
+	}
+	can_regs.int_status = can_regs.int_flags;
+	uint8_t curr_int_status = *(uint8_t *)&can_regs.int_status;
+	uint8_t curr_int_enable = *(uint8_t *)&can_regs.int_enable;
+	if((curr_int_status & curr_int_enable) == 0) {
+		HAL_CAN_Int_Deassert();
 	}
 }
 
@@ -73,30 +86,6 @@ _EXTERN_ATTRIB void CAN_loop()
 				p_CAN->process_transmit_fifo();
 			}
 
-			while(!p_CAN->get_rx_fifo().is_empty()){
-				CAN_TRANSFER_PADDED *p_rx = p_CAN->get_rx_fifo().dequeue();
-				if(p_rx){
-					num_received_messages++;
-					uint32_t id;
-					if(p_rx->transfer.id.sidl.ide){
-						CAN_unpack_extended_id(&p_rx->transfer.id,&id);
-					} else {
-						CAN_unpack_standard_id(&p_rx->transfer.id,&id);
-					}
-					uint8_t len = p_rx->transfer.payload.dlc.len;
-					uint8_t buff[8];
-					int copy_len = len;
-					if ( copy_len > 8) {
-						copy_len = 8;
-					}
-
-					memcpy(buff,p_rx->transfer.payload.buff,copy_len);
-					bool RTR = p_rx->transfer.payload.dlc.rtr;
-					p_CAN->get_rx_fifo().dequeue_return(p_rx);
-					uint8_t len_copy = len;
-				}
-			}
-
 			/* If CAN Rx is not currently active (because of inbound buffer
 			 * overflow), re-enable reception.
 			 */
@@ -118,25 +107,6 @@ _EXTERN_ATTRIB void CAN_loop()
 			}
 
 			CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
-#if 0
-			while (!p_CAN->get_tx_fifo().is_full()) {
-				CAN_DATA *p_tx = p_CAN->get_tx_fifo().enqueue_reserve();
-				if(p_tx) {
-					*(uint8_t *)&(p_tx->dlc) = 0;
-					p_tx->dlc.len = 8;
-					p_tx->dlc.rtr = false;
-					p_tx->buff[0] = 'H';
-					p_tx->buff[1] = 'e';
-					p_tx->buff[2] = 'l';
-					p_tx->buff[3] = 'l';
-					p_tx->buff[4] = 'o';
-					p_tx->buff[5] = '!';
-					p_tx->buff[6] = '!';
-					p_tx->buff[7] = 0;
-					p_CAN->get_tx_fifo().enqueue_commit(p_tx);
-				}
-			}
-#endif
 		}
 	}
 }
@@ -144,13 +114,19 @@ _EXTERN_ATTRIB void CAN_loop()
 static uint8_t * CAN_rxfifo_read(uint8_t requested_count, uint16_t* size) {
 	int num_transfers_in_buffer = 0;
 	uint8_t *read_buffer_base = (uint8_t *)&read_buffer;
-	if(requested_count >= sizeof(CAN_TRANSFER)) {
-		int num_requested_transfers = sizeof(CAN_TRANSFER) / requested_count;
+	if(requested_count >= sizeof(TIMESTAMPED_CAN_TRANSFER)) {
+		int num_requested_transfers = requested_count / sizeof(TIMESTAMPED_CAN_TRANSFER);
 		for ( int i = 0; i < num_requested_transfers; i++) {
-			CAN_TRANSFER_PADDED *p_rx = p_CAN->get_rx_fifo().dequeue();
+			TIMESTAMPED_CAN_TRANSFER_PADDED *p_rx = p_CAN->get_rx_fifo().dequeue();
 			if(p_rx != NULL) {
 				memcpy(&read_buffer[i], &p_rx->transfer, sizeof(p_rx->transfer));
 				p_CAN->get_rx_fifo().dequeue_return(p_rx);
+				if (can_regs.int_flags.sw_rx_overflow) {
+					can_regs.int_flags.sw_rx_overflow = false;
+					CAN_int_flags_modified(0,0);
+				}
+				read_buffer[i].transfer.id.sidl.invalid = false;
+				can_regs.rx_fifo_entry_count = p_CAN->get_rx_fifo().get_count();
 				num_transfers_in_buffer++;
 			} else {
 				break; /* Fifo now empty */
@@ -160,13 +136,15 @@ static uint8_t * CAN_rxfifo_read(uint8_t requested_count, uint16_t* size) {
 			/* TODO:  Deassert rx_fifo_nonempty interrupt flag */
 		}
 	}
-	if (num_transfers_in_buffer == 0) {
-		/* Fifo empty when read request received */
-		/* Transmit a single transfer w/invalid flag set. */
-		read_buffer[0].id.sidl.invalid = true;
-		num_transfers_in_buffer++;
+	if (num_transfers_in_buffer < requested_count) {
+		for ( int i = num_transfers_in_buffer; i < requested_count; i++) {
+			/* More transfers were requested that are in the buffer. */
+			/* Transmit a transfer w/invalid flag set. */
+			read_buffer[i].transfer.id.sidl.invalid = true;
+			num_transfers_in_buffer++;
+		}
 	}
-	*size = num_transfers_in_buffer * sizeof(CAN_TRANSFER);
+	*size = num_transfers_in_buffer * sizeof(TIMESTAMPED_CAN_TRANSFER);
 	return read_buffer_base;
 }
 
@@ -207,27 +185,29 @@ static void CAN_int_enable_modified(uint8_t first_offset, uint8_t count) {
 	/* No-op */
 }
 
-static void CAN_int_flags_modified(uint8_t first_offset, uint8_t count) {
-	if(can_regs.int_flags.hw_rx_overflow){
-		p_CAN->clear_rx_overflow();
-		can_regs.int_flags.hw_rx_overflow = false;
-	}
-	can_regs.int_status = can_regs.int_flags;
-	uint8_t curr_int_status = *(uint8_t *)&can_regs.int_status;
-	uint8_t curr_int_enable = *(uint8_t *)&can_regs.int_enable;
-	if((curr_int_status & curr_int_enable) == 0) {
-		HAL_RPI_CAN_Int_Deassert();
-	}
-}
-
 static void CAN_opmode_modified(uint8_t first_offset, uint8_t count) {
 	if ((first_offset == 0) && (count > 0)) {
-		p_CAN->set_mode(can_regs.opmode);
+		p_CAN->set_mode((CAN_MODE)can_regs.opmode);
 	}
 }
 
 static void CAN_reset_modified(uint8_t first_offset, uint8_t count) {
 
+}
+
+static void CAN_rx_filter_mode_modified(uint8_t first_offset, uint8_t count) {
+	if (first_offset < NUM_RX_BUFFERS) {
+		if (count > (NUM_RX_BUFFERS - first_offset)) {
+			count = NUM_RX_BUFFERS - first_offset;
+		}
+		uint8_t offset = first_offset;
+		while (offset < (first_offset + count)) {
+			p_CAN->rx_config((MCP25625_RX_BUFFER_INDEX)offset,
+					(MCP25625_RX_MODE)can_regs.rx_filter_mode[offset],
+					true);
+			offset++;
+		}
+	}
 }
 
 static void CAN_accept_mask_rxb0_modified(uint8_t first_offset, uint8_t count) {
@@ -287,6 +267,7 @@ WritableRegSet CAN_reg_sets[] =
 	{ offsetof(struct CAN_REGS, int_flags), sizeof(CAN_REGS::int_flags), CAN_int_flags_modified },
 	{ offsetof(struct CAN_REGS, opmode), sizeof(CAN_REGS::opmode), CAN_opmode_modified },
 	{ offsetof(struct CAN_REGS, reset), sizeof(CAN_REGS::reset), CAN_reset_modified },
+	{ offsetof(struct CAN_REGS, rx_filter_mode), sizeof(CAN_REGS::rx_filter_mode), CAN_rx_filter_mode_modified },
 	{ offsetof(struct CAN_REGS, accept_mask_rxb0), sizeof(CAN_REGS::accept_mask_rxb0), CAN_accept_mask_rxb0_modified },
 	{ offsetof(struct CAN_REGS, accept_mask_rxb1), sizeof(CAN_REGS::accept_mask_rxb1), CAN_accept_mask_rxb1_modified },
 	{ offsetof(struct CAN_REGS, accept_filter_rxb0), sizeof(CAN_REGS::accept_filter_rxb0), CAN_accept_filter_rxb0_modified },

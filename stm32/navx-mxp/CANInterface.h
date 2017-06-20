@@ -29,6 +29,11 @@ typedef int CAN_INTERFACE_STATUS;
 
 typedef void (*CAN_interrupt_flag_func)(CAN_IFX_INT_FLAGS mask, CAN_IFX_INT_FLAGS flags);
 
+typedef struct __attribute__ ((__packed__)) {
+	uint8_t		   			   cmd;
+	TIMESTAMPED_CAN_TRANSFER   transfer;
+} TIMESTAMPED_CAN_TRANSFER_PADDED;
+
 class CANInterface {
 
 	MCP25625_CAN_CTL     		can_ctl;
@@ -45,8 +50,9 @@ class CANInterface {
 	MCP25625_ERRORFLAG_CTL		eflg_ctl;
 	MCP25625_ERRORFLAG_CTL		eflg_ctl_isr;
 	CAN_MODE      				default_mode;
+	CAN_MODE					current_mode;
 	CAN_TRANSFER_PADDED			write_transfer;
-	CAN_TRANSFER_PADDED   		read_transfer;
+	TIMESTAMPED_CAN_TRANSFER_PADDED read_transfer;
 	MCP25625_CAN_STATUS			can_stat;
 	MCP25625_RX_STATUS_INFO  	rx_status;
 	MCP25625_CAN_STATUS_REG 	status_reg;
@@ -63,7 +69,7 @@ class CANInterface {
 	uint32_t rx_buff_full_count;
 	uint32_t more_interrupt_pending_count;
 
-	FIFO<CAN_TRANSFER_PADDED, RECEIVE_FIFO_DEPTH> rx_fifo;
+	FIFO<TIMESTAMPED_CAN_TRANSFER_PADDED, RECEIVE_FIFO_DEPTH> rx_fifo;
 	FIFO<CAN_TRANSFER_PADDED, TRANSMIT_FIFO_DEPTH> tx_fifo;
 
 	static void mcp25625_isr(void);
@@ -75,7 +81,7 @@ class CANInterface {
 public:
 	CANInterface(uint16_t stm32_gpio_pin = GPIO_PIN_7);
 	CAN_INTERFACE_STATUS init(CAN_MODE mode);
-	CAN_INTERFACE_STATUS set_mode(CAN_MODE mode);
+	CAN_INTERFACE_STATUS set_mode(CAN_MODE mode, bool disable_interrupts = true);
 	CAN_INTERFACE_STATUS com_error(bool clear);
 	CAN_INTERFACE_STATUS btl_config
 	(
@@ -162,7 +168,7 @@ public:
 	void process_transmit_fifo();
 
 	FIFO<CAN_TRANSFER_PADDED, TRANSMIT_FIFO_DEPTH>& get_tx_fifo() { return tx_fifo; }
-	FIFO<CAN_TRANSFER_PADDED, RECEIVE_FIFO_DEPTH>& get_rx_fifo() { return rx_fifo; }
+	FIFO<TIMESTAMPED_CAN_TRANSFER_PADDED, RECEIVE_FIFO_DEPTH>& get_rx_fifo() { return rx_fifo; }
 
 	void register_interrupt_flag_function(CAN_interrupt_flag_func p_isr_flag_func);
 

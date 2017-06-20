@@ -66,7 +66,7 @@ void MX_GPIO_Init_NavX_PI(void)
   __GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pins : PEPin PEPin */
-  GPIO_InitStruct.Pin = NAVX_2_RPI_INT_Pin;
+  GPIO_InitStruct.Pin = NAVX_2_RPI_SPI_Comm_Ready_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
@@ -126,7 +126,7 @@ void MX_GPIO_Init_NavX_PI(void)
   HAL_GPIO_WritePin(GPIOC, _CAN_RESET_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(_I2C_DEV_ON_GPIO_Port, _I2C_DEV_ON_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GPIOD, CAL_LED_Pin|CAN_STANDBY_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(NAVX_2_RPI_INT_GPIO_Port, NAVX_2_RPI_INT_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(NAVX_2_RPI_SPI_Comm_Ready_GPIO_Port, NAVX_2_RPI_SPI_Comm_Ready_Pin, GPIO_PIN_SET);
 }
 
 /* USER CODE BEGIN 2 */
