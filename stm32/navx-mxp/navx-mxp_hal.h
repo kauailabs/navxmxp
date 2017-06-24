@@ -107,8 +107,14 @@ void HAL_I2C_Power_Off();
 int  HAL_SPI_Slave_Enabled();
 int  HAL_UART_Slave_Enabled();
 
-void HAL_RPI_CAN_Int_Assert();
-void HAL_RPI_CAN_Int_Deassert();
+void HAL_SPI_Comm_Ready_Assert();
+void HAL_SPI_Comm_Ready_Deassert();
+void HAL_CAN_Int_Assert();
+void HAL_CAN_Int_Deassert();
+void HAL_AHRS_Int_Assert();
+void HAL_AHRS_Int_Deassert();
+void HAL_IOCX_Int_Assert();
+void HAL_IOCX_Int_Deassert();
 
 /**********************/
 /* Reconfigurable IOs */
