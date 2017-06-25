@@ -157,14 +157,15 @@ typedef struct __attribute__ ((__packed__)) {
  * read from the receive fifo.  The receive fifo count will be automatically
  * decremented by the number of TIMESTAMPED_CAN_TRANSFER structures read.
  *
- * Note:  The Count of bytes to be returned must be a multiple of 17 bytes.  If
- * the count is not an integer multiple of 17, the fifo count will be
- * decremented by the number of complete TIMESTAMPED_CAN_TRANSFER structures
- * read.
+ * Note:  The Count of bytes requested/returned does not have be a multiple of
+ * 17 bytes.  If the count is not an integer multiple of 17, the fifo count will
+ * be decremented by the number of complete TIMESTAMPED_CAN_TRANSFER structures
+ * read.  The first "extra" byte after the last transfer will contain the count
+ * of remaining packets.
  *
- * If the receive fifo is empty, the "invalid" flag will be set in returned
- * TIMESTAMPED_CAN_TRANSFER structures, and also the dlc length and all data
- * bytes will be set to 0.
+ * If the read requests more transfers than are available, the "invalid" flag
+ * will be set in the correspondingn returned TIMESTAMPED_CAN_TRANSFER
+ * structures, and also the dlc length and all data bytes will be set to 0.
  *
  * This command is only treated as a Receive FIFO Read Command if the
  * register address is the RxFifoTailAddress; otherwise, this will be treated

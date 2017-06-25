@@ -25,13 +25,16 @@ void CAN_ISR_Flag_Function(CAN_IFX_INT_FLAGS mask, CAN_IFX_INT_FLAGS flags)
 
 	uint8_t umask = (uint8_t)*(uint8_t *)&mask;
 	uint8_t uflags = (uint8_t)*(uint8_t *)&flags;
-	uint8_t masked_flags = umask & uflags;
-	*(uint8_t *)(&can_regs.int_status) |= masked_flags;
+	uint8_t masked_flags_to_set = umask & uflags;
+    *(uint8_t *)(&can_regs.int_status) &= ~umask; /* Clear masked bits */
+	*(uint8_t *)(&can_regs.int_status) |= masked_flags_to_set; /* Set bits */
 	can_regs.int_flags = can_regs.int_status;
 	uint8_t curr_flags = *(uint8_t *)(&can_regs.int_status);
 	uint8_t curr_enable_mask = *(uint8_t *)(&can_regs.int_enable);
 	if((curr_flags & curr_enable_mask) != 0) {
 		HAL_CAN_Int_Assert();
+	} else {
+		HAL_CAN_Int_Deassert();
 	}
 }
 
@@ -54,7 +57,7 @@ _EXTERN_ATTRIB void CAN_init()
 	can_regs.capability_flags.unused = 0;
 	p_CAN = new CANInterface();
 	p_CAN->register_interrupt_flag_function(CAN_ISR_Flag_Function); /* Updated in ISR */
-	p_CAN->init(CAN_MODE_LISTEN);
+	p_CAN->init(CAN_MODE_LOOP);
 }
 
 static uint32_t last_loop_timestamp;
@@ -111,11 +114,13 @@ _EXTERN_ATTRIB void CAN_loop()
 	}
 }
 
-static uint8_t * CAN_rxfifo_read(uint8_t requested_count, uint16_t* size) {
+static uint8_t * CAN_rxfifo_read(uint8_t requested_byte_count, uint16_t* size) {
 	int num_transfers_in_buffer = 0;
-	uint8_t *read_buffer_base = (uint8_t *)&read_buffer;
-	if(requested_count >= sizeof(TIMESTAMPED_CAN_TRANSFER)) {
-		int num_requested_transfers = requested_count / sizeof(TIMESTAMPED_CAN_TRANSFER);
+	int remainder_bytes;
+	int num_requested_transfers = 0;
+	if(requested_byte_count >= sizeof(TIMESTAMPED_CAN_TRANSFER)) {
+		num_requested_transfers = requested_byte_count / sizeof(TIMESTAMPED_CAN_TRANSFER);
+		remainder_bytes = requested_byte_count % sizeof(TIMESTAMPED_CAN_TRANSFER);
 		for ( int i = 0; i < num_requested_transfers; i++) {
 			TIMESTAMPED_CAN_TRANSFER_PADDED *p_rx = p_CAN->get_rx_fifo().dequeue();
 			if(p_rx != NULL) {
@@ -133,19 +138,33 @@ static uint8_t * CAN_rxfifo_read(uint8_t requested_count, uint16_t* size) {
 			}
 		}
 		if(p_CAN->get_rx_fifo().is_empty()) {
-			/* TODO:  Deassert rx_fifo_nonempty interrupt flag */
+			/* Clear the rx fifo nonempty status */
+			CAN_IFX_INT_FLAGS mask;
+			*(uint8_t *)&mask = 0;
+			mask.rx_fifo_nonempty = 1;
+			CAN_IFX_INT_FLAGS new_value;
+			*(uint8_t *)&new_value = 0;
+			CAN_ISR_Flag_Function(mask, new_value);
 		}
 	}
-	if (num_transfers_in_buffer < requested_count) {
-		for ( int i = num_transfers_in_buffer; i < requested_count; i++) {
-			/* More transfers were requested that are in the buffer. */
-			/* Transmit a transfer w/invalid flag set. */
+	/* If more transfers were requested than were available, send empty */
+	/* (invalid) transfers, to ensure the requested number of bytes is  */
+	/* actually returned.                                               */
+	if (num_transfers_in_buffer < num_requested_transfers) {
+		for ( int i = num_transfers_in_buffer; i < num_requested_transfers; i++) {
+			/* Indicate invalid transfers via invalid flag. */
 			read_buffer[i].transfer.id.sidl.invalid = true;
 			num_transfers_in_buffer++;
 		}
 	}
-	*size = num_transfers_in_buffer * sizeof(TIMESTAMPED_CAN_TRANSFER);
-	return read_buffer_base;
+	/* If any extra bytes are requested, transmit the count of remaining */
+	/* transfers in the first byte following the requested count of transfers. */
+	if(remainder_bytes > 0) {
+		*(uint8_t *)(&read_buffer[num_transfers_in_buffer]) =
+				p_CAN->get_rx_fifo().get_count();
+	}
+	*size = (num_transfers_in_buffer * sizeof(TIMESTAMPED_CAN_TRANSFER)) + remainder_bytes;
+	return (uint8_t *)&read_buffer;
 }
 
 _EXTERN_ATTRIB uint8_t *CAN_get_reg_addr_and_max_size( uint8_t bank, uint8_t register_offset, uint8_t requested_count, uint16_t* size )
