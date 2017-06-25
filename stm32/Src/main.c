@@ -177,6 +177,7 @@ int main(void)
     nav10_init();
 #ifdef ENABLE_IOCX
 #define IOCX_BANK_NUMBER 1
+    HAL_IOCX_Init();
     iocx_init();
     nav10_set_loop(IOCX_BANK_NUMBER, IOCX_loop);
     nav10_set_register_lookup_func(IOCX_BANK_NUMBER, IOCX_get_reg_addr_and_max_size);

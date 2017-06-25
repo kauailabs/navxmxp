@@ -65,7 +65,7 @@ typedef int32_t     s_1616_float;
 /**********************************************/
 
 /* Read-write */
-#define NAVX_REG_UPDATE_RATE_HZ     0x04 /* Range:  4 - 50 [unsigned byte] */
+#define NAVX_REG_UPDATE_RATE_HZ     0x04 /* Range:  4 - 200 [unsigned byte] */
 /* Read-only */
 /* Accelerometer Full-Scale Range:  in units of G [unsigned byte] */
 #define NAVX_REG_ACCEL_FSR_G        0x05
@@ -77,6 +77,8 @@ typedef int32_t     s_1616_float;
 #define NAVX_REG_SELFTEST_STATUS    0x0A /* NAVX_SELFTEST_STATUS_XXX */
 #define NAVX_REG_CAPABILITY_FLAGS_L 0x0B
 #define NAVX_REG_CAPABILITY_FLAGS_H 0x0C
+#define NAVX_REG_INT_MASK			0x0D /* NAVX_INTERRUPT_MASK_XXX */
+#define NAVX_REG_INT_STATUS			0x0E /* NAVX_INTERRUPT_STATUS_XXX */
 
 /**********************************************/
 /* Processed Data Registers                   */
