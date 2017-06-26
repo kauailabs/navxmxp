@@ -38,6 +38,9 @@ public:
 
 	int get_count() { return count; }
 
+	/* NOTE:  This method is NOT thread-safe. */
+	void flush() { head = tail = count = 0; }
+
 	T* enqueue_reserve() {
 		if (count < N) {
 			return &t[head];

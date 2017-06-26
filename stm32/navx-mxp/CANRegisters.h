@@ -197,7 +197,9 @@ typedef struct __attribute__ ((__packed__)) {
  * address will not cause any change to the Transmit Fifo.
  */
 
-#define RESET_COMMAND 0x5A
+#define CAN_CMD_RESET 			0x5A
+#define CAN_CMD_FLUSH_RXFIFO	0x3D
+#define CAN_CMD_FLUSH_TXFIFO	0x75
 
 struct __attribute__ ((__packed__)) CAN_REGS {
 	/****************************/
@@ -238,7 +240,9 @@ struct __attribute__ ((__packed__)) CAN_REGS {
 	/************************************/
 	/* Reset (Write-only) */
 	/************************************/
-	uint8_t reset;	/* Set to RESET_COMMAND to force hardware reset. */
+	uint8_t command;	/* Set to CAN_CMD_RESET to force hardware reset. */
+						/* Set to CAN_CMD_FLUSH_RXFIFO to flush rx fifo. */
+						/* Set to CAN_CMD_FLUSH_TXFIFO to flush tx fifo. */
 
 	/************************************************************************/
 	/*-- Acceptance Filters/Masks - see MCP25625 Datasheet section 3.7.5. --*/

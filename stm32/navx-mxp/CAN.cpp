@@ -26,10 +26,10 @@ void CAN_ISR_Flag_Function(CAN_IFX_INT_FLAGS mask, CAN_IFX_INT_FLAGS flags)
 	uint8_t umask = (uint8_t)*(uint8_t *)&mask;
 	uint8_t uflags = (uint8_t)*(uint8_t *)&flags;
 	uint8_t masked_flags_to_set = umask & uflags;
-    *(uint8_t *)(&can_regs.int_status) &= ~umask; /* Clear masked bits */
-	*(uint8_t *)(&can_regs.int_status) |= masked_flags_to_set; /* Set bits */
-	can_regs.int_flags = can_regs.int_status;
-	uint8_t curr_flags = *(uint8_t *)(&can_regs.int_status);
+    *(uint8_t *)(&can_regs.int_flags) &= ~umask; /* Clear masked bits */
+	*(uint8_t *)(&can_regs.int_flags) |= masked_flags_to_set; /* Set bits */
+	can_regs.int_status = can_regs.int_flags; /* Update shadow of flags */
+	uint8_t curr_flags = *(uint8_t *)(&can_regs.int_flags);
 	uint8_t curr_enable_mask = *(uint8_t *)(&can_regs.int_enable);
 	if((curr_flags & curr_enable_mask) != 0) {
 		HAL_CAN_Int_Assert();
@@ -44,9 +44,9 @@ static void CAN_int_flags_modified(uint8_t first_offset, uint8_t count) {
 		can_regs.int_flags.hw_rx_overflow = false;
 	}
 	can_regs.int_status = can_regs.int_flags;
-	uint8_t curr_int_status = *(uint8_t *)&can_regs.int_status;
-	uint8_t curr_int_enable = *(uint8_t *)&can_regs.int_enable;
-	if((curr_int_status & curr_int_enable) == 0) {
+	uint8_t curr_flags = *(uint8_t *)&can_regs.int_flags;
+	uint8_t curr_enable_mask = *(uint8_t *)&can_regs.int_enable;
+	if((curr_flags & curr_enable_mask) == 0) {
 		HAL_CAN_Int_Deassert();
 	}
 }
@@ -60,13 +60,10 @@ _EXTERN_ATTRIB void CAN_init()
 	p_CAN->init(CAN_MODE_LOOP);
 }
 
-static uint32_t last_loop_timestamp;
-static uint32_t last_overflow_check_timestamp;
+static uint32_t last_loop_timestamp = 0;
+static uint32_t last_can_bus_error_check_timestamp = 0;
 #define NUM_MS_BETWEEN_SUCCESSIVE_LOOPS 1
-#define NUM_MS_BETWEEN_SUCCESSIVE_OVERFLOW_CHECKS 10
-
-int num_received_messages = 0;
-int num_rx_overflows = 0;
+#define NUM_MS_BETWEEN_SUCCESSIVE_CAN_BUS_ERROR_CHECKS 10
 
 _EXTERN_ATTRIB void CAN_loop()
 {
@@ -74,7 +71,7 @@ _EXTERN_ATTRIB void CAN_loop()
 	if ( curr_loop_timestamp < last_loop_timestamp) {
 		/* Timestamp rollover */
 		last_loop_timestamp = curr_loop_timestamp;
-		last_overflow_check_timestamp = curr_loop_timestamp;
+		last_can_bus_error_check_timestamp = curr_loop_timestamp;
 	} else {
 		if ((curr_loop_timestamp - last_loop_timestamp) >= NUM_MS_BETWEEN_SUCCESSIVE_LOOPS){
 			last_loop_timestamp = curr_loop_timestamp;
@@ -82,34 +79,26 @@ _EXTERN_ATTRIB void CAN_loop()
 			CAN_IFX_INT_FLAGS CAN_loop_int_mask, CAN_loop_int_flags = {0};
 			CAN_loop_int_mask.tx_fifo_empty = true;
 
-			can_regs.tx_fifo_entry_count = p_CAN->get_tx_fifo().get_count();
-			CAN_loop_int_flags.tx_fifo_empty = (can_regs.tx_fifo_entry_count == 0);
-
 			if(!CAN_loop_int_flags.tx_fifo_empty) {
 				p_CAN->process_transmit_fifo();
+				can_regs.tx_fifo_entry_count = p_CAN->get_tx_fifo().get_count();
+				CAN_loop_int_flags.tx_fifo_empty = (can_regs.tx_fifo_entry_count == 0);
 			}
-
-			/* If CAN Rx is not currently active (because of inbound buffer
-			 * overflow), re-enable reception.
-			 */
-
-			if ((curr_loop_timestamp - last_overflow_check_timestamp) >= NUM_MS_BETWEEN_SUCCESSIVE_OVERFLOW_CHECKS){
-				last_overflow_check_timestamp = curr_loop_timestamp;
-				CAN_loop_int_mask.hw_rx_overflow = true;
-				CAN_loop_int_flags.hw_rx_overflow = false;
-				bool rx_overflow;
-
-				if(p_CAN->get_errors(rx_overflow, can_regs.bus_error_flags, can_regs.tx_err_count, can_regs.rx_err_count)){
-					if(rx_overflow) {
-						CAN_loop_int_flags.hw_rx_overflow = true;
-						/* Note:  This condition must be cleared in order to
-						 * receive additional data from CAN bus.
-						 */
-					}
-				}
-			}
-
 			CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
+		}
+
+		/* Retrieve current CAN bus TX/RX Error Counts. */
+
+		if ((curr_loop_timestamp - last_can_bus_error_check_timestamp) >= NUM_MS_BETWEEN_SUCCESSIVE_CAN_BUS_ERROR_CHECKS){
+			last_can_bus_error_check_timestamp = curr_loop_timestamp;
+			CAN_IFX_INT_FLAGS CAN_loop_int_mask, CAN_loop_int_flags = {0};
+			bool rx_overflow;
+			p_CAN->get_errors(rx_overflow, can_regs.bus_error_flags, can_regs.tx_err_count, can_regs.rx_err_count);
+			if (rx_overflow) {
+				CAN_loop_int_mask.hw_rx_overflow = true;
+				CAN_loop_int_flags.hw_rx_overflow = true;
+				CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
+			}
 		}
 	}
 }
@@ -207,11 +196,27 @@ static void CAN_int_enable_modified(uint8_t first_offset, uint8_t count) {
 static void CAN_opmode_modified(uint8_t first_offset, uint8_t count) {
 	if ((first_offset == 0) && (count > 0)) {
 		p_CAN->set_mode((CAN_MODE)can_regs.opmode);
+		/* Transitioning to/from CONFIG opmode from NORMAL mode may */
+		/* set some errors that need clearing. */
+		p_CAN->clear_rx_overflow();
+		p_CAN->clear_all_interrupt_flags();
 	}
 }
 
-static void CAN_reset_modified(uint8_t first_offset, uint8_t count) {
-
+static void CAN_command_modified(uint8_t first_offset, uint8_t count) {
+	switch(can_regs.command){
+	case CAN_CMD_RESET:
+		break;
+	case CAN_CMD_FLUSH_RXFIFO:
+		p_CAN->flush_rx_fifo();
+		break;
+	case CAN_CMD_FLUSH_TXFIFO:
+		p_CAN->flush_tx_fifo();
+		break;
+	default:
+		break;
+	}
+	can_regs.command = 0;
 }
 
 static void CAN_rx_filter_mode_modified(uint8_t first_offset, uint8_t count) {
@@ -285,7 +290,7 @@ WritableRegSet CAN_reg_sets[] =
 	{ offsetof(struct CAN_REGS, int_enable), sizeof(CAN_REGS::int_enable), CAN_int_enable_modified },
 	{ offsetof(struct CAN_REGS, int_flags), sizeof(CAN_REGS::int_flags), CAN_int_flags_modified },
 	{ offsetof(struct CAN_REGS, opmode), sizeof(CAN_REGS::opmode), CAN_opmode_modified },
-	{ offsetof(struct CAN_REGS, reset), sizeof(CAN_REGS::reset), CAN_reset_modified },
+	{ offsetof(struct CAN_REGS, command), sizeof(CAN_REGS::command), CAN_command_modified },
 	{ offsetof(struct CAN_REGS, rx_filter_mode), sizeof(CAN_REGS::rx_filter_mode), CAN_rx_filter_mode_modified },
 	{ offsetof(struct CAN_REGS, accept_mask_rxb0), sizeof(CAN_REGS::accept_mask_rxb0), CAN_accept_mask_rxb0_modified },
 	{ offsetof(struct CAN_REGS, accept_mask_rxb1), sizeof(CAN_REGS::accept_mask_rxb1), CAN_accept_mask_rxb1_modified },
