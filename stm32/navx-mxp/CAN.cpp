@@ -209,9 +209,17 @@ static void CAN_command_modified(uint8_t first_offset, uint8_t count) {
 		break;
 	case CAN_CMD_FLUSH_RXFIFO:
 		p_CAN->flush_rx_fifo();
+		if (can_regs.int_flags.sw_rx_overflow) {
+			can_regs.int_flags.sw_rx_overflow = false;
+			CAN_int_flags_modified(0,0);
+		}
+		can_regs.rx_fifo_entry_count = p_CAN->get_rx_fifo().get_count();
 		break;
 	case CAN_CMD_FLUSH_TXFIFO:
 		p_CAN->flush_tx_fifo();
+		can_regs.int_flags.tx_fifo_empty = 1;
+		CAN_int_flags_modified(0,0);
+		can_regs.rx_fifo_entry_count = p_CAN->get_tx_fifo().get_count();
 		break;
 	default:
 		break;
