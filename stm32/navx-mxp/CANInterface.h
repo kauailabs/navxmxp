@@ -81,6 +81,7 @@ class CANInterface {
 public:
 	CANInterface(uint16_t stm32_gpio_pin = GPIO_PIN_7);
 	CAN_INTERFACE_STATUS init(CAN_MODE mode);
+	CAN_MODE get_current_can_mode() { return current_mode; }
 	CAN_INTERFACE_STATUS clear_all_interrupt_flags();
 	CAN_INTERFACE_STATUS flush_rx_fifo();
 	CAN_INTERFACE_STATUS flush_tx_fifo();
