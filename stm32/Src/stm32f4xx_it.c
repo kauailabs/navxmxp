@@ -35,6 +35,7 @@
 #include "stm32f4xx_hal.h"
 #include "stm32f4xx.h"
 #include "stm32f4xx_it.h"
+#include "navx-mxp_hal.h"
 /* USER CODE BEGIN 0 */
 
 /* USER CODE END 0 */
@@ -153,7 +154,10 @@ void SysTick_Handler(void)
 
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
-  HAL_SYSTICK_IRQHandler();
+  HAL_SYSTICK_IRQHandler(); /* Todo:  not used, remove */
+#ifdef ENABLE_IOCX
+  HAL_IOCX_DetectGPIOEdges();
+#endif
   /* USER CODE BEGIN SysTick_IRQn 1 */
 
   /* USER CODE END SysTick_IRQn 1 */

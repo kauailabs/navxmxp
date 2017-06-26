@@ -5,10 +5,31 @@
 #include "IOCXRegisters.h"
 #include "stm32f4xx_hal.h"
 #include "navx-mxp.h"
+
 NavXPiBoardTest *p_navxpi_boardtest;
 static IOCX_REGS iocx_regs;
 uint32_t last_loop_timestamp;
 static uint16_t analog_samples[IOCX_NUM_ANALOG_INPUTS];
+
+/* Analog Triggers (see IOCX_Registers.h for more) */
+
+typedef struct {
+	ANALOG_TRIGGER_MODE mode;
+	uint16_t low_threshold;
+	uint16_t high_threshold;
+	ANALOG_TRIGGER_STATE last_nonwindow_state;
+	ANALOG_TRIGGER_STATE last_state;
+} AnalogTrigger;
+
+const uint16_t CMOS_LOW_THRESHOLD =  (uint16_t)((3.3f / 4096) * 0.8f);
+const uint16_t CMOS_HIGH_THRESHOLD = (uint16_t)((3.3f / 4096) * 2.0f);
+
+AnalogTrigger analog_trigger[IOCX_NUM_ANALOG_INPUTS] = {
+	{ ANALOG_TRIGGER_DISABLED, CMOS_LOW_THRESHOLD, CMOS_HIGH_THRESHOLD, ANALOG_TRIGGER_LOW, ANALOG_TRIGGER_LOW },
+	{ ANALOG_TRIGGER_DISABLED, CMOS_LOW_THRESHOLD, CMOS_HIGH_THRESHOLD, ANALOG_TRIGGER_LOW, ANALOG_TRIGGER_LOW },
+	{ ANALOG_TRIGGER_DISABLED, CMOS_LOW_THRESHOLD, CMOS_HIGH_THRESHOLD, ANALOG_TRIGGER_LOW, ANALOG_TRIGGER_LOW },
+	{ ANALOG_TRIGGER_DISABLED, CMOS_LOW_THRESHOLD, CMOS_HIGH_THRESHOLD, ANALOG_TRIGGER_LOW, ANALOG_TRIGGER_LOW },
+};
 
 _EXTERN_ATTRIB void iocx_init()
 {
@@ -41,6 +62,36 @@ _EXTERN_ATTRIB void IOCX_loop()
 		    for ( int i = 0; i < IOCX_NUM_ANALOG_INPUTS; i++) {
 		    	iocx_regs.analog_in_voltage[i] = IMURegisters::encodeSignedThousandthsFloat(
 		    			((float)analog_samples[i]) * full_scale_voltage / 4096);
+		    	if(analog_trigger[i].mode != ANALOG_TRIGGER_DISABLED) {
+		    		ANALOG_TRIGGER_STATE curr_state;
+		    		if ( analog_samples[i] <= analog_trigger[i].low_threshold) {
+		    			curr_state = ANALOG_TRIGGER_LOW;
+		    		} else if ( analog_samples[i] >= analog_trigger[i].high_threshold) {
+		    			curr_state = ANALOG_TRIGGER_HIGH;
+		    		} else {
+		    			curr_state = ANALOG_TRIGGER_IN_WINDOW;
+		    		}
+		    		if(curr_state != ANALOG_TRIGGER_IN_WINDOW) {
+		    			if (curr_state != analog_trigger[i].last_nonwindow_state) {
+		    				/* State Change has occurred */
+							if (analog_trigger[i].last_state != ANALOG_TRIGGER_LOW) {
+								analog_trigger[i].last_state = ANALOG_TRIGGER_LOW;
+								/* Falling Edge Detected */
+								if ( analog_trigger[i].mode == ANALOG_TRIGGER_MODE_FALLING_EDGE_PULSE) {
+									HAL_IOCX_AssertInterrupt(ANALOG_TRIGGER_NUMBER_TO_INT_BIT(i));
+								}
+							}
+							else {
+								/* Rising Edge Detected */
+								analog_trigger[i].last_state = ANALOG_TRIGGER_HIGH;
+								if ( analog_trigger[i].mode == ANALOG_TRIGGER_MODE_RISING_EDGE_PULSE) {
+									HAL_IOCX_AssertInterrupt(ANALOG_TRIGGER_NUMBER_TO_INT_BIT(i));
+								}
+							}
+		    			}
+		    		}
+		    		analog_trigger[i].last_state = curr_state;
+		    	}
 		    }
 		    /* Quad Encoders */
 		    HAL_IOCX_TIMER_Get_Count(0, IOCX_NUM_TIMERS, &iocx_regs.timer_counter[0]);
@@ -59,6 +110,15 @@ _EXTERN_ATTRIB uint8_t *IOCX_get_reg_addr_and_max_size( uint8_t bank, uint8_t re
 	        size = 0;
 	        return 0;
 	    }
+
+	    /* Requested data includes interrupt status; update w/latest value */
+	    if((register_offset <= offsetof(struct IOCX_REGS, gpio_intstat)) &&
+	       ((register_offset+requested_count) >=
+	    		   offsetof(struct IOCX_REGS, gpio_intstat) +
+	    		   sizeof(iocx_regs.gpio_intstat))) {
+	    	iocx_regs.gpio_intstat = (uint16_t)HAL_IOCX_GetInterruptStatus();
+	    }
+
 	    uint8_t *register_base = (uint8_t *)&iocx_regs;
 	    *size = offsetof(struct IOCX_REGS, end_of_bank) - register_offset;
 	    return register_base + register_offset;
@@ -103,11 +163,11 @@ void channel_reg_set_modified(uint8_t first_offset, uint8_t count, T* data) {
 }
 
 static void int_cfg_modified(uint8_t first_offset, uint8_t count) {
-
+	HAL_IOCX_AssertInterrupt(iocx_regs.int_cfg);
 }
 
 static void gpio_intstat_modified(uint8_t first_offset, uint8_t count) {
-
+	HAL_IOCX_DeassertInterrupt(iocx_regs.gpio_intstat);
 }
 
 static void gpio_cfg_modified(uint8_t first_offset, uint8_t count) {

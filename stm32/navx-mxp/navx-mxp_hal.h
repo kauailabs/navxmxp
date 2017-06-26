@@ -58,7 +58,10 @@ THE SOFTWARE.
 #	define NAVX_PI_BOARD_TEST /* Undef this for production. */
 #   define ENABLE_BANKED_REGISTERS
 #   define ENABLE_IOCX
-#	define ENABLE_RPI_INTERRUPT
+#	define ENABLE_SPI_COMM_READY_INTERRUPT
+//#	define IOCX_INTERRUPT
+//#	define CAN_INTERRUPT
+//#	define AHRS_INTERRUPT
 #else
 #   define NAVX_HARDWARE_REV 33         /* v. 3.3 EXPIO, v3.4, v3.5 */
 //  !ENABLE_USB_VBUS
@@ -113,8 +116,6 @@ void HAL_CAN_Int_Assert();
 void HAL_CAN_Int_Deassert();
 void HAL_AHRS_Int_Assert();
 void HAL_AHRS_Int_Deassert();
-void HAL_IOCX_Int_Assert();
-void HAL_IOCX_Int_Deassert();
 
 /**********************/
 /* Reconfigurable IOs */
@@ -125,6 +126,16 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config);
 void HAL_IOCX_GPIO_Get_Config(uint8_t first_gpio_index, int count, uint8_t *values);
 void HAL_IOCX_GPIO_Set(uint8_t gpio_index, uint8_t value);
 void HAL_IOCX_GPIO_Get(uint8_t first_gpio_index, int count, uint8_t *values);
+
+#ifdef ENABLE_IOCX
+void HAL_IOCX_Init();
+void HAL_IOCX_DetectGPIOEdges();
+void HAL_IOCX_AssertInterrupt(uint32_t int_bits_to_set);
+void HAL_IOCX_DeassertInterrupt(uint32_t int_bits_to_clear);
+void HAL_IOCX_UpdateInterruptMask(uint32_t int_new_mask);
+uint32_t HAL_IOCX_GetInterruptMask();
+uint32_t HAL_IOCX_GetInterruptStatus();
+#endif
 
 /* Timers (QuadEncoder/PWM) */
 void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config);

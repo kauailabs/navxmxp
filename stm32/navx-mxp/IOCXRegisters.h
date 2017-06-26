@@ -55,7 +55,7 @@ typedef enum _IOCX_GPIO_INTERRUPT {
 	GPIO_INTERRUPT_DISABLED		= 0, /* Default */
 	GPIO_INTERRUPT_RISING_EDGE	= 1,
 	GPIO_INTERRUPT_FALLING_EDGE	= 2,
-	GPRIO_INTERRUPT_BOTH_EDGES	= 3,
+	GPIO_INTERRUPT_BOTH_EDGES	= 3,
 } IOCX_GPIO_INTERRUPT;
 
 typedef struct {
@@ -69,19 +69,54 @@ typedef struct {
 /* GPIO2:  Board PWM/GPIO 2; Timer5, Chan2 */
 /* GPIO3:  Board PWM/GPIO 3; Timer6, Chan1 */
 /* GPIO4:  Board PWM/GPIO 3; Timer6, Chan2 */
-/* GPIO5:  QE1 IDX; 		               */
+/* GPIO5:  QE1 IDX; 		               */ /* [REMOVE] */
 /* GPIO6:  QE1 A; 			 Timer1, Chan1 */
 /* GPIO7:  QE1 B; 			 Timer1, Chan2 */
-/* GPIO8:  QE2 IDX; 		               */
+/* GPIO8:  QE2 IDX; 		               */ /* [REMOVE] */
 /* GPIO9:  QE2 A; 			 Timer2, Chan1 */
 /* GPIO10: QE2 B; 			 Timer2, Chan2 */
-/* GPIO11: QE3 IDX; 		               */
+/* GPIO11: QE3 IDX; 		               */ /* [REMOVE] */
 /* GPIO12: QE3 A; 			 Timer3, Chan1 */
 /* GPIO13: QE3 B; 			 Timer3, Chan2 */
-/* GPIO14: QE4 IDX; 		               */
+/* GPIO14: QE4 IDX; 		               */ /* [REMOVE] */
 /* GPIO15: QE4 A; 			 Timer4, Chan1 */
 /* GPIO16: QE4 B; 			 Timer4, Chan2 */
 #define IOCX_NUM_GPIOS 16
+
+typedef enum {
+	ANALOG_TRIGGER_LOW,
+	ANALOG_TRIGGER_HIGH,
+	ANALOG_TRIGGER_IN_WINDOW
+} ANALOG_TRIGGER_STATE;
+
+typedef enum {
+	ANALOG_TRIGGER_DISABLED,
+	ANALOG_TRIGGER_MODE_STATE,
+	ANALOG_TRIGGER_MODE_RISING_EDGE_PULSE, /* Internal routing to Interrupt only */
+	ANALOG_TRIGGER_MODE_FALLING_EDGE_PULSE /* Internal routing to Interrupt only */
+} ANALOG_TRIGGER_MODE;
+
+#define IOCX_NUM_ANALOG_TRIGGERS 4
+
+/* INTERRUPT MAP:  */
+/* INT1:  DIO Connector 1  */
+/* INT2:  DIO Connector 2  */
+/* INT3:  DIO Connector 3  */
+/* INT4:  DIO Connector 4  */
+/* INT5:  Encoder 1, Ch A  */
+/* INT6:  Encoder 1, Ch B  */
+/* INT7:  Encoder 2, Ch A  */
+/* INT8:  Encoder 2, Ch B  */
+/* INT9:  Encoder 3, Ch A  */
+/* INT10: Encoder 3, Ch B  */
+/* INT11: Encoder 4, Ch A  */
+/* INT12: Encoder 4, Ch B  */
+/* INT13: Analog Trigger 1 */
+/* INT14: Analog Trigger 2 */
+/* INT15: Analog Trigger 3 */
+/* INT16: Analog Trigger 4 */
+#define GPIO_NUMBER_TO_INT_BIT(NUM) 			(1<<(NUM))
+#define ANALOG_TRIGGER_NUMBER_TO_INT_BIT(NUM) 	(1<<(NUM+12))
 
 /* Timer Map: */
 /* Timer1:  STM32 TIM1 */
@@ -126,8 +161,11 @@ struct __attribute__ ((__packed__)) IOCX_REGS {
 	uint16_t timer_aar[IOCX_NUM_TIMERS]; /* PWM:  Frame Period; QE:  auto-set to 0xFFFF */
 	/* PWM Mode:  Duty-cycle Period; QE: Mode:  read-only, internal use */
 	uint16_t timer_chx_ccr[IOCX_NUM_TIMERS * IOCX_NUM_CHANNELS_PER_TIMER];
-	uint16_t int_cfg;			/* Bitmask for:  GPIO Ints, CAN Ints, etc. */
+	uint16_t int_cfg;			/* Mask for:  GPIO/Analog Trigger Interrupts  */
 	uint8_t  gpio_cfg[IOCX_NUM_GPIOS];	 /* IOCX_GPIO_TYPE, _INPUT, _INTERRUPT */
+	// uint8_t  analog_trigger_cfg[IOCX_NUM_ANALOG_TRIGGERS];
+	// uint16_t analog_trigger_low_threshold[IOCX_NUM_ANALOG_TRIGGERS];
+	// uint16_t analog_trigger_high_threshold[IOCX_NUM_ANALOG_TRIGGERS];
 	/*****************/
 	/* Data/Status   */
 	/*****************/
@@ -135,6 +173,7 @@ struct __attribute__ ((__packed__)) IOCX_REGS {
 	uint8_t  gpio_data[IOCX_NUM_GPIOS];  /* IOCX_GPIO_SET = High, IOCX_GPIO_RESET = Low.  */
 	uint16_t ext_pwr_voltage;							/* Signed Thousandths */
 	uint16_t analog_in_voltage[IOCX_NUM_ANALOG_INPUTS]; /* Signed Thousandths */
+	// uint8_t analog_trigger_status[IOCX_NUM_ANALOG_TRIGGERS];
 	uint8_t timer_status[IOCX_NUM_TIMERS]; /* IOCX_TIMER_DIRECTION */
 	uint16_t timer_counter[IOCX_NUM_TIMERS]; /* QE Mode:  Encoder Counts */
 	uint8_t end_of_bank;

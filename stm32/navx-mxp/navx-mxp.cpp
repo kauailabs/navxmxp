@@ -76,12 +76,14 @@ _EXTERN_ATTRIB void nav10_set_register_write_func(uint8_t bank, register_write_f
 #define MIN_UART_MESSAGE_LENGTH		STREAM_CMD_MESSAGE_LENGTH
 
 #ifdef ENABLE_BANKED_REGISTERS
-#define		SPI_RECV_LENGTH 20	/* SPI Requests:  Write:  [Bank] [0x80 | RegAddr] [Count (1-16)] [16 bytes of write data] [CRC] */
-								/*                *If bank = 0, 1-byte write is used, and count is the byte to be written.      */
-								/*                Read:   [Bank] [RegAddr] [Count] [CRC] [16 bytes of zeros, ignored]           */
+#define		SPI_RECV_LENGTH 8	/* SPI Requests:  Write:  [Bank] [0x80 | RegAddr] [Count (1-4)] [4 bytes of write data] [CRC] */
+								/*                *If bank = 0, 1-byte write is used, and count is the byte to be written.    */
+								/*                Read:   [Bank] [RegAddr] [Count] [CRC] [4 bytes are ignored]                */
 #define		MAX_VALID_BANK  NUM_SPI_BANKS
+#define     SPECIALMODE_BANK				0xFF  /* Used for special communication modes */
+#define     SPECIALMODE_REG_VARIABLEWRITE	0x01  /* Switch to variable len comm (next transaction only); count in Count byte. */
 #else
-#define		SPI_RECV_LENGTH 3	/* SPI Requests:  [0x80 | RegAddr] [Count] [CRC] (Bank 0 is implicitly used) */
+#define		SPI_RECV_LENGTH 3	/* SPI Requests:  [0x80 | RegAddr] [Count (Readd) or Data (Write)] [CRC] (Bank 0 is implicitly used) */
 #define     MAX_VALID_BANK  0
 #endif
 
@@ -1394,6 +1396,7 @@ _EXTERN_ATTRIB void nav10_main()
                 }
             }
             NVIC_EnableIRQ((IRQn_Type)I2C3_EV_IRQn);
+           	HAL_AHRS_Int_Assert();
         }
 
         /* Peform I2C Glitch Detection/Correction */
@@ -1698,6 +1701,11 @@ int spi_rxne_error_count = 0;
 int spi_busy_error_count = 0;
 int spi_tx_complete_timeout_count = 0;
 
+#ifdef ENABLE_BANKED_REGISTERS
+int spi_rx_variable_message_len = 0;
+uint8_t dummy;
+#endif
+
 uint8_t spi_tx_buffer[255];
 
 void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
@@ -1716,31 +1724,37 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
             int num_bytes_received = hspi->RxXferSize - hspi->RxXferCount;
 #ifdef ENABLE_BANKED_REGISTERS
             uint8_t *received_data;
-            if ( num_bytes_received == SPI_RECV_LENGTH ) {
+            if ((num_bytes_received == SPI_RECV_LENGTH ) ||
+            	((spi_rx_variable_message_len > 0) && (num_bytes_received == spi_rx_variable_message_len))) {
             	bank = spi1_RxBuffer[0];
             	reg_address = spi1_RxBuffer[1];
             	reg_count = spi1_RxBuffer[2]; /* Bank 0: This is the byte to write; Bank > 0:  count of bytes to be written */
             	received_data = &spi1_RxBuffer[3];
+            	if(spi_rx_variable_message_len > 0) {
+            		spi_rx_variable_message_len = 0;
+            	}
 #else
             if ( num_bytes_received == SPI_RECV_LENGTH ) {
             	bank = 0;
                 reg_address = spi1_RxBuffer[0];
                 reg_count = spi1_RxBuffer[1];
 #endif
-                received_crc = spi1_RxBuffer[SPI_RECV_LENGTH-1];
-                calculated_crc = IMURegisters::getCRCWithTable(crc_lookup_table,spi1_RxBuffer,SPI_RECV_LENGTH-1);
+                received_crc = spi1_RxBuffer[num_bytes_received-1];
+                calculated_crc = IMURegisters::getCRCWithTable(crc_lookup_table,spi1_RxBuffer,num_bytes_received-1);
                 if ( ( reg_address != 0xFF ) && (reg_count > 0 ) && ( received_crc == calculated_crc ) ) {
                     if ( reg_address & 0x80 ) {
                         write = true;
                         reg_address &= ~0x80;
                     }
 #ifdef ENABLE_BANKED_REGISTERS
-                    if (( bank >= 0 ) && (bank <= NUM_SPI_BANKS)) {
+                    if (bank <= NUM_SPI_BANKS) {
                     	if (bank == 0) {
                            	reg_addr = GetRegisterAddressAndMaximumSize(reg_address, max_size);
                     	} else if (p_reg_lookup_func[bank] != NULL) {
                     		reg_addr = p_reg_lookup_func[bank](bank, reg_address, reg_count, &max_size);
                     	}
+                    } else if (bank == SPECIALMODE_BANK) {
+                    	reg_addr = &dummy; /* Special mode does not access reg_addr */
                     }
                     else
 #endif
@@ -1751,20 +1765,28 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                     	if ( write ) {
 
                     		HAL_SPI_Comm_Ready_Deassert();
+                    		uint16_t next_rcv_size = SPI_RECV_LENGTH;
 #ifdef ENABLE_BANKED_REGISTERS
-                    		if ((bank >= 0) && (bank <= NUM_SPI_BANKS)) {
+                    		if (bank <= NUM_SPI_BANKS) {
                     			if (bank == 0) {
                                		process_writable_register_update( reg_address, reg_addr, reg_count /* value */ );
                     			} else if(p_reg_write_func[bank] != NULL) {
                     				p_reg_write_func[bank](bank, reg_address, reg_addr, reg_count, received_data);
                     			}
-                    		}
+                    		} else if (bank == SPECIALMODE_BANK) {
+                            	if (reg_address == SPECIALMODE_REG_VARIABLEWRITE ) {
+                            		/* Next transaction is variable len write; len is in defined by count */
+                            		next_rcv_size = reg_count;
+                            		spi_rx_variable_message_len = next_rcv_size;
+                            	}
+                            }
 #else
                     		process_writable_register_update( reg_address, reg_addr, reg_count /* value */ );
 #endif
-                            HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, SPI_RECV_LENGTH);
+                            HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, next_rcv_size);
                             HAL_SPI_Comm_Ready_Assert();
                         } else {
+                        	HAL_AHRS_Int_Deassert();
                             spi_transmitting = true;
                             spi_bytes_to_be_transmitted = (reg_count > max_size) ? max_size : reg_count;
                             memcpy(spi_tx_buffer,reg_addr,spi_bytes_to_be_transmitted);

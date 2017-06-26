@@ -35,8 +35,7 @@ static uint8_t mcp25625_write_buffer[255 + 2];
 #define MCP25625_TX( tx_buff_index )            ( (tx_buff_index) * 2 )
 #define MCP25625_RX( rx_buff_index )            ( (rx_buff_index) * 4 )
 #define MCP25625_RTS( tx_buff_index )           ( 1 << (tx_buff_index) )
-#define CTL_TXB( tx_buffer_index, address )     ( (tx_buffer_index) * 10 + (address) )
-#define CTL_RXB( rx_buffer_index )              ( (rx_buffer_index) * 10 + 0x60 )
+#define CTL_TXB( tx_buffer_index, address )     ( (tx_buffer_index) * 16 + (address) )
 #define MCP25625_MASK( rx_mask_index )          ( (rx_mask_index) * 4 + 0x20 )
 #define MCP25625_FILTER( rx_filter_index )      ( (rx_filter_index) < 3 ? (rx_filter_index) * 4 : (rx_filter_index) * 4 + 0x10 )
 
