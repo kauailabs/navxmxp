@@ -35,7 +35,6 @@ extern "C" {
 #endif
 
 double VMXHAL_GetVinVoltage(int32_t* status);
-double VMXHAL_GetVinCurrent(int32_t* status);
 double VMXHAL_GetUserVoltage5V(int32_t* status);
 VMXHAL_Bool VMXHAL_GetUserActive5V(int32_t* status);
 int32_t VMXHAL_GetUserCurrentFaults5V(int32_t* status);
