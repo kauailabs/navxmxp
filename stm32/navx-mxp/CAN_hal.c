@@ -42,11 +42,11 @@ static uint8_t mcp25625_write_buffer[255 + 2];
 /* NOTE:  After power on, the MCP25625 automatically enters configuration mode. */
 void HAL_MCP25625_PinReset() {
 	HAL_GPIO_WritePin(_CAN_RESET_GPIO_Port, _CAN_RESET_Pin, GPIO_PIN_SET);
-	HAL_Delay(10);
+	HAL_Delay(1);
 	HAL_GPIO_WritePin(_CAN_RESET_GPIO_Port, _CAN_RESET_Pin, GPIO_PIN_RESET);
-	HAL_Delay(10);
+	HAL_Delay(1);
 	HAL_GPIO_WritePin(_CAN_RESET_GPIO_Port, _CAN_RESET_Pin, GPIO_PIN_SET);
-	HAL_Delay(10);
+	HAL_Delay(1);
 }
 
 void HAL_MCP25625_PinWake() {

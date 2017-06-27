@@ -25,7 +25,7 @@ void CAN_ISR_Flag_Function(CAN_IFX_INT_FLAGS mask, CAN_IFX_INT_FLAGS flags)
 
 	uint8_t umask = (uint8_t)*(uint8_t *)&mask;
 	uint8_t uflags = (uint8_t)*(uint8_t *)&flags;
-	uint8_t masked_flags_to_set = umask & uflags;
+	uint8_t masked_flags_to_set = uflags & umask;
     *(uint8_t *)(&can_regs.int_flags) &= ~umask; /* Clear masked bits */
 	*(uint8_t *)(&can_regs.int_flags) |= masked_flags_to_set; /* Set bits */
 	can_regs.int_status = can_regs.int_flags; /* Update shadow of flags */
@@ -77,6 +77,7 @@ _EXTERN_ATTRIB void CAN_loop()
 			last_loop_timestamp = curr_loop_timestamp;
 
 			CAN_IFX_INT_FLAGS CAN_loop_int_mask, CAN_loop_int_flags = {0};
+			*(uint8_t *)&CAN_loop_int_mask = 0;
 			CAN_loop_int_mask.tx_fifo_empty = true;
 
 			if(!CAN_loop_int_flags.tx_fifo_empty) {
@@ -92,6 +93,7 @@ _EXTERN_ATTRIB void CAN_loop()
 		if ((curr_loop_timestamp - last_can_bus_error_check_timestamp) >= NUM_MS_BETWEEN_SUCCESSIVE_CAN_BUS_ERROR_CHECKS){
 			last_can_bus_error_check_timestamp = curr_loop_timestamp;
 			CAN_IFX_INT_FLAGS CAN_loop_int_mask, CAN_loop_int_flags = {0};
+			*(uint8_t *)&CAN_loop_int_mask = 0;
 			bool rx_overflow;
 			p_CAN->get_errors(rx_overflow, can_regs.bus_error_flags, can_regs.tx_err_count, can_regs.rx_err_count);
 			if (rx_overflow) {
@@ -206,12 +208,25 @@ static void CAN_opmode_modified(uint8_t first_offset, uint8_t count) {
 static void CAN_command_modified(uint8_t first_offset, uint8_t count) {
 	switch(can_regs.command){
 	case CAN_CMD_RESET:
+		p_CAN->init(p_CAN->get_current_can_mode());
+		can_regs.command = CAN_CMD_FLUSH_RXFIFO;
+		CAN_command_modified(0,0);
+		can_regs.command = CAN_CMD_FLUSH_TXFIFO;
+		CAN_command_modified(0,0);
 		break;
 	case CAN_CMD_FLUSH_RXFIFO:
 		p_CAN->flush_rx_fifo();
+		if (can_regs.int_flags.sw_rx_overflow) {
+			can_regs.int_flags.sw_rx_overflow = false;
+			CAN_int_flags_modified(0,0);
+		}
+		can_regs.rx_fifo_entry_count = p_CAN->get_rx_fifo().get_count();
 		break;
 	case CAN_CMD_FLUSH_TXFIFO:
 		p_CAN->flush_tx_fifo();
+		can_regs.int_flags.tx_fifo_empty = 1;
+		CAN_int_flags_modified(0,0);
+		can_regs.rx_fifo_entry_count = p_CAN->get_tx_fifo().get_count();
 		break;
 	default:
 		break;
