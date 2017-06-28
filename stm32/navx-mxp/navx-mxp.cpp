@@ -76,10 +76,11 @@ _EXTERN_ATTRIB void nav10_set_register_write_func(uint8_t bank, register_write_f
 #define MIN_UART_MESSAGE_LENGTH		STREAM_CMD_MESSAGE_LENGTH
 
 #ifdef ENABLE_BANKED_REGISTERS
-#include "CommCtrl.h"
-#define		SPI_RECV_LENGTH 8	/* SPI Requests:  Write:  [Bank] [0x80 | RegAddr] [Count (1-4)] [4 bytes of write data] [CRC] */
-								/*                *If bank = 0, 1-byte write is used, and count is the byte to be written.    */
-								/*                Read:   [Bank] [RegAddr] [Count] [CRC] [4 bytes are ignored]                */
+#include "SPICommCtrl.h"
+#define		SPI_RECV_LENGTH STD_SPI_MSG_LEN
+			/* SPI Requests:  Write:  [Bank] [0x80 | RegAddr] [Count (1-4)] [4 bytes of write data] [CRC] */
+			/*                *If bank = 0, 1-byte write is used, and count is the byte to be written.    */
+			/*                Read:   [Bank] [RegAddr] [Count] [CRC] [4 bytes are ignored]                */
 #define		MAX_VALID_BANK  NUM_SPI_BANKS
 #else
 #define		SPI_RECV_LENGTH 3	/* SPI Requests:  [0x80 | RegAddr] [Count (Readd) or Data (Write)] [CRC] (Bank 0 is implicitly used) */
