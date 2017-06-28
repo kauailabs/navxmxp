@@ -263,6 +263,27 @@ AHRS::AHRS(SPIClient& client, uint8_t update_rate_hz)
     task = new thread(AHRS::ThreadFunc, io);
 }
 
+void AHRS::Stop()
+{
+	io->Stop();
+	try {
+		printf("AHRS thread joinable?:  %s\n", (task->joinable() ? "Yes" : "No"));
+		if(task->joinable()) {
+			task->join();
+		}
+	} catch(const std::exception& ex){
+		printf("AHRS::Stop() - Caught exception:  %s\n", ex.what());
+	}
+}
+
+AHRS::~AHRS() {
+	if(io->IsRunning()) {
+		Stop();
+	}
+	delete task;
+	delete io;
+	delete ahrs_internal;
+}
 
 /**
  * Returns the current pitch value (in degrees, from -180 to 180)

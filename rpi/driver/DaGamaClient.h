@@ -19,6 +19,13 @@ public:
 	DaGamaClient(uint8_t ahrs_update_rate_hz);
 
 	virtual ~DaGamaClient();
+
+	bool enable_rpi_gpio_interrupt(unsigned vmx_pi_gpio_num);
+	bool disable_rpi_gpio_interrupt_int(unsigned vmx_pi_gpio_num);
+
+
+private:
+	static void gpio_isr(int gpio, int level, uint32_t tick, void *userdata);
 };
 
 #endif /* DAGAMACLIENT_H_ */

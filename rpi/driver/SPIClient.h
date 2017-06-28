@@ -10,6 +10,10 @@
 
 #include "NavXSPIMessage.h"
 
+/* TODO:  Move to header file shared w/VMX-pi firmware. */
+#define VMXPI_SPECIALMODE_BANK				0xFF
+#define VMXPI_SPECIALMODE_REG_VARIABLEWRITE 0x01
+
 class SPIClient {
 
 private:
@@ -17,14 +21,20 @@ private:
 	int spi_handle;
 
 public:
-	SPIClient();
+	SPIClient(unsigned comm_rcv_ready_bcm_signal_pin);
 
 	bool is_open() { return pigpio_initialized; }
 
-	virtual bool transmit(uint8_t *p_data, uint8_t len);
-	virtual bool transmit_and_receive(uint8_t *p_tx_data, uint8_t tx_len, uint8_t *p_rx_data, uint8_t rx_len);
+	virtual bool transmit(uint8_t *p_data, uint8_t len, bool write);
+	/* Note:  rx_len should include one byte for the CRC, in addition to the
+	 * amount of expected data.
+	 */
+	virtual bool transmit_and_receive(uint8_t *p_tx_data, uint8_t tx_len, uint8_t *p_rx_data, uint8_t rx_len, bool write);
 
 	bool write(NavXSPIMessage& write);
+	/* Note:  response_len should include one byte for the CRC, in addition to the
+	 * amount of expected data.
+	 */
 	bool read(NavXSPIMessage& request, uint8_t *p_response, uint8_t response_len);
 
 	template<typename T> bool read(uint8_t bank, uint8_t offset, T& value)

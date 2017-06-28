@@ -71,7 +71,11 @@ void RegisterIO::Run() {
 
     /* Initial Device Configuration */
     SetUpdateRateHz(this->update_rate_hz);
-    GetConfiguration();
+    if(GetConfiguration()) {
+    	printf("Acquired AHRS configuration.\n");
+    } else {
+    	printf("FAILED to acquire AHRS configuration!\n");
+    }
 
     double update_rate_ms = 1.0/(double)this->update_rate_hz;
     if ( update_rate_ms > DELAY_OVERHEAD_MILLISECONDS) {
@@ -84,7 +88,7 @@ void RegisterIO::Run() {
             SetUpdateRateHz(this->update_rate_hz);
         }
         GetCurrentData();
-        delayMillis(update_rate_ms);
+        delayMillis(update_rate_ms * 1000);
     }
 }
 
@@ -92,11 +96,15 @@ void RegisterIO::Stop() {
     stop = true;
 }
 
+bool RegisterIO::IsRunning() {
+	return !stop;
+}
+
 bool RegisterIO::GetConfiguration() {
     bool success = false;
     int retry_count = 0;
     while ( retry_count < 3 && !success ) {
-        char config[NAVX_REG_SENSOR_STATUS_H+1] = {0};
+        char config[NAVX_REG_SENSOR_STATUS_H+1];
         if ( io_provider->Read(NAVX_REG_WHOAMI, (uint8_t *)config, sizeof(config)) ) {
             board_id.hw_rev                 = config[NAVX_REG_HW_REV];
             board_id.fw_ver_major           = config[NAVX_REG_FW_VER_MAJOR];
@@ -210,6 +218,8 @@ void RegisterIO::GetCurrentData() {
         this->last_update_time = Timer::GetMonotonicTimestamp();
         byte_count += buffer_len;
         update_count++;
+    } else {
+    	printf("RegisterIO::GetCurrentData() - read failure.\n");
     }
 }
 

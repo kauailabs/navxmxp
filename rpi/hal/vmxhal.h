@@ -66,6 +66,9 @@ uint64_t VMXHAL_GetMicrocontrollerTime(int32_t* status); /* Todo:  Granularity? 
 
 int32_t VMXHAL_Initialize(int32_t mode);
 
+VMXHAL_PortHandle VMXHAL_GetPort(int32_t channel);
+VMXHAL_PortHandle VMXHAL_GetPortWithModule(int32_t module, int32_t channel);
+
 // ifdef's definition is to allow for default parameters in C++.
 #ifdef __cplusplus
 int64_t VMXHAL_Report(int32_t resource, int32_t instanceNumber,

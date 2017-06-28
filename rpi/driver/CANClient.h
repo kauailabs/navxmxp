@@ -28,7 +28,7 @@ public:
 	bool clear_interrupt_flags(CAN_IFX_INT_FLAGS flags_to_clear);
 
 	bool get_receive_fifo_entry_count(uint8_t& count);
-	bool get_receive_data(CAN_TRANSFER *p_transfer, int n_transfers);
+	bool get_receive_data(TIMESTAMPED_CAN_TRANSFER *p_transfer, int n_transfers, uint8_t& remaining_transfer_count);
 
 	bool get_transmit_fifo_entry_count(uint8_t& count);
 	bool enqueue_transmit_data(CAN_TRANSFER *p_tx_data);
@@ -39,15 +39,21 @@ public:
 	bool set_mode(CAN_MODE mode);
 
 	bool reset();
+	bool flush_rx_fifo();
+	bool flush_tx_fifo();
 
+	bool get_rxb0_filter_mode(CAN_RX_FILTER_MODE& mode);
+	bool set_rxb0_filter_mode(CAN_RX_FILTER_MODE mode);
+	bool get_rxb1_filter_mode(CAN_RX_FILTER_MODE& mode);
+	bool set_rxb1_filter_mode(CAN_RX_FILTER_MODE mode);
 	bool get_rxb0_accept_mask(CAN_ID& mask);
-	bool set_rxb0_accept_mask(CAN_ID& mask);
+	bool set_rxb0_accept_mask(CAN_ID mask);
 	bool get_rxb1_accept_mask(CAN_ID& mask);
-	bool set_rxb1_accept_mask(CAN_ID& mask);
-	bool get_rxb0_accept_filter(uint8_t id /* 0-1 */, CAN_ID& filter);
-	bool set_rxb0_accept_filter(uint8_t id /* 0-1 */, CAN_ID& filter);
-	bool get_rxb1_accept_filter(uint8_t id /* 0-3 */, CAN_ID& filter);
-	bool set_rxb1_accept_filter(uint8_t id /* 0-3 */, CAN_ID& filter);
+	bool set_rxb1_accept_mask(CAN_ID mask);
+	bool get_rxb0_accept_filter(uint8_t filter_id /* 0-1 */, CAN_ID& filter);
+	bool set_rxb0_accept_filter(uint8_t filter_id /* 0-1 */, CAN_ID filter);
+	bool get_rxb1_accept_filter(uint8_t filter_id /* 0-3 */, CAN_ID& filter);
+	bool set_rxb1_accept_filter(uint8_t filter_id /* 0-3 */, CAN_ID filter);
 };
 
 #endif /* CANCLIENT_H_ */
