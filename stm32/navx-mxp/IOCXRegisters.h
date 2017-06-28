@@ -97,7 +97,7 @@ typedef enum {
 } ANALOG_TRIGGER_MODE;
 
 #define IOCX_NUM_ANALOG_TRIGGERS 4
-
+#define NUM_IOCX_INTERRUPTS      16
 /* INTERRUPT MAP:  */
 /* INT1:  DIO Connector 1  */
 /* INT2:  DIO Connector 2  */
