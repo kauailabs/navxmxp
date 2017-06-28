@@ -8,6 +8,7 @@
 #include "CANClient.h"
 #include <string.h>
 #include <time.h> /* nanosleep() */
+#include "NavXSPIMessageEx.h"
 
 CANClient::CANClient(SPIClient& client_ref) :
 	client(client_ref) {
@@ -44,22 +45,24 @@ bool CANClient::set_interrupt_enable(CAN_IFX_INT_FLAGS interrupts_to_enable) {
 }
 
 bool CANClient::clear_interrupt_flags(CAN_IFX_INT_FLAGS flags_to_clear) {
-	/* Todo:  Implement BitModify SPI Command on SPI interface */
-	return true;
+	return client.write(CAN_REGISTER_BANK,
+			offsetof(struct CAN_REGS, int_flags),
+			flags_to_clear);
 }
 
 bool CANClient::get_receive_fifo_entry_count(uint8_t& count) {
 	return client.read(CAN_REGISTER_BANK, offsetof(struct CAN_REGS, rx_fifo_entry_count), count);
 }
 
-bool CANClient::get_receive_data(CAN_TRANSFER *p_transfer, int n_transfers) {
-	uint8_t bytes_to_transfer = n_transfers * sizeof(CAN_TRANSFER);
-	if ( bytes_to_transfer > 254) return false;
+bool CANClient::get_receive_data(TIMESTAMPED_CAN_TRANSFER *p_transfer, int n_transfers, uint8_t& remaining_transfer_count) {
+	uint8_t bytes_to_transfer = n_transfers * sizeof(TIMESTAMPED_CAN_TRANSFER);
+	if ( bytes_to_transfer > 253) return false; /* Max xfer size 255, w/space for 2 bytes (xfr count, CRC */
 	uint8_t transfer_buffer[255];
 
-	NavXSPIMessage msg(CAN_REGISTER_BANK, offsetof(struct CAN_REGS, rx_fifo_tail), bytes_to_transfer);
-	if (client.read(msg, transfer_buffer, bytes_to_transfer+1 /* Add 1 for CRC */ )) {
+	NavXSPIMessage msg(CAN_REGISTER_BANK, offsetof(struct CAN_REGS, rx_fifo_tail), bytes_to_transfer+1 /* 1 for bytes-to-transfer */);
+	if (client.read(msg, transfer_buffer, bytes_to_transfer+2 /* Add 1 for bytes-to-transfer count, and 1 for CRC */ )) {
 		memcpy((uint8_t *)p_transfer, transfer_buffer, bytes_to_transfer);
+		remaining_transfer_count = transfer_buffer[bytes_to_transfer];
 		return true;
 	}
 	return false;
@@ -70,7 +73,7 @@ bool CANClient::get_transmit_fifo_entry_count(uint8_t& count) {
 }
 
 bool CANClient::enqueue_transmit_data(CAN_TRANSFER *p_tx_data) {
-	NavXSPIMessage msg(CAN_REGISTER_BANK, offsetof(struct CAN_REGS, tx_fifo_head), sizeof(*p_tx_data), (uint8_t *)p_tx_data);
+	NavXSPIMessageEx msg(CAN_REGISTER_BANK, offsetof(struct CAN_REGS, tx_fifo_head), sizeof(*p_tx_data), (uint8_t *)p_tx_data);
 	return client.write(msg);
 }
 
@@ -90,36 +93,73 @@ bool CANClient::get_bus_errors(CAN_ERROR_FLAGS & f, uint8_t& tx_error_count, uin
 }
 
 bool CANClient::get_mode(CAN_MODE& mode) {
-	return client.read(CAN_REGISTER_BANK, offsetof(struct CAN_REGS, opmode), mode);
-}
-
-bool CANClient::set_mode(CAN_MODE mode) {
-	bool success = client.write(CAN_REGISTER_BANK,
-			offsetof(struct CAN_REGS, opmode),
-			mode);
-
-	/* Note:  This command may take several milliseconds      */
-	/* to complete.  To help avoid communication errors,      */
-	/* delay approximately 10 ms after invoking this command. */
-	/* Todo:  This delay should occur within the SPIClient,   */
-	/* within the context of the communication mutex - in     */
-	/* order to ensure that communication in other threads    */
-	/* are not impacted by this case.                         */
-
-	struct timespec ts;
-	ts.tv_sec = 0;
-	ts.tv_nsec = 10000000;
-	nanosleep(&ts, NULL);
-
+	uint8_t mode_byte;
+	bool success = client.read(CAN_REGISTER_BANK, offsetof(struct CAN_REGS, opmode), mode_byte);
+	mode = (CAN_MODE)mode_byte;
 	return success;
 }
 
-bool CANClient::reset() {
-	uint8_t value = 1;
+bool CANClient::set_mode(CAN_MODE mode) {
+	/* Note:  This command may take several milliseconds      */
+	/* to complete.  To help avoid communication errors,      */
+	/* the SPIClient waits for a signal that the requested    */
+	/* action is complete.                                    */
+
+	uint8_t mode_byte = (uint8_t)mode;
 	return client.write(CAN_REGISTER_BANK,
-			offsetof(struct CAN_REGS, reset),
+			offsetof(struct CAN_REGS, opmode),
+			mode_byte);
+}
+
+bool CANClient::reset() {
+	uint8_t value = CAN_CMD_RESET;
+	return client.write(CAN_REGISTER_BANK,
+			offsetof(struct CAN_REGS, command),
 			value);
 }
+
+bool CANClient::flush_rx_fifo() {
+	uint8_t value = CAN_CMD_FLUSH_RXFIFO;
+	return client.write(CAN_REGISTER_BANK,
+			offsetof(struct CAN_REGS, command),
+			value);
+}
+
+bool CANClient::flush_tx_fifo() {
+	uint8_t value = CAN_CMD_FLUSH_TXFIFO;
+	return client.write(CAN_REGISTER_BANK,
+			offsetof(struct CAN_REGS, command),
+			value);
+}
+
+bool CANClient::get_rxb0_filter_mode(CAN_RX_FILTER_MODE& mode) {
+	uint8_t mode_byte;
+	bool success = client.read(CAN_REGISTER_BANK, offsetof(struct CAN_REGS, rx_filter_mode), mode_byte);
+	mode = (CAN_RX_FILTER_MODE)mode_byte;
+	return success;
+}
+
+bool CANClient::set_rxb0_filter_mode(CAN_RX_FILTER_MODE mode) {
+	uint8_t mode_byte = (uint8_t)mode;
+	return client.write(CAN_REGISTER_BANK,
+			offsetof(struct CAN_REGS, rx_filter_mode),
+			mode_byte);
+}
+
+bool CANClient::get_rxb1_filter_mode(CAN_RX_FILTER_MODE& mode) {
+	uint8_t mode_byte;
+	bool success = client.read(CAN_REGISTER_BANK, offsetof(struct CAN_REGS, rx_filter_mode) + sizeof(uint8_t), mode_byte);
+	mode = (CAN_RX_FILTER_MODE)mode_byte;
+	return success;
+}
+
+bool CANClient::set_rxb1_filter_mode(CAN_RX_FILTER_MODE mode) {
+	uint8_t mode_byte = (uint8_t)mode;
+	return client.write(CAN_REGISTER_BANK,
+			offsetof(struct CAN_REGS, rx_filter_mode) + sizeof(uint8_t),
+			mode_byte);
+}
+
 
 bool CANClient::get_rxb0_accept_mask(CAN_ID& mask) {
 	return client.read(CAN_REGISTER_BANK,
@@ -127,7 +167,7 @@ bool CANClient::get_rxb0_accept_mask(CAN_ID& mask) {
 			mask);
 }
 
-bool CANClient::set_rxb0_accept_mask(CAN_ID& mask) {
+bool CANClient::set_rxb0_accept_mask(CAN_ID mask) {
 	return client.write(CAN_REGISTER_BANK,
 			offsetof(struct CAN_REGS, accept_mask_rxb0),
 			mask);
@@ -139,7 +179,7 @@ bool CANClient::get_rxb1_accept_mask(CAN_ID& mask) {
 			mask);
 }
 
-bool CANClient::set_rxb1_accept_mask(CAN_ID& mask) {
+bool CANClient::set_rxb1_accept_mask(CAN_ID mask) {
 	return client.write(CAN_REGISTER_BANK,
 			offsetof(struct CAN_REGS, accept_mask_rxb1),
 			mask);
@@ -153,7 +193,7 @@ bool CANClient::get_rxb0_accept_filter(uint8_t id /* 0-1 */, CAN_ID& filter) {
 			filter);
 }
 
-bool CANClient::set_rxb0_accept_filter(uint8_t id /* 0-1 */, CAN_ID& filter) {
+bool CANClient::set_rxb0_accept_filter(uint8_t id /* 0-1 */, CAN_ID filter) {
 	if (id >= NUM_ACCEPT_FILTERS_RX0_BUFFER) return false;
 
 	return client.write(CAN_REGISTER_BANK,
@@ -169,7 +209,7 @@ bool CANClient::get_rxb1_accept_filter(uint8_t id /* 0-3 */, CAN_ID& filter) {
 			filter);
 }
 
-bool CANClient::set_rxb1_accept_filter(uint8_t id /* 0-3 */, CAN_ID& filter) {
+bool CANClient::set_rxb1_accept_filter(uint8_t id /* 0-3 */, CAN_ID filter) {
 	if (id >= NUM_ACCEPT_FILTERS_RX1_BUFFER) return false;
 
 	return client.write(CAN_REGISTER_BANK,
