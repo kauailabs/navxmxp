@@ -76,12 +76,11 @@ _EXTERN_ATTRIB void nav10_set_register_write_func(uint8_t bank, register_write_f
 #define MIN_UART_MESSAGE_LENGTH		STREAM_CMD_MESSAGE_LENGTH
 
 #ifdef ENABLE_BANKED_REGISTERS
+#include "spi_comm.h"
 #define		SPI_RECV_LENGTH 8	/* SPI Requests:  Write:  [Bank] [0x80 | RegAddr] [Count (1-4)] [4 bytes of write data] [CRC] */
 								/*                *If bank = 0, 1-byte write is used, and count is the byte to be written.    */
 								/*                Read:   [Bank] [RegAddr] [Count] [CRC] [4 bytes are ignored]                */
 #define		MAX_VALID_BANK  NUM_SPI_BANKS
-#define     SPECIALMODE_BANK				0xFF  /* Used for special communication modes */
-#define     SPECIALMODE_REG_VARIABLEWRITE	0x01  /* Switch to variable len comm (next transaction only); count in Count byte. */
 #else
 #define		SPI_RECV_LENGTH 3	/* SPI Requests:  [0x80 | RegAddr] [Count (Readd) or Data (Write)] [CRC] (Bank 0 is implicitly used) */
 #define     MAX_VALID_BANK  0
@@ -1753,7 +1752,7 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                     	} else if (p_reg_lookup_func[bank] != NULL) {
                     		reg_addr = p_reg_lookup_func[bank](bank, reg_address, reg_count, &max_size);
                     	}
-                    } else if (bank == SPECIALMODE_BANK) {
+                    } else if (bank == COMM_MODE_BANK) {
                     	reg_addr = &dummy; /* Special mode does not access reg_addr */
                     }
                     else
@@ -1773,8 +1772,8 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                     			} else if(p_reg_write_func[bank] != NULL) {
                     				p_reg_write_func[bank](bank, reg_address, reg_addr, reg_count, received_data);
                     			}
-                    		} else if (bank == SPECIALMODE_BANK) {
-                            	if (reg_address == SPECIALMODE_REG_VARIABLEWRITE ) {
+                    		} else if (bank == COMM_MODE_BANK) {
+                            	if (reg_address == COMM_MODE_REG_VARIABLEWRITE ) {
                             		/* Next transaction is variable len write; len is in defined by count */
                             		next_rcv_size = reg_count;
                             		spi_rx_variable_message_len = next_rcv_size;
