@@ -145,6 +145,27 @@ typedef enum _IOCX_TIMER_COUNTER_RESET {
 	RESET_REQUEST	= 1,
 } IOCX_TIMER_COUNTER_RESET;
 
+#define IOCX_ALL_TIMER_MODES 				\
+	((1 << TIMER_MODE_QUAD_ENCODER) || 		\
+	 (1 << TIMER_MODE_PWM_OUT) ||			\
+	 (1 << TIMER_MODE_INPUT_CAPTURE))
+
+#define IOCX_NON_QUAD_ENCODER_TIMER_MODES	\
+		((1 << TIMER_MODE_PWM_OUT) ||			\
+		 (1 << TIMER_MODE_INPUT_CAPTURE))
+
+const uint8_t SUPPORTED_TIMER_MODES[IOCX_NUM_TIMERS] = {
+	IOCX_ALL_TIMER_MODES,
+	IOCX_ALL_TIMER_MODES,
+	IOCX_ALL_TIMER_MODES,
+	IOCX_ALL_TIMER_MODES,
+	IOCX_NON_QUAD_ENCODER_TIMER_MODES, /* Todo:  Board layout change to enable? */
+	IOCX_NON_QUAD_ENCODER_TIMER_MODES
+};
+
+// Todo:  for each timer, get supported IOCX_TIMER_MODES (3 bits/timer)
+#define IOCX_SUPPORTED_TIMER_MODES_ALL (1 << TIMER_MODE_QUAD_ENCODER)
+
 #define IOCX_NUM_ANALOG_INPUTS 4 /* Does not include "internal" ADC inputs */
 
 struct __attribute__ ((__packed__)) IOCX_REGS {
