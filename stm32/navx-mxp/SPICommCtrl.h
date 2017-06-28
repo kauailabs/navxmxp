@@ -25,6 +25,7 @@ THE SOFTWARE.
 #define SPI_COMM_H_
 
 #define STD_SPI_MSG_LEN				   8
+#define TOTAL_SPI_MSG_OVERHEAD_BYTES   4  /* Bank, Addr, Count, <DATA>, CRC */
 #define MAX_SPI_MSG_LEN				 255
 #define COMM_MODE_BANK				0xFF  /* Communication mode control  */
 #define COMM_MODE_REG_VARIABLEWRITE	0x01  /* Variable len comm (next tx  */
