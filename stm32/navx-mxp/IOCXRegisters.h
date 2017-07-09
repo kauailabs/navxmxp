@@ -33,6 +33,12 @@ THE SOFTWARE.
 
 #define IOCX_REGISTER_BANK 1
 
+typedef struct {
+	uint16_t unused			: 14; /* Support for Can Bus 2.0b standard */
+	uint16_t rpi_gpio_out	: 1;  /* If set, the 10-pin RPI GPIO Header is OUTPUT */
+	uint16_t an_in_5V		: 1;  /* If set, analog input voltage is 5V (3.3V if clear) */
+} IOCX_CAPABILITY_FLAGS;
+
 #define IOCX_GPIO_SET	1
 #define IOCX_GPIO_RESET 0
 
@@ -65,23 +71,19 @@ typedef struct {
 } RegEncoding;
 
 /* GPIO MAP: */
-/* GPIO1:  Board PWM/GPIO 1; Timer5, Chan1 */
-/* GPIO2:  Board PWM/GPIO 2; Timer5, Chan2 */
-/* GPIO3:  Board PWM/GPIO 3; Timer6, Chan1 */
-/* GPIO4:  Board PWM/GPIO 3; Timer6, Chan2 */
-/* GPIO5:  QE1 IDX; 		               */ /* [REMOVE] */
-/* GPIO6:  QE1 A; 			 Timer1, Chan1 */
-/* GPIO7:  QE1 B; 			 Timer1, Chan2 */
-/* GPIO8:  QE2 IDX; 		               */ /* [REMOVE] */
-/* GPIO9:  QE2 A; 			 Timer2, Chan1 */
-/* GPIO10: QE2 B; 			 Timer2, Chan2 */
-/* GPIO11: QE3 IDX; 		               */ /* [REMOVE] */
-/* GPIO12: QE3 A; 			 Timer3, Chan1 */
-/* GPIO13: QE3 B; 			 Timer3, Chan2 */
-/* GPIO14: QE4 IDX; 		               */ /* [REMOVE] */
-/* GPIO15: QE4 A; 			 Timer4, Chan1 */
-/* GPIO16: QE4 B; 			 Timer4, Chan2 */
-#define IOCX_NUM_GPIOS 16
+/* GPIO_0:  DIO Header 1; Timer5, Chan1 */
+/* GPIO_1:  DIO Header 2; Timer5, Chan2 */
+/* GPIO_2:  DIO Header 3; Timer6, Chan1 */
+/* GPIO_3:  DIO Header 4; Timer6, Chan2 */
+/* GPIO_4:  QE1 Connector A; Timer1, Chan1 */
+/* GPIO_5:  QE1 Connector B; Timer1, Chan2 */
+/* GPIO_6:  QE2 Connector A; Timer2, Chan1 */
+/* GPIO_7:  QE2 Connector B; Timer2, Chan2 */
+/* GPIO_8:  QE3 Connector A; Timer3, Chan1 */
+/* GPIO_9:  QE3 Connector B; Timer3, Chan2 */
+/* GPIO_10: QE4 Connector A; Timer4, Chan1 */
+/* GPIO_11: QE4 Connector B; Timer4, Chan2 */
+#define IOCX_NUM_GPIOS 12
 
 typedef enum {
 	ANALOG_TRIGGER_LOW,
@@ -99,24 +101,24 @@ typedef enum {
 #define IOCX_NUM_ANALOG_TRIGGERS 4
 #define IOCX_NUM_INTERRUPTS      16
 /* INTERRUPT MAP:  */
-/* INT1:  DIO Connector 1  */
-/* INT2:  DIO Connector 2  */
-/* INT3:  DIO Connector 3  */
-/* INT4:  DIO Connector 4  */
-/* INT5:  Encoder 1, Ch A  */
-/* INT6:  Encoder 1, Ch B  */
-/* INT7:  Encoder 2, Ch A  */
-/* INT8:  Encoder 2, Ch B  */
-/* INT9:  Encoder 3, Ch A  */
-/* INT10: Encoder 3, Ch B  */
-/* INT11: Encoder 4, Ch A  */
-/* INT12: Encoder 4, Ch B  */
-/* INT13: Analog Trigger 1 */
-/* INT14: Analog Trigger 2 */
-/* INT15: Analog Trigger 3 */
-/* INT16: Analog Trigger 4 */
+/* INT0:  DIO Connector 1  */
+/* INT1:  DIO Connector 2  */
+/* INT2:  DIO Connector 3  */
+/* INT3:  DIO Connector 4  */
+/* INT4:  Encoder 1, Ch A  */
+/* INT5:  Encoder 1, Ch B  */
+/* INT6:  Encoder 2, Ch A  */
+/* INT7:  Encoder 2, Ch B  */
+/* INT8:  Encoder 3, Ch A  */
+/* INT9:  Encoder 3, Ch B  */
+/* INT10: Encoder 4, Ch A  */
+/* INT11: Encoder 4, Ch B  */
+/* INT12: Analog Trigger 1 */
+/* INT13: Analog Trigger 2 */
+/* INT14: Analog Trigger 3 */
+/* INT15: Analog Trigger 4 */
 #define GPIO_NUMBER_TO_INT_BIT(NUM) 			(1<<(NUM))
-#define ANALOG_TRIGGER_NUMBER_TO_INT_BIT(NUM) 	(1<<(NUM+12))
+#define ANALOG_TRIGGER_NUMBER_TO_INT_BIT(NUM) 	(1<<(NUM+IOCX_NUM_GPIOS))
 
 /* Timer Map: */
 /* Timer1:  STM32 TIM1 */
@@ -184,9 +186,9 @@ struct __attribute__ ((__packed__)) IOCX_REGS {
 	uint16_t timer_chx_ccr[IOCX_NUM_TIMERS * IOCX_NUM_CHANNELS_PER_TIMER];
 	uint16_t int_cfg;			/* Mask for:  GPIO/Analog Trigger Interrupts  */
 	uint8_t  gpio_cfg[IOCX_NUM_GPIOS];	 /* IOCX_GPIO_TYPE, _INPUT, _INTERRUPT */
-	// uint8_t  analog_trigger_cfg[IOCX_NUM_ANALOG_TRIGGERS];
-	// uint16_t analog_trigger_low_threshold[IOCX_NUM_ANALOG_TRIGGERS];
-	// uint16_t analog_trigger_high_threshold[IOCX_NUM_ANALOG_TRIGGERS];
+	uint8_t  analog_trigger_cfg[IOCX_NUM_ANALOG_TRIGGERS];
+	uint16_t analog_trigger_low_threshold[IOCX_NUM_ANALOG_TRIGGERS];
+	uint16_t analog_trigger_high_threshold[IOCX_NUM_ANALOG_TRIGGERS];
 	/*****************/
 	/* Data/Status   */
 	/*****************/
@@ -194,7 +196,7 @@ struct __attribute__ ((__packed__)) IOCX_REGS {
 	uint8_t  gpio_data[IOCX_NUM_GPIOS];  /* IOCX_GPIO_SET = High, IOCX_GPIO_RESET = Low.  */
 	uint16_t ext_pwr_voltage;							/* Signed Thousandths */
 	uint16_t analog_in_voltage[IOCX_NUM_ANALOG_INPUTS]; /* Signed Thousandths */
-	// uint8_t analog_trigger_status[IOCX_NUM_ANALOG_TRIGGERS];
+	uint8_t analog_trigger_status[IOCX_NUM_ANALOG_TRIGGERS];
 	uint8_t timer_status[IOCX_NUM_TIMERS]; /* IOCX_TIMER_DIRECTION */
 	uint16_t timer_counter[IOCX_NUM_TIMERS]; /* QE Mode:  Encoder Counts */
 	uint8_t end_of_bank;
