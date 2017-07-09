@@ -186,9 +186,6 @@ struct __attribute__ ((__packed__)) IOCX_REGS {
 	uint16_t timer_chx_ccr[IOCX_NUM_TIMERS * IOCX_NUM_CHANNELS_PER_TIMER];
 	uint16_t int_cfg;			/* Mask for:  GPIO/Analog Trigger Interrupts  */
 	uint8_t  gpio_cfg[IOCX_NUM_GPIOS];	 /* IOCX_GPIO_TYPE, _INPUT, _INTERRUPT */
-	uint8_t  analog_trigger_cfg[IOCX_NUM_ANALOG_TRIGGERS];
-	uint16_t analog_trigger_low_threshold[IOCX_NUM_ANALOG_TRIGGERS];
-	uint16_t analog_trigger_high_threshold[IOCX_NUM_ANALOG_TRIGGERS];
 	/*****************/
 	/* Data/Status   */
 	/*****************/
@@ -196,7 +193,6 @@ struct __attribute__ ((__packed__)) IOCX_REGS {
 	uint8_t  gpio_data[IOCX_NUM_GPIOS];  /* IOCX_GPIO_SET = High, IOCX_GPIO_RESET = Low.  */
 	uint16_t ext_pwr_voltage;							/* Signed Thousandths */
 	uint16_t analog_in_voltage[IOCX_NUM_ANALOG_INPUTS]; /* Signed Thousandths */
-	uint8_t analog_trigger_status[IOCX_NUM_ANALOG_TRIGGERS];
 	uint8_t timer_status[IOCX_NUM_TIMERS]; /* IOCX_TIMER_DIRECTION */
 	uint16_t timer_counter[IOCX_NUM_TIMERS]; /* QE Mode:  Encoder Counts */
 	uint8_t end_of_bank;
