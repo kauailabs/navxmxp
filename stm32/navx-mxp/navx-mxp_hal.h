@@ -117,17 +117,26 @@ void HAL_CAN_Int_Deassert();
 void HAL_AHRS_Int_Assert();
 void HAL_AHRS_Int_Deassert();
 
+void HAL_CAN_Status_LED_On(int on);
+
 /**********************/
 /* Reconfigurable IOs */
 /**********************/
+
+/* External IO Power Management */
+void HAL_IOCX_Ext_Power_Enable(int enable);
 
 /* GPIOs */
 void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config);
 void HAL_IOCX_GPIO_Get_Config(uint8_t first_gpio_index, int count, uint8_t *values);
 void HAL_IOCX_GPIO_Set(uint8_t gpio_index, uint8_t value);
 void HAL_IOCX_GPIO_Get(uint8_t first_gpio_index, int count, uint8_t *values);
+int HAL_IOCX_RPI_GPIO_Output(); /* Returns 0 if pins are input, non-zero if output */
+int HAL_IOCX_Ext_Power_Fault(); /* Returns 0 if no ext power fault has occurred, non-zero indicates fault has occurred. */
 
 #ifdef ENABLE_IOCX
+void HAL_IOCX_RPI_GPIO_Driver_Enable(int enable);
+void HAL_IOCX_RPI_COMM_Driver_Enable(int enable);
 void HAL_IOCX_Init();
 void HAL_IOCX_DetectGPIOEdges();
 void HAL_IOCX_AssertInterrupt(uint32_t int_bits_to_set);

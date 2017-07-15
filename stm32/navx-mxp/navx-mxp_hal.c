@@ -289,6 +289,13 @@ void HAL_AHRS_Int_Deassert()
 #endif
 }
 
+void HAL_CAN_Status_LED_On(int on)
+{
+#ifdef ENABLE_CAN_TRANSCEIVER
+	HAL_GPIO_WritePin( CAN_OK_LED_GPIO_Port, CAN_OK_LED_Pin, on ? GPIO_PIN_SET : GPIO_PIN_RESET);
+#endif
+}
+
 #ifdef ENABLE_IOCX
 
 typedef enum  {
@@ -316,16 +323,12 @@ static GPIO_Channel gpio_channels[IOCX_NUM_GPIOS] =
 	{PWM_GPIO2_GPIO_Port, 	PWM_GPIO2_Pin, 	4,  1, INT_EXTI, 1,  GPIO_AF2_TIM5},
 	{PWM_GPIO3_GPIO_Port, 	PWM_GPIO3_Pin, 	5,  0, INT_EXTI, 2,  GPIO_AF3_TIM9},
 	{PWM_GPIO4_GPIO_Port, 	PWM_GPIO4_Pin, 	5,  1, INT_EXTI, 3,  GPIO_AF3_TIM9},
-	{QE1_IDX_GPIO_Port, 	QE1_IDX_Pin, 	0, -1, INT_NONE, -1, GPIO_AF_SW_RESET_COUNTER},
 	{QE1_A_GPIO_Port, 		QE1_A_Pin, 		0,  0, INT_EXTI, 4,  GPIO_AF1_TIM1},
 	{QE1_B_GPIO_Port, 		QE1_B_Pin, 		0,  1, INT_SWED, 5,  GPIO_AF1_TIM1},
-	{QE2_IDX_GPIO_Port, 	QE2_IDX_Pin, 	1, -1, INT_NONE, -1, GPIO_AF_SW_RESET_COUNTER},
 	{QE2_A_GPIO_Port, 		QE2_A_Pin, 		1,  0, INT_EXTI, 6,  GPIO_AF1_TIM2},
 	{QE2_B_GPIO_Port, 		QE2_B_Pin, 		1,  1, INT_SWED, 7,  GPIO_AF1_TIM2},
-	{QE3_IDX_GPIO_Port, 	QE3_IDX_Pin, 	2, -1, INT_NONE, -1, GPIO_AF_SW_RESET_COUNTER},
 	{QE3_A_GPIO_Port, 		QE3_A_Pin, 		2,  0, INT_SWED, 8,  GPIO_AF2_TIM3},
 	{QE3_B_GPIO_Port, 		QE3_B_Pin, 		2,  1, INT_SWED, 9,  GPIO_AF2_TIM3},
-	{QE4_IDX_GPIO_Port, 	QE4_IDX_Pin, 	3, -1, INT_NONE, -1, GPIO_AF_SW_RESET_COUNTER},
 	{QE4_A_GPIO_Port, 		QE4_A_Pin, 		3,  0, INT_EXTI, 10, GPIO_AF2_TIM5},
 	{QE4_B_GPIO_Port, 		QE4_B_Pin, 		3,  1, INT_EXTI, 11, GPIO_AF2_TIM5},
 };
@@ -379,6 +382,46 @@ void HAL_IOCX_Init()
 			}
 		}
 	}
+}
+
+void HAL_IOCX_Ext_Power_Enable(int enable)
+{
+	HAL_GPIO_WritePin(EXT_PWR_SWITCH_ON_GPIO_Port, EXT_PWR_SWITCH_ON_Pin,
+			(enable ? GPIO_PIN_SET : GPIO_PIN_RESET));
+}
+
+void HAL_IOCX_RPI_GPIO_Driver_Enable(int enable)
+{
+	  HAL_GPIO_WritePin(_RPI_GPIO_OE1_GPIO_Port, _RPI_GPIO_OE1_Pin,
+			  (enable ? GPIO_PIN_RESET : GPIO_PIN_SET));
+	  HAL_GPIO_WritePin(_RPI_GPIO_OE2_GPIO_Port, _RPI_GPIO_OE2_Pin,
+			  (enable ? GPIO_PIN_RESET : GPIO_PIN_SET));
+}
+
+void HAL_IOCX_RPI_COMM_Driver_Enable(int enable)
+{
+	  HAL_GPIO_WritePin(_COMM_OE1_GPIO_Port, _COMM_OE1_Pin,
+			  (enable ? GPIO_PIN_RESET : GPIO_PIN_SET));
+	  HAL_GPIO_WritePin(COMM_OE2_GPIO_Port, COMM_OE2_Pin,
+			  (enable ? GPIO_PIN_SET : GPIO_PIN_RESET));
+}
+
+/* Returns 0 if pins are input, non-zero if output */
+int HAL_IOCX_RPI_GPIO_Output()
+{
+	if (HAL_GPIO_ReadPin(RPI_GPIO_DIR_IN_GPIO_Port, RPI_GPIO_DIR_IN_Pin) == GPIO_PIN_SET) {
+		return 1;
+	}
+	return 0;
+}
+
+/* Returns 0 if no ext power fault has occurred, non-zero indicates fault has occurred. */
+int HAL_IOCX_Ext_Power_Fault()
+{
+	if (HAL_GPIO_ReadPin(_IO_POWER_FAULT_GPIO_Port, _IO_POWER_FAULT_Pin) == GPIO_PIN_RESET) {
+		return 1;
+	}
+	return 0;
 }
 
 /* IOCX GPIO Interrupt Generation:
@@ -543,12 +586,12 @@ uint32_t HAL_IOCX_GetInterruptStatus() {
 /*                                                                         */
 /* Each timer is clocked off of either APB1 or APB2, as follows:           */
 /*                                                                         */
-/* APB1 Timer Clocks:  48Mhz (TIM2, TIM3, TIM4, TIM5)					   */
+/* APB1 Timer Clocks:  24Mhz (TIM2, TIM3, TIM4, TIM5)					   */
 /* APB2 Timer Clocks:  96Mhz (TIM1, TIM9, TIM10, TIM11)					   */
 /*																		   */
 /* To keep things uniform, all 96Mhz clock sources use an internal         */
-/* (/2) divider - thus all clocks operate at a clock frequency (fTIM) of   */
-/* 48Mhz.                                                                  */
+/* (/4) divider - thus all clocks operate at a clock frequency (fTIM) of   */
+/* 24Mhz.                                                                  */
 /***************************************************************************/
 
 TIM_HandleTypeDef htim1 = {TIM1};
@@ -566,17 +609,17 @@ typedef struct {
 	uint32_t second_channel_number;
 } Timer_Config;
 
-#define TIMER_CLOCK_FREQUENCY 48000000
+#define TIMER_CLOCK_FREQUENCY 24000000
 #define TIMER_TICKS_PER_MICROSECOND (TIMER_CLOCK_FREQUENCY/1000000)
 
 static Timer_Config timer_configs[IOCX_NUM_TIMERS] =
 {
-	{&htim1, TIM_CLOCKDIVISION_DIV2, TIM_CHANNEL_1, TIM_CHANNEL_2},
+	{&htim1, TIM_CLOCKDIVISION_DIV4, TIM_CHANNEL_1, TIM_CHANNEL_2},
 	{&htim2, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_1, TIM_CHANNEL_2},
 	{&htim3, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_1, TIM_CHANNEL_2},
 	{&htim4, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_1, TIM_CHANNEL_2},
 	{&htim5, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_3, TIM_CHANNEL_4},
-	{&htim9, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_1, TIM_CHANNEL_2},
+	{&htim9, TIM_CLOCKDIVISION_DIV4, TIM_CHANNEL_1, TIM_CHANNEL_2},
 };
 
 uint16_t timer_channel_ccr[IOCX_NUM_TIMERS][IOCX_NUM_CHANNELS_PER_TIMER];
@@ -854,35 +897,43 @@ void HAL_IOCX_TIMER_PWM_Get_DutyCycle(uint8_t first_timer_index, uint8_t first_c
 /* ADC section                                                             */
 /*                                                                         */
 /* A single ADC with multiple channels is used.  The ADC is clocked by     */
-/* PCLK2, which is configured for 48Mhz, and an internal divide-by-8       */
-/* configuration yields an ADC clock rate (fADC) of 6Mhz.                  */
+/* PCLK2, which is configured for 96Mhz, and an internal divide-by-8       */
+/* configuration yields an ADC clock rate (fADC) of 12Mhz.                 */
 /*                                                                         */
 /* The STM32 is a Successive-Approximation ADC, configured for 12-bit      */
 /* resolution.  Each sample requires 1 clock for each bit of resolution    */
-/* plus a sample period.  Tests have shown longer sample periods reduce    */
-/* the impact of noise, and the currently-selected sample period is 28     */
-/* clocks.  This yields an overall sample rate of 150Ksps.                 */
+/* +3 ADC Clocks - plus a sample period.  Longer sample periods provide    */
+/* more time for the input capacitor to charge and stabilize before        */
+/* sampling begins.  Tests have shown longer sample periods reduce the     */
+/* impact of noise, and the currently-selected sample period is 28 clocks. */
+/* This yields an overall sample rate of 150Ksps, as follows:              */
 /*                                                                         */
-/* Since navX features 4 ADC input channels, the sample rate for each      */
-/* channel is 37.5ksps.                                                    */
+/* ADCCLK = 96Mhz / 8 = 12 Mhz                                             */
+/* NumChannels = 6                                                         */
+/* SamplePeriodClks = 28                                                   */
+/* ResolutionClks = 15                                                     */
+/* sample_rate = ADCCLK/(NumChannels * (SamplePeriodClks + ResolutionClks) */
+/* sample_rate = 46.5ksps                                                  */
 /***************************************************************************/
 /* Input Channel Mapping:                                                  */
 /* An Connector 1:  ADC1_IN9                                               */
 /* An Connector 2:  ADC1_IN8                                               */
 /* An Connector 3:  ADC1_IN15                                              */
 /* An Connector 4:  ADC1_IN14                                              */
+/* Analog Input 5V/3.3V Jumper:  ADC1_IN10                                 */
+/* Ext 12VDC Battery Input:  ADC1_IN11                                     */
 /***************************************************************************/
 /* ADC1 is configured in scan conversion mode, scanning each channel in    */
 /* order of connector number.                                              */
 /* DMA Transfer of data to SRAM is used.  The DMA transfer is configured   */
-/* in circular mode, and a double buffer is used.  In this way, ADC data   */
-/* is continually transferred into the buffers, and software can read out  */
-/* data from the currently inactive buffer, avoiding contention.           */
+/* in circular mode.  In this way, ADC data is continually transferred     */
+/* into the buffer, and software can read out data from the buffer while   */
+/* transfers are in progress.                                              */
 /***************************************************************************/
 
 #ifdef ENABLE_ADC
-#define ADC_CLOCK_FREQUENCY 24000000
-#define ADC_CLOCKS_PER_SAMPLE 40
+#define ADC_CLOCK_FREQUENCY 12000000
+#define ADC_CLOCKS_PER_SAMPLE 43
 #define ADC_NUM_CHANNELS 6
 #define ADC_CHANNEL_ANALOG_VOLTAGE_SWITCH 4
 #define ADC_CHANNEL_EXT_POWER_VOLTAGE_DIV 5
@@ -908,14 +959,17 @@ int adc_enabled = 0;
 void HAL_IOCX_ADC_Enable(int enable)
 {
 #ifdef ENABLE_ADC
-	if ( (adc_enabled == 0) && (enable != 0) ) {
-		memset(&adc_samples,0, sizeof(adc_samples));
-		HAL_StatusTypeDef status = HAL_ADC_Start_DMA(&hadc1,
-				(uint32_t *)&adc_samples, sizeof(adc_samples) / sizeof(uint16_t));
-		adc_enabled = ( status == HAL_OK ) ? 1 : 0;
+	if (enable) {
+		if (adc_enabled == 0) {
+			memset(&adc_samples,0, sizeof(adc_samples));
+			HAL_StatusTypeDef status = HAL_ADC_Start_DMA(&hadc1,
+					(uint32_t *)&adc_samples, sizeof(adc_samples) / sizeof(uint16_t));
+			adc_enabled = ( status == HAL_OK ) ? 1 : 0;
+		}
 	} else {
-		if (adc_enabled != 0) {
+		if (adc_enabled) {
 			HAL_ADC_Stop_DMA(&hadc1);
+			adc_enabled = 0;
 		}
 	}
 #endif
