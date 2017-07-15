@@ -103,23 +103,66 @@ void MX_GPIO_Init_NavX_PI(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PAPin PAPin */
-  GPIO_InitStruct.Pin = QE4_IDX_Pin|QE2_IDX_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  /* Configure Ext Power Switch pin */
+  GPIO_InitStruct.Pin = EXT_PWR_SWITCH_ON_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+  HAL_GPIO_Init(EXT_PWR_SWITCH_ON_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PtPin */
-  GPIO_InitStruct.Pin = QE1_IDX_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(QE1_IDX_GPIO_Port, &GPIO_InitStruct);
+  /* Enable GPIO Driver Enable Pins as Outputs */
 
-  /*Configure GPIO pin : PtPin */
-  GPIO_InitStruct.Pin = QE3_IDX_Pin;
+  GPIO_InitStruct.Pin = _RPI_GPIO_OE1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+  HAL_GPIO_Init(_RPI_GPIO_OE1_GPIO_Port, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = _RPI_GPIO_OE2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+  HAL_GPIO_Init(_RPI_GPIO_OE2_GPIO_Port, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = _RPI_GPIO_OE2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+  HAL_GPIO_Init(_RPI_GPIO_OE2_GPIO_Port, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = COMM_OE2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+  HAL_GPIO_Init(COMM_OE2_GPIO_Port, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = _COMM_OE1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+  HAL_GPIO_Init(_COMM_OE1_GPIO_Port, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = EXT_PWR_SWITCH_ON_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+  HAL_GPIO_Init(EXT_PWR_SWITCH_ON_GPIO_Port, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = CAN_OK_LED_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+  HAL_GPIO_Init(CAN_OK_LED_GPIO_Port, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = RPI_GPIO_DIR_IN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(QE3_IDX_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(RPI_GPIO_DIR_IN_GPIO_Port, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = _IO_POWER_FAULT_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(_IO_POWER_FAULT_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure default GPIO pin Output Levels */
   HAL_GPIO_WritePin(GPIOC, S2_LED_Pin|S1_LED_Pin, GPIO_PIN_RESET);
@@ -127,6 +170,11 @@ void MX_GPIO_Init_NavX_PI(void)
   HAL_GPIO_WritePin(_I2C_DEV_ON_GPIO_Port, _I2C_DEV_ON_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GPIOD, CAL_LED_Pin|CAN_STANDBY_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(NAVX_2_RPI_SPI_Comm_Ready_GPIO_Port, NAVX_2_RPI_SPI_Comm_Ready_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(EXT_PWR_SWITCH_ON_GPIO_Port, EXT_PWR_SWITCH_ON_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(_RPI_GPIO_OE1_GPIO_Port, _RPI_GPIO_OE1_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(_RPI_GPIO_OE2_GPIO_Port, _RPI_GPIO_OE2_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(_COMM_OE1_GPIO_Port, _COMM_OE1_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(COMM_OE2_GPIO_Port, COMM_OE2_Pin, GPIO_PIN_RESET);
 }
 
 /* USER CODE BEGIN 2 */
