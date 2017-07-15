@@ -60,16 +60,16 @@
 #define CAN_STANDBY_GPIO_Port GPIOD
 #define CAL_BTN_Pin GPIO_PIN_11
 #define CAL_BTN_GPIO_Port GPIOD
-#define QE4_IDX_Pin GPIO_PIN_8
-#define QE4_IDX_GPIO_Port GPIOA
-#define QE2_IDX_Pin GPIO_PIN_10
-#define QE2_IDX_GPIO_Port GPIOA
+#define QE4_IDX_Pin GPIO_PIN_8      /* Removed in v5_30 */
+#define QE4_IDX_GPIO_Port GPIOA     /* Removed in v5_30 */
+#define QE2_IDX_Pin GPIO_PIN_10     /* RPI INT 4 in v5_30 */
+#define QE2_IDX_GPIO_Port GPIOA     /* RPI INT 4 in v5_30 */
 #define _CAN_RESET_Pin GPIO_PIN_10
 #define _CAN_RESET_GPIO_Port GPIOC
-#define QE1_IDX_Pin GPIO_PIN_11
-#define QE1_IDX_GPIO_Port GPIOC
-#define QE3_IDX_Pin GPIO_PIN_5
-#define QE3_IDX_GPIO_Port GPIOD
+#define QE1_IDX_Pin GPIO_PIN_11     /* EEPROM WP in v5_30 */
+#define QE1_IDX_GPIO_Port GPIOC     /* EEPROM WP in v5_30 */
+#define QE3_IDX_Pin GPIO_PIN_5      /* Removed in v5_30 */
+#define QE3_IDX_GPIO_Port GPIOD     /* Removed in v5_30 */
 /* USER CODE BEGIN Private defines */
 #define PWM_GPIO1_Pin GPIO_PIN_2 //PA2, TIM5 CH3 (PA0?)
 #define PWM_GPIO1_GPIO_Port GPIOA
@@ -97,7 +97,52 @@
 #define QE4_B_Pin GPIO_PIN_13 //PD13, TIM4 CH2
 #define QE4_B_GPIO_Port GPIOD
 
-/* USER CODE END Private defines */
+/* The following are new signals in v5_30 */
+
+#define COMM_OE2_Pin GPIO_PIN_0
+#define COMM_OE2_GPIO_Port GPIOA
+#define _COMM_OE1_Pin GPIO_PIN_1
+#define _COMM_OE1_GPIO_Port GPIOA
+
+#define NAVX_2_RPI_INT4_Pin GPIO_PIN_10
+#define NAVX_2_RPI_INT4_GPIO_Port GPIOA
+
+#define NAVX_2_RPI_INT2_Pin GPIO_PIN_8
+#define NAVX_2_RPI_INT2_GPIO_Port GPIOC
+
+#define EEPROM_WP_Pin GPIO_PIN_11
+#define EEPROM_WP_GPIO_Port GPIOC
+
+#define _RPI_GPIO_OE1_Pin GPIO_PIN_3
+#define _RPI_GPIO_OE1_GPIO_Port GPIOE
+
+#define _RPI_GPIO_OE2_Pin GPIO_PIN_4
+#define _RPI_GPIO_OE2_GPIO_Port GPIOE
+
+#define EXT_PWR_SWITCH_ON_Pin GPIO_PIN_7
+#define EXT_PWR_SWITCH_ON_GPIO_Port GPIOB
+
+#define RPI_GPIO_DIR_IN_Pin GPIO_PIN_8
+#define RPI_GPIO_DIR_IN_GPIO_Port GPIOB
+
+#define NAVX_2_RPI_INT3_Pin GPIO_PIN_2
+#define NAVX_2_RPI_INT3_GPIO_Port GPIOD
+
+#define _IO_POWER_FAULT_Pin GPIO_PIN_4
+#define _IO_POWER_FAULT_GPIO_Port GPIOD
+
+#define _CAN_RX0BF_Pin GPIO_PIN_14
+#define _CAN_RX0BF_GPIO_Port GPIOD
+
+#define _CAN_RX1BF_Pin GPIO_PIN_15
+#define _CAN_RX1BF_GPIO_Port GPIOD
+
+#define CAN_OK_LED_Pin GPIO_PIN_15
+#define CAN_OK_LED_GPIO_Port GPIOE
+
+// UNUSED GPIO INTERRUPT CHANNELS:  0(Now), 1(Now), 2(Future), 4, 8, 10, 14
+
+/* USER CODE END Private defines	 */
 
 #define GPIO_INT(GPIO_INT_NUM) (1 << GPIO_INT_NUM)
 
