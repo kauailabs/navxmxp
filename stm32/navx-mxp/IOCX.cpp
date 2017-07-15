@@ -9,6 +9,7 @@
 NavXPiBoardTest *p_navxpi_boardtest;
 static IOCX_REGS iocx_regs;
 uint32_t last_loop_timestamp;
+uint32_t last_overcurrent_check_timestamp;
 static uint16_t analog_samples[IOCX_NUM_ANALOG_INPUTS];
 
 /* Analog Triggers (see IOCX_Registers.h for more) */
@@ -31,8 +32,15 @@ AnalogTrigger analog_trigger[IOCX_NUM_ANALOG_INPUTS] = {
 	{ ANALOG_TRIGGER_DISABLED, CMOS_LOW_THRESHOLD, CMOS_HIGH_THRESHOLD, ANALOG_TRIGGER_LOW, ANALOG_TRIGGER_LOW },
 };
 
+bool ext_power_overcurrent = false;
+
 _EXTERN_ATTRIB void iocx_init()
 {
+	/* Enable power to all external IOs */
+	HAL_IOCX_Ext_Power_Enable(1);
+	/* Since this powers the ADCs, delay for this to complete. */
+	HAL_Delay(5);
+
 	HAL_IOCX_ADC_Enable(1);
 	HAL_IOCX_TIMER_Enable_Clocks(0,1);
 	HAL_IOCX_TIMER_Enable_Clocks(1,1);
@@ -40,17 +48,31 @@ _EXTERN_ATTRIB void iocx_init()
 	HAL_IOCX_TIMER_Enable_Clocks(3,1);
 	HAL_IOCX_TIMER_Enable_Clocks(4,1);
 	HAL_IOCX_TIMER_Enable_Clocks(5,1);
+
+	HAL_IOCX_RPI_GPIO_Driver_Enable(1);
+	HAL_IOCX_RPI_COMM_Driver_Enable(1);
+
     p_navxpi_boardtest = new NavXPiBoardTest();
 }
 
 #define NUM_MS_BETWEEN_SUCCESSIVE_LOOPS 2
 #define NUM_SAMPLES_TO_AVERAGE 10
+#define NUM_MS_BETWEEN_SUCCESSIVE_OVERCURRENT_CHECKS 500
 
 _EXTERN_ATTRIB void IOCX_loop()
 {
+	/* Update Capability Flags */
+	IOCX_CAPABILITY_FLAGS curr_cap_flags;
+	curr_cap_flags.unused = 0;
+	curr_cap_flags.an_in_5V = HAL_IOCX_ADC_Voltage_5V();
+	curr_cap_flags.rpi_gpio_out = HAL_IOCX_RPI_GPIO_Output();
+	iocx_regs.capability_flags = *((uint16_t *)&curr_cap_flags);
+
 	uint32_t curr_loop_timestamp = HAL_GetTick();
 	if ( curr_loop_timestamp < last_loop_timestamp) {
 		/* Timestamp rollover */
+		last_loop_timestamp = curr_loop_timestamp;
+		last_overcurrent_check_timestamp = curr_loop_timestamp;
 	} else {
 		if ((curr_loop_timestamp - last_loop_timestamp) >= NUM_MS_BETWEEN_SUCCESSIVE_LOOPS){
 			last_loop_timestamp = curr_loop_timestamp;
@@ -58,10 +80,15 @@ _EXTERN_ATTRIB void IOCX_loop()
 			/* Analog Inputs */
 		    iocx_regs.ext_pwr_voltage = IMURegisters::encodeSignedThousandthsFloat(HAL_IOCX_Get_ExtPower_Voltage());
 		    HAL_IOCX_ADC_Get_Samples(0, IOCX_NUM_ANALOG_INPUTS, analog_samples, NUM_SAMPLES_TO_AVERAGE);
-		    float full_scale_voltage = HAL_IOCX_ADC_Voltage_5V() ? 5.0f : 3.3f;
 		    for ( int i = 0; i < IOCX_NUM_ANALOG_INPUTS; i++) {
-		    	iocx_regs.analog_in_voltage[i] = IMURegisters::encodeSignedThousandthsFloat(
-		    			((float)analog_samples[i]) * full_scale_voltage / 4096);
+		    	uint16_t adc_counts = analog_samples[i];
+		    	if (curr_cap_flags.an_in_5V) {
+		    		/* Reverse effect of the 2/3 voltage divider */
+		    		adc_counts += (adc_counts << 1); /* Multiply by 3 */
+		    		adc_counts >>= 1; /* Divide by 2 */
+		    	}
+				iocx_regs.analog_in_voltage[i] = IMURegisters::encodeSignedThousandthsFloat(
+						adc_counts * 3.3f / 4096);
 		    	if(analog_trigger[i].mode != ANALOG_TRIGGER_DISABLED) {
 		    		ANALOG_TRIGGER_STATE curr_state;
 		    		if ( analog_samples[i] <= analog_trigger[i].low_threshold) {
@@ -98,6 +125,22 @@ _EXTERN_ATTRIB void IOCX_loop()
 		    /* GPIOs */
 		    HAL_IOCX_GPIO_Get(0, IOCX_NUM_GPIOS, &iocx_regs.gpio_data[0]);
 		}
+		if ((last_overcurrent_check_timestamp - last_loop_timestamp) >= NUM_MS_BETWEEN_SUCCESSIVE_OVERCURRENT_CHECKS){
+			last_overcurrent_check_timestamp = curr_loop_timestamp;
+			if(ext_power_overcurrent) {
+				/* Upon last check, over-current was detected. */
+				/* Re-enable the ext power switch */
+				//ext_power_overcurrent = false;
+				//HAL_IOCX_Ext_Power_Enable(1);
+			} else {
+				/* Check if over-current is present, and if so disable the ext power switch. */
+				if(HAL_IOCX_Ext_Power_Fault()) {
+					//ext_power_overcurrent = true;
+					//HAL_IOCX_Ext_Power_Enable(0);
+				}
+			}
+		}
+
 	}
 	//p_navxpi_boardtest->loop();
 
