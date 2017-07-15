@@ -58,6 +58,7 @@ _EXTERN_ATTRIB void CAN_init()
 	p_CAN = new CANInterface();
 	p_CAN->register_interrupt_flag_function(CAN_ISR_Flag_Function); /* Updated in ISR */
 	p_CAN->init(CAN_MODE_LOOP);
+	HAL_CAN_Status_LED_On(1);
 }
 
 static uint32_t last_loop_timestamp = 0;
