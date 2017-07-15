@@ -296,6 +296,34 @@ void HAL_CAN_Status_LED_On(int on)
 #endif
 }
 
+void HAL_RTC_Get_Time(uint8_t *hours, uint8_t *minutes, uint8_t *seconds, uint32_t *subseconds)
+{
+#ifdef ENABLE_RTC
+	RTC_TimeTypeDef sTime;
+	RTC_HandleTypeDef hrtc;
+	hrtc.Instance = RTC;
+	HAL_RTC_GetTime(&hrtc, &sTime, FORMAT_BIN);
+	*hours = sTime.Hours;
+	*minutes = sTime.Minutes;
+	*seconds = sTime.Seconds;
+	*subseconds = sTime.SubSeconds;
+#endif
+}
+
+void HAL_RTC_Get_Date(uint8_t *weekday, uint8_t *date, uint8_t *month, uint8_t *year)
+{
+#ifdef ENABLE_RTC
+	RTC_DateTypeDef sDate;
+	RTC_HandleTypeDef hrtc;
+	hrtc.Instance = RTC;
+	HAL_RTC_GetDate(&hrtc, &sDate, FORMAT_BIN);
+	*weekday = sDate.WeekDay;
+	*date = sDate.Date;
+	*month = sDate.Month;
+	*year = sDate.Year;
+#endif
+}
+
 #ifdef ENABLE_IOCX
 
 typedef enum  {

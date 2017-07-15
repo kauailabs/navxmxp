@@ -85,20 +85,6 @@ typedef struct {
 /* GPIO_11: QE4 Connector B; Timer4, Chan2 */
 #define IOCX_NUM_GPIOS 12
 
-typedef enum {
-	ANALOG_TRIGGER_LOW,
-	ANALOG_TRIGGER_HIGH,
-	ANALOG_TRIGGER_IN_WINDOW
-} ANALOG_TRIGGER_STATE;
-
-typedef enum {
-	ANALOG_TRIGGER_DISABLED,
-	ANALOG_TRIGGER_MODE_STATE,
-	ANALOG_TRIGGER_MODE_RISING_EDGE_PULSE, /* Internal routing to Interrupt only */
-	ANALOG_TRIGGER_MODE_FALLING_EDGE_PULSE /* Internal routing to Interrupt only */
-} ANALOG_TRIGGER_MODE;
-
-#define IOCX_NUM_ANALOG_TRIGGERS 4
 #define IOCX_NUM_INTERRUPTS      16
 /* INTERRUPT MAP:  */
 /* INT0:  DIO Connector 1  */

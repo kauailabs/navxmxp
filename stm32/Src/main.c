@@ -46,6 +46,9 @@
 #ifdef ENABLE_CAN_TRANSCEIVER
 #include "CAN.h"
 #endif
+#ifdef ENABLE_MISC
+#include "MISC.h"
+#endif
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -61,6 +64,10 @@ DMA_HandleTypeDef hdma_spi1_rx;
 UART_HandleTypeDef huart6;
 DMA_HandleTypeDef hdma_usart6_tx;
 
+#ifdef ENABLE_RTC
+RTC_HandleTypeDef hrtc;
+#endif
+
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -74,6 +81,7 @@ static void MX_I2C3_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USART6_UART_Init(void);
+static void MX_RTC_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -173,6 +181,9 @@ int main(void)
 #endif
 
     MX_USB_DEVICE_Init();
+#if defined(ENABLE_RTC)
+    MX_RTC_Init();
+#endif
     /* USER CODE BEGIN 2 */
     nav10_init();
 #ifdef ENABLE_IOCX
@@ -182,14 +193,21 @@ int main(void)
     nav10_set_loop(IOCX_BANK_NUMBER, IOCX_loop);
     nav10_set_register_lookup_func(IOCX_BANK_NUMBER, IOCX_get_reg_addr_and_max_size);
     nav10_set_register_write_func(IOCX_BANK_NUMBER, IOCX_banked_writable_reg_update_func);
-#endif
+#endif // ENABLE_IOCX
 #ifdef ENABLE_CAN_TRANSCEIVER
 #define CAN_BANK_NUMBER 2
     CAN_init();
     nav10_set_loop(CAN_BANK_NUMBER, CAN_loop);
     nav10_set_register_lookup_func(CAN_BANK_NUMBER, CAN_get_reg_addr_and_max_size);
     nav10_set_register_write_func(CAN_BANK_NUMBER, CAN_banked_writable_reg_update_func);
-#endif
+#endif // ENABLE_CAN_TRANSCEIVER
+#ifdef ENABLE_MISC
+#define MISC_BANK_NUMBER 3
+    MISC_init();
+    nav10_set_loop(MISC_BANK_NUMBER, MISC_loop);
+    nav10_set_register_lookup_func(MISC_BANK_NUMBER, MISC_get_reg_addr_and_max_size);
+    nav10_set_register_write_func(MISC_BANK_NUMBER, MISC_banked_writable_reg_update_func);
+#endif // ENABLE_MISC
     /* USER CODE END 2 */
 
     nav10_main();
@@ -203,10 +221,16 @@ void SystemClock_Config(void)
 {
     RCC_OscInitTypeDef RCC_OscInitStruct;
     RCC_ClkInitTypeDef RCC_ClkInitStruct;
+    RCC_PeriphCLKInitTypeDef PeriphClkInitStruct;
+
     __PWR_CLK_ENABLE();
     __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
     RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
     RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+#ifdef ENABLE_LSE
+    RCC_OscInitStruct.OscillatorType |= RCC_OSCILLATORTYPE_LSE;
+    RCC_OscInitStruct.LSEState = RCC_LSE_ON;
+#endif // ENABLE_LSE
     RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
     RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
     RCC_OscInitStruct.PLL.PLLM = 8;
@@ -214,12 +238,21 @@ void SystemClock_Config(void)
     RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
     RCC_OscInitStruct.PLL.PLLQ = 8;
     HAL_RCC_OscConfig(&RCC_OscInitStruct);
-    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1;
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                                |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
     RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
     RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
     RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4; // 24Mhz.  Was RCC_HCLK_DIV2 (48Mhz);
     RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
     HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3 );
+#ifdef ENABLE_LSE
+#ifdef ENABLE_RTC
+    /* Feed Real-time Clock via Low-Speed External (LSE) */
+    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC;
+    PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
+    HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct);
+#endif // ENABLE_RTC
+#endif // ENABLE_LSE
 }
 
 /* I2C2 init function */
@@ -429,6 +462,54 @@ void MX_DMA_Init(void)
 #ifdef ENABLE_ADC
     HAL_NVIC_SetPriority(DMA2_Stream4_IRQn, 6, 0); /* ADC */
     //HAL_NVIC_EnableIRQ(DMA2_Stream4_IRQn);
+#endif
+}
+
+/* RTC init function */
+void MX_RTC_Init(void)
+{
+#ifdef ENABLE_RTC
+
+  RTC_TimeTypeDef sTime;
+  RTC_DateTypeDef sDate;
+
+    /**Initialize RTC and set the Time and Date
+    */
+  hrtc.Instance = RTC;
+
+  int calendar_initialized = ((hrtc.Instance->ISR & RTC_FLAG_INITS) != 0);
+
+  /* TOdo:  the following may not be required if (calendar_initialized */
+  hrtc.Init.HourFormat = RTC_HOURFORMAT_24;
+  hrtc.Init.AsynchPrediv = 127;
+  hrtc.Init.SynchPrediv = 255;
+  hrtc.Init.OutPut = RTC_OUTPUT_DISABLE;
+  hrtc.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
+  hrtc.Init.OutPutType = RTC_OUTPUT_TYPE_OPENDRAIN;
+  HAL_RTC_Init(&hrtc);
+
+  /* Check if RTC is already initialized (via INITS flag)        */
+  /* The RTC "backup domain" is powered by a dedicated battery,  */
+  /* and the calendar should only be initialized if it has not   */
+  /* yet been programmed.  The calendar is cleared if there is   */
+  /* ever a "backup domain" reset.                               */
+
+  if (!calendar_initialized) {
+
+	  sTime.Hours = 0x0;
+	  sTime.Minutes = 0x0;
+	  sTime.Seconds = 0x0;
+	  sTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+	  sTime.StoreOperation = RTC_STOREOPERATION_RESET;
+	  HAL_RTC_SetTime(&hrtc, &sTime, FORMAT_BIN);
+
+	  sDate.WeekDay = RTC_WEEKDAY_MONDAY;
+	  sDate.Month = RTC_MONTH_JANUARY;
+	  sDate.Date = 0x1;
+	  sDate.Year = 0x0;
+
+	  HAL_RTC_SetDate(&hrtc, &sDate, FORMAT_BIN);
+  }
 #endif
 }
 

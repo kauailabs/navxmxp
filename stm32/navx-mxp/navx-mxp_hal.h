@@ -59,6 +59,9 @@ THE SOFTWARE.
 #   define ENABLE_BANKED_REGISTERS
 #   define ENABLE_IOCX
 #	define ENABLE_SPI_COMM_READY_INTERRUPT
+#   define ENABLE_LSE
+#   define ENABLE_RTC
+#   define ENABLE_MISC
 //#	define IOCX_INTERRUPT
 //#	define CAN_INTERRUPT
 //#	define AHRS_INTERRUPT
@@ -118,6 +121,17 @@ void HAL_AHRS_Int_Assert();
 void HAL_AHRS_Int_Deassert();
 
 void HAL_CAN_Status_LED_On(int on);
+
+/**********************/
+/* RTC                */
+/**********************/
+
+void HAL_RTC_Get_Time(uint8_t *hours, uint8_t *minutes, uint8_t *seconds, uint32_t *subseconds);
+void HAL_RTC_Get_Date(uint8_t *weekday, uint8_t *date, uint8_t *month, uint8_t *year);
+void HAL_RTC_Set_Time(uint8_t hours, uint8_t minutes, uint8_t seconds);
+void HAL_RTC_Set_Date(uint8_t day, uint8_t date, uint8_t month, uint8_t year);
+void HAL_RTC_Get_DaylightSavings(uint8_t *daylight_savings);
+void HAL_RTC_Set_DaylightSavings(uint8_t daylight_savings);
 
 /**********************/
 /* Reconfigurable IOs */

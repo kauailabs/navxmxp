@@ -59,11 +59,11 @@ HAL_StatusTypeDef prepare_next_i2c_receive();
 uint8_t i2c3_RxBuffer[RXBUFFERSIZE];
 uint8_t spi1_RxBuffer[RXBUFFERSIZE];
 
-#define NUM_SPI_BANKS 3
+#define NUM_SPI_BANKS 4
 
-loop_func p_loop_func[NUM_SPI_BANKS] = { NULL, NULL, NULL };
-register_lookup_func p_reg_lookup_func[NUM_SPI_BANKS] = { NULL, NULL, NULL };
-register_write_func p_reg_write_func[NUM_SPI_BANKS] = { NULL, NULL, NULL };
+loop_func p_loop_func[NUM_SPI_BANKS] = { NULL, NULL, NULL, NULL };
+register_lookup_func p_reg_lookup_func[NUM_SPI_BANKS] = { NULL, NULL, NULL, NULL };
+register_write_func p_reg_write_func[NUM_SPI_BANKS] = { NULL, NULL, NULL, NULL };
 
 _EXTERN_ATTRIB void nav10_set_loop(uint8_t bank, loop_func p) { p_loop_func[bank] = p; }
 _EXTERN_ATTRIB void nav10_set_register_lookup_func(uint8_t bank, register_lookup_func p) { p_reg_lookup_func[bank] = p; }

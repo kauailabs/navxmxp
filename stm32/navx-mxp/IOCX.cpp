@@ -8,8 +8,8 @@
 
 NavXPiBoardTest *p_navxpi_boardtest;
 static IOCX_REGS iocx_regs;
-uint32_t last_loop_timestamp;
-uint32_t last_overcurrent_check_timestamp;
+static uint32_t last_loop_timestamp;
+static uint32_t last_overcurrent_check_timestamp;
 static uint16_t analog_samples[IOCX_NUM_ANALOG_INPUTS];
 
 /* Analog Triggers (see IOCX_Registers.h for more) */
@@ -25,7 +25,7 @@ typedef struct {
 const uint16_t CMOS_LOW_THRESHOLD =  (uint16_t)((3.3f / 4096) * 0.8f);
 const uint16_t CMOS_HIGH_THRESHOLD = (uint16_t)((3.3f / 4096) * 2.0f);
 
-AnalogTrigger analog_trigger[IOCX_NUM_ANALOG_INPUTS] = {
+static AnalogTrigger analog_trigger[IOCX_NUM_ANALOG_INPUTS] = {
 	{ ANALOG_TRIGGER_DISABLED, CMOS_LOW_THRESHOLD, CMOS_HIGH_THRESHOLD, ANALOG_TRIGGER_LOW, ANALOG_TRIGGER_LOW },
 	{ ANALOG_TRIGGER_DISABLED, CMOS_LOW_THRESHOLD, CMOS_HIGH_THRESHOLD, ANALOG_TRIGGER_LOW, ANALOG_TRIGGER_LOW },
 	{ ANALOG_TRIGGER_DISABLED, CMOS_LOW_THRESHOLD, CMOS_HIGH_THRESHOLD, ANALOG_TRIGGER_LOW, ANALOG_TRIGGER_LOW },
