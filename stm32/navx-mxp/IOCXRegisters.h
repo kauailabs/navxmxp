@@ -34,7 +34,7 @@ THE SOFTWARE.
 #define IOCX_REGISTER_BANK 1
 
 typedef struct {
-	uint16_t unused			: 14; /* Support for Can Bus 2.0b standard */
+	uint16_t unused			: 14;
 	uint16_t rpi_gpio_out	: 1;  /* If set, the 10-pin RPI GPIO Header is OUTPUT */
 	uint16_t an_in_5V		: 1;  /* If set, analog input voltage is 5V (3.3V if clear) */
 } IOCX_CAPABILITY_FLAGS;
