@@ -470,46 +470,45 @@ void MX_RTC_Init(void)
 {
 #ifdef ENABLE_RTC
 
-  RTC_TimeTypeDef sTime;
-  RTC_DateTypeDef sDate;
+	RTC_TimeTypeDef sTime;
+	RTC_DateTypeDef sDate;
 
-    /**Initialize RTC and set the Time and Date
-    */
-  hrtc.Instance = RTC;
+	/**Initialize RTC and set the Time and Date
+	*/
+	hrtc.Instance = RTC;
 
-  int calendar_initialized = ((hrtc.Instance->ISR & RTC_FLAG_INITS) != 0);
+	int calendar_initialized = ((hrtc.Instance->ISR & RTC_FLAG_INITS) != 0);
 
-  /* TOdo:  the following may not be required if (calendar_initialized */
-  hrtc.Init.HourFormat = RTC_HOURFORMAT_24;
-  hrtc.Init.AsynchPrediv = 127;
-  hrtc.Init.SynchPrediv = 255;
-  hrtc.Init.OutPut = RTC_OUTPUT_DISABLE;
-  hrtc.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
-  hrtc.Init.OutPutType = RTC_OUTPUT_TYPE_OPENDRAIN;
-  HAL_RTC_Init(&hrtc);
+	/* Check if RTC is already initialized (via INITS flag)        */
+	/* The RTC "backup domain" is powered by a dedicated battery,  */
+	/* and the calendar should only be initialized if it has not   */
+	/* yet been programmed.  The calendar is cleared if there is   */
+	/* ever a "backup domain" reset.                               */
 
-  /* Check if RTC is already initialized (via INITS flag)        */
-  /* The RTC "backup domain" is powered by a dedicated battery,  */
-  /* and the calendar should only be initialized if it has not   */
-  /* yet been programmed.  The calendar is cleared if there is   */
-  /* ever a "backup domain" reset.                               */
+	if (!calendar_initialized) {
 
-  if (!calendar_initialized) {
+		hrtc.Init.HourFormat = RTC_HOURFORMAT_24;
+		hrtc.Init.AsynchPrediv = 127;
+		hrtc.Init.SynchPrediv = 255;
+		hrtc.Init.OutPut = RTC_OUTPUT_DISABLE;
+		hrtc.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
+		hrtc.Init.OutPutType = RTC_OUTPUT_TYPE_OPENDRAIN;
+		HAL_RTC_Init(&hrtc);
 
-	  sTime.Hours = 0x0;
-	  sTime.Minutes = 0x0;
-	  sTime.Seconds = 0x0;
-	  sTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
-	  sTime.StoreOperation = RTC_STOREOPERATION_RESET;
-	  HAL_RTC_SetTime(&hrtc, &sTime, FORMAT_BIN);
+		sTime.Hours = 0x0;
+		sTime.Minutes = 0x0;
+		sTime.Seconds = 0x0;
+		sTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+		sTime.StoreOperation = RTC_STOREOPERATION_RESET;
+		HAL_RTC_SetTime(&hrtc, &sTime, FORMAT_BIN);
 
-	  sDate.WeekDay = RTC_WEEKDAY_MONDAY;
-	  sDate.Month = RTC_MONTH_JANUARY;
-	  sDate.Date = 0x1;
-	  sDate.Year = 0x0;
+		sDate.WeekDay = RTC_WEEKDAY_MONDAY;
+		sDate.Month = RTC_MONTH_JANUARY;
+		sDate.Date = 0x1;
+		sDate.Year = 0x1;
 
-	  HAL_RTC_SetDate(&hrtc, &sDate, FORMAT_BIN);
-  }
+		HAL_RTC_SetDate(&hrtc, &sDate, FORMAT_BIN);
+	}
 #endif
 }
 

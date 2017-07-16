@@ -60,7 +60,7 @@ _EXTERN_ATTRIB uint8_t *MISC_get_reg_addr_and_max_size( uint8_t bank, uint8_t re
 	    }
 
 	    uint8_t first_offset = register_offset;
-	    uint8_t last_offset = register_offset + requested_count - 1;
+	    uint8_t last_offset = register_offset + requested_count;
 
 	    /* Requested data includes rtc timstamp; update w/latest value */
 	    if((first_offset <= offsetof(struct MISC_REGS, rtc_time)) &&
