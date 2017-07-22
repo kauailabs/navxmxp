@@ -123,6 +123,22 @@ typedef enum _IOCX_TIMER_MODE {
 	TIMER_MODE_INPUT_CAPTURE	= 3,
 } IOCX_TIMER_MODE;
 
+typedef enum _IOCX_QUAD_ENCODER_MODE {
+	QUAD_ENCODER_MODE_4x		= 0, /* Default */
+	QUAD_ENCODER_MODE_2x		= 1,
+	QUAD_ENCODER_MODE_1x		= 2,
+} IOCX_QUAD_ENCODER_MODE;
+
+typedef enum _IOCX_INPUT_CAPTURE_CHANNEL {
+	INPUT_CAPTURE_FROM_CH1		= 0, /* Default */
+	INPUT_CAPTURE_FROM_CH2		= 1,
+} IOCX_INPUT_CAPTURE_CHANNEL;
+
+typedef enum _IOCX_INPUT_CAPTURE_POLARITY {
+	INPUT_CAPTURE_POLARITY_RISING  = 0, /* Default */
+	INPUT_CAPTURE_POLARITY_FALLING = 1
+} IOCX_INPUT_CAPTURE_POLARITY;
+
 typedef enum _IOCX_TIMER_DIRECTION {
 	UP				= 0,
 	DOWN		    = 1,
@@ -164,7 +180,7 @@ struct __attribute__ ((__packed__)) IOCX_REGS {
 	/*****************/
 	/* Configuration */
 	/*****************/
-	uint8_t timer_cfg[IOCX_NUM_TIMERS]; /* IOCX_TIMER_MODE */
+	uint8_t timer_cfg[IOCX_NUM_TIMERS]; /* IOCX_TIMER_MODE, IOCX_QUAD_ENCODER_MODE, IOCX_INPUT_CAPTURE_CHANNEL, IOCX_INPUT_CAPTURE_POLARITY */
 	uint8_t timer_ctl[IOCX_NUM_TIMERS]; /* IOCX_TIMER_COUNTER_RESET */
 	uint16_t timer_prescaler[IOCX_NUM_TIMERS]; /* Timer Frequency (48Mhz divider) */
 	uint16_t timer_aar[IOCX_NUM_TIMERS]; /* PWM:  Frame Period; QE:  auto-set to 0xFFFF */
@@ -180,7 +196,7 @@ struct __attribute__ ((__packed__)) IOCX_REGS {
 	uint16_t ext_pwr_voltage;							/* Signed Thousandths */
 	uint16_t analog_in_voltage[IOCX_NUM_ANALOG_INPUTS]; /* Signed Thousandths */
 	uint8_t timer_status[IOCX_NUM_TIMERS]; /* IOCX_TIMER_DIRECTION */
-	uint16_t timer_counter[IOCX_NUM_TIMERS]; /* QE Mode:  Encoder Counts */
+	int32_t timer_counter[IOCX_NUM_TIMERS]; /* QE Mode:  Encoder Counts */
 	uint8_t end_of_bank;
 };
 
@@ -188,6 +204,9 @@ static RegEncoding gpio_type_reg = { offsetof(struct IOCX_REGS, gpio_cfg), 0, 0x
 static RegEncoding gpio_input_reg = { offsetof(struct IOCX_REGS, gpio_cfg), 3, 0x03 };
 static RegEncoding gpio_interrupt_reg = { offsetof(struct IOCX_REGS, gpio_cfg), 5, 0x03 };
 static RegEncoding timer_mode_reg = { offsetof(struct IOCX_REGS, timer_cfg), 0, 0x03 };
+static RegEncoding quad_enc_mode_reg = {offsetof(struct IOCX_REGS, timer_cfg), 2, 0x03 };
+static RegEncoding input_cap_ch_reg = {offsetof(struct IOCX_REGS, timer_cfg), 4, 0x10 };
+static RegEncoding input_cap_polarity_reg = {offsetof(struct IOCX_REGS, timer_cfg), 5, 0x30 };
 static RegEncoding timer_counter_reset_reg = { offsetof(struct IOCX_REGS, timer_ctl), 0, 0x01 };
 static RegEncoding timer_direction_reg = { offsetof(struct IOCX_REGS, timer_status), 0, 0x01 };
 
@@ -227,6 +246,24 @@ inline void iocx_encode_timer_mode(uint8_t* reg, IOCX_TIMER_MODE val) {
 }
 inline IOCX_TIMER_MODE iocx_decode_timer_mode(uint8_t *reg) {
 	return (IOCX_TIMER_MODE)decode_reg(reg, &timer_mode_reg);
+}
+inline void iocx_encode_quad_encoder_mode(uint8_t* reg, IOCX_QUAD_ENCODER_MODE val) {
+	encode_reg(reg, (uint8_t)val, &quad_enc_mode_reg);
+}
+inline IOCX_QUAD_ENCODER_MODE iocx_decode_quad_encoder_mode(uint8_t *reg) {
+	return (IOCX_QUAD_ENCODER_MODE)decode_reg(reg, &quad_enc_mode_reg);
+}
+inline void iocx_encode_input_capture_channel(uint8_t* reg, IOCX_INPUT_CAPTURE_CHANNEL val) {
+	encode_reg(reg, (uint8_t)val, &input_cap_ch_reg);
+}
+inline IOCX_INPUT_CAPTURE_CHANNEL iocx_decode_input_capture_channel(uint8_t *reg) {
+	return (IOCX_INPUT_CAPTURE_CHANNEL)decode_reg(reg, &input_cap_ch_reg);
+}
+inline void iocx_encode_input_capture_polarity(uint8_t* reg, IOCX_INPUT_CAPTURE_POLARITY val) {
+	encode_reg(reg, (uint8_t)val, &input_cap_polarity_reg);
+}
+inline IOCX_INPUT_CAPTURE_POLARITY iocx_decode_input_capture_polarity(uint8_t *reg) {
+	return (IOCX_INPUT_CAPTURE_POLARITY)decode_reg(reg, &input_cap_polarity_reg);
 }
 inline void iocx_encode_timer_direction(uint8_t *reg, IOCX_TIMER_DIRECTION val) {
 	encode_reg(reg, (uint8_t)val, &timer_direction_reg);

@@ -68,6 +68,8 @@ typedef enum {
 
 #define MISC_NUM_ANALOG_TRIGGERS 4
 
+#define MISC_NUM_ANALOG_INPUTS 4
+
 struct __attribute__ ((__packed__)) MISC_REGS {
 	/****************************/
 	/* Capabilities (Read-only) */
@@ -81,6 +83,8 @@ struct __attribute__ ((__packed__)) MISC_REGS {
 	MISC_RTC_TIME rtc_time;
 	MISC_RTC_DATE rtc_date;
 	uint8_t analog_trigger_state[MISC_NUM_ANALOG_TRIGGERS]; /* ANALOG_TRIGGER_STATE */
+	uint32_t analog_input_oversample_value[MISC_NUM_ANALOG_INPUTS];
+	uint32_t analog_input_average_value[MISC_NUM_ANALOG_INPUTS];
 
 	/************************************/
 	/* Basic Configuration (Read/Write) */
@@ -92,6 +96,8 @@ struct __attribute__ ((__packed__)) MISC_REGS {
 	uint8_t analog_trigger_cfg[MISC_NUM_ANALOG_TRIGGERS]; /* ANALOG_TRIGGER_MODE */
 	uint16_t analog_trigger_threshold_low[MISC_NUM_ANALOG_TRIGGERS];
 	uint16_t analog_trigger_threshold_high[MISC_NUM_ANALOG_TRIGGERS];
+	uint8_t analog_input_oversample_bits[MISC_NUM_ANALOG_INPUTS];
+	uint8_t analog_input_average_bits[MISC_NUM_ANALOG_INPUTS];
 
 	/*****************************************************************/
 	/* Advanced Configuration (Read/Write)                           */
