@@ -36,7 +36,7 @@ THE SOFTWARE.
 typedef struct {
 	uint16_t unused			: 14;
 	uint16_t rpi_gpio_out	: 1;  /* If set, the 10-pin RPI GPIO Header is OUTPUT */
-	uint16_t an_in_5V		: 1;  /* If set, analog input voltage is 5V (3.3V if clear) */
+	uint16_t interrupt_support : 1;
 } IOCX_CAPABILITY_FLAGS;
 
 #define IOCX_GPIO_SET	1
@@ -170,8 +170,6 @@ const uint8_t SUPPORTED_TIMER_MODES[IOCX_NUM_TIMERS] = {
 // Todo:  for each timer, get supported IOCX_TIMER_MODES (3 bits/timer)
 #define IOCX_SUPPORTED_TIMER_MODES_ALL (1 << TIMER_MODE_QUAD_ENCODER)
 
-#define IOCX_NUM_ANALOG_INPUTS 4 /* Does not include "internal" ADC inputs */
-
 struct __attribute__ ((__packed__)) IOCX_REGS {
 	/****************/
 	/* Capabilities */
@@ -193,8 +191,6 @@ struct __attribute__ ((__packed__)) IOCX_REGS {
 	/*****************/
 	uint16_t gpio_intstat;  			 /* Bitmask:  1 = int present.  Write 1 to clear. */
 	uint8_t  gpio_data[IOCX_NUM_GPIOS];  /* IOCX_GPIO_SET = High, IOCX_GPIO_RESET = Low.  */
-	uint16_t ext_pwr_voltage;							/* Signed Thousandths */
-	uint16_t analog_in_voltage[IOCX_NUM_ANALOG_INPUTS]; /* Signed Thousandths */
 	uint8_t timer_status[IOCX_NUM_TIMERS]; /* IOCX_TIMER_DIRECTION */
 	int32_t timer_counter[IOCX_NUM_TIMERS]; /* QE Mode:  Encoder Counts */
 	uint8_t end_of_bank;
