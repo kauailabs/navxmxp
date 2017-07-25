@@ -9,13 +9,14 @@
 #define HANDLES_INTERNAL_H_
 
 #include "../types.h"
+#include "VMXResource.h"
 
 constexpr int16_t InvalidVMXHandleIndex = -1;
 
 enum class VMXHAL_HandleEnum {
 	Undefined = 0,
 	DIO = 1,
-	Port = 2,
+	Port = 2,			/* AKA "Channel" */
 	Notifier = 3,
 	Interrupt = 4,
 	AnalogInput = 6,
@@ -48,9 +49,58 @@ static inline bool isHandleType(VMXHAL_Handle handle, VMXHAL_HandleEnum handleTy
 	return handleType == getHandleType(handle);
 }
 
-static inline int16_t getHandleTypedIndex(HAL_Handle handle,
-										  HAL_HandleEnum enumType) {
-	if(!isHandleType(handle, enumType)) return InvalidHandleIndex;
-	return getHandleIndex;
+static inline int16_t getHandleTypedIndex(VMXHAL_Handle handle,
+										  VMXHAL_HandleEnum enumType) {
+	if(!isHandleType(handle, enumType)) return InvalidVMXHandleIndex;
+	return getHandleIndex(handle);
 }
+
+VMXHAL_PortHandle createPortHandle(uint8_t channel,  uint8_t module);
+VMXHAL_PortHandle createPortHandleForSPI(uint8_t channel);
+VMXHAL_Handle createHandle(int16_t index, VMXHAL_HandleEnum handleType);
+
+bool getResourceHandle(VMXHAL_Handle handle, VMXResourceHandle& vmx_res_handle)
+{
+	VMXHAL_HandleEnum vmxhal_handle_type = getHandleType(handle);
+	int16_t vmxhal_handle_index = getHandleIndex(handle);
+	VMXResourceType vmx_res_type = VMXResourceType::Undefined;
+	switch(vmxhal_handle_type) {
+	case VMXHAL_HandleEnum::Undefined:
+		vmx_res_type = VMXResourceType::Undefined;
+		break;
+	case VMXHAL_HandleEnum::DigitalPWM:
+		vmx_res_type = VMXResourceType::PWMGenerator;
+		break;
+	case VMXHAL_HandleEnum::DIO:
+		vmx_res_type = VMXResourceType::DIO;
+		break;
+	case VMXHAL_HandleEnum::Notifier:
+		// TODO::::
+		break;
+	case VMXHAL_HandleEnum::Interrupt:
+		vmx_res_type = VMXResourceType::Interrupt;
+		break;
+	case VMXHAL_HandleEnum::AnalogInput:
+		vmx_res_type = VMXResourceType::Accumulator;
+		break;
+	case VMXHAL_HandleEnum::AnalogTrigger:
+		vmx_res_type = VMXResourceType::AnalogTrigger;
+		break;
+	case VMXHAL_HandleEnum::Counter:
+		vmx_res_type = VMXResourceType::PWMCapture;
+		break;
+	case VMXHAL_HandleEnum::Encoder:
+		vmx_res_type = VMXResourceType::Encoder;
+		break;
+	case VMXHAL_HandleEnum::Port:
+		// This does not map to a VMXResourceHandle
+		return false;
+	case VMXHAL_HandleEnum::Vendor:
+		// This does not map to a VMXResourceHandle
+		return false;
+	}
+	vmx_res_handle = CREATE_VMX_RESOURCE_HANDLE(vmx_res_type, uint8_t(vmxhal_handle_index));
+	return true;
+}
+
 #endif /* HANDLES_INTERNAL_H_ */

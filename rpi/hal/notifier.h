@@ -34,6 +34,7 @@ THE SOFTWARE.
 extern "C" {
 #endif
 
+/* Note that currentTime is in units of Microseconds, absolute time based on the current system clock. */
 typedef void (*VMXHAL_NotifierProcessFunction)(uint64_t currentTime,
                                             VMXHAL_NotifierHandle handle);
 

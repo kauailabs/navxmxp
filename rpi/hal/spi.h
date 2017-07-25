@@ -28,9 +28,9 @@ THE SOFTWARE.
 
 #include "types.h"
 
-enum VMXHAL_SPIPort : int32_t {
+typedef enum {
   VMXHAL_SPI_kRpi = 0,
-};
+} VMXHAL_SPIPort;
 
 #ifdef __cplusplus
 extern "C" {

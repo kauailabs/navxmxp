@@ -53,7 +53,7 @@ const char* VMXHAL_GetErrorMessage(int32_t code);
 int32_t VMXHAL_GetFirmwareVersion(int32_t* status);
 int64_t VMXHAL_GetFirmwareRevision(int32_t* status);
 
-enum VMXHAL_RuntimeType : int32_t { VMXHAL_VMX, VMXHAL_Mock };
+typedef enum { VMXHAL_VMX, VMXHAL_Mock } VMXHAL_RuntimeType;
 
 VMXHAL_RuntimeType VMXHAL_GetRuntimeType();
 
@@ -65,6 +65,8 @@ void VMXHAL_BaseInitialize(int32_t* status);
 uint64_t VMXHAL_GetMicrocontrollerTime(int32_t* status); /* Todo:  Granularity? */
 
 int32_t VMXHAL_Initialize(int32_t mode);
+
+int32_t VMXHAL_Deinitialize();
 
 VMXHAL_PortHandle VMXHAL_GetPort(int32_t channel);
 VMXHAL_PortHandle VMXHAL_GetPortWithModule(int32_t module, int32_t channel);

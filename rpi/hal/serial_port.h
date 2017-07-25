@@ -28,9 +28,9 @@ THE SOFTWARE.
 
 #include "types.h"
 
-enum VMXHAL_SerialPort : int32_t {
+typedef enum {
   VMXHAL_SerialPort_Rpi = 0,
-};
+} VMXHAL_SerialPort;
 
 #ifdef __cplusplus
 extern "C" {

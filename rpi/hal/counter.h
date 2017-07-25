@@ -28,12 +28,12 @@ THE SOFTWARE.
 
 #include <stdint.h>
 
-enum VMXHAL_Counter_Mode : int32_t {
+typedef enum {
   VMXHAL_Counter_kTwoPulse = 0,
   VMXHAL_Counter_kSemiperiod = 1,
   VMXHAL_Counter_kPulseLength = 2,
   VMXHAL_Counter_kExternalDirection = 3
-};
+} VMXHAL_Counter_Mode;
 
 /* Notes:
  * VMX has 6 hardware counters:

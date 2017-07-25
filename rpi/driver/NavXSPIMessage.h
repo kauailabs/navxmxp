@@ -9,8 +9,8 @@
 #define NAVXSPIMESSAGE_H_
 
 #include <stdint.h>
+#include "SPICommCtrl.h"
 
-#define NAVXPI_SPI_MESSSAGE_LEN 8 /* sizeof(NavXSPIMessage) */
 struct __attribute__ ((__packed__)) NavXSPIMessage
 {
 public:
@@ -18,7 +18,7 @@ public:
 	uint8_t bank;
 	uint8_t reg_addr;
 	uint8_t count;
-	uint8_t data[4];
+	uint8_t data[STD_SPI_MSG_LEN - 4];
 	uint8_t crc;
 
 	static uint8_t crc_lookup_table[256];
@@ -33,7 +33,7 @@ public:
 	virtual ~NavXSPIMessage() {}
 	static bool validate_read_response(uint8_t *p_data, uint8_t len);
 	virtual uint8_t *get_packet_ptr() { return &this->bank; }
-	virtual uint8_t get_packet_size() { return NAVXPI_SPI_MESSSAGE_LEN; };
+	virtual uint8_t get_packet_size() { return STD_SPI_MSG_LEN; };
 protected:
 	NavXSPIMessage() {
 		bank = 0;
