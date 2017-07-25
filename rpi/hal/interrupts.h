@@ -70,7 +70,7 @@ void VMXHAL_AttachInterruptHandlerThreaded(VMXHAL_InterruptHandle interruptHandl
                                         void* param, int32_t* status);
 
 void VMXHAL_SetInterruptUpSourceEdge(VMXHAL_InterruptHandle interruptHandle,
-                                  VMXHAL_Bool risingEdge, HAL_Bool fallingEdge,
+                                  VMXHAL_Bool risingEdge, VMXHAL_Bool fallingEdge,
                                   int32_t* status);
 
 #ifdef __cplusplus

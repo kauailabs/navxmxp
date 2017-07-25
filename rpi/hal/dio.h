@@ -32,7 +32,7 @@ THE SOFTWARE.
 extern "C" {
 #endif
 
-VMXVMXHAL_DigitalHandle VMXHAL_InitializeDIOPort(VMXHAL_PortHandle portHandle,
+VMXHAL_DigitalHandle VMXHAL_InitializeDIOPort(VMXHAL_PortHandle portHandle,
                                         VMXHAL_Bool input, int32_t* status);
 
 VMXHAL_Bool VMXHAL_CheckDIOChannel(int32_t channel);

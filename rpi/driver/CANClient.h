@@ -20,6 +20,8 @@ public:
 	CANClient(SPIClient& client);
 	virtual ~CANClient();
 
+	void RegisterNewRxDataNotifyHandler(CAN_NewRxDataNotifyHandler handler);
+
 	bool get_capability_flags(CAN_CAPABILITY_FLAGS& f);
 
 	bool get_interrupt_status(CAN_IFX_INT_FLAGS & f, uint8_t& rx_fifo_available_count);

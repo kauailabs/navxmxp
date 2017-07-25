@@ -28,6 +28,8 @@ THE SOFTWARE.
 
 #include <stdint.h>
 
+#define VMXHAL_STATUS_OK 0
+
 #define VMXHAL_kInvalidHandle 0
 
 typedef int32_t VMXHAL_Handle;
@@ -49,6 +51,8 @@ typedef VMXHAL_Handle VMXHAL_EncoderHandle;
 typedef VMXHAL_Handle VMXHAL_InterruptHandle;
 
 typedef VMXHAL_Handle VMXHAL_NotifierHandle;
+
+typedef int32_t VMXHAL_I2CPort;
 
 typedef int32_t VMXHAL_Bool;
 

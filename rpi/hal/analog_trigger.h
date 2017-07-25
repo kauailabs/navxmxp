@@ -29,12 +29,12 @@ THE SOFTWARE.
 #include <stdint.h>
 #include "types.h"
 
-enum VMXHAL_AnalogTriggerType : int32_t {
+typedef enum {
   VMXHAL_Trigger_kInWindow = 0,
   VMXHAL_Trigger_kState = 1,
   VMXHAL_Trigger_kRisingPulse = 2,
   VMXHAL_Trigger_kFallingPulse = 3
-};
+} VMXHAL_AnalogTriggerType;
 
 #ifdef __cplusplus
 extern "C" {

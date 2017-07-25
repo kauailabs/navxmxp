@@ -18,7 +18,7 @@ NavXSPIMessage::NavXSPIMessage(uint8_t bank, uint8_t reg_addr, uint8_t count) {
 	this->reg_addr = reg_addr;
 	this->count = count;
 	memset(this->data,0xFF,sizeof(this->data));
-	crc = IMURegisters::getCRCWithTable(NavXSPIMessage::crc_lookup_table, &this->bank, NAVXPI_SPI_MESSSAGE_LEN-1);
+	crc = IMURegisters::getCRCWithTable(NavXSPIMessage::crc_lookup_table, &this->bank, STD_SPI_MSG_LEN-1);
 }
 /* Build write message (single-byte count allowed for Bank 0; 1-2 bytes in length for other banks. */
 NavXSPIMessage::NavXSPIMessage(uint8_t bank, uint8_t reg_addr, uint8_t count, uint8_t* p_values) {
@@ -45,7 +45,7 @@ NavXSPIMessage::NavXSPIMessage(uint8_t bank, uint8_t reg_addr, uint8_t count, ui
 	} else {
 		this->count = count;
 	}
-	crc = IMURegisters::getCRCWithTable(NavXSPIMessage::crc_lookup_table, &this->bank, NAVXPI_SPI_MESSSAGE_LEN-1);
+	crc = IMURegisters::getCRCWithTable(NavXSPIMessage::crc_lookup_table, &this->bank, STD_SPI_MSG_LEN-1);
 }
 
 void NavXSPIMessage::init_crc_table() {
@@ -56,5 +56,5 @@ bool NavXSPIMessage::validate_read_response(uint8_t *p_data, uint8_t len) {
 	return (p_data[len-1] == IMURegisters::getCRCWithTable(NavXSPIMessage::crc_lookup_table, p_data, len-1));
 }
 
-uint8_t NavXSPIMessage::get_standard_packet_size() { return NAVXPI_SPI_MESSSAGE_LEN; }
+uint8_t NavXSPIMessage::get_standard_packet_size() { return STD_SPI_MSG_LEN; }
 

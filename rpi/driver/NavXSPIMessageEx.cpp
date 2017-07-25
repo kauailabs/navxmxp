@@ -15,10 +15,10 @@ NavXSPIMessageEx::NavXSPIMessageEx(uint8_t bank, uint8_t reg_addr, uint8_t count
 	if(bank == 0) {
 		assert(count <= 1);
 	} else {
-		assert(count <= (255-4)); /* Max Transfer size minus non-data bytes */
+		assert(count <= (MAX_SPI_MSG_LEN - TOTAL_SPI_MSG_OVERHEAD_BYTES)); /* Max Transfer size minus non-data bytes */
 	}
 
-	p_variable_len_message = (uint8_t *)new uint8_t[count + 4];
+	p_variable_len_message = (uint8_t *)new uint8_t[count + TOTAL_SPI_MSG_OVERHEAD_BYTES];
 
 	p_variable_len_message[0] = bank;
 	p_variable_len_message[1] = 0x80 |reg_addr;

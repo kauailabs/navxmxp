@@ -8,35 +8,40 @@
 #ifndef SPICLIENT_H_
 #define SPICLIENT_H_
 
+#include "PIGPIOClient.h"
 #include "NavXSPIMessage.h"
-
-/* TODO:  Move to header file shared w/VMX-pi firmware. */
-#define VMXPI_SPECIALMODE_BANK				0xFF
-#define VMXPI_SPECIALMODE_REG_VARIABLEWRITE 0x01
 
 class SPIClient {
 
 private:
-	bool pigpio_initialized;
-	int spi_handle;
+	PIGPIOClient& pigpio;
 
 public:
-	SPIClient(unsigned comm_rcv_ready_bcm_signal_pin);
+	SPIClient(PIGPIOClient& gpio_client);
 
-	bool is_open() { return pigpio_initialized; }
+	/* Transmits data of the specified length to VMX via internal SPI communication.  */
+	/* Internally, uses a mutex to ensure VMX SPI transactions are atomic.            */
+	bool transmit(uint8_t *p_data, uint8_t len, bool write);
 
-	virtual bool transmit(uint8_t *p_data, uint8_t len, bool write);
+	/* Requests data of the specified length from VMX via internal SPI communication.  */
+	/* Internally, uses a mutex to ensure VMX SPI transactions are atomic.            */
 	/* Note:  rx_len should include one byte for the CRC, in addition to the
 	 * amount of expected data.
 	 */
-	virtual bool transmit_and_receive(uint8_t *p_tx_data, uint8_t tx_len, uint8_t *p_rx_data, uint8_t rx_len, bool write);
+	bool transmit_and_receive(uint8_t *p_tx_data, uint8_t tx_len, uint8_t *p_rx_data, uint8_t rx_len, bool write);
 
+	/* Transmits the NAVXPMessage to VMX via internal SPI communication. */
+	/* Internally, uses a mutex to ensure VMX SPI transactions are atomic.            */
 	bool write(NavXSPIMessage& write);
+
+	/* Transmits the read-request NAVXPMessage to VMX via internal SPI communication. */
+	/* Internally, uses a mutex to ensure VMX SPI transactions are atomic.            */
 	/* Note:  response_len should include one byte for the CRC, in addition to the
 	 * amount of expected data.
 	 */
 	bool read(NavXSPIMessage& request, uint8_t *p_response, uint8_t response_len);
 
+	/* Internally, uses a mutex to ensure VMX SPI transactions are atomic.            */
 	template<typename T> bool read(uint8_t bank, uint8_t offset, T& value)
 	{
 		NavXSPIMessage msg(bank,
@@ -50,6 +55,7 @@ public:
 		return false;
 	}
 
+	/* Internally, uses a mutex to ensure VMX SPI transactions are atomic.            */
 	template<typename T> bool write(uint8_t bank, uint8_t offset, T value)
 	{
 		NavXSPIMessage msg(bank,
@@ -59,7 +65,7 @@ public:
 		return write(msg);
 	}
 
-	virtual ~SPIClient();
+	~SPIClient();
 };
 
 #endif /* SPICLIENT_H_ */
