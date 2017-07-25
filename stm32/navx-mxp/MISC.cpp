@@ -1,5 +1,6 @@
 #include "MISC.h"
 #include "navx-mxp_hal.h"
+#include "IOCXRegisters.h" /* For ANALOG_TRIGGER_NUM_TO_INT_BIT */
 #include "MISCRegisters.h"
 #include "stm32f4xx_hal.h"
 #include "navx-mxp.h"
@@ -33,9 +34,24 @@ _EXTERN_ATTRIB void MISC_init()
 	HAL_IOCX_Ext_Power_Enable(1);
 	/* Since this powers the ADCs, delay for this to complete. */
 	HAL_Delay(5);
+	HAL_IOCX_ADC_Enable(1);
+	misc_regs.capability_flags.powerctl = 1;
+	misc_regs.capability_flags.analog_trigger = 1;
+	misc_regs.capability_flags.rtc = 1;
+	misc_regs.capability_flags.analog_in = 1;
 }
 
 #define NUM_MS_BETWEEN_SUCCESSIVE_LOOPS 2
+#define NUM_MS_BETWEEN_SUCCESSIVE_OVERCURRENT_CHECKS 500
+#define NUM_ANALOG_INPUT_OVERSAMPLE_BITS 3
+#define NUM_ANALOG_INPUT_AVERAGE_BITS NUM_ANALOG_INPUT_OVERSAMPLE_BITS
+
+bool ext_power_overcurrent = false;
+static uint32_t last_overcurrent_check_timestamp;
+static uint32_t analog_oversamples[MISC_NUM_ANALOG_INPUTS];
+static uint32_t analog_averages[MISC_NUM_ANALOG_INPUTS];
+
+/* Analog Triggers (see IOCX_Registers.h for more) */
 
 _EXTERN_ATTRIB void MISC_loop()
 {
@@ -46,7 +62,62 @@ _EXTERN_ATTRIB void MISC_loop()
 	} else {
 		if ((curr_loop_timestamp - last_loop_timestamp) >= NUM_MS_BETWEEN_SUCCESSIVE_LOOPS){
 			last_loop_timestamp = curr_loop_timestamp;
-			/* TODO:  Implement */
+			misc_regs.capability_flags.an_in_5V = HAL_IOCX_ADC_Voltage_5V();
+			misc_regs.ext_pwr_voltage_value = HAL_IOCX_Get_ExtPower_Voltage();
+
+			/* Process Analog Inputs/Analog Triggers */
+		    HAL_IOCX_ADC_Get_Latest_Samples(0, MISC_NUM_ANALOG_INPUTS,
+		    	&analog_oversamples[0], NUM_ANALOG_INPUT_OVERSAMPLE_BITS,
+		    	&analog_averages[0], NUM_ANALOG_INPUT_AVERAGE_BITS);
+		    for ( int i = 0; i < MISC_NUM_ANALOG_INPUTS; i++) {
+		    	misc_regs.analog_input_average_value[i] = analog_averages[i];
+		    	misc_regs.analog_input_oversample_value[i] = analog_oversamples[i];
+		    	if(analog_trigger[i].mode != ANALOG_TRIGGER_DISABLED) {
+		    		ANALOG_TRIGGER_STATE curr_state;
+		    		if ( uint16_t(analog_averages[i]) <= analog_trigger[i].low_threshold) {
+		    			curr_state = ANALOG_TRIGGER_LOW;
+		    		} else if ( uint16_t(analog_averages[i]) >= analog_trigger[i].high_threshold) {
+		    			curr_state = ANALOG_TRIGGER_HIGH;
+		    		} else {
+		    			curr_state = ANALOG_TRIGGER_IN_WINDOW;
+		    		}
+		    		if(curr_state != ANALOG_TRIGGER_IN_WINDOW) {
+		    			if (curr_state != analog_trigger[i].last_nonwindow_state) {
+		    				/* State Change has occurred */
+							if (analog_trigger[i].last_state != ANALOG_TRIGGER_LOW) {
+								analog_trigger[i].last_state = ANALOG_TRIGGER_LOW;
+								/* Falling Edge Detected */
+								if ( analog_trigger[i].mode == ANALOG_TRIGGER_MODE_FALLING_EDGE_PULSE) {
+									HAL_IOCX_AssertInterrupt(ANALOG_TRIGGER_NUMBER_TO_INT_BIT(i));
+								}
+							}
+							else {
+								/* Rising Edge Detected */
+								analog_trigger[i].last_state = ANALOG_TRIGGER_HIGH;
+								if ( analog_trigger[i].mode == ANALOG_TRIGGER_MODE_RISING_EDGE_PULSE) {
+									HAL_IOCX_AssertInterrupt(ANALOG_TRIGGER_NUMBER_TO_INT_BIT(i));
+								}
+							}
+		    			}
+		    		}
+		    		analog_trigger[i].last_state = curr_state;
+		    	}
+		    }
+		}
+		if ((last_overcurrent_check_timestamp - last_loop_timestamp) >= NUM_MS_BETWEEN_SUCCESSIVE_OVERCURRENT_CHECKS){
+			last_overcurrent_check_timestamp = curr_loop_timestamp;
+			if(ext_power_overcurrent) {
+				/* Upon last check, over-current was detected. */
+				/* Re-enable the ext power switch */
+				//ext_power_overcurrent = false;
+				//HAL_IOCX_Ext_Power_Enable(1);
+			} else {
+				/* Check if over-current is present, and if so disable the ext power switch. */
+				if(HAL_IOCX_Ext_Power_Fault()) {
+					//ext_power_overcurrent = true;
+					//HAL_IOCX_Ext_Power_Enable(0);
+				}
+			}
 		}
 	}
 }
@@ -60,26 +131,37 @@ _EXTERN_ATTRIB uint8_t *MISC_get_reg_addr_and_max_size( uint8_t bank, uint8_t re
 	    }
 
 	    uint8_t first_offset = register_offset;
-	    uint8_t last_offset = register_offset + requested_count;
+	    uint8_t last_offset = register_offset + requested_count - 1;
 
-	    /* Requested data includes rtc timstamp; update w/latest value */
-	    if((first_offset <= offsetof(struct MISC_REGS, rtc_time)) &&
-	       (last_offset >=
+	    bool date_read = false;
+	    if((first_offset >= offsetof(struct MISC_REGS, rtc_time)) &&
+	       (last_offset <
 	    		   (offsetof(struct MISC_REGS, rtc_time) +
 	    			sizeof(misc_regs.rtc_time)))) {
+		    /* Requested data includes rtc timestamp; retrieve current value */
 	    	HAL_RTC_Get_Time(&misc_regs.rtc_time.hours,
 	    			&misc_regs.rtc_time.minutes,
 	    			&misc_regs.rtc_time.seconds,
 	    			&misc_regs.rtc_time.subseconds);
-	    }
-	    if((first_offset <= offsetof(struct MISC_REGS, rtc_date)) &&
-	 	       (last_offset >=
-	 	    		   (offsetof(struct MISC_REGS, rtc_date) +
-	 	    			sizeof(misc_regs.rtc_date)))) {
+	    	date_read = true;
+	    	/* The Date must always be read after reading the time */
+	    	/* The STM32 Shadow register usage requires this. */
 	    	HAL_RTC_Get_Date(&misc_regs.rtc_date.weekday,
 	    			&misc_regs.rtc_date.date,
 	    			&misc_regs.rtc_date.month,
 	    			&misc_regs.rtc_date.year);
+	    }
+	    if((first_offset >= offsetof(struct MISC_REGS, rtc_date)) &&
+	 	       (last_offset <
+	 	    		   (offsetof(struct MISC_REGS, rtc_date) +
+	 	    			sizeof(misc_regs.rtc_date)))) {
+		    /* Requested data includes rtc datestamp; retrieve current value */
+	    	if(!date_read) {
+				HAL_RTC_Get_Date(&misc_regs.rtc_date.weekday,
+						&misc_regs.rtc_date.date,
+						&misc_regs.rtc_date.month,
+						&misc_regs.rtc_date.year);
+	    	}
 	    }
 
 	    uint8_t *register_base = (uint8_t *)&misc_regs;
@@ -96,9 +178,16 @@ static void rtc_cfg_modified(uint8_t first_offset, uint8_t count) {
 }
 
 static void rtc_time_set_modified(uint8_t first_offset, uint8_t count) {
+	HAL_RTC_Set_Time(misc_regs.rtc_time_set.hours,
+			misc_regs.rtc_time_set.minutes,
+			misc_regs.rtc_time_set.seconds);
 }
 
 static void rtc_date_set_modified(uint8_t first_offset, uint8_t count) {
+	HAL_RTC_Set_Date(misc_regs.rtc_date_set.weekday,
+			misc_regs.rtc_date_set.date,
+			misc_regs.rtc_date_set.month,
+			misc_regs.rtc_date_set.year);
 }
 
 static void analog_trigger_cfg_modified(uint8_t first_offset, uint8_t count) {

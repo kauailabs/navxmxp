@@ -53,6 +53,7 @@ void OTG_FS_WKUP_IRQHandler(void);
 void I2C3_ER_IRQHandler(void);
 void SPI1_IRQHandler(void);
 void USART6_IRQHandler(void);
+void ADC_IRQHandler(void);
 
 #ifdef __cplusplus
 }

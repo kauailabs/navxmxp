@@ -79,12 +79,15 @@ NavXPiBoardTest::NavXPiBoardTest() {
 NavXPiBoardTest::~NavXPiBoardTest() {
 }
 
-static uint16_t adc_samples[4];
-static uint16_t encoder_counts[4];
+static uint8_t oversample_bits = 4;
+static uint8_t average_bits = 4;
+static uint32_t adc_oversamples[4];
+static uint32_t adc_avg_samples[4];
+static int32_t encoder_counts[4];
 static bool is_adc_5V = false;
 static float ext_pwr_voltage = 0.0f;
 void NavXPiBoardTest::loop() {
-	HAL_IOCX_ADC_Get_Samples(0, 4, adc_samples, 10);
+	HAL_IOCX_ADC_Get_Latest_Samples(0, 4, adc_oversamples, oversample_bits, adc_avg_samples, average_bits);
 	HAL_IOCX_TIMER_Get_Count(2, 4, encoder_counts);
 
 	is_adc_5V = (HAL_IOCX_ADC_Voltage_5V() != 0);

@@ -31,6 +31,9 @@ THE SOFTWARE.
 #include "adc_navx-pi.h"
 #include "IOCXRegisters.h"
 #endif
+#ifdef ENABLE_RTC
+extern RTC_HandleTypeDef hrtc;
+#endif
 
 void read_unique_id(struct unique_id *id)
 {
@@ -300,8 +303,6 @@ void HAL_RTC_Get_Time(uint8_t *hours, uint8_t *minutes, uint8_t *seconds, uint32
 {
 #ifdef ENABLE_RTC
 	RTC_TimeTypeDef sTime;
-	RTC_HandleTypeDef hrtc;
-	hrtc.Instance = RTC;
 	HAL_RTC_GetTime(&hrtc, &sTime, FORMAT_BIN);
 	*hours = sTime.Hours;
 	*minutes = sTime.Minutes;
@@ -309,6 +310,32 @@ void HAL_RTC_Get_Time(uint8_t *hours, uint8_t *minutes, uint8_t *seconds, uint32
 	*subseconds = sTime.SubSeconds;
 #endif
 }
+
+void HAL_RTC_Set_Time(uint8_t hours, uint8_t minutes, uint8_t seconds)
+{
+#ifdef ENABLE_RTC
+	RTC_TimeTypeDef sTime;
+	sTime.Hours = hours;
+	sTime.Minutes = minutes;
+	sTime.Seconds = seconds;
+	HAL_RTC_SetTime(&hrtc, &sTime, FORMAT_BIN);
+#endif
+}
+
+void HAL_RTC_Set_Date(uint8_t day, uint8_t date, uint8_t month, uint8_t year)
+{
+#ifdef ENABLE_RTC
+	RTC_DateTypeDef sDate;
+	RTC_HandleTypeDef hrtc;
+	hrtc.Instance = RTC;
+	sDate.WeekDay = day;
+	sDate.Date = date;
+	sDate.Month = month;
+	sDate.Year = year;
+	HAL_RTC_SetDate(&hrtc, &sDate, FORMAT_BIN);
+#endif
+}
+
 
 void HAL_RTC_Get_Date(uint8_t *weekday, uint8_t *date, uint8_t *month, uint8_t *year)
 {
@@ -769,12 +796,14 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
 
 	IOCX_TIMER_MODE mode = iocx_decode_timer_mode(&config);
+	IOCX_QUAD_ENCODER_MODE qe_mode = iocx_decode_quad_encoder_mode(&config);
 	switch(mode){
 	case TIMER_MODE_DISABLED:
 		// TODO:  IF was in PWM Mode, stop PWM?
 		// TODO:  IF was in QEMode, stop QE?
 		__HAL_TIM_DISABLE(timer_configs[timer_index].p_tim_handle);
 		break;
+
 	case TIMER_MODE_QUAD_ENCODER:
 		{
 			TIM_Encoder_InitTypeDef sConfig;
@@ -785,12 +814,24 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 			p_htim->Init.Prescaler = p_htim->Instance->PSC;
 			p_htim->Init.CounterMode = TIM_COUNTERMODE_UP;
 			p_htim->Init.Period = p_htim->Instance->ARR;
-			sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
-			sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+			if (qe_mode == QUAD_ENCODER_MODE_1x) {
+				sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
+			} else { /* 2x, 4x */
+				sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+			}
+			if (qe_mode == QUAD_ENCODER_MODE_4x) {
+				sConfig.IC1Polarity = TIM_ICPOLARITY_BOTHEDGE;
+			} else {
+				sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+			}
 			sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
 			sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
 			sConfig.IC1Filter = 2;
-			sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+			if (qe_mode == QUAD_ENCODER_MODE_4x) {
+				sConfig.IC2Polarity = TIM_ICPOLARITY_BOTHEDGE;
+			} else {
+				sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+			}
 			sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
 			sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
 			sConfig.IC2Filter = 2;
@@ -805,6 +846,7 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 			HAL_TIM_Encoder_Start(p_htim, BOTH_ENCODER_TIMER_CHANNELS);
 		}
 		break;
+
 	case TIMER_MODE_PWM_OUT:
 		{
 			TIM_OC_InitTypeDef sConfigOC;
@@ -828,6 +870,35 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 			HAL_TIM_PWM_Start(p_htim, timer_configs[timer_index].second_channel_number);
 		}
 		break;
+
+	case TIMER_MODE_INPUT_CAPTURE:
+		{
+			uint32_t channel;
+			IOCX_INPUT_CAPTURE_CHANNEL inputcap_channel = iocx_decode_input_capture_channel(&config);
+			IOCX_INPUT_CAPTURE_POLARITY inputcap_polarity = iocx_decode_input_capture_polarity(&config);
+
+			if (inputcap_channel == INPUT_CAPTURE_FROM_CH1) {
+				channel = timer_configs[timer_index].first_channel_number;
+			} else {
+				channel = timer_configs[timer_index].second_channel_number;
+			}
+
+			TIM_HandleTypeDef * p_htim = timer_configs[timer_index].p_tim_handle;
+			// Configure the Input Capture channel
+			TIM_IC_InitTypeDef sConfig;
+			sConfig.ICPrescaler = TIM_ICPSC_DIV1;
+			sConfig.ICFilter = 0x0;
+			if (inputcap_polarity == INPUT_CAPTURE_POLARITY_RISING) {
+				sConfig.ICPolarity = TIM_ICPOLARITY_RISING;
+			} else {
+				sConfig.ICPolarity = TIM_ICPOLARITY_FALLING;
+			}
+			sConfig.ICSelection = TIM_ICSELECTION_DIRECTTI;
+			HAL_TIM_IC_ConfigChannel(p_htim, &sConfig, channel);
+			HAL_TIM_IC_Start (p_htim, channel);
+		}
+		break;
+
 	default:
 		return;
 	}
@@ -863,7 +934,7 @@ void HAL_IOCX_TIMER_Get_Prescaler(uint8_t first_timer_index, int count, uint16_t
 	}
 }
 
-void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, uint16_t *values)
+void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, int32_t *values)
 {
 	uint8_t i;
 	if ( first_timer_index > (IOCX_NUM_TIMERS-1) ) return;
@@ -871,7 +942,7 @@ void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, uint16_t *va
 		count = IOCX_NUM_TIMERS - first_timer_index;
 	}
 	for ( i = first_timer_index; i < first_timer_index + count; i++ ) {
-		*values++ = (uint16_t)timer_configs[i].p_tim_handle->Instance->CNT;
+		*values++ = (int32_t)timer_configs[i].p_tim_handle->Instance->CNT;
 	}
 }
 
@@ -963,8 +1034,10 @@ void HAL_IOCX_TIMER_PWM_Get_DutyCycle(uint8_t first_timer_index, uint8_t first_c
 #define ADC_CLOCK_FREQUENCY 12000000
 #define ADC_CLOCKS_PER_SAMPLE 43
 #define ADC_NUM_CHANNELS 6
+#define ADC_NUM_EXTERNAL_CHANNELS 4
 #define ADC_CHANNEL_ANALOG_VOLTAGE_SWITCH 4
 #define ADC_CHANNEL_EXT_POWER_VOLTAGE_DIV 5
+#define INVALID_ADC_CHANNEL_NUMBER 6
 /* NOTE:  The last two ADC channels are reserved for internal use; the preceding  */
 /* ADC channels are user GPIOs.                                                   */
 /* The next-to-last channel is the 5V vs 3.3V Analog Input Voltage measure        */
@@ -976,7 +1049,17 @@ typedef struct {
 	uint16_t data[ADC_NUM_CHANNELS];
 } ADC_Samples;
 
-#define MAX_NUM_ADC_SAMPLES 100
+uint32_t adc_channels[ADC_NUM_CHANNELS] = {
+		ADC_CHANNEL_9,  // Ext Analog Input 1
+		ADC_CHANNEL_8,  // Ext Analog Input 2
+		ADC_CHANNEL_15, // Ext Analog Input 3
+		ADC_CHANNEL_14, // Ext Analog Input 4
+		ADC_CHANNEL_10,	// Analog Voltage Switch
+		ADC_CHANNEL_11  // Ext Power Voltage
+};
+
+#define MAX_NUM_ADC_OVERSAMPLE_BITS 7
+#define MAX_NUM_ADC_SAMPLES (1 << MAX_NUM_ADC_OVERSAMPLE_BITS) /* MUST be power of 2 */
 ADC_Samples adc_samples[MAX_NUM_ADC_SAMPLES];
 int adc_enabled = 0;
 #endif
@@ -999,6 +1082,66 @@ void HAL_IOCX_ADC_Enable(int enable)
 			HAL_ADC_Stop_DMA(&hadc1);
 			adc_enabled = 0;
 		}
+	}
+#endif
+}
+
+#ifdef ENABLE_ADC
+static const uint32_t c_total_adc_transfers = sizeof(adc_samples) / sizeof(uint16_t);
+static const uint8_t c_num_adc_transfers_per_sampleset = (sizeof(adc_samples[0]) / sizeof(uint16_t));
+#endif
+
+void HAL_IOCX_ADC_Get_Latest_Samples(int start_channel, int n_channels, uint32_t *p_oversamples, uint8_t oversample_bits, uint32_t *p_avgsamples, uint8_t avg_bits)
+{
+#ifdef ENABLE_ADC
+	/* Range-check inputs */
+	if (oversample_bits > MAX_NUM_ADC_OVERSAMPLE_BITS) {
+		oversample_bits = MAX_NUM_ADC_OVERSAMPLE_BITS;
+	}
+	if (avg_bits > MAX_NUM_ADC_OVERSAMPLE_BITS) {
+		avg_bits = MAX_NUM_ADC_OVERSAMPLE_BITS;
+	}
+	if (start_channel > (ADC_NUM_CHANNELS-1)) {
+		return;
+	}
+	if ((start_channel + n_channels) > (ADC_NUM_CHANNELS-1)) {
+		n_channels = ADC_NUM_CHANNELS - start_channel;
+	}
+
+	uint8_t num_samples_to_accumulate = 1 << oversample_bits;
+
+	/* Determine which contiguous region of the ADC DMA transfer buffer     */
+	/* contains the most recent N samples, where N is defined by the number */
+	/* of oversample bits.                                                  */
+
+	/* Note each transfer is a 16-bit ADC Sample (2 bytes) */
+	uint32_t remaining_adc_transfers = hadc1.DMA_Handle->Instance->NDTR;
+	uint32_t last_valid_adc_transfer = c_total_adc_transfers - remaining_adc_transfers;
+	uint32_t total_adc_transfer_sets = sizeof(adc_samples) / c_num_adc_transfers_per_sampleset;
+
+	uint16_t last_valid_adc_transfer_set = last_valid_adc_transfer / c_num_adc_transfers_per_sampleset;
+	uint16_t first_valid_adc_transfer_set;
+	if (num_samples_to_accumulate <= last_valid_adc_transfer_set) {
+		first_valid_adc_transfer_set = last_valid_adc_transfer_set - num_samples_to_accumulate;
+	} else {
+		first_valid_adc_transfer_set = total_adc_transfer_sets - num_samples_to_accumulate;
+	}
+
+	/* Zero Accumulator */
+	int i, j;
+	for ( i = 0; i < n_channels; i++ ) {
+		p_oversamples[i] = 0;
+	}
+	/* Accumulate */
+	for ( i = first_valid_adc_transfer_set; i <= last_valid_adc_transfer_set; i++ ) {
+		uint16_t *p_sample_set = &(adc_samples[i].data[start_channel]);
+		for ( j = 0; j < n_channels; j++ ) {
+			p_oversamples[j] += *p_sample_set++;
+		}
+	}
+	/* Average */
+	for ( i = 0; i < n_channels; i++ ) {
+		p_avgsamples[i] = p_oversamples[i] >> avg_bits;
 	}
 #endif
 }
@@ -1039,15 +1182,18 @@ void HAL_IOCX_ADC_Get_Samples( int start_channel, int n_channels, uint16_t* p_sa
 #endif
 }
 
-#define ADC_VOLTAGE_SAMPLES_TO_AVG 10
+#define ADC_VOLTAGE_OVERSAMPLE_BITS 3
+#define ADC_VOLTAGE_AVERAGE_BITS ADC_VOLTAGE_OVERSAMPLE_BITS
 /* Returns 0 if 3.3V, non-zero of 5V VDA */
 int HAL_IOCX_ADC_Voltage_5V( int n_samples_to_average )
 {
 #ifdef ENABLE_ADC
 	if ( adc_enabled ) {
-		uint16_t sample;
-		HAL_IOCX_ADC_Get_Samples(ADC_CHANNEL_ANALOG_VOLTAGE_SWITCH, 1, &sample, ADC_VOLTAGE_SAMPLES_TO_AVG);
-		return (sample > 3500) ? 1 : 0;
+		uint32_t oversample;
+		uint32_t average;
+		HAL_IOCX_ADC_Get_Latest_Samples(ADC_CHANNEL_ANALOG_VOLTAGE_SWITCH, 1, &oversample, ADC_VOLTAGE_OVERSAMPLE_BITS,
+				&average, ADC_VOLTAGE_AVERAGE_BITS);
+		return (average > 3500) ? 1 : 0;
 	} else {
 		return 0;
 	}
@@ -1056,23 +1202,140 @@ int HAL_IOCX_ADC_Voltage_5V( int n_samples_to_average )
 #endif
 }
 
-#define ADC_EXT_POWER_SAMPLES_TO_AVG 10
+#define ADC_EXT_POWER_OVERSAMPLE_BITS 3
+#define ADC_EXT_POWER_AVERAGE_BITS ADC_EXT_POWER_OVERSAMPLE_BITS
 const float vdiv_ratio = 3.24f / (11.5f + 3.24f);
 
-float HAL_IOCX_Get_ExtPower_Voltage()
+uint16_t HAL_IOCX_Get_ExtPower_Voltage()
 {
 #ifdef ENABLE_ADC
 	if ( adc_enabled ) {
-		uint16_t sample;
-		HAL_IOCX_ADC_Get_Samples(ADC_CHANNEL_EXT_POWER_VOLTAGE_DIV, 1, &sample, ADC_EXT_POWER_SAMPLES_TO_AVG);
-		float ext_pwr_voltage = (((float)sample) / 4096) * 3.3f;
-		ext_pwr_voltage *= (1.0f/vdiv_ratio);
-		return ext_pwr_voltage;
+		uint32_t oversample;
+		uint32_t average;
+		HAL_IOCX_ADC_Get_Latest_Samples(ADC_CHANNEL_EXT_POWER_VOLTAGE_DIV, 1, &oversample,
+				ADC_EXT_POWER_OVERSAMPLE_BITS, &average, ADC_EXT_POWER_AVERAGE_BITS);
+		return average;
 	} else {
-		return 0.0f;
+		return 0;
 	}
 #else
-    return 0.0f;
+    return 0;
+#endif
+}
+
+#ifdef ENABLE_ADC
+static int awdg_enabled = 0;
+uint8_t awdg_channel = INVALID_ADC_CHANNEL_NUMBER;
+uint16_t awdg_low_threshold = 0;
+uint16_t awdg_high_threshold = 0;
+int awdg_interrupt_enabled = 0;
+#endif
+
+void HAL_IOCX_ADC_AWDG_Disable()
+{
+#ifdef ENABLE_ADC
+	ADC_AnalogWDGConfTypeDef AnalogWDGConfig;
+
+	/**Configure the analog watchdog
+	*/
+	AnalogWDGConfig.WatchdogMode = ADC_ANALOGWATCHDOG_NONE;
+	if(HAL_ADC_AnalogWDGConfig(&hadc1, &AnalogWDGConfig) == HAL_OK) {
+		awdg_enabled = 0;
+		awdg_channel = INVALID_ADC_CHANNEL_NUMBER;
+	}
+
+#endif
+}
+
+void HAL_IOCX_ADC_AWDG_Enable(uint8_t channel)
+{
+#ifdef ENABLE_ADC
+	if ( channel < ADC_NUM_EXTERNAL_CHANNELS ) {
+		ADC_AnalogWDGConfTypeDef AnalogWDGConfig;
+
+		/**Configure the analog watchdog
+		*/
+		AnalogWDGConfig.WatchdogMode = ADC_ANALOGWATCHDOG_SINGLE_REG;
+		AnalogWDGConfig.HighThreshold = awdg_high_threshold;
+		AnalogWDGConfig.LowThreshold = awdg_low_threshold;
+		AnalogWDGConfig.Channel = adc_channels[channel];
+		AnalogWDGConfig.ITMode = awdg_interrupt_enabled ? ENABLE : DISABLE;
+		if(HAL_ADC_AnalogWDGConfig(&hadc1, &AnalogWDGConfig) == HAL_OK) {
+			awdg_enabled = !0;
+			awdg_channel = channel;
+		}
+	}
+#endif
+}
+
+/* Returns non-zero if enabled */
+int HAL_IOCX_ADC_AWDG_Is_Enabled(uint8_t* p_channel)
+{
+#ifdef ENABLE_ADC
+	return awdg_enabled;
+#else
+	return 0;
+#endif
+}
+
+uint16_t HAL_IOCX_ADC_AWDG_Get_Threshold_High()
+{
+#ifdef ENABLE_ADC
+	return awdg_high_threshold;
+#else
+	return 0;
+#endif
+}
+
+uint16_t HAL_IOCX_ADC_AWDG_Get_Threshold_Low()
+{
+#ifdef ENABLE_ADC
+	return awdg_low_threshold;
+#else
+	return 0;
+#endif
+}
+
+void HAL_IOCX_ADC_AWDG_Set_Threshold_High(uint16_t threshold)
+{
+#ifdef ENABLE_ADC
+	awdg_high_threshold = threshold;
+	if(awdg_enabled) {
+		hadc1.Instance->HTR = threshold;
+	}
+#endif
+}
+
+void HAL_IOCX_ADC_AWDG_Set_Threshold_Low(uint16_t threshold)
+{
+#ifdef ENABLE_ADC
+	awdg_low_threshold = threshold;
+	if(awdg_enabled) {
+		hadc1.Instance->LTR = threshold;
+	}
+#endif
+}
+
+int HAL_IOCX_ADC_AWDG_Get_Interrupt_Enable()
+{
+#ifdef ENABLE_ADC
+	return awdg_interrupt_enabled;
+#else
+	return 0;
+#endif
+}
+
+void HAL_IOCX_ADC_AWDG_Set_Interrupt_Enable(int enable)
+{
+#ifdef ENABLE_ADC
+	awdg_interrupt_enabled = enable;
+	if(awdg_enabled) {
+	/* Enable the ADC Analog watchdog interrupt */
+		__HAL_ADC_ENABLE_IT(&hadc1, ADC_IT_AWD);
+	} else {
+	/* Disable the ADC Analog watchdog interrupt */
+		__HAL_ADC_DISABLE_IT(&hadc1, ADC_IT_AWD);
+	}
 #endif
 }
 

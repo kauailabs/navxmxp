@@ -169,7 +169,7 @@ void HAL_IOCX_TIMER_Set_Prescaler(uint8_t timer_index, uint16_t ticks_per_clock)
 void HAL_IOCX_TIMER_Get_Prescaler(uint8_t first_timer_index, int count, uint16_t *values);
 
 /* Quad Encoder Data */
-void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, uint16_t *values);
+void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, int32_t *values);
 
 /* PWM Configuration */
 void HAL_IOCX_TIMER_PWM_Set_FramePeriod(uint8_t timer_index, uint16_t clocks_per_frame_period);
@@ -177,12 +177,24 @@ void HAL_IOCX_TIMER_PWM_Get_FramePeriod(uint8_t first_timer_index, int count, ui
 void HAL_IOCX_TIMER_PWM_Set_DutyCycle(uint8_t timer_index, uint8_t channel_index, uint16_t clocks_per_active_period);
 void HAL_IOCX_TIMER_PWM_Get_DutyCycle(uint8_t first_timer_index, uint8_t first_channel_index, int count, uint16_t *values);
 
-/* ADC Access [DONE] */
+/* ADC Access */
 
 void HAL_IOCX_ADC_Enable(int enable);
 void HAL_IOCX_ADC_Get_Samples( int start_channel, int n_channels, uint16_t* p_samples, uint8_t n_samples_to_average );
+void HAL_IOCX_ADC_Get_Latest_Samples(int start_channel, int n_channels, uint32_t *p_oversamples,
+		uint8_t num_oversample_bits, uint32_t *p_avgsamples, uint8_t num_avg_bits);
 int HAL_IOCX_ADC_Voltage_5V(); /* Returns 0 if 3.3V, non-zero of 5V VDA */
-float HAL_IOCX_Get_ExtPower_Voltage();
+uint16_t HAL_IOCX_Get_ExtPower_Voltage();
+
+void HAL_IOCX_ADC_AWDG_Disable();
+void HAL_IOCX_ADC_AWDG_Enable(uint8_t channel);
+int HAL_IOCX_ADC_AWDG_Is_Enabled(uint8_t* p_channel); /* Returns non-zero if enabled */
+uint16_t HAL_IOCX_ADC_AWDG_Get_Threshold_High();
+uint16_t HAL_IOCX_ADC_AWDG_Get_Threshold_Low();
+void HAL_IOCX_ADC_AWDG_Set_Threshold_High(uint16_t threshold);
+void HAL_IOCX_ADC_AWDG_Set_Threshold_Low(uint16_t threshold);
+int HAL_IOCX_ADC_AWDG_Get_Interrupt_Enable();
+void HAL_IOCX_ADC_AWDG_Set_Interrupt_Enable(int enable);
 
 /* RN4020 Access */
 void HAL_RN4020_IO_Init();
