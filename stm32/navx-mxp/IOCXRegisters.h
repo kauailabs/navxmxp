@@ -190,6 +190,7 @@ struct __attribute__ ((__packed__)) IOCX_REGS {
 	/* Data/Status   */
 	/*****************/
 	uint16_t gpio_intstat;  			 /* Bitmask:  1 = int present.  Write 1 to clear. */
+	uint16_t gpio_last_int_edge;		 /* Bitmask:  1 = last edge rising; 0:  last edge falling */
 	uint8_t  gpio_data[IOCX_NUM_GPIOS];  /* IOCX_GPIO_SET = High, IOCX_GPIO_RESET = Low.  */
 	uint8_t timer_status[IOCX_NUM_TIMERS]; /* IOCX_TIMER_DIRECTION */
 	int32_t timer_counter[IOCX_NUM_TIMERS]; /* QE Mode:  Encoder Counts */
