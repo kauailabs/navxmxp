@@ -28,6 +28,15 @@ bool MISCClient::get_capability_flags(MISC_CAPABILITY_FLAGS& value)
 	return false;
 }
 
+bool MISCClient::GetAnalogInputFullScaleVoltage(float& full_scale_voltage) {
+	MISC_CAPABILITY_FLAGS cap_flags;
+	if (get_capability_flags(cap_flags)) {
+		full_scale_voltage = (cap_flags.an_in_5V ? 5.0f : 3.3f);
+		return true;
+	}
+	return false;
+}
+
 bool MISCClient::get_extpower_ctl_status(MISC_EXT_PWR_CTL_STATUS& status)
 {
 	return client.read(MISC_REGISTER_BANK, offsetof(struct MISC_REGS, ext_pwr_ctl_status), status);

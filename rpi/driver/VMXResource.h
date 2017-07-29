@@ -8,12 +8,14 @@
 #ifndef VMXRESOURCE_H_
 #define VMXRESOURCE_H_
 
+#include <stdio.h>
 #include <stdint.h>
 #include <vector>
 #include <list>
 
 #include "VMXResourceProvider.h"
 #include "VMXChannel.h"
+#include "VMXErrors.h"
 
 typedef enum {
 	Undefined,
@@ -26,7 +28,8 @@ typedef enum {
 	Interrupt,
 	UART,
 	SPI,
-	I2C
+	I2C,
+	MaxVMXResourceType = I2C,
 } VMXResourceType;
 
 typedef struct {
@@ -51,37 +54,29 @@ struct VMXResourceConfig {
 	virtual ~VMXResourceConfig() {}
 };
 
-struct VMXHWOption {
-	VMXResourceType res_type;
-	VMXHWOption(VMXResourceType res_type) {
-		this->res_type = res_type;
-	}
-	VMXResourceType GetResourceType() { return res_type; }
-
-};
-
-typedef struct {
-	VMXResourceType 			type;
-	VMXResourceProviderType 	provider_type;
-	uint8_t						provider_resource_index_offset;
-	const VMXResourceConfig *	p_res_cfg;   /* Must NOT be NULL */
-	const VMXHWOption *			p_hw_option; /* May be NULL */
-	uint8_t						resource_num_first;
-	uint8_t						resource_count;
-	uint8_t						min_num_ports;
-	uint8_t						max_num_ports;
-	VMXSharedResourceGroup *	p_shared_resource_group;
-	uint8_t						shared_resource_group_index_divisor; /* Divide this resource's index to yield the common index within the group. */
-} VMXResourceDescriptor;
-
 typedef uint8_t  VMXResourceIndex;
 typedef uint16_t VMXResourceHandle;
 typedef uint8_t  VMXResourcePortIndex;
 
+typedef struct {
+	VMXResourceType 			type;								 /* Type of resource. */
+	VMXResourceProviderType 	provider_type;						 /* Type of resource provider */
+	uint8_t						provider_resource_index_offset;		 /* Offset of this set of resources within the resource provider. */
+	VMXChannelIndex				first_channel_index;				 /* First VMXChannelIndex (within the set of resources) that can be routed to this Resource. */
+	uint8_t						num_channels;						 /* Num Channels that can be routed to this Resource. */
+	const VMXResourceConfig *	p_res_cfg;   						 /* Default Configuration for this Resource. Must NOT be NULL */
+	VMXResourceIndex			resource_index_first;				 /* First Resource Index */
+	uint8_t						resource_count;						 /* Number of resource instances */
+	uint8_t						min_num_ports;						 /* Min allowable ports on this resource. */
+	uint8_t						max_num_ports;						 /* Max ports available on this resource. */
+	VMXSharedResourceGroup *	p_shared_resource_group;			 /* May be NULL */
+	uint8_t						shared_resource_group_index_divisor; /* Divide this resource's index to yield the common resource index within the group. */
+} VMXResourceDescriptor;
+
 const VMXResourceIndex INVALID_VMX_RESOURCE_INDEX = 255;
 
 #define INVALID_VMX_RESOURCE_HANDLE(vmx_res_handle)     (((uint8_t)vmx_res_handle)==INVALID_VMX_RESOURCE_INDEX)
-#define CREATE_VMX_RESOURCE_HANDLE(res_type,res_index) 	((((uint16_t)res_type)<<8) || (uint8_t)res_index)
+#define CREATE_VMX_RESOURCE_HANDLE(res_type,res_index) 	((((uint16_t)res_type)<<8) | (uint8_t)res_index)
 #define EXTRACT_VMX_RESOURCE_TYPE(res_handle)			(VMXResourceType)(res_handle >> 8)
 #define EXTRACT_VMX_RESOURCE_INDEX(res_handle)			(uint8_t)(res_handle & 0x00FF)
 
@@ -100,12 +95,12 @@ class VMXResource {
 	bool allocated_shared;
 	std::vector<VMXChannelRouting> port_routings;
 	VMXResourceConfig *p_res_config;
-	VMXHWOption *p_hw_option;
 	int provider_resource_handle;
 	bool active;
+	VMXChannelIndex first_routable_channel_index;
 
 public:
-	VMXResource(const VMXResourceDescriptor& resource_descriptor, VMXResourceIndex res_index) :
+	VMXResource(const VMXResourceDescriptor& resource_descriptor, VMXResourceIndex res_index, VMXChannelIndex first_channel_index) :
 		descriptor(resource_descriptor),
 		resource_index(res_index),
 		allocated_primary(false),
@@ -113,12 +108,18 @@ public:
 		port_routings(resource_descriptor.max_num_ports)
 	{
 		p_res_config = descriptor.p_res_cfg->GetCopy();
-		p_hw_option = 0;
 		provider_resource_handle = INVALID_PROVIDER_RESOURCE_HANDLE;
 		for ( size_t i = 0; i < port_routings.size(); i++) {
 			port_routings[i].channel_index = INVALID_VMX_CHANNEL_INDEX;
 		}
 		active = false;
+		first_routable_channel_index = first_channel_index;
+		printf("Created Resource Type %d, Index %d, Num Ports %d, First Channel Index %d, Last Channel Index %d\n",
+				int(descriptor.type),
+				res_index,
+				descriptor.max_num_ports,
+				first_channel_index,
+				first_channel_index + descriptor.num_channels - 1);
 	}
 
 	~VMXResource() {
@@ -134,6 +135,12 @@ public:
 
 	bool GetActive() const {
 		return active;
+	}
+
+	bool GetRoutableChannelIndexes(VMXChannelIndex& first_routable_channel_index, uint8_t& num_routable_channels) {
+		first_routable_channel_index = this->first_routable_channel_index;
+		num_routable_channels = descriptor.num_channels;
+		return true;
 	}
 
 	VMXResourceHandle GetResourceHandle() const {
@@ -188,10 +195,19 @@ public:
 		return allocated_shared;
 	}
 
-	bool RouteChannel(VMXChannelIndex channel_index, VMXResourcePortIndex port_index) {
-		if (!allocated_primary) return false;
-		if (port_index >= descriptor.max_num_ports) return false; /* Invalid resource slot index */
-		if (channel_index > LAST_VALID_VMX_CHANNEL_INDEX) return false;
+	bool RouteChannel(VMXChannelIndex channel_index, VMXResourcePortIndex port_index, VMXErrorCode *errcode = 0) {
+		if (!allocated_primary) {
+			SET_VMXERROR(errcode, VMXERR_IO_SHARED_RESOURCE_UNROUTABLE);
+			return false;
+		}
+		if (port_index >= descriptor.max_num_ports) {
+			SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_PORT_INDEX);
+			return false;
+		}
+		if (channel_index > LAST_VALID_VMX_CHANNEL_INDEX) {
+			SET_VMXERROR(errcode, VMXERR_IO_INVALID_CHANNEL_INDEX);
+			return false;
+		}
 
 		port_routings[port_index].channel_index = channel_index;
 		return true;
@@ -250,7 +266,7 @@ public:
 		return true;
 	}
 
-	bool GetRoutedChannels(std::vector<VMXChannelIndex>& routed_channel_list) const {
+	bool GetRoutedChannels(std::list<VMXChannelIndex>& routed_channel_list) const {
 		if (!IsAllocated()) return false;
 		if (!allocated_primary) return false;
 		for ( size_t i = 0; i < port_routings.size(); i++) {
@@ -299,6 +315,10 @@ public:
 
 	bool ChannelRoutingComplete() const {
 		return (GetNumRoutedChannels() >= descriptor.min_num_ports);
+	}
+
+	const VMXResourceConfig *GetDefaultConfig() const {
+		return this->p_res_config;
 	}
 };
 

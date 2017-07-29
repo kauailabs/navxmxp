@@ -6,13 +6,21 @@
  */
 
 #include "VMXIO.h"
+#include "Logging.h"
+#include <list>
 
-VMXIO::VMXIO(PIGPIOClient& pigpio_ref, IOCXClient& iocx_ref, MISCClient& misc_ref, VMXChannelManager& chan_mgr, VMXResourceManager& res_mgr) :
+VMXIO::VMXIO(PIGPIOClient& pigpio_ref,
+		IOCXClient& iocx_ref,
+		MISCClient& misc_ref,
+		VMXChannelManager& chan_mgr,
+		VMXResourceManager& res_mgr,
+		IInterruptRegistrar& int_registrar) :
 	pigpio(pigpio_ref),
 	iocx(iocx_ref),
 	misc(misc_ref),
 	chan_mgr(chan_mgr),
-	res_mgr(res_mgr)
+	res_mgr(res_mgr),
+	int_reg(int_registrar)
 {
 	// TODO Auto-generated constructor stub
 
@@ -22,22 +30,137 @@ VMXIO::~VMXIO() {
 	// TODO Auto-generated destructor stub
 }
 
-bool VMXIO::AllocateResource(VMXResourceHandle resource)
+uint8_t VMXIO::GetNumResourcesByType(VMXResourceType resource_type)
+{
+	return res_mgr.GetMaxNumResources(resource_type);
+}
+
+uint8_t VMXIO::GetNumChannelsByCapability(VMXChannelCapability channel_capability)
+{
+	return VMXIO::chan_mgr.GetNumChannelsByCapability(channel_capability);
+}
+
+uint8_t VMXIO::GetNumChannelsByType(VMXChannelType channel_type, VMXChannelIndex& first_channel_index)
+{
+	return VMXChannelManager::GetNumChannelsByType(channel_type, first_channel_index);
+}
+
+bool VMXIO::GetResourceHandle(VMXResourceType resource_type, VMXResourceIndex res_index, VMXResourceHandle& resource_handle, VMXErrorCode *errcode)
+{
+	return VMXResourceManager::GetResourceHandle(resource_type, res_index, resource_handle, errcode);
+}
+
+bool VMXIO::GetResourcesCompatibleWithChannelAndCapability(VMXChannelIndex channel_index, VMXChannelCapability capability, std::list<VMXResourceHandle>& compatible_res_handles)
+{
+	return res_mgr.GetResourcesCompatibleWithChannelAndCapability(channel_index, capability, compatible_res_handles);
+}
+
+bool VMXIO::GetChannelsCompatibleWithResource(VMXResourceHandle resource_handle, VMXChannelIndex& first_channel_index, uint8_t& num_channels)
+{
+	return res_mgr.GetChannelsCompatibleWithResource(resource_handle, first_channel_index, num_channels);
+}
+
+bool VMXIO::GetUnallocatedResourcesCompatibleWithChannelAndCapability(VMXChannelIndex channel_index, VMXChannelCapability capability, std::list<VMXResourceHandle>& unallocated_compatible_res_handles)
+{
+	bool success = false;
+	std::list<VMXResourceHandle> compatible_resources;
+	if (GetResourcesCompatibleWithChannelAndCapability(channel_index, capability, compatible_resources)) {
+		for (std::list<VMXResourceHandle>::iterator it = compatible_resources.begin(); it != compatible_resources.end(); ++it) {
+			VMXResource *p_vmx_resource = res_mgr.GetVMXResource((*it));
+			if (!p_vmx_resource->IsAllocated()) {
+				unallocated_compatible_res_handles.push_back((*it));
+				success = true;
+			}
+		}
+	}
+	return success;
+}
+
+
+bool VMXIO::GetChannelCapabilities(VMXChannelIndex channel_index, VMXChannelType& channel_type, VMXChannelCapability& capability_bits)
+{
+	capability_bits = chan_mgr.GetChannelCapabilityBits(channel_index);
+	if (capability_bits == VMXChannelCapability::None) return false;
+	uint8_t type_specific_index;
+	if (chan_mgr.GetChannelTypeAndProviderSpecificIndex(channel_index, channel_type, type_specific_index)) {
+		if (channel_type == PIGPIO) {
+			VMXChannelHwOpt vmx_hw_opt = chan_mgr.GetChannelHwOpts(channel_index);
+			if (VMXChannelHwOptCheck(vmx_hw_opt, VMXChannelHwOpt::IODirectionSelect)) {
+				IOCX_CAPABILITY_FLAGS iocx_caps;
+				if (iocx.get_capability_flags(iocx_caps)) {
+					if (iocx_caps.rpi_gpio_out) {
+						// clear Digital Input and Interrupt Flags
+						capability_bits = VMXChannelCapabilityClear(capability_bits, VMXChannelCapability::DigitalInput);
+						capability_bits = VMXChannelCapabilityClear(capability_bits, VMXChannelCapability::InterruptInput);
+					} else {
+						// clear Digital Output & PWM Output Flags
+						capability_bits = VMXChannelCapabilityClear(capability_bits, VMXChannelCapability::DigitalOutput);
+						capability_bits = VMXChannelCapabilityClear(capability_bits, VMXChannelCapability::PWMGeneratorOutput);
+						capability_bits = VMXChannelCapabilityClear(capability_bits, VMXChannelCapability::PWMGeneratorOutput2);
+					}
+				} else {
+					log_warning("Error retrieving IOCX::get_capability_flags() for channel %d.\n", channel_index);
+				}
+			}
+		}
+		return true;
+	}
+	return false;
+}
+
+bool VMXIO::IsResourceAllocated(VMXResourceHandle resource, bool& allocated, bool& is_shared, VMXErrorCode *errcode)
+{
+	VMXResource *p_vmx_resource = res_mgr.GetVMXResource(resource);
+	if (!p_vmx_resource) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+
+	allocated = p_vmx_resource->IsAllocated();
+	is_shared = p_vmx_resource->IsAllocatedShared();
+	return true;
+}
+
+bool VMXIO::IsResourceActive(VMXResourceHandle resource, bool &active, VMXErrorCode* errcode)
+{
+	VMXResource *p_vmx_resource = res_mgr.GetVMXResource(resource);
+	if (!p_vmx_resource) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false; /* Fail:  Invalid Resource Handle */
+	}
+
+	active = p_vmx_resource->GetActive();
+	return true;
+}
+
+bool VMXIO::AllocateResource(VMXResourceHandle resource, VMXErrorCode* errcode)
 {
 	/* Retrieve resource */
 	VMXResource *p_vmx_resource = res_mgr.GetVMXResource(resource);
-	if (!p_vmx_resource) return false; /* Fail:  Invalid Resource Handle */
+	if (!p_vmx_resource) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
 
-	if (p_vmx_resource->IsAllocated()) return false;
+	if (p_vmx_resource->IsAllocated()) {
+		SET_VMXERROR(errcode, VMXERR_IO_RESOURCE_ALREADY_ALLOCATED);
+		return false;
+	}
 
 	/* Ensure that any other resources (if this is a shared resource) are not already allocated as primary. */
 	std::list<VMXResource *> other_shared_resources;
 	res_mgr.GetOtherResourcesInSharedResourceGroup(p_vmx_resource, other_shared_resources);
 	for (std::list<VMXResource *>::iterator it=other_shared_resources.begin(); it != other_shared_resources.end(); ++it) {
-		if ((*it)->IsAllocated()) return false;
+		if ((*it)->IsAllocated()) {
+			SET_VMXERROR(errcode, VMXERR_IO_SHARED_RESOURCE_ALREADY_ALLOCATED);
+			return false;
+		}
 	}
 
-	if (!p_vmx_resource->AllocatePrimary()) return false;
+	if (!p_vmx_resource->AllocatePrimary()) {
+		SET_VMXERROR(errcode, VMXERR_IO_RESOURCE_ALLOCATION_ERROR);
+		return false;
+	}
 
 	for (std::list<VMXResource *>::iterator it=other_shared_resources.begin(); it != other_shared_resources.end(); ++it) {
 		(*it)->AllocateShared();
@@ -46,49 +169,90 @@ bool VMXIO::AllocateResource(VMXResourceHandle resource)
 }
 
 
-bool VMXIO::DeallocateResource(VMXResourceHandle resource)
+bool VMXIO::DeallocateResource(VMXResourceHandle resource, VMXErrorCode *errcode)
 {
+	bool complete_success = false;
 	VMXResource *p_vmx_resource = res_mgr.GetVMXResource(resource);
-	if (!p_vmx_resource) return false; /* Fail:  Invalid Resource Handle */
-
-	if (!p_vmx_resource->IsAllocatedPrimary()) return false;
-
-	if (p_vmx_resource->GetActive()) {
-		if (!DeactivateResource(resource)) return false;
+	if (!p_vmx_resource) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
 	}
 
-	UnrouteAllChannelsFromResource(resource);
+	if (p_vmx_resource->IsAllocatedPrimary())
+	{
+		complete_success = true;
+		if (p_vmx_resource->GetActive()) {
+			if (!DeactivateResource(resource, errcode)) {
+				log_warning("Error deactivating Resource type %d, index %d\n", p_vmx_resource->GetResourceType(), p_vmx_resource->GetResourceIndex());
+				if (errcode) {
+					log_warning("Error Code %d (%s)\n", *errcode, GetVMXErrorString(*errcode));
+				}
+				complete_success = false;
+			}
+		}
+		if (!UnrouteAllChannelsFromResource(resource, errcode)) {
+			log_warning("Error unrouting all Channels from Resource type %d, index %d\n", p_vmx_resource->GetResourceType(), p_vmx_resource->GetResourceIndex());
+			if (errcode) {
+				log_warning("Error Code %d (%s)\n", *errcode, GetVMXErrorString(*errcode));
+			}
+			complete_success = false;
+		}
+		p_vmx_resource->DeallocatePrimary();
 
-	p_vmx_resource->DeallocatePrimary();
-
-	std::list<VMXResource *> other_shared_resources;
-	if(res_mgr.GetOtherResourcesInSharedResourceGroup(p_vmx_resource, other_shared_resources)) {
-		for (std::list<VMXResource *>::iterator it=other_shared_resources.begin(); it != other_shared_resources.end(); ++it) {
-			if ((*it)->IsAllocatedShared()) {
-				(*it)->DeallocateShared();
+		std::list<VMXResource *> other_shared_resources;
+		if(res_mgr.GetOtherResourcesInSharedResourceGroup(p_vmx_resource, other_shared_resources)) {
+			for (std::list<VMXResource *>::iterator it=other_shared_resources.begin(); it != other_shared_resources.end(); ++it) {
+				if ((*it)->IsAllocatedShared()) {
+					(*it)->DeallocateShared();
+				}
 			}
 		}
 	}
-	return true;
+
+	return complete_success;
+}
+
+bool VMXIO::DeallocateAllResources(VMXErrorCode *last_errorcode) {
+	bool all_resources_deallocated = true;
+	std::list<VMXResource *>& all_resources = res_mgr.GetAllResources();
+	for (std::list<VMXResource *>::iterator it = all_resources.begin(); it != all_resources.end(); ++it) {
+		if ((*it)->IsAllocatedPrimary()) {
+			VMXResourceHandle res_handle = (*it)->GetResourceHandle();
+			if (!DeallocateResource(res_handle, last_errorcode)) {
+				all_resources_deallocated = false;
+				log_warning("Error deallocating Resource type %d, index %d\n", (*it)->GetResourceType(), (*it)->GetResourceIndex());
+			}
+		}
+	}
+	return all_resources_deallocated;
 }
 
 /* Assumes that Resource has already been allocated */
 /* Note:  If the resource requires multiple channels to be allocated to the resource, */
 /* all channels are routed when the first is routed.  If any resources support optionally */
 /* multiple, special case code will be added herein, and commented clearly. */
-bool VMXIO::RouteChannelToResource(VMXChannelIndex channel_index, VMXResourceHandle resource)
+bool VMXIO::RouteChannelToResource(VMXChannelIndex channel_index, VMXResourceHandle resource, VMXErrorCode* errcode)
 {
 	/* Retrieve resource the channel may already be routed to. */
 	VMXResource *p_existing_routed_resource = res_mgr.GetResourceFromRoutedChannel(channel_index);
-	if (p_existing_routed_resource) return false; /* Fail:  Channel already routed */
+	if (p_existing_routed_resource) {
+		SET_VMXERROR(errcode, VMXERR_IO_CHANNEL_ALREADY_ROUTED);
+		return false; /* Fail:  Channel already routed */
+	}
 
 	VMXResource *p_vmx_res = res_mgr.GetVMXResource(resource);
 	if (p_vmx_res) {
 
-		VMXChannelCapability compatible_capability = res_mgr.GetCompatibleChannelCapabilityBit(channel_index, p_vmx_res);
-		if (compatible_capability == VMXChannelCapability::None) return false;
+		VMXChannelCapability compatible_capability = res_mgr.GetCompatibleChannelCapabilityBits(channel_index, p_vmx_res);
+		if (compatible_capability == VMXChannelCapability::None) {
+			SET_VMXERROR(errcode, VMXERR_IO_CHANNEL_RESOURCE_INCOMPATIBILITY);
+			return false;
+		}
 
-		if (p_vmx_res->GetNumRoutedChannels() >= p_vmx_res->GetMaxNumPorts()) return false; /* Max Num Channels are already routed */
+		if (p_vmx_res->GetNumRoutedChannels() >= p_vmx_res->GetMaxNumPorts()) {
+			SET_VMXERROR(errcode, VMXERR_IO_NO_AVAILABLE_RESOURCE_PORTS);
+			return false; /* Max Num Channels are already routed */
+		}
 
 		VMXChannelType vmx_chan_type;
 		uint8_t provider_specific_channel_index;
@@ -99,6 +263,7 @@ bool VMXIO::RouteChannelToResource(VMXChannelIndex channel_index, VMXResourceHan
 			bool physical_resource_routed = true;
 			VMXResourceType res_type = p_vmx_res->GetResourceType();
 			VMXResourceProviderType res_prov_type = p_vmx_res->GetResourceProviderType();
+			VMXResourceIndex res_index = p_vmx_res->GetResourceIndex();
 			if (res_prov_type == VMXResourceProviderType::VMX_PI) {
 				IOCX_GPIO_TYPE curr_type;
 				IOCX_GPIO_INPUT curr_input;
@@ -109,7 +274,8 @@ bool VMXIO::RouteChannelToResource(VMXChannelIndex channel_index, VMXResourceHan
 
 					case VMXResourceType::DigitalIO:
 						/* Note:  During resource configuration phase, the input vs. output configuration
-						 * will occur; for now, configure this as a floating input.
+						 * will occur; for now, as long as the channel supports the requested io direction,
+						 * route the resource as a floating input.
 						 */
 						physical_resource_routed =
 							iocx.set_gpio_config(
@@ -161,13 +327,28 @@ bool VMXIO::RouteChannelToResource(VMXChannelIndex channel_index, VMXResourceHan
 				}
 			}
 			if (physical_resource_routed) {
-				return p_vmx_res->RouteChannel(resource_port_index, channel_index);
+				VMXErrorCode routing_errcode;
+				if (!p_vmx_res->RouteChannel(channel_index, resource_port_index, &routing_errcode)) {
+					log_debug("Error routing channel %d to Port Index %d for Resource Type %d, Resource Index %d\n",
+							channel_index,
+							resource_port_index,
+							res_type,
+							res_index);
+					SET_VMXERROR(errcode, routing_errcode);
+					return false;
+				}
+				return true;
+			} else {
+				SET_VMXERROR(errcode, VMXERR_IO_PHYSICAL_ROUTING_ERROR);
+				return false;
 			}
 		} else {
-			return false; /* Invalid ChannelIndex */
+			SET_VMXERROR(errcode, VMXERR_IO_INVALID_CHANNEL_INDEX);
+			return false;
 		}
 	} else {
-		return false; /* Invalid ResourceHandle */
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
 	}
 	return false;
 }
@@ -185,20 +366,26 @@ bool VMXIO::DisconnectAnalogInputInterrupt(uint8_t analog_trigger_num)
 	return true;
 }
 
-bool VMXIO::UnrouteChannelFromResource(VMXChannelIndex channel_index, VMXResourceHandle resource)
+bool VMXIO::UnrouteChannelFromResource(VMXChannelIndex channel_index, VMXResourceHandle resource, VMXErrorCode *errcode)
 {
 	VMXResource *p_vmx_resource = res_mgr.GetVMXResource(resource);
-	if (!p_vmx_resource) return false; /* Fail:  Invalid Resource Handle */
+	if (!p_vmx_resource) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
 
-	if (!p_vmx_resource->IsChannelRoutedToResource(channel_index)) return false;
+	if (!p_vmx_resource->IsChannelRoutedToResource(channel_index)) {
+		SET_VMXERROR(errcode, VMXERR_IO_CHANNEL_NOT_ROUTED_TO_RESOURCE);
+		return false;
+	}
 
 	/* Todo???:  If the resource is active, only allow unrouting down to the minimum, otherwise fail??? */
 
 	VMXChannelType vmx_chan_type;
 	uint8_t provider_specific_channel_index;
+	bool physical_channel_unrouted = true;
 	if (chan_mgr.GetChannelTypeAndProviderSpecificIndex(channel_index, vmx_chan_type, provider_specific_channel_index) &&
 		(vmx_chan_type != VMXChannelType::INVALID)) {
-		bool physical_channel_unrouted = true;
 		VMXResourceType res_type = p_vmx_resource->GetResourceType();
 		VMXResourceProviderType res_prov_type = p_vmx_resource->GetResourceProviderType();
 		if (res_prov_type == VMXResourceProviderType::VMX_PI) {
@@ -252,48 +439,90 @@ bool VMXIO::UnrouteChannelFromResource(VMXChannelIndex channel_index, VMXResourc
 					break;
 			}
 		}
+	} else {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_CHANNEL_INDEX);
+		return false;
+	}
 
-		if(physical_channel_unrouted) {
-			if (p_vmx_resource->UnrouteChannel(channel_index)) {
-				return true;
+	if(!physical_channel_unrouted) {
+		SET_VMXERROR(errcode, VMXERR_IO_PHYSICAL_ROUTING_ERROR);
+	}
+
+	if (!p_vmx_resource->UnrouteChannel(channel_index)) {
+		SET_VMXERROR(errcode, VMXERR_IO_PHYSICAL_ROUTING_ERROR);
+		return false;
+	}
+
+	return physical_channel_unrouted;
+}
+
+bool VMXIO::UnrouteAllChannelsFromResource(VMXResourceHandle resource, VMXErrorCode *errcode) {
+	VMXResource *p_vmx_resource = res_mgr.GetVMXResource(resource);
+	if (!p_vmx_resource) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+
+	/* If any channels are routed to the resource, unroute them. */
+	bool all_channels_unrouted = true;
+	std::list<VMXChannelIndex> routed_channel_list;
+	if (p_vmx_resource->GetRoutedChannels(routed_channel_list)) {
+		for (std::list<VMXChannelIndex>::iterator it=routed_channel_list.begin(); it!=routed_channel_list.end(); ++it) {
+			VMXChannelIndex routed_channel_index = *it;
+			if (!UnrouteChannelFromResource(routed_channel_index, resource, errcode)) {
+				log_warning("Error unrouting Channel %d from Resource Type %d Index %d\n",
+						routed_channel_index, p_vmx_resource->GetResourceType(), p_vmx_resource->GetResourceIndex());
+				all_channels_unrouted = false;
 			}
 		}
 	}
-
-	return false;
+	return all_channels_unrouted;
 }
 
-bool VMXIO::UnrouteAllChannelsFromResource(VMXResourceHandle resource) {
-	VMXResource *p_vmx_resource = res_mgr.GetVMXResource(resource);
-	if (!p_vmx_resource) return false; /* Fail:  Invalid Resource Handle */
-
-	/* If any channels are routed to the resource, unroute them. */
-	std::vector<VMXChannelIndex> routed_channel_list(p_vmx_resource->GetNumRoutedChannels());
-	if (p_vmx_resource->GetRoutedChannels(routed_channel_list)) {
-		for (size_t i = 0; i < routed_channel_list.size(); i++) {
-			VMXChannelIndex routed_channel_index = routed_channel_list[i];
-			if (!UnrouteChannelFromResource(routed_channel_index, resource)) return false;
-		}
-	}
-	return true;
-}
-
-bool VMXIO::SetResourceConfig(VMXResourceHandle resource, const VMXResourceConfig* p_config)
+bool VMXIO::SetResourceConfig(VMXResourceHandle resource, const VMXResourceConfig* p_config, VMXErrorCode *errcode)
 {
-	if (!p_config) return false;
+	if (!p_config) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_NULL_PARAMETER);
+		return false;
+	}
 
-	/* Retrieve resource */
 	VMXResource *p_vmx_resource = res_mgr.GetVMXResource(resource);
-	if (!p_vmx_resource) return false; /* Fail:  Invalid Resource Handle */
+	if (!p_vmx_resource) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
 
 	return p_vmx_resource->SetResourceConfig(p_config);
 }
 
-bool VMXIO::GetResourceConfig(VMXResourceHandle resource, VMXResourceConfig*& p_config)
+bool VMXIO::GetResourceConfig(VMXResourceHandle resource, VMXResourceConfig*& p_config, VMXErrorCode *errcode)
 {
-	/* Retrieve resource */
+	if (!p_config) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_NULL_PARAMETER);
+		return false;
+	}
+
 	VMXResource *p_vmx_resource = res_mgr.GetVMXResource(resource);
-	if (!p_vmx_resource) return false; /* Fail:  Invalid Resource Handle */
+	if (!p_vmx_resource) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+
+	return p_vmx_resource->GetResourceConfig(p_config);
+}
+
+bool VMXIO::GetResourceDefaultConfig(VMXResourceHandle resource, VMXResourceConfig*& p_config, VMXErrorCode *errcode)
+{
+	if (!p_config) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_NULL_PARAMETER);
+		return false;
+	}
+
+	VMXResource *p_vmx_resource = res_mgr.GetVMXResource(resource);
+	if (!p_vmx_resource) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
 
 	return p_vmx_resource->GetResourceConfig(p_config);
 }
@@ -304,20 +533,35 @@ static const uint32_t vmx_timer_clock_frequency_mhz = 48000000;
 static const uint32_t vmx_timer_clocks_per_tick = us_per_timer_tick * (vmx_timer_clock_frequency_mhz / us_per_second);
 static const uint32_t vmx_timer_tick_hz = us_per_second / us_per_timer_tick;
 
-bool VMXIO::ActivateResource(VMXResourceHandle resource)
+bool VMXIO::ActivateResource(VMXResourceHandle resource, VMXErrorCode* errcode)
 {
 	/* Retrieve resource */
 	VMXResource *p_vmx_resource = res_mgr.GetVMXResource(resource);
-	if (!p_vmx_resource) return false; /* Fail:  Invalid Resource Handle */
+	if (!p_vmx_resource) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
 
-	if (p_vmx_resource->IsAllocated()) return false;
+	if (!p_vmx_resource->IsAllocated()) {
+		SET_VMXERROR(errcode, VMXERR_IO_RESOURCE_NOT_ALLOCATED);
+		return false;
+	}
 
-	if (!p_vmx_resource->ChannelRoutingComplete()) return false;
+	if (!p_vmx_resource->ChannelRoutingComplete()) {
+		SET_VMXERROR(errcode, VMXERR_IO_RESOURCE_ROUTING_INCOMPLETE);
+		return false;
+	}
 
 	VMXResourceType res_type = p_vmx_resource->GetResourceType();
 	VMXResourceProviderType res_prov_type = p_vmx_resource->GetResourceProviderType();
 
 	bool configuration_success = false;
+
+	std::list<VMXChannelIndex> routed_channels;
+	if (!p_vmx_resource->GetRoutedChannels(routed_channels)) {
+		SET_VMXERROR(errcode, VMXERR_IO_RESOURCE_ROUTING_INCOMPLETE);
+		return false;
+	}
 
 	switch(res_type) {
 
@@ -325,38 +569,44 @@ bool VMXIO::ActivateResource(VMXResourceHandle resource)
 		{
 			DIOConfig dio_config;
 			p_vmx_resource->GetResourceConfig(&dio_config);
-			switch(res_prov_type) {
-			case VMX_PI:
-				{
-					IOCX_GPIO_TYPE curr_type;
-					IOCX_GPIO_INPUT curr_input;
-					IOCX_GPIO_INTERRUPT curr_interrupt;
-					if (iocx.get_gpio_config(p_vmx_resource->GetProviderResourceIndex(), curr_type, curr_input, curr_interrupt)) {
-						if (iocx.set_gpio_config(
-							p_vmx_resource->GetProviderResourceIndex(),
-							(dio_config.GetInput() ?
-								GPIO_TYPE_INPUT :
-								((dio_config.GetOutputMode() == DIOConfig::OutputMode::PUSHPULL) ?
-									GPIO_TYPE_OUTPUT_PUSHPULL :
-									GPIO_TYPE_OUTPUT_OPENDRAIN)),
-							((dio_config.GetInputMode() == DIOConfig::InputMode::PULLUP) ?
-									GPIO_INPUT_PULLUP :
-									GPIO_INPUT_PULLDOWN),
-							curr_interrupt)) {
-							configuration_success = true;
+			if (routed_channels.size() > 0) {
+				VMXChannelIndex routed_channel = *(routed_channels.begin());
+				VMXChannelCapability chan_caps = chan_mgr.GetChannelCapabilityBits(routed_channel);
+				switch(res_prov_type) {
+				case VMX_PI:
+					{
+						IOCX_GPIO_TYPE curr_type;
+						IOCX_GPIO_INPUT curr_input;
+						IOCX_GPIO_INTERRUPT curr_interrupt;
+						if (iocx.get_gpio_config(p_vmx_resource->GetProviderResourceIndex(), curr_type, curr_input, curr_interrupt)) {
+							if (iocx.set_gpio_config(
+								p_vmx_resource->GetProviderResourceIndex(),
+								(dio_config.GetInput() ?
+									GPIO_TYPE_INPUT :
+									((dio_config.GetOutputMode() == DIOConfig::OutputMode::PUSHPULL) ?
+										GPIO_TYPE_OUTPUT_PUSHPULL :
+										GPIO_TYPE_OUTPUT_OPENDRAIN)),
+								((dio_config.GetInputMode() == DIOConfig::InputMode::PULLUP) ?
+										GPIO_INPUT_PULLUP :
+										GPIO_INPUT_PULLDOWN),
+								curr_interrupt)) {
+								configuration_success = true;
+							}
 						}
 					}
-				}
-				break;
+					break;
 
-			case RPI:
-				if (dio_config.GetInput()) {
-					configuration_success = pigpio.ConfigureGPIOAsInput(p_vmx_resource->GetProviderResourceIndex());
-				} else {
-					configuration_success = pigpio.ConfigureGPIOAsOutput(p_vmx_resource->GetProviderResourceIndex());
-				}
-				break;
+				case RPI:
+					if (VMXChannelCapabilityCheck(chan_caps, VMXChannelCapability::DigitalInput) &&
+					    dio_config.GetInput()) {
+						configuration_success = pigpio.ConfigureGPIOAsInput(p_vmx_resource->GetProviderResourceIndex());
+					} else if (VMXChannelCapabilityCheck(chan_caps, VMXChannelCapability::DigitalOutput) &&
+						!dio_config.GetInput()) {
+						configuration_success = pigpio.ConfigureGPIOAsOutput(p_vmx_resource->GetProviderResourceIndex());
+					}
+					break;
 
+				}
 			}
 		}
 		break;
@@ -418,7 +668,7 @@ bool VMXIO::ActivateResource(VMXResourceHandle resource)
 			} else {
 				iocx_encode_input_capture_polarity(&timer_config, INPUT_CAPTURE_POLARITY_FALLING);
 			}
-			configuration_success &= iocx.set_timer_config(vmx_timer_index, timer_config);
+			configuration_success = iocx.set_timer_config(vmx_timer_index, timer_config);
 		}
 		break;
 
@@ -427,7 +677,6 @@ bool VMXIO::ActivateResource(VMXResourceHandle resource)
 			EncoderConfig encoder_cfg;
 			p_vmx_resource->GetResourceConfig(&encoder_cfg);
 			int vmx_timer_index = int(p_vmx_resource->GetProviderResourceIndex());
-
 			uint8_t timer_config;
 			iocx_encode_timer_mode(&timer_config, TIMER_MODE_QUAD_ENCODER);
 			switch(encoder_cfg.GetEncoderEdge()) {
@@ -441,7 +690,7 @@ bool VMXIO::ActivateResource(VMXResourceHandle resource)
 				iocx_encode_quad_encoder_mode(&timer_config, QUAD_ENCODER_MODE_4x);
 				break;
 			}
-			configuration_success &= iocx.set_timer_config(vmx_timer_index, timer_config);
+			configuration_success = iocx.set_timer_config(vmx_timer_index, timer_config);
 		}
 		break;
 
@@ -483,6 +732,7 @@ bool VMXIO::ActivateResource(VMXResourceHandle resource)
 			InterruptConfig interrupt_cfg;
 			p_vmx_resource->GetResourceConfig(&interrupt_cfg);
 
+			int_reg.RegisterIOInterruptHandler(p_vmx_resource->GetResourceIndex(), interrupt_cfg.p_handler, interrupt_cfg.p_param);
 			switch(res_prov_type) {
 			case VMX_PI:
 				{
@@ -577,22 +827,105 @@ bool VMXIO::ActivateResource(VMXResourceHandle resource)
 		break;
 
 	default:
+		SET_VMXERROR(errcode, VMXERR_IO_RESOURCE_TYPE_INVALID);
+		return false;
+	}
+	if (!configuration_success) {
+		SET_VMXERROR(errcode, VMXERR_IO_ERROR_CONFIGURING_PHYSICAL_RESOURCE);
+		return false;
+	}
+	return true;
+}
+
+bool VMXIO::ActivateSinglechannelResource(VMXChannelIndex channel_index, VMXChannelCapability channel_capability,
+		VMXResourceHandle& res_handle, const VMXResourceConfig *res_cfg, VMXErrorCode *errcode)
+{
+	if (!IsVMXChannelCapabilityUnitary(channel_capability)) {
+		SET_VMXERROR(errcode, VMXERR_IO_UNITARY_CHANNEL_CAP_REQUIRED);
 		return false;
 	}
 
-	return false;
+	std::list<VMXResourceHandle> compatible_res_handles;
+	if (!res_mgr.GetResourcesCompatibleWithChannelAndCapability(channel_index, channel_capability, compatible_res_handles, errcode)) {
+		log_debug("No compatible resources found for Channel index %d and Channel capability %x", channel_index, channel_capability);
+		return false;
+	}
+
+	VMXResource* p_compatible_unallocated_resource = 0;
+	for (std::list<VMXResourceHandle>::iterator it = compatible_res_handles.begin();
+			it != compatible_res_handles.end();
+			++it) {
+		VMXResourceHandle res_handle = (*it);
+		VMXResource *p_vmx_res = res_mgr.GetVMXResource(res_handle);
+		if (p_vmx_res) {
+			if (!p_vmx_res->IsAllocated()) {
+				p_compatible_unallocated_resource = p_vmx_res;
+				break;
+			} else {
+				log_debug("Resource Type %d Index %d is already allocated; Channel %d cannot be routed to it.",
+						p_vmx_res->GetResourceType(),
+						p_vmx_res->GetResourceIndex(),
+						channel_index);
+			}
+		}
+	}
+	if (!p_compatible_unallocated_resource) {
+		SET_VMXERROR(errcode, VMXERR_IO_NO_UNALLOCATED_COMPATIBLE_RESOURCES);
+		return false;
+	}
+
+	if (!AllocateResource(p_compatible_unallocated_resource->GetResourceHandle(), errcode)) {
+		return false;
+	}
+
+	if (!RouteChannelToResource(channel_index, p_compatible_unallocated_resource->GetResourceHandle(), errcode)) {
+		DeallocateResource(p_compatible_unallocated_resource->GetResourceHandle());
+		return false;
+	}
+
+	if (!res_cfg) {
+		res_cfg = p_compatible_unallocated_resource->GetDefaultConfig();
+	}
+
+	if (!SetResourceConfig(p_compatible_unallocated_resource->GetResourceHandle(), res_cfg, errcode)) {
+		UnrouteChannelFromResource(channel_index, p_compatible_unallocated_resource->GetResourceHandle());
+		DeallocateResource(p_compatible_unallocated_resource->GetResourceHandle());
+		return false;
+	}
+
+	if (ActivateResource(p_compatible_unallocated_resource->GetResourceHandle(), errcode)) {
+		res_handle = p_compatible_unallocated_resource->GetResourceHandle();
+		return true;
+	} else {
+		UnrouteChannelFromResource(channel_index, p_compatible_unallocated_resource->GetResourceHandle());
+		DeallocateResource(p_compatible_unallocated_resource->GetResourceHandle());
+		return false;
+	}
 }
 
-bool VMXIO::DeactivateResource(VMXResourceHandle resource)
+
+bool VMXIO::DeactivateResource(VMXResourceHandle resource, VMXErrorCode* errcode)
 {
 	VMXResource *p_vmx_resource = res_mgr.GetVMXResource(resource);
-	if (!p_vmx_resource) return false; /* Fail:  Invalid Resource Handle */
+	if (!p_vmx_resource) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false; /* Fail:  Invalid Resource Handle */
+	}
 
-	if (!p_vmx_resource->IsAllocated()) return false;
+	if (!p_vmx_resource->IsAllocated()) {
+		SET_VMXERROR(errcode, VMXERR_IO_RESOURCE_NOT_ALLOCATED);
+		return false;
+	}
 
-	if (!p_vmx_resource->ChannelRoutingComplete()) return false;
+	if (!p_vmx_resource->ChannelRoutingComplete()) {
+		SET_VMXERROR(errcode, VMXERR_IO_RESOURCE_ROUTING_INCOMPLETE);
+		return false;
+	}
 
-	if (!p_vmx_resource->GetActive()) return false;
+	if (!p_vmx_resource->GetActive()) {
+		SET_VMXERROR(errcode, VMXERR_IO_RESOURCE_INACTIVE);
+		return false;
+	}
 
 	VMXResourceType res_type = p_vmx_resource->GetResourceType();
 	VMXResourceProviderType res_prov_type = p_vmx_resource->GetResourceProviderType();
@@ -634,38 +967,50 @@ bool VMXIO::DeactivateResource(VMXResourceHandle resource)
 			break;
 		}
 		break;
+
 	case VMXResourceType::PWMCapture:
 		configuration_success = iocx.set_timer_config(p_vmx_resource->GetProviderResourceIndex(), uint8_t(TIMER_MODE_DISABLED));
 		break;
+
 	case VMXResourceType::Encoder:
 		configuration_success = iocx.set_timer_config(p_vmx_resource->GetProviderResourceIndex(), uint8_t(TIMER_MODE_DISABLED));
 		break;
+
 	case VMXResourceType::Accumulator:
 		/* Todo:  Disable oversampling and averaging? */
 		break;
+
 	case VMXResourceType::AnalogTrigger:
 		configuration_success = misc.set_analog_trigger_mode(p_vmx_resource->GetProviderResourceIndex(), ANALOG_TRIGGER_DISABLED);
 		break;
-	case VMXResourceType::Interrupt:
-		switch(res_prov_type) {
-		case VMX_PI:
-		{
-			IOCX_GPIO_TYPE curr_type;
-			IOCX_GPIO_INPUT curr_input;
-			IOCX_GPIO_INTERRUPT curr_interrupt;
-			if (iocx.get_gpio_config(p_vmx_resource->GetProviderResourceIndex(), curr_type, curr_input, curr_interrupt)) {
-				configuration_success =
-						iocx.set_gpio_config(
-								p_vmx_resource->GetProviderResourceIndex(),
-								curr_type,
-								curr_input,
-								GPIO_INTERRUPT_DISABLED);
-			}
-		}
-		break;
 
-		case RPI:
-			configuration_success = pigpio.DisableGPIOInterrupt(p_vmx_resource->GetProviderResourceIndex());
+	case VMXResourceType::Interrupt:
+		{
+			InterruptConfig interrupt_cfg;
+			p_vmx_resource->GetResourceConfig(&interrupt_cfg);
+
+			int_reg.DeregisterIOInterruptHandler(p_vmx_resource->GetResourceIndex());
+			switch(res_prov_type) {
+			case VMX_PI:
+			{
+				IOCX_GPIO_TYPE curr_type;
+				IOCX_GPIO_INPUT curr_input;
+				IOCX_GPIO_INTERRUPT curr_interrupt;
+				if (iocx.get_gpio_config(p_vmx_resource->GetProviderResourceIndex(), curr_type, curr_input, curr_interrupt)) {
+					configuration_success =
+							iocx.set_gpio_config(
+									p_vmx_resource->GetProviderResourceIndex(),
+									curr_type,
+									curr_input,
+									GPIO_INTERRUPT_DISABLED);
+				}
+			}
+			break;
+
+			case RPI:
+				configuration_success = pigpio.DisableGPIOInterrupt(p_vmx_resource->GetProviderResourceIndex());
+				break;
+			}
 			break;
 		}
 		break;
@@ -695,11 +1040,112 @@ bool VMXIO::DeactivateResource(VMXResourceHandle resource)
 		break;
 	}
 
-	if (configuration_success) {
-		p_vmx_resource->SetActive(false);
+	if (!configuration_success) {
+		SET_VMXERROR(errcode, VMXERR_IO_ERROR_CONFIGURING_PHYSICAL_RESOURCE);
 	}
+	p_vmx_resource->SetActive(false);
 
 	return configuration_success;
 }
 
+bool VMXIO::Encoder_GetCount(VMXResourceHandle encoder_res_handle, int32_t& count, VMXErrorCode *errcode) {
+	VMXResource *p_vmx_res = res_mgr.GetVMXResourceAndVerifyType(encoder_res_handle, VMXResourceType::Encoder);
+	if (!p_vmx_res) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+	if(!iocx.get_timer_counter(p_vmx_res->GetProviderResourceIndex(), count)){
+		SET_VMXERROR(errcode, VMXERR_IO_BOARD_COMM_ERROR);
+		return false;
+	}
+	return true;
+}
 
+bool VMXIO::Encoder_GetDirection(VMXResourceHandle encoder_res_handle, EncoderDirection& direction, VMXErrorCode *errcode) {
+	VMXResource *p_vmx_res = res_mgr.GetVMXResourceAndVerifyType(encoder_res_handle, VMXResourceType::Encoder);
+	if (!p_vmx_res) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+	uint8_t timer_status;
+	if(!iocx.get_timer_status(p_vmx_res->GetProviderResourceIndex(), timer_status)) {
+		SET_VMXERROR(errcode, VMXERR_IO_BOARD_COMM_ERROR);
+		return false;
+	}
+	IOCX_TIMER_DIRECTION timer_direction = iocx_decode_timer_direction(&timer_status);
+	if (timer_direction == UP) {
+		direction = EncoderDirection::EncoderForward;
+	} else {
+		direction = EncoderDirection::EncoderForward;
+	}
+	return true;
+}
+
+bool VMXIO::Encoder_Reset(VMXResourceHandle encoder_res_handle, VMXErrorCode *errcode)
+{
+	VMXResource *p_vmx_res = res_mgr.GetVMXResourceAndVerifyType(encoder_res_handle, VMXResourceType::Encoder);
+	if (!p_vmx_res) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+	if (!iocx.set_timer_control(p_vmx_res->GetProviderResourceIndex(), RESET_REQUEST)) {
+		SET_VMXERROR(errcode, VMXERR_IO_BOARD_COMM_ERROR);
+		return false;
+	}
+	return true;
+}
+
+bool VMXIO::PWMGenerator_SetDutyCycle(VMXResourceHandle pwmgen_res_handle, VMXResourcePortIndex port_index, uint8_t duty_cycle, VMXErrorCode *errcode)
+{
+	VMXResource *p_vmx_res = res_mgr.GetVMXResourceAndVerifyType(pwmgen_res_handle, VMXResourceType::PWMGenerator);
+	if (!p_vmx_res) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+
+	PWMGeneratorConfig pwm_cfg;
+	p_vmx_res->GetResourceConfig(&pwm_cfg);
+	// The CHx_CCR register is the duty cycle in ticks
+	// The duty_cycle is a ratio (from 0-255) within the frequency
+	// The configured frequency is in ticks, and each tick is 5us
+	uint16_t ticks_per_frame = vmx_timer_tick_hz / pwm_cfg.GetFrequencyHz();
+
+	uint16_t duty_cycle_ticks = (uint16_t)((((uint32_t)ticks_per_frame) * duty_cycle) / (MAX_PWM_GENERATOR_DUTY_CYCLE + 1));
+
+	if (!iocx.set_timer_chx_ccr(p_vmx_res->GetProviderResourceIndex(), port_index, duty_cycle_ticks)) {
+		SET_VMXERROR(errcode, VMXERR_IO_BOARD_COMM_ERROR);
+		return false;
+	}
+	return true;
+
+}
+
+bool VMXIO::DIO_Get(VMXResourceHandle dio_res_handle, bool& high, VMXErrorCode *errcode)
+{
+	VMXResource *p_vmx_res = res_mgr.GetVMXResourceAndVerifyType(dio_res_handle, VMXResourceType::DigitalIO);
+	if (!p_vmx_res) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+
+	if (!iocx.get_gpio(p_vmx_res->GetProviderResourceIndex(), high)) {
+		SET_VMXERROR(errcode, VMXERR_IO_BOARD_COMM_ERROR);
+		return false;
+	}
+	return true;
+}
+
+bool VMXIO::DIO_Set(VMXResourceHandle dio_res_handle, bool high, VMXErrorCode *errcode)
+{
+	VMXResource *p_vmx_res = res_mgr.GetVMXResourceAndVerifyType(dio_res_handle, VMXResourceType::DigitalIO);
+	if (!p_vmx_res) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+
+	if (!iocx.set_gpio(p_vmx_res->GetProviderResourceIndex(), high)) {
+		SET_VMXERROR(errcode, VMXERR_IO_BOARD_COMM_ERROR);
+		return false;
+	}
+	return true;
+}

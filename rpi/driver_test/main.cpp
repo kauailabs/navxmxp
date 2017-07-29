@@ -11,26 +11,24 @@
 
 #include "VMXPiClient.h"
 
+void DisplayVMXError(VMXErrorCode vmxerr) {
+	const char *p_err_description = GetVMXErrorString(vmxerr);
+	printf("VMXError %d:  %s\n", vmxerr, p_err_description);
+}
+
 int main(int argc, char *argv[])
 {
 	uint8_t update_rate_hz = 50;
 	VMXPiClient vmx(update_rate_hz);
 	try {
-		if(vmx.is_open()) {
+		if(vmx.IsOpen()) {
 			printf("VMX is open.\n");
 
-			IOCX_CAPABILITY_FLAGS iocx_capabilities;
-			if(vmx.iocx.get_capability_flags(iocx_capabilities)) {
-				printf("IOCX RPI PWM Header Direction:  %s\n", iocx_capabilities.rpi_gpio_out ? "Output" : "Input");
+			float full_scale_voltage;
+			if(vmx.misc.GetAnalogInputFullScaleVoltage(full_scale_voltage)) {
+				printf("Analog Input Voltage:  %0.1f\n", full_scale_voltage);
 			} else {
-				printf("ERROR acquiring IOCX Capability Flags.\n");
-			}
-
-			MISC_CAPABILITY_FLAGS misc_capabilities;
-			if(vmx.misc.get_capability_flags(misc_capabilities)) {
-				printf("IOCX Analog In Voltage:  %s\n", misc_capabilities.an_in_5V ? "5V" : "3.3V");
-			} else {
-				printf("ERROR acquring MISC Capability Flags.\n");
+				printf("ERROR acquring Analog Input Voltage.\n");
 			}
 
 			/* Wait awhile for AHRS data (acquired in background thread) to accumulate */
@@ -52,67 +50,204 @@ int main(int argc, char *argv[])
 
 			vmx.ahrs.Stop(); /* Stop background AHRS data acquisition thread (during debugging, this can be useful... */
 
-			/* IOCX test */
+			/* IO test */
 
-			const int first_stm32_gpio = 0;
-			const int num_stm32_gpios = vmx.iocx.GetNumGpios();
+			VMXChannelIndex first_iocx_digital_channel;
+			uint8_t num_iocx_digital_channels = vmx.io.GetNumChannelsByType(VMXChannelType::IOCX_D, first_iocx_digital_channel);
+			printf("IOCX Digital Channel Indexes:  %d - %d\n", first_iocx_digital_channel, first_iocx_digital_channel + num_iocx_digital_channels - 1);
+			VMXChannelIndex first_iocx_analog_channel;
+			uint8_t num_iocx_analog_channels = vmx.io.GetNumChannelsByType(VMXChannelType::IOCX_A, first_iocx_analog_channel);
+			printf("IOCX Analog Channel Indexes:  %d - %d\n", first_iocx_analog_channel, first_iocx_analog_channel + num_iocx_analog_channels - 1);
+			VMXChannelIndex first_vmxpi_rpi_pwm_channel;
+			uint8_t num_rpi_gpios = vmx.io.GetNumChannelsByType(VMXChannelType::PIGPIO, first_vmxpi_rpi_pwm_channel);
+			printf("PIGPIO Channel Indexes:  %d - %d\n", first_vmxpi_rpi_pwm_channel, first_vmxpi_rpi_pwm_channel + num_rpi_gpios - 1);
 
-			const int first_stm32_timer = 0;
-			const int num_stm32_timers = vmx.iocx.get_num_timers();
-			/* Configure Quad Encoder Inputs (driven by timers 0-3) */
-			/* These quad encoders consume to STM32 GPIOs 4-15      */
-			const int first_qe_timer = 0;
-			const int num_qe_timers = 4;
-			for ( int qe_timer = first_qe_timer; qe_timer < first_qe_timer + num_qe_timers; qe_timer++) {
-				vmx.iocx.set_timer_config(qe_timer, TIMER_MODE_QUAD_ENCODER);
+			VMXChannelType channel_type;
+			VMXChannelCapability capability_bits;
+			if(vmx.io.GetChannelCapabilities(first_vmxpi_rpi_pwm_channel, channel_type, capability_bits)) {
+				bool output = VMXChannelCapabilityCheck(capability_bits, VMXChannelCapability::DigitalOutput);
+				printf("IOCX RPI PWM Header Direction:  %s\n", output ? "Output" : "Input");
+			} else {
+				printf("ERROR acquiring Channel Capability Flags for VMX-pi channel %d.\n", first_vmxpi_rpi_pwm_channel);
 			}
 
-			/* Configure first 4 STM32 GPIOs as PWM Outputs */
-			const int first_pwm_timer = 4;
-			const int num_pwm_timers = 2;
-			/* Disable PWM timers during configuration */
-			for (int pwm_timer = first_pwm_timer; pwm_timer < first_pwm_timer + num_pwm_timers; pwm_timer++ ) {
-				vmx.iocx.set_timer_config(pwm_timer, TIMER_MODE_DISABLED);
+			const VMXResourceIndex first_stm32_timer = 0;
+			const uint8_t num_encoder_resources = vmx.io.GetNumResourcesByType(VMXResourceType::Encoder);
+
+			VMXErrorCode vmxerr;
+
+			/* Configure Quad Encoder Resources */
+			/* Two VMXChannels must be routed to each Quad Encoder */
+			const VMXResourceIndex first_encoder_index = 0;
+			for ( VMXResourceIndex encoder_index = first_encoder_index;
+					encoder_index < (first_encoder_index + num_encoder_resources);
+					encoder_index++) {
+
+				VMXResourceHandle encoder_res_handle;
+				if (!vmx.io.GetResourceHandle(VMXResourceType::Encoder, encoder_index, encoder_res_handle, &vmxerr)) {
+					DisplayVMXError(vmxerr);
+					continue;
+				}
+
+				printf("Encoder ResourceHandle Type:  %d, Index %d\n",
+						EXTRACT_VMX_RESOURCE_TYPE(encoder_res_handle),
+						EXTRACT_VMX_RESOURCE_INDEX(encoder_res_handle));
+
+				VMXChannelIndex first;
+				uint8_t num_enc_channels;
+
+				if (!vmx.io.GetChannelsCompatibleWithResource(encoder_res_handle, first, num_enc_channels)) {
+					printf("Failed to retrieve VMXChannels compatible with Encoder Resource %d.\n", encoder_index);
+					continue;
+				}
+
+				if (!vmx.io.AllocateResource(encoder_res_handle, &vmxerr)) {
+					printf("Failed to allocate Encoder Resource %d.\n", encoder_index);
+					DisplayVMXError(vmxerr);
+					continue;
+				}
+
+				int successful_route_count = 0;
+				VMXChannelIndex enc_channels[2];
+				for ( uint8_t enc_channel = first; enc_channel < (first + num_enc_channels); enc_channel++) {
+					if (!vmx.io.RouteChannelToResource(enc_channel, encoder_res_handle, &vmxerr)) {
+						printf("Failed to route VMXChannel %d to Encoder Resource %d.\n", enc_channel, encoder_index);
+						DisplayVMXError(vmxerr);
+					} else {
+						enc_channels[enc_channel - first] = enc_channel;
+						successful_route_count++;
+					}
+				}
+				if (successful_route_count < 2) {
+					vmx.io.DeallocateResource(encoder_res_handle);
+					continue;
+				}
+
+				EncoderConfig encoder_cfg;
+				encoder_cfg.SetEncoderEdge(EncoderConfig::EncoderEdge::x4);
+				if (!vmx.io.SetResourceConfig(encoder_res_handle, &encoder_cfg)) {
+					printf("Failed to Set Encoder Config for Encoder Resource %d.\n", encoder_index);
+					vmx.io.DeallocateResource(encoder_res_handle);
+					continue;
+				}
+				if (!vmx.io.ActivateResource(encoder_res_handle, &vmxerr)) {
+					printf("Failed to Activate Encoder Resource %d.\n", encoder_index);
+					DisplayVMXError(vmxerr);
+					vmx.io.DeallocateResource(encoder_res_handle);
+					continue;
+				} else {
+					printf("Successfully Activated Encoder Resource %d with VMXChannels %d and %d\n", encoder_index, enc_channels[0], enc_channels[1]);
+				}
 			}
 
-			for ( int pwm_out_index = 0; pwm_out_index < 4; pwm_out_index++) {
-				vmx.iocx.set_gpio_config(pwm_out_index, GPIO_TYPE_AF,
-						GPIO_INPUT_FLOAT, GPIO_INTERRUPT_DISABLED);
-				// All timers driven off of 48Mhz clock.
-				vmx.iocx.set_timer_prescaler(pwm_out_index, 48000); 	/* 1 ms/tick */
-				vmx.iocx.set_timer_aar(pwm_out_index, 50); 			/* Frame Period:  50 ticks */
-				vmx.iocx.set_timer_chx_ccr(pwm_out_index,0,25);		/* Duty Cycle:  25 ticks */
-				vmx.iocx.set_timer_config(4, TIMER_MODE_PWM_OUT);
-			}
+			/* Configure the 4 STM32 GPIOs as PWM Outputs */
+			const VMXResourceIndex first_pwmgen_resource_index = 4;
+			const uint8_t num_pwmgen_resources = 2;
 
-			/* Re-enable PWM timers now that configuration is complete. */
-			for (int pwm_timer = first_pwm_timer; pwm_timer < first_pwm_timer + num_pwm_timers; pwm_timer++ ) {
-				vmx.iocx.set_timer_config(pwm_timer, TIMER_MODE_PWM_OUT);
+			for (int pwmgen_index = first_pwmgen_resource_index;
+					pwmgen_index < (first_pwmgen_resource_index + num_pwmgen_resources);
+					pwmgen_index++ ) {
+
+				VMXResourceHandle pwmgen_res_handle;
+				if (!vmx.io.GetResourceHandle(VMXResourceType::PWMGenerator, pwmgen_index, pwmgen_res_handle, &vmxerr)) {
+					DisplayVMXError(vmxerr);
+					continue;
+				}
+
+				printf("PWM Generator ResourceHandle Type:  %d, Index %d\n",
+						EXTRACT_VMX_RESOURCE_TYPE(pwmgen_res_handle),
+						EXTRACT_VMX_RESOURCE_INDEX(pwmgen_res_handle));
+
+				VMXChannelIndex first;
+				uint8_t num_pwm_channels;
+
+				if (!vmx.io.GetChannelsCompatibleWithResource(pwmgen_res_handle, first, num_pwm_channels)) {
+					printf("Failed to retrieve VMXChannels compatible with PWM Generator Resource %d.\n", pwmgen_index);
+					continue;
+				}
+
+				if (!vmx.io.AllocateResource(pwmgen_res_handle, &vmxerr)) {
+					printf("Failed to allocate PWM Generator Resource %d.\n", pwmgen_index);
+					DisplayVMXError(vmxerr);
+					continue;
+				}
+
+				int successful_route_count = 0;
+				VMXChannelIndex pwm_channels[2];
+				for ( uint8_t pwm_channel = first; pwm_channel < (first + num_pwm_channels); pwm_channel++) {
+					if (!vmx.io.RouteChannelToResource(pwm_channel, pwmgen_res_handle, &vmxerr)) {
+						printf("Failed to route VMXChannel %d to PWMGenerator Resource %d.\n", pwm_channel, pwmgen_index);
+						DisplayVMXError(vmxerr);
+					} else {
+						pwm_channels[pwm_channel - first] = pwm_channel;
+						successful_route_count++;
+					}
+				}
+				if (successful_route_count < 2) {
+					vmx.io.DeallocateResource(pwmgen_index);
+					continue;
+				}
+
+				PWMGeneratorConfig pwmgen_cfg;
+				pwmgen_cfg.SetFrequencyHz(200);
+
+				if (!vmx.io.SetResourceConfig(pwmgen_res_handle, &pwmgen_cfg)) {
+					printf("Failed to Set PWMGenerator Config for PWMGenerator Resource %d.\n", pwmgen_index);
+					vmx.io.DeallocateResource(pwmgen_res_handle);
+					continue;
+				}
+				if (!vmx.io.ActivateResource(pwmgen_res_handle, &vmxerr)) {
+					printf("Failed to Activate PWMGenerator Resource %d.\n", pwmgen_index);
+					DisplayVMXError(vmxerr);
+					vmx.io.DeallocateResource(pwmgen_res_handle);
+					continue;
+				} else {
+					printf("Successfully Activated PWMGenerator Resource %d with VMXChannels %d and %d\n", pwmgen_index, pwm_channels[0], pwm_channels[1]);
+					for (uint8_t port_index = 0; port_index < 2; port_index++) {
+						if (!vmx.io.PWMGenerator_SetDutyCycle(pwmgen_res_handle, port_index, 128, &vmxerr)) {
+							printf("Failed to set DutyCycle for PWMGenerator Resource %d, Port %d.\n", pwmgen_index, port_index);
+							DisplayVMXError(vmxerr);
+						}
+					}
+				}
 			}
 
 			for ( int i = 0; i < 10; i++) {
-				/* Display External Power Voltage */
-				float ext_power_voltage = -1.0f;
-				if(vmx.misc.get_extpower_voltage(ext_power_voltage)){
-					printf("External Power Voltage:  %f\n", ext_power_voltage);
+				/* Display System (Battery) Voltage */
+				float system_voltage = -1.0f;
+				if(vmx.power.GetSystemVoltage(system_voltage)){
+					printf("System (Battery) Voltage:  %f\n", system_voltage);
 				}
 				/* Display Analog Input Values */
-				for (int j = 0; j < vmx.get_num_analog_inputs(); j++){
+				VMXChannelIndex first_analog_input_channel_index;
+				uint8_t num_analog_inputs = vmx.io.GetNumChannelsByCapability(VMXChannelCapability::AccumulatorInput);
+				for (int j = 0; j < num_analog_inputs; j++){
 					float an_in_voltage = -1.0f;
 					if(vmx.misc.get_accumulator_avg_voltage(j, an_in_voltage)){
 						printf("Analog In %d Voltage:  %0.3f\n", j, an_in_voltage);
 					}
 				}
 				/* Display Quad Encoder Input Counts */
-				for ( int qe_timer = first_qe_timer; qe_timer < first_qe_timer + num_qe_timers; qe_timer++) {
-					uint16_t counter = 65535;
-					if(vmx.iocx.get_timer_counter(qe_timer, counter)){
-						printf("QE %d counter:  %d.\n", qe_timer, counter);
-						uint8_t timer_status;
-						if(vmx.iocx.get_timer_status(qe_timer, timer_status)) {
-							IOCX_TIMER_DIRECTION direction = iocx_decode_timer_direction(&timer_status);
-							printf("QE %d direction:  %s.\n", qe_timer, (direction == UP) ? "Positive" : "Negative");
+				for ( int encoder_index = first_encoder_index; encoder_index < first_encoder_index + num_encoder_resources; encoder_index++) {
+					int32_t counter = 65535;
+					VMXResourceHandle encoder_res_handle;
+					if (!vmx.io.GetResourceHandle(VMXResourceType::Encoder, encoder_index, encoder_res_handle, &vmxerr)) {
+						DisplayVMXError(vmxerr);
+						continue;
+					}
+
+					if (vmx.io.Encoder_GetCount(encoder_res_handle, counter, &vmxerr)) {
+						printf("Encoder %d count:  %d.\n", encoder_index, counter);
+						VMXIO::EncoderDirection encoder_direction;
+						if(vmx.io.Encoder_GetDirection(encoder_res_handle, encoder_direction, &vmxerr)) {
+							printf("Encoder %d direction:  %s.\n", encoder_index, (encoder_direction == VMXIO::EncoderForward) ? "Forward" : "Reverse");
+						} else {
+							printf("Error retrieving Encoder %d direction.\n", encoder_index);
+							DisplayVMXError(vmxerr);
 						}
+					} else {
+						printf("Error retrieving Encoder %d count.\n", encoder_index);
+						DisplayVMXError(vmxerr);
 					}
 				}
 				struct timespec ts;
@@ -121,37 +256,81 @@ int main(int argc, char *argv[])
 				nanosleep(&ts, NULL);
 			}
 
-			/* Next, reconfigure all GPIOs as outputs, and toggle them. */
-			/* 1) disable the timers which had been enabled previously. */
-			for ( int i = first_stm32_timer; i < num_stm32_timers; i++) {
-				vmx.iocx.set_timer_config(i, TIMER_MODE_DISABLED);
+			/* Deallocate all previously-allocated resources */
+			if (!vmx.io.DeallocateAllResources(&vmxerr)) {
+				printf("Error Deallocating all resources.\n");
+				DisplayVMXError(vmxerr);
 			}
 
-			/* 2) Configure all GPIOs as outputs. */
-			for ( int i = first_stm32_gpio; i < first_stm32_gpio + num_stm32_gpios; i++) {
-				vmx.iocx.set_gpio_config(i, GPIO_TYPE_OUTPUT_PUSHPULL, GPIO_INPUT_FLOAT, GPIO_INTERRUPT_DISABLED);
+			const VMXChannelIndex first_stm32_gpio = 0;
+			const uint8_t num_stm32_gpios = 12;
+			VMXResourceHandle gpio_res_handles[num_stm32_gpios];
+
+			/* 2) Configure all DIOs as outputs. */
+			for ( int dio_channel_index = first_stm32_gpio; dio_channel_index < first_stm32_gpio + num_stm32_gpios; dio_channel_index++) {
+				DIOConfig dio_config;
+				dio_config.SetInput(false);
+				dio_config.SetOutputMode(DIOConfig::PUSHPULL);
+				if (!vmx.io.ActivateSinglechannelResource(dio_channel_index, VMXChannelCapability::DigitalOutput,
+						gpio_res_handles[dio_channel_index], &dio_config, &vmxerr)) {
+					printf("Error Activating Singlechannel Resource DIO for Channel index %d.\n", dio_channel_index);
+					DisplayVMXError(vmxerr);
+				} else {
+					printf("Digital Output Channel %d activated on Resource type %d, index %d\n", dio_channel_index,
+							EXTRACT_VMX_RESOURCE_TYPE(gpio_res_handles[dio_channel_index]),
+							EXTRACT_VMX_RESOURCE_INDEX(gpio_res_handles[dio_channel_index]));
+
+				}
 			}
 
 			/* 3) Set all GPIOs high. */
-			for ( int i = first_stm32_gpio; i < first_stm32_gpio + num_stm32_gpios; i++) {
-				vmx.iocx.set_gpio(i, 1);
+			for ( int dio_channel_index = first_stm32_gpio; dio_channel_index < first_stm32_gpio + num_stm32_gpios; dio_channel_index++) {
+				if (!vmx.io.DIO_Set(gpio_res_handles[dio_channel_index], true, &vmxerr)) {
+					printf("Error Setting DO HIGH for Channel index %d.\n", dio_channel_index);
+					DisplayVMXError(vmxerr);
+				}
 			}
 
 			/* 4) Set all GPIOs low. */
-			for ( int i = first_stm32_gpio; i < first_stm32_gpio + num_stm32_gpios; i++) {
-				vmx.iocx.set_gpio(i, 0);
+			for ( int dio_channel_index = first_stm32_gpio; dio_channel_index < first_stm32_gpio + num_stm32_gpios; dio_channel_index++) {
+				if (!vmx.io.DIO_Set(gpio_res_handles[dio_channel_index], false, &vmxerr)) {
+					printf("Error Setting DO LOW for Channel index %d.\n", dio_channel_index);
+					DisplayVMXError(vmxerr);
+				}
 			}
 
 			/* 5) Reconfigure all GPIOs as outputs. */
-			for ( int i = first_stm32_gpio; i < first_stm32_gpio + num_stm32_gpios; i++) {
-				vmx.iocx.set_gpio_config(i, GPIO_TYPE_INPUT, GPIO_INPUT_FLOAT, GPIO_INTERRUPT_DISABLED);
+			for ( int dio_channel_index = first_stm32_gpio; dio_channel_index < first_stm32_gpio + num_stm32_gpios; dio_channel_index++) {
+				if (!vmx.io.DeallocateResource(gpio_res_handles[dio_channel_index])) {
+					printf("Error Deallocating Digitial Output Channel %d.\n", dio_channel_index);
+					DisplayVMXError(vmxerr);
+					continue;
+				}
+				//vmx.iocx.set_gpio_config(i, GPIO_TYPE_OUTPUT_PUSHPULL, GPIO_INPUT_FLOAT, GPIO_INTERRUPT_DISABLED);
+				DIOConfig dio_config;
+				dio_config.SetInput(true);
+				dio_config.SetInputMode(DIOConfig::PULLUP);
+				if (!vmx.io.ActivateSinglechannelResource(dio_channel_index, VMXChannelCapability::DigitalInput,
+						gpio_res_handles[dio_channel_index], &dio_config, &vmxerr)) {
+					printf("Error Activating Singlechannel Resource DIO for Channel index %d.\n", dio_channel_index);
+					DisplayVMXError(vmxerr);
+				} else {
+					printf("Digital Input Channel %d activated on Resource type %d, index %d\n", dio_channel_index,
+							EXTRACT_VMX_RESOURCE_TYPE(gpio_res_handles[dio_channel_index]),
+							EXTRACT_VMX_RESOURCE_INDEX(gpio_res_handles[dio_channel_index]));
+
+				}
 			}
 
 			/* 6) Display current input values. */
-			for ( int i = first_stm32_gpio; i < first_stm32_gpio + num_stm32_gpios; i++) {
-				bool gpio;
-				vmx.iocx.get_gpio(i, gpio);
-				printf("GPIO Input %d value:  %s.\n", i, gpio ? "High": "Low");
+			for ( int dio_channel_index = first_stm32_gpio; dio_channel_index < first_stm32_gpio + num_stm32_gpios; dio_channel_index++) {
+				bool high;
+				if (!vmx.io.DIO_Get(gpio_res_handles[dio_channel_index], high, &vmxerr)) {
+					printf("Error Getting Digital Input Value for Channel index %d.\n", dio_channel_index);
+					DisplayVMXError(vmxerr);
+				} else {
+					printf("GPIO Input Channel %d value:  %s.\n", dio_channel_index, high ? "High": "Low");
+				}
 			}
 
 			bool hw_rx_overflow_detected = false;
@@ -329,21 +508,21 @@ int main(int argc, char *argv[])
 				vmx.can.clear_interrupt_flags(can_int_flags);
 			}
 			//test_navx_pi_spi();
-			//vmx.test_pigpio_pwm_outputs();
-			//vmx.test_pigpio_ext_i2c();
-			//vmx.test_pigpio_gpio_inputs(100);
+			//vmx.io.TestPWMOutputs();
+			//vmx.io.TestExtI2C();
+			//vmx.io.TestGPIOInputs(100);
 			uint8_t hour, minute, second;
 			uint32_t subsecond;
-			if (vmx.misc.get_rtc_time(hour,minute,second,subsecond)) {
+			if (vmx.time.GetRTCTime(hour,minute,second,subsecond)) {
 				printf("RTC Time:  %02d:%02d:%02d:%04d\n", hour, minute, second, subsecond);
 			} else {
 				printf("Error retrieving RTC time.\n");
 			}
 			uint8_t weekday, date, month, year;
-			if (vmx.misc.get_rtc_date(weekday, date, month, year)) {
-				printf("RTC Time:  %02d/%02d/20%02d (Weekday:  %d)\n", month, date, year, weekday);
+			if (vmx.time.GetRTCDate(weekday, date, month, year)) {
+				printf("RTC Date:  %02d/%02d/20%02d (Weekday:  %d)\n", month, date, year, weekday);
 			} else {
-				printf("Error retrieving RTC time.\n");
+				printf("Error retrieving RTC date.\n");
 			}
 
 		    time_t     now = time(0);
@@ -351,17 +530,17 @@ int main(int argc, char *argv[])
 		    tstruct = *localtime(&now);
 
 		    printf("Current Time:  %02d:%02d:%02d\n", tstruct.tm_hour, tstruct.tm_min, tstruct.tm_sec);
-		    if (vmx.misc.set_rtc_time(tstruct.tm_hour, tstruct.tm_min, tstruct.tm_sec)) {
+		    if (vmx.time.SetRTCTime(tstruct.tm_hour, tstruct.tm_min, tstruct.tm_sec)) {
 		    	printf("Set VMX RTC Time to current time.\n");
 		    }
-		    if (vmx.misc.set_rtc_date(tstruct.tm_wday, tstruct.tm_mday, tstruct.tm_mon, tstruct.tm_year-100)) {
+		    if (vmx.time.SetRTCDate(tstruct.tm_wday, tstruct.tm_mday, tstruct.tm_mon, tstruct.tm_year-100)) {
 		    	printf("Set VMX RTC Date to current date.\n");
 		    }
 		    for ( int i = 0; i < 10; i++) {
-		    	uint64_t curr_sys_time = vmx.clocks.GetCurrentSystemTimeInMicroseconds();
-		    	uint64_t curr_sys_time_alt = vmx.clocks.SystemClocks::GetCurrentSystemTimeInMicrosecondsAlt();
-		    	uint32_t curr_sys_ticks = vmx.clocks.GetCurrentMicroseconds();
-		    	uint64_t curr_sys_ticks_total = vmx.clocks.GetCurrentTotalMicroseconds();
+		    	uint64_t curr_sys_time = vmx.time.GetCurrentOSTimeInMicroseconds();
+		    	uint64_t curr_sys_time_alt = vmx.time.GetCurrentOSTimeInMicrosecondsAlt();
+		    	uint32_t curr_sys_ticks = vmx.time.GetCurrentMicroseconds();
+		    	uint64_t curr_sys_ticks_total = vmx.time.GetCurrentTotalMicroseconds();
 		    	printf("CurrSysTime:  %" PRIu64 " (Seconds:  %" PRIu64 ")\n", curr_sys_time, curr_sys_time / 1000000);
 		    	printf("CurrSysTimeAlt:  %" PRIu64 " (Seconds:  %" PRIu64 ")\n", curr_sys_time_alt, curr_sys_time_alt / 1000000);
 		    	printf("CurrMicroseconds:  %u\n", curr_sys_ticks);
@@ -371,7 +550,10 @@ int main(int argc, char *argv[])
 		    	printf("TotalMicrosecondsRemainder:  %" PRIu64 " (High Portion:  %" PRIu64 ")\n", (curr_sys_ticks_total % divider), (curr_sys_ticks_total / divider));
 		    }
 		} else {
-			printf("Error:  Unable to open VMX Client.  Is pigpio functional/running?");
+			printf("Error:  Unable to open VMX Client.\n");
+			printf("\n");
+			printf("        - Is pigpio functional/running?\n");
+			printf("        - Does this application have root privileges?\n");
 		}
 	}
 	catch(const std::exception& ex){

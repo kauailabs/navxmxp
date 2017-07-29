@@ -112,9 +112,21 @@ bool IOCXClient::set_interrupt_config(uint16_t value)
 	return client.write(IOCX_REGISTER_BANK, offsetof(struct IOCX_REGS, int_cfg), value);
 }
 
-bool IOCXClient::get_gpio_interrupt_status(uint16_t& value)
-{
-	return client.read(IOCX_REGISTER_BANK, offsetof(struct IOCX_REGS, gpio_intstat), value);
+bool IOCXClient::get_gpio_interrupt_status(uint16_t& interrupt_flags, uint16_t& last_interrupt_edge) {
+
+	typedef struct {
+		uint16_t int_flags;
+		uint16_t last_int_edge;
+	} AllInterruptStatus;
+
+	AllInterruptStatus all_int_status;
+
+	if (client.read(IOCX_REGISTER_BANK, offsetof(struct IOCX_REGS, gpio_intstat), all_int_status)) {
+		interrupt_flags = all_int_status.int_flags;
+		last_interrupt_edge = all_int_status.last_int_edge;
+		return true;
+	}
+	return false;
 }
 
 bool IOCXClient::get_timer_config(int timer_index, uint8_t& mode)
@@ -193,7 +205,7 @@ bool IOCXClient::get_timer_chx_ccr(int timer_index, int channel_index, uint16_t&
 bool IOCXClient::set_timer_chx_ccr(int timer_index, int channel_index, uint16_t value)
 {
 	if ( timer_index > get_num_timers()-1) return false;
-	if ( timer_index > get_num_channels_per_timer()-1) return false;
+	if ( channel_index > get_num_channels_per_timer()-1) return false;
 	return client.write(IOCX_REGISTER_BANK,
 			offsetof(struct IOCX_REGS, timer_aar) +
 			(timer_index * get_num_channels_per_timer() * sizeof(value)) +
@@ -206,7 +218,7 @@ bool IOCXClient::get_timer_status(int timer_index, uint8_t& value)
 	return client.read(IOCX_REGISTER_BANK, offsetof(struct IOCX_REGS, timer_status) + (timer_index * sizeof(value)), value);
 }
 
-bool IOCXClient::get_timer_counter(int timer_index, uint16_t& value)
+bool IOCXClient::get_timer_counter(int timer_index, int32_t& value)
 {
 	if ( timer_index > get_num_timers()-1) return false;
 	return client.read(IOCX_REGISTER_BANK, offsetof(struct IOCX_REGS, timer_counter) + (timer_index * sizeof(value)), value);

@@ -9,7 +9,7 @@
 #include "VMXChannelManager.h"
 #include "VMXResource.h"
 #include "VMXResourceConfig.h"
-#include "VMXHWOption.h"
+#include "Logging.h"
 #include <list>
 
 #define ARRAY_COUNT(x) (sizeof(x)/sizeof(x[0]))
@@ -55,28 +55,25 @@ static const UARTConfig				def_uart_cfg;
 static const SPIConfig				def_spi_cfg;
 static const I2CConfig				def_i2c_cfg;
 
-static const DIOHWOption			dio_hwopt;
-static const AccumulatorHWOption	acc_hwopt;
-
 static const VMXResourceDescriptor resource_descriptors[] =
 {
-	{	VMXResourceType::DigitalIO, 	VMX_PI,    	0,	&def_dio_cfg,		&dio_hwopt,	0,	12,	1, 1, NULL, 1	},
-	{	VMXResourceType::DigitalIO,		RPI,     	12,	&def_dio_cfg,		NULL,		12,	10,	1, 1, NULL, 1	},
-	{	VMXResourceType::DigitalIO,		RPI,     	12,	&def_dio_cfg,		NULL,		22,	 2,	1, 1, &rpi_uart_res_group, 2	},
-	{	VMXResourceType::DigitalIO,		RPI,     	12,	&def_dio_cfg,		NULL,		24,	 4,	1, 1, &rpi_spi_res_group, 4 },
-	{	VMXResourceType::Interrupt,		VMX_PI,		0,	&def_int_cfg,		NULL,		0,	16,	1, 1, NULL, 1	},
-	{	VMXResourceType::Interrupt,		RPI,		16,	&def_int_cfg,		NULL,		16,	16,	1, 1, NULL, 1	},
-	{	VMXResourceType::PWMGenerator,	VMX_PI,		0,	&def_pwmgen_cfg,	NULL,		0,	5,	1, 2, &stm32_adv_timer_res_group, 1 },
-	{	VMXResourceType::PWMGenerator,	VMX_PI,		0,	&def_pwmgen_cfg,	NULL,		5,	1,	1, 2, &stm32_basic_timer_res_group, 1 },
-	{	VMXResourceType::PWMGenerator,	RPI,		12,	&def_pwmgen_cfg,	NULL,		12,	16,	1, 1, NULL, 1	},
-	{	VMXResourceType::PWMCapture,	VMX_PI,		0,	&def_pwmcap_cfg,	NULL,		0,	5,	1, 1, &stm32_adv_timer_res_group, 1 },
-	{	VMXResourceType::PWMCapture,	VMX_PI,		0,	&def_pwmcap_cfg,	NULL,		5,	1,	1, 1, &stm32_basic_timer_res_group, 1 },
-	{	VMXResourceType::Encoder,		VMX_PI,		0,	&def_enc_cfg,		NULL,		0,	5,	2, 2, &stm32_adv_timer_res_group, 1 },
-	{	VMXResourceType::Accumulator,	VMX_PI,		0,	&def_accum_cfg,		&acc_hwopt,	0,	4,	1, 1, NULL, 1	},
-	{	VMXResourceType::AnalogTrigger,	VMX_PI,		0,	&def_antrig_cfg, 	NULL,		0,	4,	1, 1, NULL, 1	},
-	{	VMXResourceType::UART,			RPI,		0,	&def_uart_cfg,		NULL,		0,	1,	2, 2, &rpi_uart_res_group, 1	},
-	{	VMXResourceType::SPI,			RPI,		0,	&def_spi_cfg,		NULL,		0,	1,	4, 4, &rpi_spi_res_group, 1	},
-	{	VMXResourceType::I2C,			RPI,		0,	&def_i2c_cfg,		NULL,		0,	1,	2, 2, NULL, 1	},
+	{	VMXResourceType::DigitalIO, 	VMX_PI,    	0,	0,	1,	&def_dio_cfg,		0,	12,	1, 1, NULL, 1	},
+	{	VMXResourceType::DigitalIO,		RPI,     	12,	12, 1,	&def_dio_cfg,		12,	10,	1, 1, NULL, 1	},
+	{	VMXResourceType::DigitalIO,		RPI,     	12,	22, 1,	&def_dio_cfg,		22,	 2,	1, 1, &rpi_uart_res_group, 2	},
+	{	VMXResourceType::DigitalIO,		RPI,     	12,	24, 1,	&def_dio_cfg,		24,	 4,	1, 1, &rpi_spi_res_group, 4 },
+	{	VMXResourceType::Interrupt,		VMX_PI,		0,	0,	1,	&def_int_cfg,		0,	16,	1, 1, NULL, 1	},
+	{	VMXResourceType::Interrupt,		RPI,		16,	16,	1,	&def_int_cfg,		16,	16,	1, 1, NULL, 1	},
+	{	VMXResourceType::PWMGenerator,	VMX_PI,		0,	0,	2,	&def_pwmgen_cfg,	0,	5,	1, 2, &stm32_adv_timer_res_group, 1 },
+	{	VMXResourceType::PWMGenerator,	VMX_PI,		0,	10,	2,	&def_pwmgen_cfg,	5,	1,	1, 2, &stm32_basic_timer_res_group, 1 },
+	{	VMXResourceType::PWMGenerator,	RPI,		6,	16,	1,	&def_pwmgen_cfg,	6,	16,	1, 1, NULL, 1	},
+	{	VMXResourceType::PWMCapture,	VMX_PI,		0,	0,	2,	&def_pwmcap_cfg,	0,	5,	1, 1, &stm32_adv_timer_res_group, 1 },
+	{	VMXResourceType::PWMCapture,	VMX_PI,		0,	10,	2,	&def_pwmcap_cfg,	5,	1,	1, 1, &stm32_basic_timer_res_group, 1 },
+	{	VMXResourceType::Encoder,		VMX_PI,		0,	0,	2,	&def_enc_cfg,		0,	4/*5*/,	2, 2, &stm32_adv_timer_res_group, 1 },
+	{	VMXResourceType::Accumulator,	VMX_PI,		0,	12,	1,	&def_accum_cfg,		0,	4,	1, 1, NULL, 1	},
+	{	VMXResourceType::AnalogTrigger,	VMX_PI,		0,	0,	1,	&def_antrig_cfg, 	0,	4,	1, 1, NULL, 1	},
+	{	VMXResourceType::UART,			RPI,		0,	22,	2,	&def_uart_cfg,		0,	1,	2, 2, &rpi_uart_res_group, 1	},
+	{	VMXResourceType::SPI,			RPI,		0,	24,	4,	&def_spi_cfg,		0,	1,	4, 4, &rpi_spi_res_group, 1	},
+	{	VMXResourceType::I2C,			RPI,		0,	32,	2,	&def_i2c_cfg,		0,	1,	2, 2, NULL, 1	},
 };
 
 typedef struct {
@@ -86,7 +83,8 @@ typedef struct {
 } VMXChannelCapabilityToResourceTypeMap;
 
 static const VMXChannelCapabilityToResourceTypeMap channel_cap_to_res_type_map[] = {
-	{ VMXChannelCapability::DIO,	 			VMXResourceType::DigitalIO,		0 },
+	{ VMXChannelCapability::DigitalInput,		VMXResourceType::DigitalIO,		0 },
+	{ VMXChannelCapability::DigitalOutput,		VMXResourceType::DigitalIO,		0 },
 	{ VMXChannelCapability::PWMGeneratorOutput, VMXResourceType::PWMGenerator, 	0 },
 	{ VMXChannelCapability::PWMGeneratorOutput2,VMXResourceType::PWMGenerator, 	1 },
 	{ VMXChannelCapability::PWMCaptureInput, 	VMXResourceType::PWMCapture, 	0 },
@@ -105,15 +103,30 @@ static const VMXChannelCapabilityToResourceTypeMap channel_cap_to_res_type_map[]
 	{ VMXChannelCapability::I2C_SCL, 			VMXResourceType::I2C, 			1 },
 };
 
+typedef struct {
+	VMXChannelType channel_type;
+	VMXResourceProviderType provider_type;
+} VMXChannelTypeToVMXResourceProviderTypeMap;
+
+static const VMXChannelTypeToVMXResourceProviderTypeMap chan_type_to_res_prov_type_map[] =
+{
+	{ IOCX_D, VMX_PI },
+	{ IOCX_A, VMX_PI },
+	{ PIGPIO, RPI },
+};
+
 VMXResourceManager::VMXResourceManager()
 {
 	for ( size_t i = 0; i < (sizeof(resource_descriptors) / sizeof(resource_descriptors[0])); i++ ) {
+		VMXChannelIndex first_channel_index = resource_descriptors[i].first_channel_index;
 		for ( int j = 0; j < resource_descriptors[i].resource_count; j++) {
+			VMXResourceIndex new_res_index = VMXResourceIndex(resource_descriptors[i].resource_index_first + j);
 			VMXResourceHandle new_res_handle =
-					CREATE_VMX_RESOURCE_HANDLE(resource_descriptors[i].type, resource_descriptors[i].resource_num_first + j);
-			VMXResource *p_resource = new VMXResource(resource_descriptors[i], VMXResourceIndex(j));
+					CREATE_VMX_RESOURCE_HANDLE(resource_descriptors[i].type, new_res_index);
+			VMXResource *p_resource = new VMXResource(resource_descriptors[i], new_res_index, VMXChannelIndex(first_channel_index));
 			resources.push_back(p_resource);
 			resource_handle_to_resource_map[new_res_handle] = p_resource;
+			first_channel_index += resource_descriptors[i].num_channels;
 		}
 	}
 }
@@ -130,14 +143,13 @@ bool VMXResourceManager::GetChannelChapabilitiesByResourceType(VMXResourceType r
 	channel_capability_bits = VMXChannelCapability::None;
 	for (size_t i = 0; i < (sizeof(channel_cap_to_res_type_map)/sizeof(channel_cap_to_res_type_map[0])); i++ ) {
 		if(channel_cap_to_res_type_map[i].resource_type == res_type) {
-			channel_capability_bits = VMXCapabilityOr(channel_capability_bits, channel_cap_to_res_type_map[i].channel_capability);
-			break;
+			channel_capability_bits = VMXChannelCapabilityOr(channel_capability_bits, channel_cap_to_res_type_map[i].channel_capability);
 		}
 	}
 	return (channel_capability_bits != VMXChannelCapability::None);
 }
 
-bool VMXResourceManager::GetResourceTypeAndPortIndexForChannelCapability(VMXChannelCapability channel_capability_bit, VMXResourceType resource_type, VMXResourcePortIndex& resource_port) {
+bool VMXResourceManager::GetPortIndexForResourceTypeAndChannelCapability(VMXChannelCapability channel_capability_bit, VMXResourceType resource_type, VMXResourcePortIndex& resource_port) {
 	for (size_t i = 0; i < (sizeof(channel_cap_to_res_type_map)/sizeof(channel_cap_to_res_type_map[0])); i++ ) {
 		if(channel_cap_to_res_type_map[i].channel_capability & channel_capability_bit) {
 			if(channel_cap_to_res_type_map[i].resource_type == resource_type) {
@@ -151,7 +163,7 @@ bool VMXResourceManager::GetResourceTypeAndPortIndexForChannelCapability(VMXChan
 
 bool VMXResourceManager::GetResourcePortIndexByChannelCapability(VMXResource *p_resource, VMXChannelCapability channel_capability_bit, VMXResourcePortIndex& resource_port ) {
 	VMXResourceType res_type = p_resource->GetResourceType();
-	return GetResourceTypeAndPortIndexForChannelCapability(channel_capability_bit, res_type, resource_port);
+	return GetPortIndexForResourceTypeAndChannelCapability(channel_capability_bit, res_type, resource_port);
 }
 
 /* If this resource's ResourceDescriptor.max_num_routable_channel_slots != 1 the shared resource ResourceDescriptor.max_num_routable_channel_slots */
@@ -204,13 +216,114 @@ VMXResource *VMXResourceManager::GetVMXResource(VMXResourceHandle vmx_res_handle
 	return NULL;
 }
 
-VMXChannelCapability VMXResourceManager::GetCompatibleChannelCapabilityBit(VMXChannelIndex channel_index, VMXResource *p_resource)
+VMXResource *VMXResourceManager::GetVMXResourceAndVerifyType(VMXResourceHandle vmx_res_handle, VMXResourceType vmx_res_type) {
+	VMXResource *p_vmx_res = GetVMXResource(vmx_res_handle);
+	if ((!p_vmx_res) || (p_vmx_res->GetResourceType() != vmx_res_type)) {
+		return 0;
+	}
+	return p_vmx_res;
+}
+
+
+VMXChannelCapability VMXResourceManager::GetCompatibleChannelCapabilityBits(VMXChannelIndex channel_index, VMXResource *p_resource)
 {
 	VMXChannelCapability res_channel_caps = VMXChannelCapability::None;
 	if (GetChannelChapabilitiesByResourceType(p_resource->GetResourceType(), res_channel_caps)) {
 		VMXChannelCapability channel_caps = VMXChannelManager::GetChannelCapabilityBits(channel_index);
-		res_channel_caps = VMXCapabilityAnd(res_channel_caps, channel_caps);
+		res_channel_caps = VMXChannelCapabilityAnd(res_channel_caps, channel_caps);
 	}
 	return res_channel_caps;
 }
 
+bool VMXResourceManager::GetResourceHandle(VMXResourceType resource_type, VMXResourceIndex res_index, VMXResourceHandle& resource_handle, VMXErrorCode *errcode)
+{
+	if (resource_type == VMXResourceType::Undefined) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_TYPE);
+		return false;
+	}
+	if (int(resource_type) >= int(VMXResourceType::MaxVMXResourceType)) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_TYPE);
+		return false;
+	}
+
+	if (res_index >= VMXResourceManager::GetMaxNumResources(resource_type)) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_INDEX);
+	}
+
+	resource_handle = CREATE_VMX_RESOURCE_HANDLE(resource_type, res_index);
+	return true;
+}
+
+bool VMXResourceManager::GetResourcesCompatibleWithChannelAndCapability(VMXChannelIndex channel_index, VMXChannelCapability channel_capability, std::list<VMXResourceHandle>& compatible_res_handles, VMXErrorCode *errcode)
+{
+	bool success = false;
+	VMXChannelType channel_type;
+	VMXResourceProviderType res_provider_type;
+	uint8_t provider_specific_channel_index;
+	if (!VMXChannelManager::GetChannelTypeAndProviderSpecificIndex(channel_index, channel_type, provider_specific_channel_index)) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_CHANNEL_TYPE);
+		return false;
+	}
+	if (!GetResourceProviderTypeFromChannelType(channel_type, res_provider_type)) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_PROVIDER_TYPE);
+		return false;
+	}
+
+	std::list<VMXResourceType> compatible_resource_types;
+	for (size_t i = 0; i < (sizeof(channel_cap_to_res_type_map)/sizeof(channel_cap_to_res_type_map[0])); i++ ) {
+		if(channel_cap_to_res_type_map[i].channel_capability & channel_capability) {
+			compatible_resource_types.push_back(channel_cap_to_res_type_map[i].resource_type);
+		}
+	}
+	if (compatible_resource_types.size() < 1) {
+		log_debug("No compatible resource types found for Channel capability %d\n", channel_capability);
+	}
+
+	for (std::list<VMXResourceType>::iterator it = compatible_resource_types.begin(); it != compatible_resource_types.end(); ++it) {
+		for (size_t i = 0; i < (sizeof(resource_descriptors)/sizeof(resource_descriptors[0])); i++ ) {
+			if (resource_descriptors[i].type == (*it)) {
+				if ( resource_descriptors[i].provider_type == res_provider_type) {
+					VMXChannelIndex resource_first_channel_index = resource_descriptors[i].first_channel_index;
+					VMXChannelIndex resource_last_channel_index = resource_descriptors[i].first_channel_index +
+							(resource_descriptors[i].resource_count * resource_descriptors[i].num_channels) - 1;
+					if ((channel_index >= resource_first_channel_index) &&
+						(channel_index <= resource_last_channel_index)) {
+						/* Match */
+						VMXResourceIndex res_index = (channel_index - resource_first_channel_index) / resource_descriptors[i].max_num_ports;
+						VMXResourceHandle compatible_res_handle = CREATE_VMX_RESOURCE_HANDLE(resource_descriptors[i].type, res_index);
+						compatible_res_handles.push_back(compatible_res_handle);
+						success = true;
+					} else {
+						log_debug("channel index %d is not within range of Resource Descriptor %d's first (%d) and last (%d) channel index\n",
+								channel_index,
+								i,
+								resource_first_channel_index,
+								resource_last_channel_index);
+					}
+				}
+			}
+		}
+	}
+	if (!success) {
+		SET_VMXERROR(errcode, VMXERR_IO_CHANNEL_RESOURCE_INCOMPATIBILITY);
+	}
+	return success;
+}
+
+bool VMXResourceManager::GetChannelsCompatibleWithResource(VMXResourceHandle resource_handle, VMXChannelIndex& first_channel_index, uint8_t& num_channels)
+{
+	VMXResource *p_vmx_resource = GetVMXResource(resource_handle);
+	if (!p_vmx_resource) return false;
+	return p_vmx_resource->GetRoutableChannelIndexes(first_channel_index, num_channels);
+}
+
+
+bool VMXResourceManager::GetResourceProviderTypeFromChannelType(VMXChannelType chan_type, VMXResourceProviderType& res_provider_type) {
+	for (size_t i = 0; i < (sizeof(chan_type_to_res_prov_type_map)/sizeof(chan_type_to_res_prov_type_map[0])); i++ ) {
+		if (chan_type_to_res_prov_type_map[i].channel_type == chan_type) {
+			res_provider_type = chan_type_to_res_prov_type_map[i].provider_type;
+			return true;
+		}
+	}
+	return false;
+}
