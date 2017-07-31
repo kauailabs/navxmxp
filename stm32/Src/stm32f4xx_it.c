@@ -170,9 +170,8 @@ void SysTick_Handler(void)
 
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
+#if 0
   HAL_SYSTICK_IRQHandler(); /* Todo:  not used, remove */
-#ifdef ENABLE_IOCX
-  HAL_IOCX_DetectGPIOEdges();
 #endif
   /* USER CODE BEGIN SysTick_IRQn 1 */
 
@@ -240,13 +239,71 @@ void USART6_IRQHandler(void)
 }
 
 /**
+* @brief This function handles EXTI Line[0] interrupt.
+*/
+void EXTI0_IRQHandler(void)
+{
+  HAL_NVIC_ClearPendingIRQ(EXTI0_IRQn);
+#ifdef GPIO_MAP_NAVX_PI
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0); /*  */
+#endif
+}
+
+/**
+* @brief This function handles EXTI Line[1] interrupt.
+*/
+void EXTI1_IRQHandler(void)
+{
+  HAL_NVIC_ClearPendingIRQ(EXTI1_IRQn);
+#ifdef GPIO_MAP_NAVX_PI
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1); /*  */
+#endif
+}
+
+/**
+* @brief This function handles EXTI Line[2] interrupt.
+*/
+void EXTI2_IRQHandler(void)
+{
+  HAL_NVIC_ClearPendingIRQ(EXTI2_IRQn);
+#ifdef GPIO_MAP_NAVX_PI
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_2); /*  */
+#endif
+}
+
+/**
+* @brief This function handles EXTI Line[3] interrupt.
+*/
+void EXTI3_IRQHandler(void)
+{
+  HAL_NVIC_ClearPendingIRQ(EXTI3_IRQn);
+#ifdef GPIO_MAP_NAVX_PI
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_3); /*  */
+#endif
+  }
+
+/**
+* @brief This function handles EXTI Line[4] interrupt.
+*/
+void EXTI4_IRQHandler(void)
+{
+  HAL_NVIC_ClearPendingIRQ(EXTI4_IRQn);
+#ifdef GPIO_MAP_NAVX_PI
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_4); /*  */
+#endif
+}
+
+/**
 * @brief This function handles EXTI Line[9:5] interrupts.
 */
 void EXTI9_5_IRQHandler(void)
 {
   HAL_NVIC_ClearPendingIRQ(EXTI9_5_IRQn);
-
-  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_7); /* MCP25625 Interrupt on navX-PI */
+#ifdef GPIO_MAP_NAVX_PI
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_5); /*  */
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_6); /*  */
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_7); /*  */
+#endif
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_8); /* MPU9250 on navX-MXP, navX-PI */
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_9); /* CAL BTN on navX-MXP */
 }

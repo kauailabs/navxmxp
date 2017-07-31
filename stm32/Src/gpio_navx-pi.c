@@ -175,6 +175,17 @@ void MX_GPIO_Init_NavX_PI(void)
   HAL_GPIO_WritePin(_RPI_GPIO_OE2_GPIO_Port, _RPI_GPIO_OE2_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(_COMM_OE1_GPIO_Port, _COMM_OE1_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(COMM_OE2_GPIO_Port, COMM_OE2_Pin, GPIO_PIN_RESET);
+
+  HAL_NVIC_EnableIRQ((IRQn_Type)EXTI0_IRQn);
+  HAL_NVIC_SetPriority((IRQn_Type)EXTI0_IRQn, 6, 0);
+  HAL_NVIC_EnableIRQ((IRQn_Type)EXTI1_IRQn);
+  HAL_NVIC_SetPriority((IRQn_Type)EXTI1_IRQn, 6, 0);
+  HAL_NVIC_EnableIRQ((IRQn_Type)EXTI2_IRQn);
+  HAL_NVIC_SetPriority((IRQn_Type)EXTI2_IRQn, 6, 0);
+  HAL_NVIC_EnableIRQ((IRQn_Type)EXTI3_IRQn);
+  HAL_NVIC_SetPriority((IRQn_Type)EXTI3_IRQn, 6, 0);
+  HAL_NVIC_EnableIRQ((IRQn_Type)EXTI4_IRQn);
+  HAL_NVIC_SetPriority((IRQn_Type)EXTI4_IRQn, 6, 0);
 }
 
 /* USER CODE BEGIN 2 */

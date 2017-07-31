@@ -104,9 +104,11 @@
 #define _COMM_OE1_Pin GPIO_PIN_1
 #define _COMM_OE1_GPIO_Port GPIOA
 
+/* IOCX Interrupt Signal */
 #define NAVX_2_RPI_INT4_Pin GPIO_PIN_10
 #define NAVX_2_RPI_INT4_GPIO_Port GPIOA
 
+/* AHRS Interrupt Signal */
 #define NAVX_2_RPI_INT2_Pin GPIO_PIN_8
 #define NAVX_2_RPI_INT2_GPIO_Port GPIOC
 
@@ -125,6 +127,7 @@
 #define RPI_GPIO_DIR_IN_Pin GPIO_PIN_8
 #define RPI_GPIO_DIR_IN_GPIO_Port GPIOB
 
+/* CAN Interrupt Signal */
 #define NAVX_2_RPI_INT3_Pin GPIO_PIN_2
 #define NAVX_2_RPI_INT3_GPIO_Port GPIOD
 

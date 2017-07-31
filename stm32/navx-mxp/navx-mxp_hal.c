@@ -267,28 +267,28 @@ void HAL_SPI_Comm_Ready_Deassert()
 void HAL_CAN_Int_Assert()
 {
 #ifdef CAN_INTERRUPT
-	/* TODO */
+	  HAL_GPIO_WritePin(NAVX_2_RPI_INT3_GPIO_Port, NAVX_2_RPI_INT3_Pin, GPIO_PIN_RESET);
 #endif
 }
 
 void HAL_CAN_Int_Deassert()
 {
 #ifdef CAN_INTERRUPT
-	/* TODO */
+	  HAL_GPIO_WritePin(NAVX_2_RPI_INT3_GPIO_Port, NAVX_2_RPI_INT3_Pin, GPIO_PIN_SET);
 #endif
 }
 
 void HAL_AHRS_Int_Assert()
 {
 #ifdef AHRS_INTERRUPT
-	/* TODO */
+	  HAL_GPIO_WritePin(NAVX_2_RPI_INT2_GPIO_Port, NAVX_2_RPI_INT2_Pin, GPIO_PIN_RESET);
 #endif
 }
 
 void HAL_AHRS_Int_Deassert()
 {
 #ifdef AHRS_INTERRUPT
-	/* TODO */
+	  HAL_GPIO_WritePin(NAVX_2_RPI_INT2_GPIO_Port, NAVX_2_RPI_INT2_Pin, GPIO_PIN_SET);
 #endif
 }
 
@@ -396,47 +396,8 @@ static GPIO_Channel gpio_channels[IOCX_NUM_GPIOS] =
 #define SWED_INTERRUPT_BIT_MASK		    	0x03A0
 #define ANALOG_TRIGGER_INTERRUPT_BIT_MASK	0xF000
 
-/* Software Edge Detector Configuration Section */
-
-typedef struct {
-	volatile uint32_t *p_GpioInputDataReg;
-	uint32_t last_masked_data;
-	uint32_t gpio_input_mask;
-	IOCX_GPIO_INTERRUPT interrupt_mode;
-	uint32_t interrupt_bit;
-} SoftwareEdgeDetector;
-
-SoftwareEdgeDetector *p_edge_detector = 0;
-uint32_t edge_detector_int_bits = 0;
-uint8_t edge_detector_count = 0;
-
 void HAL_IOCX_Init()
 {
-	int swed_count = 0;
-	int i;
-	for (i = 0; i < sizeof(gpio_channels)/sizeof(gpio_channels[0]); i++) {
-		if (gpio_channels[i].interrupt_type == INT_SWED) {
-			swed_count++;
-		}
-	}
-	if(swed_count > 0) {
-		edge_detector_count = swed_count;
-		int swed_index = 0;
-		p_edge_detector =
-			(SoftwareEdgeDetector *)malloc(swed_count * sizeof(SoftwareEdgeDetector));
-		for (i = 0; i < sizeof(gpio_channels)/sizeof(gpio_channels[0]); i++) {
-			if (gpio_channels[i].interrupt_type == INT_SWED) {
-				p_edge_detector[swed_index].p_GpioInputDataReg =
-					&gpio_channels[i].p_gpio->IDR;
-				p_edge_detector[swed_index].last_masked_data = 0;
-				p_edge_detector[swed_index].gpio_input_mask =
-					gpio_channels[i].pin;
-				p_edge_detector[swed_index].interrupt_mode = GPIO_INTERRUPT_DISABLED;
-				p_edge_detector[swed_index].interrupt_bit = (1 << i);
-				edge_detector_int_bits |= p_edge_detector[swed_index].interrupt_bit;
-			}
-		}
-	}
 }
 
 void HAL_IOCX_Ext_Power_Enable(int enable)
@@ -489,29 +450,11 @@ int HAL_IOCX_Ext_Power_Fault()
  * - Interrupt Status
  * - Interrupt Assertion GPIO Pin (Active Low)
  *
- * Three separate interrupt "edge detection" methods are used:
+ * Two separate interrupt "edge detection" methods are used:
  *
  * 1) IOCX Hardware Interrupts:
  *
  * An ISR handles STM32 EXTI interrupts on configured GPIO edges.
- *
- * 2) IOCX Software Edge Detector:
- *
- * NOTE:  W/a layout change forcing the 12 GPIOs onto unique channels, all
- * but 1 of the Software Edge Detector channels can be moved to HW Interrupts.
- *
- * STM32's NVIC only allows one interrupt from any of the 16 GPIO Channels.
- * However, there are 8 possible banks (A-H) whose inputs are muxed.
- * Therefore, whenever interrupts are required from GPIO Pins which share
- * the same GPIO Channel, interrupt handling is only supported on one.
- *
- * A "Software Edge Detector" mechanism is provided to detect edges on
- * these "shared GPIO Channels", and to optionally generate a GPIO
- * Interrupt when edges occur.
- *
- * Note:  The "Software Edge Detector" executes once every millisecond from
- * the Systick interrupt handler.  This must be high performance to avoid
- * impacting overall STM32 firmware performance.
  *
  * 3) Analog Triggering:
  *
@@ -523,16 +466,15 @@ int HAL_IOCX_Ext_Power_Fault()
 
 static volatile uint32_t int_status = 0;  /* Todo:  Review Race Conditions */
 static volatile uint32_t int_mask = 0; /* Todo:  Review Race Conditions */
-static const volatile uint32_t *int_request_gpio_bank = &GPIOC->ODR; /* Todo: get symbol from map? */
+static volatile uint32_t *int_request_gpio_bank = &GPIOC->ODR; /* Todo: get symbol from map? */
 static const uint32_t int_request_bit = GPIO_PIN_8; /* Todo:  get symbol from map? */
 
 void HAL_IOCX_AssertInterruptSignal()
 {
 	/* Assert Interrupt Pin */
-#if 0 /* TODO:  Enable once VMX-pi w/additional INT pins is ready. */
 	uint32_t curr_gpio_outdata = *int_request_gpio_bank;
 	*int_request_gpio_bank = curr_gpio_outdata | int_request_bit;
-#endif
+	HAL_GPIO_WritePin(NAVX_2_RPI_INT4_GPIO_Port, NAVX_2_RPI_INT4_Pin,GPIO_PIN_RESET);
 }
 
 /* Todo:  For performance, inline and move these to header file. */
@@ -551,10 +493,9 @@ void HAL_IOCX_AssertInterrupt(uint32_t new_int_status_bits)
 
 void HAL_IOCX_DeassertInterruptSignal()
 {
-#if 0 /* TODO:  Enable once VMX-pi w/additional INT pins is ready. */
 	uint32_t curr_gpio_outdata = *int_request_gpio_bank;
 	*int_request_gpio_bank = curr_gpio_outdata & ~int_request_bit;
-#endif
+	HAL_GPIO_WritePin(NAVX_2_RPI_INT4_GPIO_Port, NAVX_2_RPI_INT4_Pin,GPIO_PIN_SET);
 }
 
 void HAL_IOCX_DeassertInterrupt(uint32_t int_bits_to_clear) {
@@ -575,57 +516,6 @@ void HAL_IOCX_UpdateInterruptMask(uint32_t int_bits) {
 	}
 	/* Todo:  Disable SoftwareEdgeDetector if none are masked in? */
 	/* TOdo:  use mask in GPIO EXTI ISRs to avoid unnecessary dispatch */
-}
-
-static void ConfigureSoftwareEdgeDetector(int gpio_channel_index,
-										  IOCX_GPIO_INTERRUPT interrupt_mode)
-{
-	if (!p_edge_detector) return;
-	if (gpio_channel_index >= IOCX_NUM_GPIOS) return;
-
-	int gpio_interrupt_index = gpio_channels[gpio_channel_index].interrupt_index;
-
-	int i;
-	uint32_t gpio_int_status_bit = 1 << gpio_interrupt_index;
-	for (i = 0; i < edge_detector_count; i++) {
-		if(p_edge_detector[i].interrupt_bit == gpio_int_status_bit) {
-			p_edge_detector[i].interrupt_mode = interrupt_mode;
-			break;
-		}
-	}
-}
-
-/* Note:  This function is invoked from a high-priority (Sys Tick) ISR.    */
-/* Thus, it must be performant, and must protect against unsafe re-entrant */
-/* behavior.  Someday it might even be re-written in assembly language!    */
-void HAL_IOCX_DetectGPIOEdges()
-{
-	int i;
-	uint32_t modified_int_status = 0;
-
-	if (!(int_mask & SWED_INTERRUPT_BIT_MASK)) return;
-
-	for (i = 0; i < edge_detector_count; i++) {
-		SoftwareEdgeDetector *p_detector = &p_edge_detector[i];
-		uint32_t curr_masked_data = *(p_detector->p_GpioInputDataReg) & p_detector->gpio_input_mask;
-		if (curr_masked_data != p_detector->last_masked_data) {
-			/* Change detected */
-			uint32_t interrupt_mode = p_detector->interrupt_mode;
-			if((interrupt_mode == GPIO_INTERRUPT_BOTH_EDGES) ||
-			   ((interrupt_mode == GPIO_INTERRUPT_RISING_EDGE) && (curr_masked_data)) ||
-			   ((interrupt_mode == GPIO_INTERRUPT_FALLING_EDGE) && (!curr_masked_data))) {
-				/* Desired Edge detected */
-				if(int_mask & p_detector->interrupt_bit) {
-					/* This interrupt bit is masked in */
-					modified_int_status |= p_detector->interrupt_bit;
-				}
-			}
-			p_detector->last_masked_data = curr_masked_data;
-		}
-	}
-	if (modified_int_status) {
-		HAL_IOCX_AssertInterrupt(modified_int_status);
-	}
 }
 
 uint32_t HAL_IOCX_GetInterruptMask() {
@@ -723,8 +613,6 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 			case GPIO_INTERRUPT_DISABLED:
 				break;
 			}
-		} else if ( gpio_channels[gpio_index].interrupt_type == INT_SWED) {
-			ConfigureSoftwareEdgeDetector(gpio_index, interrupt_mode);
 		}
 		break;
 	case GPIO_TYPE_OUTPUT_PUSHPULL:

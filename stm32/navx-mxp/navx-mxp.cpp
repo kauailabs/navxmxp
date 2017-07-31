@@ -481,7 +481,8 @@ _EXTERN_ATTRIB void nav10_init()
 
     /* NavX-PI:  Enable EXTI on pins 10-15 */
     if((MPU9250_INT_Pin > GPIO_PIN_9) ||(CAL_BTN_Pin > GPIO_PIN_9)) {
-    	HAL_NVIC_EnableIRQ((IRQn_Type)EXTI15_10_IRQn);
+        HAL_NVIC_SetPriority((IRQn_Type)EXTI15_10_IRQn, 5, 0);
+        HAL_NVIC_EnableIRQ((IRQn_Type)EXTI15_10_IRQn);
     }
 
     /* Initiate Data Reception on slave SPI Interface, if it is enabled. */

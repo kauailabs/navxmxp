@@ -152,7 +152,6 @@ int HAL_IOCX_Ext_Power_Fault(); /* Returns 0 if no ext power fault has occurred,
 void HAL_IOCX_RPI_GPIO_Driver_Enable(int enable);
 void HAL_IOCX_RPI_COMM_Driver_Enable(int enable);
 void HAL_IOCX_Init();
-void HAL_IOCX_DetectGPIOEdges();
 void HAL_IOCX_AssertInterrupt(uint32_t int_bits_to_set);
 void HAL_IOCX_DeassertInterrupt(uint32_t int_bits_to_clear);
 void HAL_IOCX_UpdateInterruptMask(uint32_t int_new_mask);
