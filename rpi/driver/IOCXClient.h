@@ -38,7 +38,7 @@ public:
 	bool get_capability_flags(IOCX_CAPABILITY_FLAGS& value);
 	bool get_interrupt_config(uint16_t& value);
 	bool set_interrupt_config(uint16_t value);
-	bool get_gpio_interrupt_status(uint16_t& value);
+	bool get_gpio_interrupt_status(uint16_t& interrupt_flags, uint16_t& last_interrupt_edge);
 	bool get_timer_config(int timer_index, uint8_t& mode);
 	bool set_timer_config(int timer_index, uint8_t mode);
 	bool get_timer_control(int timer_index, IOCX_TIMER_COUNTER_RESET& mode);
@@ -50,7 +50,7 @@ public:
 	bool get_timer_chx_ccr(int timer_index, int channel_index, uint16_t& value);
 	bool set_timer_chx_ccr(int timer_index, int channel_index, uint16_t value);
 	bool get_timer_status(int timer_index, uint8_t& value);
-	bool get_timer_counter(int timer_index, uint16_t& value);
+	bool get_timer_counter(int timer_index, int32_t& value);
 
 	virtual ~IOCXClient() {}
 };

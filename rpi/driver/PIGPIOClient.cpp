@@ -191,10 +191,14 @@ uint32_t PIGPIOClient::GetCurrentMicrosecondTicks()
 }
 
 uint64_t PIGPIOClient::GetTotalCurrentMicrosecondTicks() {
-	uint64_t bigtimestamp = (uint64_t)gpioTickHigh();
+	uint64_t bigtimestamp = (uint64_t)GetCurrentMicrosecondTicksHighPortion();
 	bigtimestamp <<= 32;
 	bigtimestamp += gpioTick();
 	return bigtimestamp;
+}
+
+uint32_t PIGPIOClient::GetCurrentMicrosecondTicksHighPortion() {
+	return gpioTickHigh();
 }
 
 uint32_t PIGPIOClient::Delay(uint32_t delay_us)

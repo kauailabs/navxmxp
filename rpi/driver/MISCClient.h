@@ -15,6 +15,8 @@
 #include "MISCRegisters.h"
 
 class MISCClient {
+	friend class Power;
+	friend class SystemTime;
 private:
 	SPIClient& client;
 	MISC_CAPABILITY_FLAGS cap_flags;
@@ -24,19 +26,8 @@ public:
 
 	bool get_capability_flags(MISC_CAPABILITY_FLAGS& value);
 
-	/* ExtPower */
-
-	bool get_extpower_ctl_status(MISC_EXT_PWR_CTL_STATUS& value);
-	bool get_extpower_voltage(float& ext_power_volts);
-	bool get_extpower_cfg(MISC_EXT_PWR_CTL_CFG& extpower_cfg);
-	bool set_extpower_cfg(MISC_EXT_PWR_CTL_CFG extpower_cfg);
-
-	/* RTC */
-
-	bool get_rtc_time(uint8_t& hours, uint8_t& minutes, uint8_t& seconds, uint32_t& subseconds);
-	bool get_rtc_date(uint8_t& weekday, uint8_t& day, uint8_t& month, uint8_t& year);
-	bool set_rtc_time(uint8_t hours, uint8_t minutes, uint8_t seconds);
-	bool set_rtc_date(uint8_t weekday, uint8_t day, uint8_t month, uint8_t year);
+	/* Analog Input Configuration */
+	bool GetAnalogInputFullScaleVoltage(float& full_scale_voltage);
 
 	/* Analog Triggers */
 
@@ -62,6 +53,19 @@ public:
 
 	bool get_accumulator_avg_voltage(uint8_t accumulator_num, float& avg_voltage);
 	bool get_accumulator_instataneous_voltage(uint8_t accumulator_num, float& instantaneous_voltage);
+
+protected:
+	/* ExtPower */
+	bool get_extpower_ctl_status(MISC_EXT_PWR_CTL_STATUS& value);
+	bool get_extpower_voltage(float& ext_power_volts);
+	bool get_extpower_cfg(MISC_EXT_PWR_CTL_CFG& extpower_cfg);
+	bool set_extpower_cfg(MISC_EXT_PWR_CTL_CFG extpower_cfg);
+
+	/* RTC */
+	bool get_rtc_time(uint8_t& hours, uint8_t& minutes, uint8_t& seconds, uint32_t& subseconds);
+	bool get_rtc_date(uint8_t& weekday, uint8_t& day, uint8_t& month, uint8_t& year);
+	bool set_rtc_time(uint8_t hours, uint8_t minutes, uint8_t seconds);
+	bool set_rtc_date(uint8_t weekday, uint8_t day, uint8_t month, uint8_t year);
 };
 
 #endif /* MISCCLIENT_H_ */

@@ -46,7 +46,7 @@ public:
 
 	PIGPIOClient(IPIGPIOInterruptSink& interrupt_sink);
 
-	bool is_open() { return pigpio_initialized; }
+	bool IsOpen() { return pigpio_initialized; }
 
 	uint8_t get_max_num_external_gpio_interrupts() {
 		return (VMX_NUM_EXT_GPIO_PINS +
@@ -76,6 +76,7 @@ public:
 
 	uint32_t GetCurrentMicrosecondTicks();
 	uint64_t GetTotalCurrentMicrosecondTicks();
+	uint32_t GetCurrentMicrosecondTicksHighPortion();
 	uint32_t Delay(uint32_t delay_us);
 
 	bool RegisterTimerNotification(int notification_slot /* 0-9 */, PIGPIOClientTimerFuncEx_t handler, unsigned millis, void *param);
