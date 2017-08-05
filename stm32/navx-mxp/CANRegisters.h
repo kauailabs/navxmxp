@@ -42,7 +42,7 @@ typedef struct {
 	/* NOTE:  The following errors are auto-cleared by the CAN hardware.      */
 	uint8_t	can_bus_warn	: 1; /* Rx or Tx error count > 96			  	  */
 	uint8_t can_bus_err_pasv: 1; /* Rx or Tx error count > 128            	  */
-	uint8_t can_bux_tx_off  : 1; /* Tx error count == 255.  Note:  Will   	  */
+	uint8_t can_bus_tx_off  : 1; /* Tx error count == 255.  Note:  Will   	  */
 								 /* auto-recover.  RESET to force clear. 	  */
 	uint8_t					: 5;
 } CAN_ERROR_FLAGS;
