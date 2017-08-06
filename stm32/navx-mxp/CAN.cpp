@@ -57,7 +57,7 @@ _EXTERN_ATTRIB void CAN_init()
 	can_regs.capability_flags.unused = 0;
 	p_CAN = new CANInterface();
 	p_CAN->register_interrupt_flag_function(CAN_ISR_Flag_Function); /* Updated in ISR */
-	p_CAN->init(CAN_MODE_LOOP);
+	p_CAN->init(CAN_MODE_NORMAL);
 	HAL_CAN_Status_LED_On(1);
 }
 
@@ -103,6 +103,7 @@ _EXTERN_ATTRIB void CAN_loop()
 				CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
 			}
 		}
+		can_regs.bus_off_count = p_CAN->get_bus_off_count();
 	}
 }
 
@@ -186,6 +187,7 @@ static void CAN_txfifo_write(uint8_t *p_data, uint8_t count) {
 				memcpy(&p_tx->transfer, p_data, sizeof(p_tx->transfer));
 				p_CAN->get_tx_fifo().enqueue_commit(p_tx);
 			} else {
+				can_regs.tx_full_count++;
 				break; /* Fifo now full */
 			}
 		}
@@ -198,11 +200,23 @@ static void CAN_int_enable_modified(uint8_t first_offset, uint8_t count) {
 
 static void CAN_opmode_modified(uint8_t first_offset, uint8_t count) {
 	if ((first_offset == 0) && (count > 0)) {
-		p_CAN->set_mode((CAN_MODE)can_regs.opmode);
-		/* Transitioning to/from CONFIG opmode from NORMAL mode may */
-		/* set some errors that need clearing. */
-		p_CAN->clear_rx_overflow();
-		p_CAN->clear_all_interrupt_flags();
+		CAN_MODE new_mode = (CAN_MODE)can_regs.opmode;
+		bool transition_from_config_mode = false;
+		if ((p_CAN->get_current_can_mode() == CAN_MODE_CONFIG) &&
+			(new_mode != CAN_MODE_CONFIG)) {
+			transition_from_config_mode = true;
+		}
+		p_CAN->set_mode(new_mode);
+		if (transition_from_config_mode) {
+			/* Transitioning to/from CONFIG opmode from NORMAL mode may */
+			/* set some errors that need clearing. */
+			bool rx_overflow;
+			p_CAN->get_errors(rx_overflow, can_regs.bus_error_flags, can_regs.tx_err_count, can_regs.rx_err_count);
+			if (rx_overflow) {
+				p_CAN->clear_rx_overflow();
+			}
+			p_CAN->clear_error_interrupt_flags();
+		}
 	}
 }
 

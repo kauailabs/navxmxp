@@ -33,6 +33,7 @@ THE SOFTWARE.
 #endif
 #ifdef ENABLE_RTC
 extern RTC_HandleTypeDef hrtc;
+static uint8_t s_daylight_savings = 0; /* Default: no daylight savings adjust */
 #endif
 
 void read_unique_id(struct unique_id *id)
@@ -299,6 +300,42 @@ void HAL_CAN_Status_LED_On(int on)
 #endif
 }
 
+void HAL_RTC_InitializeCache()
+{
+#ifdef ENABLE_RTC
+	RTC_TimeTypeDef sTime;
+	HAL_RTC_GetTime(&hrtc, &sTime, FORMAT_BIN);
+	switch (sTime.DayLightSaving)
+	{
+	case RTC_DAYLIGHTSAVING_SUB1H:
+		s_daylight_savings = 2;
+		break;
+	case RTC_DAYLIGHTSAVING_ADD1H:
+		s_daylight_savings = 1;
+		break;
+	default:
+		s_daylight_savings = 0;
+		break;
+	}
+#endif
+}
+
+void HAL_RTC_Get_DaylightSavings(uint8_t *daylight_savings)
+{
+#ifdef ENABLE_RTC
+	*daylight_savings = s_daylight_savings;
+#endif
+}
+
+void HAL_RTC_Set_DaylightSavings(uint8_t daylight_savings)
+{
+#ifdef ENABLE_RTC
+	/* NOTE:  This will take effect the next time SetTime() occurs. */
+	s_daylight_savings = daylight_savings;
+#endif
+}
+
+
 void HAL_RTC_Get_Time(uint8_t *hours, uint8_t *minutes, uint8_t *seconds, uint32_t *subseconds)
 {
 #ifdef ENABLE_RTC
@@ -315,6 +352,20 @@ void HAL_RTC_Set_Time(uint8_t hours, uint8_t minutes, uint8_t seconds)
 {
 #ifdef ENABLE_RTC
 	RTC_TimeTypeDef sTime;
+	switch (s_daylight_savings)
+	{
+	case 2:
+		sTime.DayLightSaving = RTC_DAYLIGHTSAVING_SUB1H;
+		break;
+	case 1:
+		sTime.DayLightSaving = RTC_DAYLIGHTSAVING_ADD1H;
+		break;
+	default:
+		sTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+		break;
+	}
+	sTime.TimeFormat = 0;
+	sTime.StoreOperation = RTC_STOREOPERATION_SET;
 	sTime.Hours = hours;
 	sTime.Minutes = minutes;
 	sTime.Seconds = seconds;
@@ -326,8 +377,6 @@ void HAL_RTC_Set_Date(uint8_t day, uint8_t date, uint8_t month, uint8_t year)
 {
 #ifdef ENABLE_RTC
 	RTC_DateTypeDef sDate;
-	RTC_HandleTypeDef hrtc;
-	hrtc.Instance = RTC;
 	sDate.WeekDay = day;
 	sDate.Date = date;
 	sDate.Month = month;
@@ -341,8 +390,6 @@ void HAL_RTC_Get_Date(uint8_t *weekday, uint8_t *date, uint8_t *month, uint8_t *
 {
 #ifdef ENABLE_RTC
 	RTC_DateTypeDef sDate;
-	RTC_HandleTypeDef hrtc;
-	hrtc.Instance = RTC;
 	HAL_RTC_GetDate(&hrtc, &sDate, FORMAT_BIN);
 	*weekday = sDate.WeekDay;
 	*date = sDate.Date;

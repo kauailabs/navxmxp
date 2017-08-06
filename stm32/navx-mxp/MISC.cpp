@@ -175,6 +175,8 @@ static void ext_pwr_ctl_cfg_modified(uint8_t first_offset, uint8_t count) {
 }
 
 static void rtc_cfg_modified(uint8_t first_offset, uint8_t count) {
+	uint8_t daylight_savings;
+	HAL_RTC_Set_DaylightSavings(misc_regs.rtc_cfg.daylight_savings);
 }
 
 static void rtc_time_set_modified(uint8_t first_offset, uint8_t count) {

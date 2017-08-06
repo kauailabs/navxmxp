@@ -509,6 +509,7 @@ void MX_RTC_Init(void)
 
 		HAL_RTC_SetDate(&hrtc, &sDate, FORMAT_BIN);
 	}
+	HAL_RTC_InitializeCache();
 #endif
 }
 

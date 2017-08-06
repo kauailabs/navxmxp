@@ -40,7 +40,7 @@ CANInterface::CANInterface(uint16_t stm32_gpio_pin) {
 	CAN_isr_flag_mask.rx_fifo_nonempty = false;
 	/* The following flag is never set or cleared by the CAN ISR */
 	CAN_isr_flag_mask.tx_fifo_empty = false;
-	current_mode = CAN_MODE_LOOP;
+	current_mode = CAN_MODE_NORMAL;
 	attachInterrupt(stm32_gpio_pin, &mcp25625_isr, FALLING);
 }
 
@@ -104,6 +104,14 @@ void CANInterface::interrupt_handler() {
 							/* HW Receive Overflow */
 							CAN_isr_flag_mask.hw_rx_overflow = true;
 							hw_rx_overflow = true;
+						}
+						if (eflg_ctl_isr.txbo) {
+							if (!bus_off) {
+								bus_off = true;
+								bus_off_count++;
+							}
+						} else {
+							bus_off = false;
 						}
 					}
 					error_interrupt_count++;
@@ -182,7 +190,7 @@ bool CANInterface::get_errors(bool& rx_overflow, CAN_ERROR_FLAGS& error_flags,
 		rx_overflow = (eflg_ctl.rx0ovr | eflg_ctl.rx1ovr);
 		error_flags.can_bus_warn = eflg_ctl.ewarn;
 		error_flags.can_bus_err_pasv = (eflg_ctl.rxerr | eflg_ctl.txerr);
-		error_flags.can_bux_tx_off = (eflg_ctl.txbo);
+		error_flags.can_bus_tx_off = (eflg_ctl.txbo);
 	}
 	if(s2 == MCP25625_OK){
 		tx_err_count = err_cnt[0];
@@ -264,7 +272,10 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 		rx0_complete_count =
 		rx1_complete_count =
 		rx_buff_full_count =
-		more_interrupt_pending_count = 0;
+		more_interrupt_pending_count =
+		bus_off_count = 0;
+
+	bus_off = false;
 
 	tx_pending[0] = tx_pending[1] = tx_pending[2] = false;
 
@@ -358,8 +369,8 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 
 	// Configure RXB registers
 	rx0_ctl.bukt = true;				/* Enable receive overflow into RXB1. */
-	rx0_ctl.rxm = MCP25625_RX_MODE_OFF; /* Disable all masks and filters (receive all messages) */
-	rx1_ctl.rxm = MCP25625_RX_MODE_OFF; /* Disable all masks and filters (receive all messages) */
+	rx0_ctl.rxm = MCP25625_RX_MODE_ALL; /* Enable all (default) masks and filters */
+	rx1_ctl.rxm = MCP25625_RX_MODE_ALL; /* Enable all (default) masks and filters */
 	if (HAL_MCP25625_HW_Ctl_Set((void*) &rx0_ctl)
 			|| HAL_MCP25625_HW_Ctl_Set((void*) &rx1_ctl))
 		return MCP25625_CTL_ERR;
@@ -393,9 +404,46 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 	if (HAL_MCP25625_HW_Ctl_Set((void*) &ie_ctl))
 		return MCP25625_CTL_ERR;
 
+	/* Configure all masks/filters to be extremely restrictive. */
+
+	CAN_ID default_mask;
+	CAN_pack_extended_id(0x1FFFFFFF, &default_mask);
+	mask_config(RXB0, &default_mask);
+	mask_config(RXB1, &default_mask);
+
+	CAN_ID default_filter;
+	CAN_pack_extended_id(0x1FFFFFFF, &default_filter);
+	filter_config(RXF_0, &default_filter);
+	filter_config(RXF_1, &default_filter);
+	filter_config(RXF_2, &default_filter);
+	filter_config(RXF_3, &default_filter);
+	filter_config(RXF_4, &default_filter);
+	filter_config(RXF_5, &default_filter);
+
 	if (set_mode(default_mode))
 		return MCP25625_MODE_FAULT;
 
+	return MCP25625_OK;
+}
+
+CAN_INTERFACE_STATUS CANInterface::clear_error_interrupt_flags()
+{
+	disable_CAN_interrupts();
+	// Clear only error interrupt flags - and do not clear any others.
+	uint8_t clear_all = 0;
+	ie_ctl.err = true;
+	ie_ctl.merre = true;
+	ie_ctl.rx0 = false;
+	ie_ctl.rx1 = false;
+	ie_ctl.tx0 = false;
+	ie_ctl.tx1 = false;
+	ie_ctl.tx2 = false;
+	ie_ctl.wak = false;
+	uint8_t mask = *((uint8_t *)&ie_ctl);
+	ie_ctl.reg = REG_INT_FLG;
+
+	HAL_MCP25625_BitModify(ie_ctl.reg, mask, &clear_all);
+	enable_CAN_interrupts();
 	return MCP25625_OK;
 }
 

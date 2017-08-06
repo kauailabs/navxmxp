@@ -27,7 +27,7 @@ THE SOFTWARE.
 
 #include <stdint.h>
 
-/* The navX-Family device variants are comprised of different
+/* The navX-Model device variants are comprised of different
  * hardware features, which are not available on each device.
  * All of these variants are defined below.  Change them
  * very carefully!
@@ -62,9 +62,9 @@ THE SOFTWARE.
 #   define ENABLE_LSE
 #   define ENABLE_RTC
 #   define ENABLE_MISC
-//#	define IOCX_INTERRUPT
-//#	define CAN_INTERRUPT
-//#	define AHRS_INTERRUPT
+#	define IOCX_INTERRUPT
+#	define CAN_INTERRUPT
+#	define AHRS_INTERRUPT
 #else
 #   define NAVX_HARDWARE_REV 33         /* v. 3.3 EXPIO, v3.4, v3.5 */
 //  !ENABLE_USB_VBUS
@@ -126,10 +126,13 @@ void HAL_CAN_Status_LED_On(int on);
 /* RTC                */
 /**********************/
 
+void HAL_RTC_InitializeCache();
 void HAL_RTC_Get_Time(uint8_t *hours, uint8_t *minutes, uint8_t *seconds, uint32_t *subseconds);
 void HAL_RTC_Get_Date(uint8_t *weekday, uint8_t *date, uint8_t *month, uint8_t *year);
 void HAL_RTC_Set_Time(uint8_t hours, uint8_t minutes, uint8_t seconds);
 void HAL_RTC_Set_Date(uint8_t day, uint8_t date, uint8_t month, uint8_t year);
+
+/* Daylight savings:  0:  No adjustment, 1:  Add 1 hour, 2:  Subtract 1 hour */
 void HAL_RTC_Get_DaylightSavings(uint8_t *daylight_savings);
 void HAL_RTC_Set_DaylightSavings(uint8_t daylight_savings);
 

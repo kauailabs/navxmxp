@@ -68,6 +68,8 @@ class CANInterface {
 	uint32_t rx1_complete_count;
 	uint32_t rx_buff_full_count;
 	uint32_t more_interrupt_pending_count;
+	uint32_t bus_off_count;
+	bool     bus_off;
 
 	FIFO<TIMESTAMPED_CAN_TRANSFER_PADDED, RECEIVE_FIFO_DEPTH> rx_fifo;
 	FIFO<CAN_TRANSFER_PADDED, TRANSMIT_FIFO_DEPTH> tx_fifo;
@@ -83,6 +85,7 @@ public:
 	CAN_INTERFACE_STATUS init(CAN_MODE mode);
 	CAN_MODE get_current_can_mode() { return current_mode; }
 	CAN_INTERFACE_STATUS clear_all_interrupt_flags();
+	CAN_INTERFACE_STATUS clear_error_interrupt_flags();
 	CAN_INTERFACE_STATUS flush_rx_fifo();
 	CAN_INTERFACE_STATUS flush_tx_fifo();
 	CAN_INTERFACE_STATUS set_mode(CAN_MODE mode, bool disable_interrupts = true);
@@ -165,6 +168,8 @@ public:
 #endif
 
 	bool clear_rx_overflow();
+
+	uint32_t get_bus_off_count() { return bus_off_count; }
 
 	bool get_errors(bool& rx_overflow, CAN_ERROR_FLAGS& error_flags,
 			uint8_t& tx_err_count, uint8_t& rx_err_count);

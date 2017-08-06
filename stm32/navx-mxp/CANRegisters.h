@@ -216,6 +216,8 @@ struct __attribute__ ((__packed__)) CAN_REGS {
 	CAN_ERROR_FLAGS bus_error_flags;
 	uint8_t tx_err_count;
 	uint8_t rx_err_count;
+	uint32_t bus_off_count;
+	uint32_t tx_full_count;
 
 	/******************************/
 	/* Transmit FIFO (Write-only) */
