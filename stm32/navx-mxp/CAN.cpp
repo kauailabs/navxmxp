@@ -42,7 +42,7 @@ void disable_SPI_interrupts() {
 #define CAN_DEVICE_UPDATE_FLUSH_RXFIFO	0x00001000
 #define CAN_DEVICE_UPDATE_FLUSH_TXFIFO	0x00002000
 
-static uint32_t can_pending_updates = 0;
+static volatile uint32_t can_pending_updates = 0;
 
 static MCP25625_RX_FILTER_INDEX rxb0_filter_indices[NUM_ACCEPT_FILTERS_RX0_BUFFER] =
 {
@@ -97,7 +97,7 @@ _EXTERN_ATTRIB void CAN_init()
 	p_CAN = new CANInterface();
 	p_CAN->register_interrupt_flag_function(CAN_ISR_Flag_Function); /* Updated in ISR */
 	p_CAN->init(CAN_MODE_NORMAL);
-	HAL_CAN_Status_LED_On(1);
+	HAL_CAN_Status_LED_On(0);
 }
 
 static uint32_t last_loop_timestamp = 0;
@@ -237,7 +237,6 @@ static void CAN_process_pending_updates()
 			p_CAN->filter_config(rxb1_filter_indices[3], &can_regs.accept_filter_rxb1[3]);
 		}
 	}
-
 }
 
 _EXTERN_ATTRIB void CAN_loop()
@@ -279,6 +278,16 @@ _EXTERN_ATTRIB void CAN_loop()
 			CAN_loop_int_mask.hw_rx_overflow = true;
 			CAN_loop_int_flags.hw_rx_overflow = rx_overflow;
 			CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
+			bool CAN_led_on = false;
+			if (p_CAN->get_current_can_mode() == CAN_MODE_NORMAL) {
+				CAN_led_on = true;
+				if (rx_overflow ||
+				    can_regs.bus_error_flags.can_bus_err_pasv ||
+				    can_regs.bus_error_flags.can_bus_tx_off) {
+					CAN_led_on = false;
+				}
+			}
+			HAL_CAN_Status_LED_On(CAN_led_on ? 1 : 0);
 		}
 	}
 }

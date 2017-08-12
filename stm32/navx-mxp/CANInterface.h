@@ -139,7 +139,8 @@ public:
 		CAN_TRANSFER_PADDED *p_tx);
 
 	CAN_INTERFACE_STATUS msg_send(MCP25625_TX_BUFFER_INDEX tx_buff);
-
+	CAN_INTERFACE_STATUS get_tx_control(MCP25625_TX_BUFFER_INDEX tx_buff,
+			MCP25625_TXBUFF_CTL& txbuff_ctl);
 	CAN_INTERFACE_STATUS get_quick_status(MCP25625_CAN_QUICK_STATUS& status);
 
 	bool clear_rx_overflow();
