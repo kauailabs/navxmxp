@@ -70,6 +70,14 @@ class CANInterface {
 	uint32_t more_interrupt_pending_count;
 	uint32_t bus_off_count;
 	bool     bus_off;
+	uint32_t tx0_sent_count;
+	uint32_t tx1_sent_count;
+	uint32_t tx2_sent_count;
+	uint32_t tx_fifo_highwatermark_count;
+	uint32_t tx0_err_count;
+	uint32_t tx1_err_count;
+	uint32_t tx2_err_count;
+	TIMESTAMPED_CAN_TRANSFER_PADDED last_rx_packet[2];
 
 	FIFO<TIMESTAMPED_CAN_TRANSFER_PADDED, RECEIVE_FIFO_DEPTH> rx_fifo;
 	FIFO<CAN_TRANSFER_PADDED, TRANSMIT_FIFO_DEPTH> tx_fifo;
@@ -81,11 +89,12 @@ class CANInterface {
 	CAN_interrupt_flag_func p_isr_flag_func;
 
 public:
-	CANInterface(uint16_t stm32_gpio_pin = GPIO_PIN_7);
+	CANInterface(uint16_t stm32_gpio_pin = GPIO_PIN_4);
 	CAN_INTERFACE_STATUS init(CAN_MODE mode);
 	CAN_MODE get_current_can_mode() { return current_mode; }
 	CAN_INTERFACE_STATUS clear_all_interrupt_flags();
 	CAN_INTERFACE_STATUS clear_error_interrupt_flags();
+	CAN_INTERFACE_STATUS get_interrupt_enables(MCP25625_INT_CTL& ctl);
 	CAN_INTERFACE_STATUS flush_rx_fifo();
 	CAN_INTERFACE_STATUS flush_tx_fifo();
 	CAN_INTERFACE_STATUS set_mode(CAN_MODE mode, bool disable_interrupts = true);
@@ -109,11 +118,6 @@ public:
 	CAN_INTERFACE_STATUS get_btl_config(uint8_t& BRP, uint8_t& SJW,
 			uint8_t& PRSEG, uint8_t& PHSEG1, uint8_t& PHSEG2, bool& SAM, bool& BTLMODE,
 			bool& WAKFIL, bool& SOFR);
-
-	CAN_INTERFACE_STATUS tx_config(
-			MCP25625_TX_BUFFER_INDEX tx_buff,
-	        uint8_t TXP /* Valid range is 0-3, 3 is highest priority */
-	);
 
 	CAN_INTERFACE_STATUS rx_config
 	(
@@ -182,12 +186,23 @@ public:
 	void register_interrupt_flag_function(CAN_interrupt_flag_func p_isr_flag_func);
 
 	inline void disable_CAN_interrupts() {
-		HAL_NVIC_DisableIRQ((IRQn_Type)EXTI9_5_IRQn);
+		HAL_NVIC_DisableIRQ((IRQn_Type)EXTI4_IRQn);
 	}
 
 	inline void enable_CAN_interrupts() {
-		HAL_NVIC_EnableIRQ((IRQn_Type)EXTI9_5_IRQn);
+		HAL_NVIC_EnableIRQ((IRQn_Type)EXTI4_IRQn);
 	}
+
+	inline void enable_SPI_interrupts() {
+        HAL_NVIC_EnableIRQ(SPI1_IRQn);
+	}
+
+	inline void disable_SPI_interrupts() {
+        HAL_NVIC_DisableIRQ(SPI1_IRQn);
+	}
+
+	void enable_controller_interrupts();
+	void disable_controller_interrupts();
 
 	virtual ~CANInterface();
 };

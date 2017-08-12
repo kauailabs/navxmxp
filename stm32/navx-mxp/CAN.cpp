@@ -93,17 +93,15 @@ _EXTERN_ATTRIB void CAN_loop()
 
 		if ((curr_loop_timestamp - last_can_bus_error_check_timestamp) >= NUM_MS_BETWEEN_SUCCESSIVE_CAN_BUS_ERROR_CHECKS){
 			last_can_bus_error_check_timestamp = curr_loop_timestamp;
+			can_regs.bus_off_count = p_CAN->get_bus_off_count();
 			CAN_IFX_INT_FLAGS CAN_loop_int_mask, CAN_loop_int_flags = {0};
 			*(uint8_t *)&CAN_loop_int_mask = 0;
 			bool rx_overflow;
 			p_CAN->get_errors(rx_overflow, can_regs.bus_error_flags, can_regs.tx_err_count, can_regs.rx_err_count);
-			if (rx_overflow) {
-				CAN_loop_int_mask.hw_rx_overflow = true;
-				CAN_loop_int_flags.hw_rx_overflow = true;
-				CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
-			}
+			CAN_loop_int_mask.hw_rx_overflow = true;
+			CAN_loop_int_flags.hw_rx_overflow = rx_overflow;
+			CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
 		}
-		can_regs.bus_off_count = p_CAN->get_bus_off_count();
 	}
 }
 

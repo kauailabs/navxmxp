@@ -69,7 +69,7 @@ void MX_GPIO_Init_NavX_PI(void)
   GPIO_InitStruct.Pin = NAVX_2_RPI_SPI_Comm_Ready_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+  HAL_GPIO_Init(NAVX_2_RPI_SPI_Comm_Ready_GPIO_Port, &GPIO_InitStruct);
 
   GPIO_InitStruct.Pin = NAVX_2_RPI_INT2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -89,7 +89,7 @@ void MX_GPIO_Init_NavX_PI(void)
   GPIO_InitStruct.Pin = _CAN_INT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+  HAL_GPIO_Init(_CAN_INT_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PCPin PCPin PCPin */
   GPIO_InitStruct.Pin = S2_LED_Pin|S1_LED_Pin|_CAN_RESET_Pin;
@@ -178,6 +178,17 @@ void MX_GPIO_Init_NavX_PI(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(_IO_POWER_FAULT_GPIO_Port, &GPIO_InitStruct);
+
+  /* Note this pin is connected to QE3A.  This pin must only ever be
+   * an input, and no pull-up should be used, to ensure that the pull-up
+   * does not interfere w/usage of the QE3A pin.  The only purpose of
+   * this input is to allow a unique EXTI Line input when mapped
+   * as an input.
+   */
+  GPIO_InitStruct.Pin = QE3_A_Second_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(QE3_A_Second_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure default GPIO pin Output Levels */
   HAL_GPIO_WritePin(GPIOC, S2_LED_Pin|S1_LED_Pin, GPIO_PIN_RESET);

@@ -1788,7 +1788,7 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                             HAL_SPI_Comm_Ready_Assert();
                         } else {
                         	HAL_AHRS_Int_Deassert();
-                            spi_transmitting = true;
+                        	spi_transmitting = true;
                             spi_bytes_to_be_transmitted = (reg_count > max_size) ? max_size : reg_count;
                             memcpy(spi_tx_buffer,reg_addr,spi_bytes_to_be_transmitted);
                             spi_tx_buffer[spi_bytes_to_be_transmitted] =
