@@ -14,10 +14,8 @@
  * Private Function Definitions
  *******************************************************************************/
 
-/* TODO:  When debugging complete, make these variables static */
 CANInterface *CANInterface::p_singleton = (CANInterface *) NULL;
-CAN_IFX_INT_FLAGS CAN_isr_flag_mask;
-CAN_TRANSFER_PADDED CAN_isr_overflow_read_buffer;
+static CAN_IFX_INT_FLAGS CAN_isr_flag_mask;
 
 void CANInterface::mcp25625_isr(void) {
 	if (p_singleton != NULL) {
@@ -59,7 +57,6 @@ void CANInterface::interrupt_handler() {
 	CAN_isr_flag_mask.hw_rx_overflow = false;
 	CAN_isr_flag_mask.sw_rx_overflow = false;
 
-	//disable_SPI_interrupts();
 	if(HAL_MCP25625_HW_Ctl_Get(&ie_ctl_isr)==HAL_OK){
 		while (!done) {
 			rx_fifo_full = false;
@@ -75,7 +72,6 @@ void CANInterface::interrupt_handler() {
 						rx_fifo_nonempty = true;
 						ie_ctl_isr.rx0 = false;
 						rx0_complete_count++;
-						//memcpy(&(last_rx_packet[0]), p_rx, sizeof(TIMESTAMPED_CAN_TRANSFER_PADDED));
 					}
 				} else {
 					rx_fifo_full = true;
@@ -91,7 +87,6 @@ void CANInterface::interrupt_handler() {
 						rx_fifo_nonempty = true;
 						ie_ctl_isr.rx1 = false;
 						rx1_complete_count++;
-						//memcpy(&(last_rx_packet[1]), p_rx, sizeof(TIMESTAMPED_CAN_TRANSFER_PADDED));
 					}
 				} else {
 					rx_fifo_full = true;
@@ -168,7 +163,6 @@ void CANInterface::interrupt_handler() {
 			p_isr_flag_func(CAN_isr_flag_mask, int_flags);
 		}
 	}
-	//enable_SPI_interrupts();
 }
 
 bool CANInterface::clear_rx_overflow() {
@@ -237,35 +231,9 @@ CAN_INTERFACE_STATUS CANInterface::get_quick_status(MCP25625_CAN_QUICK_STATUS& s
 
 void CANInterface::process_transmit_fifo() {
 	MCP25625_CAN_QUICK_STATUS status;
-	MCP25625_INT_CTL ctl;
 	disable_CAN_interrupts();
 	HAL_StatusTypeDef spi_status = HAL_MCP25625_Read_Status(&status);
-	get_interrupt_enables(ctl);
 	enable_CAN_interrupts();
-	if ( (current_mode == CAN_MODE_NORMAL) ||
-		 (current_mode == CAN_MODE_LOOP) ||
-		 (current_mode == CAN_MODE_LISTEN)) {
-		if ((!ctl.rx0) || (!ctl.rx1)) {
-			CAN_ID mask_0;
-			CAN_ID filter0_0;
-			MCP25625_CAN_STATUS_REG statreg;
-			statreg.reg = REG_STAT_CAN;
-			disable_CAN_interrupts();
-			HAL_MCP25625_HW_Filter_Get(RXF_0, &filter0_0);
-			HAL_MCP25625_HW_Mask_Get(RXB0, &mask_0);
-			HAL_MCP25625_HW_Ctl_Get((void*) &statreg);
-			// can_stat.opmod is current hardware op mode.
-			// Configure CAN bus timing
-			uint8_t BRP, SJW, PRSEG, PHSEG1, PHSEG2;
-			bool SAM, BTLMODE, WAKFIL, SOFR;
-			get_btl_config(BRP, SJW, PRSEG, PHSEG1, PHSEG2, SAM, BTLMODE, WAKFIL, SOFR);
-			//btl_config(0,2,7,2,2,1,1,0,0); /* 24Mhz Crystal 2TQ; 11-meter max bus len */
-
-			enable_CAN_interrupts();
-			clear_rx_overflow();
-			enable_controller_interrupts();
-		}
-	}
 	if(spi_status==HAL_OK){
 		int count = tx_fifo.get_count();
 		if (uint32_t(count) > tx_fifo_highwatermark_count) {
@@ -506,12 +474,6 @@ void CANInterface::disable_controller_interrupts() {
 	ie_ctl.reg = REG_INT_CTL;
 	HAL_MCP25625_HW_Ctl_Set((void*) &ie_ctl);
 	enable_CAN_interrupts();
-}
-
-CAN_INTERFACE_STATUS CANInterface::get_interrupt_enables(MCP25625_INT_CTL& ctl) {
-	ctl.reg = REG_INT_CTL;
-	CAN_INTERFACE_STATUS s = HAL_MCP25625_HW_Ctl_Get((void*) &ctl);
-	return s;
 }
 
 CAN_INTERFACE_STATUS CANInterface::clear_error_interrupt_flags()
@@ -779,14 +741,6 @@ CAN_INTERFACE_STATUS CANInterface::mask_config(MCP25625_RX_BUFFER_INDEX rx_mask,
 
 CAN_INTERFACE_STATUS CANInterface::msg_load(MCP25625_TX_BUFFER_INDEX tx_buff,
 		CAN_TRANSFER_PADDED *p_tx) {
-#if 0
-	tx_ctl.buffer = tx_buff;
-	tx_ctl.txreq = false;
-	tx_ctl.mask = TXB_TXREQ;
-
-	if (HAL_MCP25625_HW_Ctl_Update(&tx_ctl))
-		return MCP25625_CTL_ERR;
-#endif
 	if (HAL_MCP25625_HW_Data_Set(tx_buff, p_tx))
 		return MCP25625_TX_ERR;
 
