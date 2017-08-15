@@ -402,7 +402,6 @@ void HAL_RTC_Get_Date(uint8_t *weekday, uint8_t *date, uint8_t *month, uint8_t *
 
 typedef enum  {
 	INT_EXTI,
-	INT_SWED,
 	INT_NONE
 } GPIO_INTERRUPT_TYPE;
 
@@ -426,22 +425,17 @@ static GPIO_Channel gpio_channels[IOCX_NUM_GPIOS] =
 	{PWM_GPIO3_GPIO_Port, 	PWM_GPIO3_Pin, 	5,  0, INT_EXTI, 2,  GPIO_AF3_TIM9},
 	{PWM_GPIO4_GPIO_Port, 	PWM_GPIO4_Pin, 	5,  1, INT_EXTI, 3,  GPIO_AF3_TIM9},
 	{QE1_A_GPIO_Port, 		QE1_A_Pin, 		0,  0, INT_EXTI, 4,  GPIO_AF1_TIM1},
-	{QE1_B_GPIO_Port, 		QE1_B_Pin, 		0,  1, INT_SWED, 5,  GPIO_AF1_TIM1},
+	{QE1_B_GPIO_Port, 		QE1_B_Pin, 		0,  1, INT_EXTI, 5,  GPIO_AF1_TIM1},
 	{QE2_A_GPIO_Port, 		QE2_A_Pin, 		1,  0, INT_EXTI, 6,  GPIO_AF1_TIM2},
-	{QE2_B_GPIO_Port, 		QE2_B_Pin, 		1,  1, INT_SWED, 7,  GPIO_AF1_TIM2},
-	{QE3_A_GPIO_Port, 		QE3_A_Pin, 		2,  0, INT_SWED, 8,  GPIO_AF2_TIM3},
-	{QE3_B_GPIO_Port, 		QE3_B_Pin, 		2,  1, INT_SWED, 9,  GPIO_AF2_TIM3},
+	{QE2_B_GPIO_Port, 		QE2_B_Pin, 		1,  1, INT_EXTI, 7,  GPIO_AF1_TIM2},
+	{QE3_A_GPIO_Port, 		QE3_A_Pin, 		2,  0, INT_EXTI, 8,  GPIO_AF2_TIM3},
+	{QE3_B_GPIO_Port, 		QE3_B_Pin, 		2,  1, INT_EXTI, 9,  GPIO_AF2_TIM3},
 	{QE4_A_GPIO_Port, 		QE4_A_Pin, 		3,  0, INT_EXTI, 10, GPIO_AF2_TIM5},
 	{QE4_B_GPIO_Port, 		QE4_B_Pin, 		3,  1, INT_EXTI, 11, GPIO_AF2_TIM5},
 };
 
 #define NUM_GPIO_EXTI_INTERRUPTS 			8
-#define NUM_GPIO_SWED_INTERRUPTS 			4
 #define NUM_ANALOG_TRIGGER_INTERRUPTS 		4
-
-#define EXTI_INTERRUPT_BIT_MASK				0x0C5F
-#define SWED_INTERRUPT_BIT_MASK		    	0x03A0
-#define ANALOG_TRIGGER_INTERRUPT_BIT_MASK	0xF000
 
 void HAL_IOCX_Init()
 {
@@ -513,14 +507,10 @@ int HAL_IOCX_Ext_Power_Fault()
 
 static volatile uint32_t int_status = 0;  /* Todo:  Review Race Conditions */
 static volatile uint32_t int_mask = 0; /* Todo:  Review Race Conditions */
-static volatile uint32_t *int_request_gpio_bank = &GPIOC->ODR; /* Todo: get symbol from map? */
-static const uint32_t int_request_bit = GPIO_PIN_8; /* Todo:  get symbol from map? */
 
 void HAL_IOCX_AssertInterruptSignal()
 {
 	/* Assert Interrupt Pin */
-	uint32_t curr_gpio_outdata = *int_request_gpio_bank;
-	*int_request_gpio_bank = curr_gpio_outdata | int_request_bit;
 	HAL_GPIO_WritePin(NAVX_2_RPI_INT4_GPIO_Port, NAVX_2_RPI_INT4_Pin,GPIO_PIN_RESET);
 }
 
@@ -540,8 +530,6 @@ void HAL_IOCX_AssertInterrupt(uint32_t new_int_status_bits)
 
 void HAL_IOCX_DeassertInterruptSignal()
 {
-	uint32_t curr_gpio_outdata = *int_request_gpio_bank;
-	*int_request_gpio_bank = curr_gpio_outdata & ~int_request_bit;
 	HAL_GPIO_WritePin(NAVX_2_RPI_INT4_GPIO_Port, NAVX_2_RPI_INT4_Pin,GPIO_PIN_SET);
 }
 
@@ -561,7 +549,6 @@ void HAL_IOCX_UpdateInterruptMask(uint32_t int_bits) {
 	} else {
 		HAL_IOCX_AssertInterruptSignal();
 	}
-	/* Todo:  Disable SoftwareEdgeDetector if none are masked in? */
 	/* TOdo:  use mask in GPIO EXTI ISRs to avoid unnecessary dispatch */
 }
 

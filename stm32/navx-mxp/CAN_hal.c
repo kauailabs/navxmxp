@@ -35,7 +35,7 @@ static uint8_t mcp25625_write_buffer[255 + 2];
 #define MCP25625_TX( tx_buff_index )            ( (tx_buff_index) * 2 )
 #define MCP25625_RX( rx_buff_index )            ( (rx_buff_index) * 4 )
 #define MCP25625_RTS( tx_buff_index )           ( 1 << (tx_buff_index) )
-#define CTL_TXB( tx_buffer_index, address )     ( (tx_buffer_index) * 16 + (address) )
+#define CTL_TXB( tx_buffer_index, address )     ( ((tx_buffer_index) * 16) + (address) )
 #define MCP25625_MASK( rx_mask_index )          ( (rx_mask_index) * 4 + 0x20 )
 #define MCP25625_FILTER( rx_filter_index )      ( (rx_filter_index) < 3 ? (rx_filter_index) * 4 : (rx_filter_index) * 4 + 0x10 )
 
@@ -225,6 +225,16 @@ HAL_StatusTypeDef HAL_MCP25625_HW_Filter_Set(MCP25625_RX_FILTER_INDEX reg,
 HAL_StatusTypeDef HAL_MCP25625_HW_Mask_Set(MCP25625_RX_BUFFER_INDEX reg,
 		CAN_ID *mask) {
 	return HAL_MCP25625_Write(MCP25625_MASK( reg ), (uint8_t*) mask, 4);
+}
+
+HAL_StatusTypeDef HAL_MCP25625_HW_Filter_Get(MCP25625_RX_FILTER_INDEX reg,
+		CAN_ID *filter) {
+	return HAL_MCP25625_Read(MCP25625_FILTER( reg ), (uint8_t*) filter, 4);
+}
+
+HAL_StatusTypeDef HAL_MCP25625_HW_Mask_Get(MCP25625_RX_BUFFER_INDEX reg,
+		CAN_ID *mask) {
+	return HAL_MCP25625_Read(MCP25625_MASK( reg ), (uint8_t*) mask, 4);
 }
 
 #endif /* CAN_HAL_C_ */

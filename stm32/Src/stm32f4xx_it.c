@@ -314,7 +314,14 @@ void EXTI9_5_IRQHandler(void)
 void EXTI15_10_IRQHandler(void)
 {
   HAL_NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
-  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_11); /* CAL BTN on navX-PI */
+#ifdef GPIO_MAP_NAVX_PI
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_10); /* CAL BTN on navX-PI */
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_11);
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_12);
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_13);
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_14);
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_15);
+#endif
 }
 
 /* USER CODE BEGIN 1 */

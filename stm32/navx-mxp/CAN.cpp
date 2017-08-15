@@ -19,6 +19,45 @@ static CANInterface *p_CAN;
 CAN_REGS can_regs;
 TIMESTAMPED_CAN_TRANSFER read_buffer[READ_BUFFER_TRANSFER_COUNT];
 
+void enable_SPI_interrupts() {
+    HAL_NVIC_EnableIRQ(SPI1_IRQn);
+}
+
+void disable_SPI_interrupts() {
+    HAL_NVIC_DisableIRQ(SPI1_IRQn);
+}
+
+#define CAN_DEVICE_UPDATE_RESET			0x00000001
+#define CAN_DEVICE_UPDATE_DEVICE_MODE	0x00000002
+#define CAN_DEVICE_UPDATE_MODE_0		0x00000004
+#define CAN_DEVICE_UPDATE_MODE_1		0x00000008
+#define CAN_DEVICE_UPDATE_MASK_0		0x00000010
+#define CAN_DEVICE_UPDATE_MASK_1		0x00000020
+#define CAN_DEVICE_UPDATE_FILTER_0		0x00000040
+#define CAN_DEVICE_UPDATE_FILTER_1		0x00000080
+#define CAN_DEVICE_UPDATE_FILTER_2		0x00000100
+#define CAN_DEVICE_UPDATE_FILTER_3		0x00000200
+#define CAN_DEVICE_UPDATE_FILTER_4		0x00000400
+#define CAN_DEVICE_UPDATE_FILTER_5		0x00000800
+#define CAN_DEVICE_UPDATE_FLUSH_RXFIFO	0x00001000
+#define CAN_DEVICE_UPDATE_FLUSH_TXFIFO	0x00002000
+
+static volatile uint32_t can_pending_updates = 0;
+
+static MCP25625_RX_FILTER_INDEX rxb0_filter_indices[NUM_ACCEPT_FILTERS_RX0_BUFFER] =
+{
+	RXF_0,
+	RXF_1
+};
+
+static MCP25625_RX_FILTER_INDEX rxb1_filter_indices[NUM_ACCEPT_FILTERS_RX1_BUFFER] =
+{
+	RXF_2,
+	RXF_3,
+	RXF_4,
+	RXF_5
+};
+
 void CAN_ISR_Flag_Function(CAN_IFX_INT_FLAGS mask, CAN_IFX_INT_FLAGS flags)
 {
 	can_regs.rx_fifo_entry_count = p_CAN->get_rx_fifo().get_count();
@@ -58,7 +97,7 @@ _EXTERN_ATTRIB void CAN_init()
 	p_CAN = new CANInterface();
 	p_CAN->register_interrupt_flag_function(CAN_ISR_Flag_Function); /* Updated in ISR */
 	p_CAN->init(CAN_MODE_NORMAL);
-	HAL_CAN_Status_LED_On(1);
+	HAL_CAN_Status_LED_On(0);
 }
 
 static uint32_t last_loop_timestamp = 0;
@@ -66,9 +105,147 @@ static uint32_t last_can_bus_error_check_timestamp = 0;
 #define NUM_MS_BETWEEN_SUCCESSIVE_LOOPS 1
 #define NUM_MS_BETWEEN_SUCCESSIVE_CAN_BUS_ERROR_CHECKS 10
 
+static void CAN_process_pending_updates()
+{
+	if (can_pending_updates) {
+
+		/* Transfer pending requests to local memory storage,
+		 * and while doing so disable further SPI interrupts.
+		 * This code needs to execute very quickly.
+		 */
+
+		CAN_REGS can_regs_pending;
+		disable_SPI_interrupts();
+		uint32_t pending_updates = can_pending_updates;
+		if (pending_updates & CAN_DEVICE_UPDATE_DEVICE_MODE) {
+			can_regs_pending.opmode = can_regs.opmode;
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_MODE_0) {
+			can_regs_pending.rx_filter_mode[0] =
+				can_regs.rx_filter_mode[0];
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_MODE_1) {
+			can_regs_pending.rx_filter_mode[1] =
+				can_regs.rx_filter_mode[1];
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_MASK_0) {
+			can_regs_pending.accept_mask_rxb0 =
+				can_regs.accept_mask_rxb0;
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_MASK_1) {
+			can_regs_pending.accept_mask_rxb1 =
+				can_regs.accept_mask_rxb1;
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_0) {
+			can_regs_pending.accept_filter_rxb0[0] =
+				can_regs.accept_filter_rxb0[0];
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_1) {
+			can_regs_pending.accept_filter_rxb0[1] =
+				can_regs.accept_filter_rxb0[1];
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_2) {
+			can_regs_pending.accept_filter_rxb1[0] =
+				can_regs.accept_filter_rxb1[0];
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_3) {
+			can_regs_pending.accept_filter_rxb1[1] =
+				can_regs.accept_filter_rxb1[1];
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_4) {
+			can_regs_pending.accept_filter_rxb1[2] =
+				can_regs.accept_filter_rxb1[2];
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_5) {
+			can_regs_pending.accept_filter_rxb1[3] =
+				can_regs.accept_filter_rxb1[3];
+		}
+		can_pending_updates = 0;
+		enable_SPI_interrupts();
+
+		/* After re-enabling SPI interrupts, process the new requests */
+		if (pending_updates & CAN_DEVICE_UPDATE_RESET) {
+			p_CAN->init(p_CAN->get_current_can_mode());
+			pending_updates |= CAN_DEVICE_UPDATE_FLUSH_RXFIFO;
+			pending_updates |= CAN_DEVICE_UPDATE_FLUSH_TXFIFO;
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_FLUSH_RXFIFO) {
+			p_CAN->flush_rx_fifo();
+			if (can_regs.int_flags.sw_rx_overflow) {
+				can_regs.int_flags.sw_rx_overflow = false;
+				CAN_int_flags_modified(0,0);
+			}
+			can_regs.rx_fifo_entry_count = p_CAN->get_rx_fifo().get_count();
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_FLUSH_TXFIFO) {
+			p_CAN->flush_tx_fifo();
+			can_regs.int_flags.tx_fifo_empty = 1;
+			CAN_int_flags_modified(0,0);
+			can_regs.rx_fifo_entry_count = p_CAN->get_tx_fifo().get_count();
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_DEVICE_MODE) {
+			CAN_MODE new_mode = (CAN_MODE)can_regs_pending.opmode;
+			bool transition_from_config_mode = false;
+			if ((p_CAN->get_current_can_mode() == CAN_MODE_CONFIG) &&
+				(new_mode != CAN_MODE_CONFIG)) {
+				transition_from_config_mode = true;
+			}
+			p_CAN->set_mode(new_mode);
+			if (transition_from_config_mode) {
+				/* Transitioning to/from CONFIG opmode from NORMAL mode may */
+				/* set some errors that need clearing. */
+				bool rx_overflow;
+				p_CAN->get_errors(rx_overflow, can_regs.bus_error_flags, can_regs.tx_err_count, can_regs.rx_err_count);
+				if (rx_overflow) {
+					p_CAN->clear_rx_overflow();
+				}
+				p_CAN->clear_error_interrupt_flags();
+			}
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_MODE_0) {
+			p_CAN->rx_config((MCP25625_RX_BUFFER_INDEX)0,
+					(MCP25625_RX_MODE)can_regs_pending.rx_filter_mode[0],
+					true);
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_MODE_1) {
+			p_CAN->rx_config((MCP25625_RX_BUFFER_INDEX)1,
+					(MCP25625_RX_MODE)can_regs_pending.rx_filter_mode[1],
+					true);
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_MASK_0) {
+			p_CAN->mask_config(RXB0, &can_regs_pending.accept_mask_rxb0);
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_MASK_1) {
+			p_CAN->mask_config(RXB1, &can_regs_pending.accept_mask_rxb1);
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_0) {
+			p_CAN->filter_config(rxb0_filter_indices[0], &can_regs.accept_filter_rxb0[0]);
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_1) {
+			p_CAN->filter_config(rxb0_filter_indices[1], &can_regs.accept_filter_rxb0[1]);
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_2) {
+			p_CAN->filter_config(rxb1_filter_indices[0], &can_regs.accept_filter_rxb1[0]);
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_3) {
+			p_CAN->filter_config(rxb1_filter_indices[1], &can_regs.accept_filter_rxb1[1]);
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_4) {
+			p_CAN->filter_config(rxb1_filter_indices[2], &can_regs.accept_filter_rxb1[2]);
+		}
+		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_5) {
+			p_CAN->filter_config(rxb1_filter_indices[3], &can_regs.accept_filter_rxb1[3]);
+		}
+	}
+}
+
 _EXTERN_ATTRIB void CAN_loop()
 {
 	uint32_t curr_loop_timestamp = HAL_GetTick();
+
+	/* Process pending updates, this is a very high priority task. */
+	CAN_process_pending_updates();
+
 	if ( curr_loop_timestamp < last_loop_timestamp) {
 		/* Timestamp rollover */
 		last_loop_timestamp = curr_loop_timestamp;
@@ -93,17 +270,25 @@ _EXTERN_ATTRIB void CAN_loop()
 
 		if ((curr_loop_timestamp - last_can_bus_error_check_timestamp) >= NUM_MS_BETWEEN_SUCCESSIVE_CAN_BUS_ERROR_CHECKS){
 			last_can_bus_error_check_timestamp = curr_loop_timestamp;
+			can_regs.bus_off_count = p_CAN->get_bus_off_count();
 			CAN_IFX_INT_FLAGS CAN_loop_int_mask, CAN_loop_int_flags = {0};
 			*(uint8_t *)&CAN_loop_int_mask = 0;
 			bool rx_overflow;
 			p_CAN->get_errors(rx_overflow, can_regs.bus_error_flags, can_regs.tx_err_count, can_regs.rx_err_count);
-			if (rx_overflow) {
-				CAN_loop_int_mask.hw_rx_overflow = true;
-				CAN_loop_int_flags.hw_rx_overflow = true;
-				CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
+			CAN_loop_int_mask.hw_rx_overflow = true;
+			CAN_loop_int_flags.hw_rx_overflow = rx_overflow;
+			CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
+			bool CAN_led_on = false;
+			if (p_CAN->get_current_can_mode() == CAN_MODE_NORMAL) {
+				CAN_led_on = true;
+				if (rx_overflow ||
+				    can_regs.bus_error_flags.can_bus_err_pasv ||
+				    can_regs.bus_error_flags.can_bus_tx_off) {
+					CAN_led_on = false;
+				}
 			}
+			HAL_CAN_Status_LED_On(CAN_led_on ? 1 : 0);
 		}
-		can_regs.bus_off_count = p_CAN->get_bus_off_count();
 	}
 }
 
@@ -199,49 +384,19 @@ static void CAN_int_enable_modified(uint8_t first_offset, uint8_t count) {
 }
 
 static void CAN_opmode_modified(uint8_t first_offset, uint8_t count) {
-	if ((first_offset == 0) && (count > 0)) {
-		CAN_MODE new_mode = (CAN_MODE)can_regs.opmode;
-		bool transition_from_config_mode = false;
-		if ((p_CAN->get_current_can_mode() == CAN_MODE_CONFIG) &&
-			(new_mode != CAN_MODE_CONFIG)) {
-			transition_from_config_mode = true;
-		}
-		p_CAN->set_mode(new_mode);
-		if (transition_from_config_mode) {
-			/* Transitioning to/from CONFIG opmode from NORMAL mode may */
-			/* set some errors that need clearing. */
-			bool rx_overflow;
-			p_CAN->get_errors(rx_overflow, can_regs.bus_error_flags, can_regs.tx_err_count, can_regs.rx_err_count);
-			if (rx_overflow) {
-				p_CAN->clear_rx_overflow();
-			}
-			p_CAN->clear_error_interrupt_flags();
-		}
-	}
+	can_pending_updates |= CAN_DEVICE_UPDATE_DEVICE_MODE;
 }
 
 static void CAN_command_modified(uint8_t first_offset, uint8_t count) {
 	switch(can_regs.command){
 	case CAN_CMD_RESET:
-		p_CAN->init(p_CAN->get_current_can_mode());
-		can_regs.command = CAN_CMD_FLUSH_RXFIFO;
-		CAN_command_modified(0,0);
-		can_regs.command = CAN_CMD_FLUSH_TXFIFO;
-		CAN_command_modified(0,0);
+		can_pending_updates |= CAN_DEVICE_UPDATE_RESET;
 		break;
 	case CAN_CMD_FLUSH_RXFIFO:
-		p_CAN->flush_rx_fifo();
-		if (can_regs.int_flags.sw_rx_overflow) {
-			can_regs.int_flags.sw_rx_overflow = false;
-			CAN_int_flags_modified(0,0);
-		}
-		can_regs.rx_fifo_entry_count = p_CAN->get_rx_fifo().get_count();
+		can_pending_updates |= CAN_DEVICE_UPDATE_FLUSH_RXFIFO;
 		break;
 	case CAN_CMD_FLUSH_TXFIFO:
-		p_CAN->flush_tx_fifo();
-		can_regs.int_flags.tx_fifo_empty = 1;
-		CAN_int_flags_modified(0,0);
-		can_regs.rx_fifo_entry_count = p_CAN->get_tx_fifo().get_count();
+		can_pending_updates |= CAN_DEVICE_UPDATE_FLUSH_TXFIFO;
 		break;
 	default:
 		break;
@@ -256,35 +411,23 @@ static void CAN_rx_filter_mode_modified(uint8_t first_offset, uint8_t count) {
 		}
 		uint8_t offset = first_offset;
 		while (offset < (first_offset + count)) {
-			p_CAN->rx_config((MCP25625_RX_BUFFER_INDEX)offset,
-					(MCP25625_RX_MODE)can_regs.rx_filter_mode[offset],
-					true);
+			if (offset == 0) {
+				can_pending_updates |= CAN_DEVICE_UPDATE_MODE_0;
+			} else if (offset == 1) {
+				can_pending_updates |= CAN_DEVICE_UPDATE_MODE_1;
+			}
 			offset++;
 		}
 	}
 }
 
 static void CAN_accept_mask_rxb0_modified(uint8_t first_offset, uint8_t count) {
-	p_CAN->mask_config(RXB0, &can_regs.accept_mask_rxb0);
+	can_pending_updates |= CAN_DEVICE_UPDATE_MASK_0;
 }
 
 static void CAN_accept_mask_rxb1_modified(uint8_t first_offset, uint8_t count) {
-	p_CAN->mask_config(RXB1, &can_regs.accept_mask_rxb1);
+	can_pending_updates |= CAN_DEVICE_UPDATE_MASK_1;
 }
-
-static MCP25625_RX_FILTER_INDEX rxb0_filter_indices[NUM_ACCEPT_FILTERS_RX0_BUFFER] =
-{
-	RXF_0,
-	RXF_1
-};
-
-static MCP25625_RX_FILTER_INDEX rxb1_filter_indices[NUM_ACCEPT_FILTERS_RX1_BUFFER] =
-{
-	RXF_2,
-	RXF_3,
-	RXF_4,
-	RXF_5
-};
 
 static void CAN_accept_filter_rxb0_modified(uint8_t first_offset, uint8_t count) {
 	int curr_offset = 0;
@@ -293,7 +436,11 @@ static void CAN_accept_filter_rxb0_modified(uint8_t first_offset, uint8_t count)
 		curr_offset = i * sizeof(CAN_ID);
 		if ((curr_offset >= first_offset) &&
 			(curr_offset <= last_offset)){
-			p_CAN->filter_config(rxb0_filter_indices[i], &can_regs.accept_filter_rxb0[i]);
+			if (i == 0) {
+				can_pending_updates |= CAN_DEVICE_UPDATE_FILTER_0;
+			} else if (i == 1) {
+				can_pending_updates |= CAN_DEVICE_UPDATE_FILTER_1;
+			}
 		}
 	}
 }
@@ -305,13 +452,21 @@ static void CAN_accept_filter_rxb1_modified(uint8_t first_offset, uint8_t count)
 		curr_offset = i * sizeof(CAN_ID);
 		if ((curr_offset >= first_offset) &&
 			(curr_offset <= last_offset)){
-			p_CAN->filter_config(rxb1_filter_indices[i], &can_regs.accept_filter_rxb1[i]);
+			if (i == 0) {
+				can_pending_updates |= CAN_DEVICE_UPDATE_FILTER_2;
+			} else if (i == 1) {
+				can_pending_updates |= CAN_DEVICE_UPDATE_FILTER_3;
+			} else if (i == 2) {
+				can_pending_updates |= CAN_DEVICE_UPDATE_FILTER_4;
+			} else if (i == 3) {
+				can_pending_updates |= CAN_DEVICE_UPDATE_FILTER_5;
+			}
 		}
 	}
 }
 
 static void CAN_advanced_config_modified(uint8_t first_offset, uint8_t count) {
-
+	/* Todo:  Not Yet Implemented. */
 }
 
 WritableRegSet CAN_reg_sets[] =

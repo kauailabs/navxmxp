@@ -46,7 +46,10 @@ HAL_StatusTypeDef HAL_MCP25625_HW_Filter_Set(MCP25625_RX_FILTER_INDEX reg,
 		CAN_ID *filter);
 HAL_StatusTypeDef HAL_MCP25625_HW_Mask_Set(MCP25625_RX_BUFFER_INDEX reg,
 		CAN_ID *mask);
-
+HAL_StatusTypeDef HAL_MCP25625_HW_Filter_Get(MCP25625_RX_FILTER_INDEX reg,
+		CAN_ID *filter);
+HAL_StatusTypeDef HAL_MCP25625_HW_Mask_Get(MCP25625_RX_BUFFER_INDEX reg,
+		CAN_ID *mask);
 #ifdef __cplusplus
 }
 #endif

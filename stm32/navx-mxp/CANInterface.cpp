@@ -14,10 +14,8 @@
  * Private Function Definitions
  *******************************************************************************/
 
-/* TODO:  When debugging complete, make these variables static */
 CANInterface *CANInterface::p_singleton = (CANInterface *) NULL;
-CAN_IFX_INT_FLAGS CAN_isr_flag_mask;
-CAN_TRANSFER_PADDED CAN_isr_overflow_read_buffer;
+static CAN_IFX_INT_FLAGS CAN_isr_flag_mask;
 
 void CANInterface::mcp25625_isr(void) {
 	if (p_singleton != NULL) {
@@ -58,6 +56,7 @@ void CANInterface::interrupt_handler() {
 	CAN_isr_flag_mask.rx_fifo_nonempty = false;
 	CAN_isr_flag_mask.hw_rx_overflow = false;
 	CAN_isr_flag_mask.sw_rx_overflow = false;
+
 	if(HAL_MCP25625_HW_Ctl_Get(&ie_ctl_isr)==HAL_OK){
 		while (!done) {
 			rx_fifo_full = false;
@@ -103,6 +102,11 @@ void CANInterface::interrupt_handler() {
 						if (eflg_ctl_isr.rx0ovr || eflg_ctl_isr.rx1ovr) {
 							/* HW Receive Overflow */
 							CAN_isr_flag_mask.hw_rx_overflow = true;
+							/* Clear the corresponding error flags */
+							eflg_ctl_isr.rx0ovr = false;
+							eflg_ctl_isr.rx1ovr = false;
+							eflg_ctl_isr.mask = (MCP25625_ERRORFLAG_CTL_MASK)(FLG_RX0OVR | FLG_RX1OVR);
+							HAL_MCP25625_HW_Ctl_Update(&eflg_ctl);
 							hw_rx_overflow = true;
 						}
 						if (eflg_ctl_isr.txbo) {
@@ -160,34 +164,36 @@ void CANInterface::interrupt_handler() {
 		}
 	}
 }
-;
+
 bool CANInterface::clear_rx_overflow() {
 	eflg_ctl.rx0ovr = false;
 	eflg_ctl.rx1ovr = false;
 	eflg_ctl.mask = (MCP25625_ERRORFLAG_CTL_MASK)(FLG_RX0OVR | FLG_RX1OVR);
-	ie_ctl.reg = REG_INT_FLG;
 	uint8_t clear_all = 0;
 	uint8_t clear_rx_full_flags_mask = (uint8_t)QSTAT_RX0IF | (uint8_t)QSTAT_RX1IF | 0x20/* ERRIF*/;
 	disable_CAN_interrupts();
-	/* Clear RX Buffer Full & Error Interrupt Flags */
-	CAN_INTERFACE_STATUS s = HAL_MCP25625_BitModify(ie_ctl.reg, clear_rx_full_flags_mask, &clear_all);
 	/* Clear RX0/RX1 Overflow Error Flags */
-	s = HAL_MCP25625_HW_Ctl_Update(&eflg_ctl);
+	CAN_INTERFACE_STATUS s = HAL_MCP25625_HW_Ctl_Update(&eflg_ctl);
+	/* Clear RX Buffer Full & Error Interrupt Flags */
+	s = HAL_MCP25625_BitModify(REG_INT_FLG, clear_rx_full_flags_mask, &clear_all);
 	enable_CAN_interrupts();
 	return (s == MCP25625_OK);
 }
 
 bool CANInterface::get_errors(bool& rx_overflow, CAN_ERROR_FLAGS& error_flags,
 		uint8_t& tx_err_count, uint8_t& rx_err_count) {
+	rx_overflow = false;
+	*((uint8_t *)&eflg_ctl) = 0;
 	uint8_t err_cnt[2] = {0, 0};
 	*((uint8_t *)&error_flags) = 0;
+	eflg_ctl.reg = REG_CTL_EFLG;
 
 	disable_CAN_interrupts();
 	CAN_INTERFACE_STATUS s1 = HAL_MCP25625_HW_Ctl_Get((void*)&eflg_ctl);
 	CAN_INTERFACE_STATUS s2 = HAL_MCP25625_Read(REG_STAT_TEC, err_cnt, sizeof(err_cnt));
 	enable_CAN_interrupts();
 	if(s1 == MCP25625_OK){
-		rx_overflow = (eflg_ctl.rx0ovr | eflg_ctl.rx1ovr);
+		rx_overflow = ((eflg_ctl.rx0ovr | eflg_ctl.rx1ovr) != 0);
 		error_flags.can_bus_warn = eflg_ctl.ewarn;
 		error_flags.can_bus_err_pasv = (eflg_ctl.rxerr | eflg_ctl.txerr);
 		error_flags.can_bus_tx_off = (eflg_ctl.txbo);
@@ -195,6 +201,9 @@ bool CANInterface::get_errors(bool& rx_overflow, CAN_ERROR_FLAGS& error_flags,
 	if(s2 == MCP25625_OK){
 		tx_err_count = err_cnt[0];
 		rx_err_count = err_cnt[1];
+	} else {
+		tx_err_count = 0;
+		rx_err_count = 0;
 	}
 	return ((*((uint8_t *)&error_flags) !=0) || rx_overflow);
 }
@@ -221,18 +230,55 @@ CAN_INTERFACE_STATUS CANInterface::get_quick_status(MCP25625_CAN_QUICK_STATUS& s
 }
 
 void CANInterface::process_transmit_fifo() {
+	CAN_MODE current_mode = get_current_can_mode();
+	/* Only process transmit fifo items if in NORMAL or LOOPBACK mode. */
+	if ((current_mode != CAN_MODE_NORMAL)&&
+		(current_mode != CAN_MODE_LOOP)) {
+		return;
+	}
 	MCP25625_CAN_QUICK_STATUS status;
+	MCP25625_TXBUFF_CTL txbuff_ctl[3];
 	disable_CAN_interrupts();
+	get_tx_control(TXB0, txbuff_ctl[0]);
+	get_tx_control(TXB1, txbuff_ctl[1]);
+	get_tx_control(TXB2, txbuff_ctl[2]);
 	HAL_StatusTypeDef spi_status = HAL_MCP25625_Read_Status(&status);
 	enable_CAN_interrupts();
 	if(spi_status==HAL_OK){
+
+		/* If in error-passive mode, or txbo mode, don't transmit data. */
+		bool rx_overflow = false;
+		CAN_ERROR_FLAGS error_flags;
+		error_flags.can_bus_err_pasv = false;
+		error_flags.can_bus_tx_off = false;
+		error_flags.can_bus_warn = false;
+		uint8_t tx_err_count = 0;
+		uint8_t rx_err_count = 0;
+		CANInterface::get_errors(rx_overflow, error_flags, tx_err_count, rx_err_count);
+		if (error_flags.can_bus_err_pasv || error_flags.can_bus_tx_off) return;
+
+		int buff_err_count = 0;
+		for (int i = 0; i < 3; i++)
+		if ((txbuff_ctl[i].abtf) ||
+			(txbuff_ctl[i].mloa) ||
+			(txbuff_ctl[i].txerr)) {
+			buff_err_count++;
+		}
+
+		int count = tx_fifo.get_count();
+		if (uint32_t(count) > tx_fifo_highwatermark_count) {
+			tx_fifo_highwatermark_count = uint32_t(count);
+		}
 		while(!tx_fifo.is_empty()) {
 			MCP25625_TX_BUFFER_INDEX available_tx_index;
-			if(!(status & QSTAT_TX0REQ)) {
+			if(!(status & QSTAT_TX0REQ) &&
+			   !(status & QSTAT_TX0IF)) {
 				available_tx_index = TXB0;
-			} else if(!(status & QSTAT_TX1REQ)) {
+			} else if(!(status & QSTAT_TX1REQ) &&
+					  !(status & QSTAT_TX1IF)) {
 				available_tx_index = TXB1;
-			} else if(!(status & QSTAT_TX2REQ)) {
+			} else if(!(status & QSTAT_TX2REQ) &&
+					  !(status & QSTAT_TX2IF)) {
 				available_tx_index = TXB2;
 			} else {
 				break;
@@ -241,21 +287,23 @@ void CANInterface::process_transmit_fifo() {
 			if(p_data) {
 				disable_CAN_interrupts();
 				CAN_INTERFACE_STATUS s = msg_load(available_tx_index, p_data);
-				enable_CAN_interrupts();
 				if(s == MCP25625_OK){
-					disable_CAN_interrupts();
 					if(this->msg_send(available_tx_index)==MCP25625_OK){
 						if(available_tx_index == TXB0) {
 							status = (MCP25625_CAN_QUICK_STATUS)(status | QSTAT_TX0REQ);
-						} else if ( available_tx_index == TXB1) {
+							tx0_sent_count++;
+						} else if (available_tx_index == TXB1) {
 							status = (MCP25625_CAN_QUICK_STATUS)(status | QSTAT_TX1REQ);
-						} else if ( available_tx_index == TXB2) {
+							tx1_sent_count++;
+						} else if (available_tx_index == TXB2) {
 							status = (MCP25625_CAN_QUICK_STATUS)(status | QSTAT_TX2REQ);
+							tx2_sent_count++;
 						}
+						tx_fifo.dequeue_return(p_data);
 					}
-					enable_CAN_interrupts();
 				}
-				tx_fifo.dequeue_return(p_data);
+				enable_CAN_interrupts();
+				break;
 			}
 		}
 	}
@@ -263,6 +311,7 @@ void CANInterface::process_transmit_fifo() {
 
 CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 
+	disable_CAN_interrupts();
 	message_error_interrupt_count =
 		error_interrupt_count =
 		wake_interrupt_count =
@@ -273,6 +322,13 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 		rx1_complete_count =
 		rx_buff_full_count =
 		more_interrupt_pending_count =
+		tx0_sent_count =
+		tx1_sent_count =
+		tx2_sent_count =
+		tx0_err_count =
+		tx1_err_count =
+		tx2_err_count =
+		tx_fifo_highwatermark_count =
 		bus_off_count = 0;
 
 	bus_off = false;
@@ -297,6 +353,9 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 	HAL_MCP25625_PinReset(); /* Upon reset, the opmode should be CONFIG */
 	HAL_MCP25625_PinWake();  /* Wake the Transceiver */
 
+	HAL_MCP25625_HWReset();	/* Just to be extra sure, send the SPI Reset command, too */
+	HAL_Delay(2);
+
 	/* Verify the CANSTAT register power on reset (POR) values */
 	bool is_config_mode = false;
 	if (HAL_MCP25625_HW_Ctl_Get((void*) &status_reg)==MCP25625_OK) {
@@ -306,26 +365,28 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 
 	/* Verify the CANCTL register power on reset (POR) values */
 	if (HAL_MCP25625_HW_Ctl_Get((void*) &can_ctl))
-		return MCP25625_CTL_ERR;
+		goto error_cleanup;
 
 	// Setup Control
-	can_ctl.clkpre = 1; /* Divide Crystal oscillator /1 */
-	can_ctl.clken = true;
-	can_ctl.abat = true; /* Clear any transmission in progress */
-	can_ctl.osm = false;
+	can_ctl.clkpre = 1; 	/* Divide Crystal oscillator /1 */
+	can_ctl.clken = true;	/* Enable Clock output pin (debug) */
+	can_ctl.abat = false; 	/* Don't abort any transmission in progress */
+	can_ctl.osm = false;	/* Disable One-shot-mode */
 	can_ctl.reqop = CAN_MODE_CONFIG;
 
 	if (HAL_MCP25625_HW_Ctl_Set((void*) &can_ctl))
-		return MCP25625_CTL_ERR;
+		goto error_cleanup;
 
-	HAL_Delay(2);
+#if 0
+	/* Allow some time for transmissions in progress to abort. */
+	HAL_Delay(5);
 
 	/* Clear the abort transmission flag. */
 
 	can_ctl.abat = false;
 	if (HAL_MCP25625_HW_Ctl_Set((void*) &can_ctl))
-		return MCP25625_CTL_ERR;
-
+		goto error_cleanup;
+#endif
 
 	/* Re-verify that configuration mode is successfully entered. */
 	if (HAL_MCP25625_HW_Ctl_Get((void*) &status_reg)==MCP25625_OK) {
@@ -339,7 +400,7 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 	rts_pins.p2_mode = false;
 
 	if (HAL_MCP25625_HW_Ctl_Set((void*) &rts_pins))
-		return MCP25625_RTS_ERR;
+		goto error_cleanup;
 
 	// Deactivate RX pins ( RX0, RX1 )
 	rx_pins.p0_mode = false;
@@ -348,24 +409,24 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 	rx_pins.p1_enab = false;
 
 	if (HAL_MCP25625_HW_Ctl_Set((void*) &rx_pins))
-		return MCP25625_RXP_ERR;
+		goto error_cleanup;
 
 	// Configure TXB registers( same cofig for all txb regs )
 	tx_ctl.txp = 2; /* Highest priority */
 	tx_ctl.txreq = false;
 	tx_ctl.buffer = TXB0;
 	if (HAL_MCP25625_HW_Ctl_Set(&tx_ctl))
-		return MCP25625_CTL_ERR;
+		goto error_cleanup;
 
 	tx_ctl.txp = 1; /* High Priority */
 	tx_ctl.buffer = TXB1;
 	if (HAL_MCP25625_HW_Ctl_Set(&tx_ctl))
-		return MCP25625_CTL_ERR;
+		goto error_cleanup;
 
 	tx_ctl.txp = 0; /* Medium Priority */
 	tx_ctl.buffer = TXB2;
 	if (HAL_MCP25625_HW_Ctl_Set(&tx_ctl))
-		return MCP25625_CTL_ERR;
+		goto error_cleanup;
 
 	// Configure RXB registers
 	rx0_ctl.bukt = true;				/* Enable receive overflow into RXB1. */
@@ -373,11 +434,12 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 	rx1_ctl.rxm = MCP25625_RX_MODE_ALL; /* Enable all (default) masks and filters */
 	if (HAL_MCP25625_HW_Ctl_Set((void*) &rx0_ctl)
 			|| HAL_MCP25625_HW_Ctl_Set((void*) &rx1_ctl))
-		return MCP25625_CTL_ERR;
+		goto error_cleanup;
 
 	HAL_MCP25625_HW_Ctl_Get(&rx0_ctl);
 	HAL_MCP25625_HW_Ctl_Get(&rx1_ctl);
 
+	clear_rx_overflow();
 	clear_all_interrupt_flags();
 
 	// Configure CAN bus timing
@@ -389,20 +451,6 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 	//btl_config(0,1,8,1,2,1,1,0,0); /* 24Mhz Crystal 1TQ; 19-meter max bus len */
 
 	get_btl_config(BRP, SJW, PRSEG, PHSEG1, PHSEG2, SAM, BTLMODE, WAKFIL, SOFR);
-
-	// Enable interrupts
-	ie_ctl.err = true;
-	ie_ctl.mask = (MCP25625_INT_CTL_MASK) 0xFF;
-	ie_ctl.merre = true;
-	ie_ctl.rx0 = true;
-	ie_ctl.rx1 = true;
-	ie_ctl.tx0 = true;
-	ie_ctl.tx1 = true;
-	ie_ctl.tx2 = true;
-	ie_ctl.wak = false;
-	ie_ctl.reg = REG_INT_CTL;
-	if (HAL_MCP25625_HW_Ctl_Set((void*) &ie_ctl))
-		return MCP25625_CTL_ERR;
 
 	/* Configure all masks/filters to be extremely restrictive. */
 
@@ -421,9 +469,48 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 	filter_config(RXF_5, &default_filter);
 
 	if (set_mode(default_mode))
-		return MCP25625_MODE_FAULT;
+		goto error_cleanup;
 
+	enable_CAN_interrupts();
 	return MCP25625_OK;
+
+error_cleanup:
+	enable_CAN_interrupts();
+	return MCP25625_CTL_ERR;
+}
+
+void CANInterface::enable_controller_interrupts() {
+	disable_CAN_interrupts();
+	// Enable interrupts from MCP25625 controller
+	ie_ctl.err = true;
+	ie_ctl.mask = (MCP25625_INT_CTL_MASK) 0xFF;
+	ie_ctl.merre = true;
+	ie_ctl.rx0 = true;
+	ie_ctl.rx1 = true;
+	ie_ctl.tx0 = true;
+	ie_ctl.tx1 = true;
+	ie_ctl.tx2 = true;
+	ie_ctl.wak = false;
+	ie_ctl.reg = REG_INT_CTL;
+	HAL_MCP25625_HW_Ctl_Set((void*) &ie_ctl);
+	enable_CAN_interrupts();
+}
+
+void CANInterface::disable_controller_interrupts() {
+	disable_CAN_interrupts();
+	// Enable interrupts from MCP25625 controller
+	ie_ctl.err = false;
+	ie_ctl.mask = (MCP25625_INT_CTL_MASK) 0xFF;
+	ie_ctl.merre = false;
+	ie_ctl.rx0 = false;
+	ie_ctl.rx1 = false;
+	ie_ctl.tx0 = false;
+	ie_ctl.tx1 = false;
+	ie_ctl.tx2 = false;
+	ie_ctl.wak = false;
+	ie_ctl.reg = REG_INT_CTL;
+	HAL_MCP25625_HW_Ctl_Set((void*) &ie_ctl);
+	enable_CAN_interrupts();
 }
 
 CAN_INTERFACE_STATUS CANInterface::clear_error_interrupt_flags()
@@ -460,9 +547,10 @@ CAN_INTERFACE_STATUS CANInterface::clear_all_interrupt_flags()
 	ie_ctl.tx2 = false;
 	ie_ctl.wak = false;
 	ie_ctl.reg = REG_INT_FLG;
-	if (HAL_MCP25625_HW_Ctl_Set((void*) &ie_ctl))
+	if (HAL_MCP25625_HW_Ctl_Set((void*) &ie_ctl)) {
 		enable_CAN_interrupts();
 		return MCP25625_CTL_ERR;
+	}
 
 	enable_CAN_interrupts();
 	return MCP25625_OK;
@@ -475,19 +563,48 @@ CAN_INTERFACE_STATUS CANInterface::set_mode(CAN_MODE mode, bool disable_interrup
 	if(disable_interrupts) {
 		disable_CAN_interrupts();
 	}
+
+	can_ctl.abat = false;
+	can_ctl.osm = false;
 	can_ctl.reqop = mode;
-	can_ctl.mask = CAN_REQOP;
+	can_ctl.mask = MCP25625_CAN_CTL_MASK(CAN_REQOP | CAN_ABAT | CAN_OSM);
 
 	HAL_MCP25625_HW_Ctl_Update((void*) &can_ctl);
 
 	/* Read the CANSTAT register, verify OPMODE has been changed */
 	/* (This can be delayed while transmit is in progress. */
-	if (HAL_MCP25625_HW_Ctl_Get((void*) &status_reg)==HAL_OK) {
-		can_stat = status_reg.value;
-		if (can_stat.opmod != mode) {
-			result = MCP25625_CTL_ERR;
+	result = MCP25625_OK;
+	for (size_t i = 0; i < 300; i++) {
+		if (HAL_MCP25625_HW_Ctl_Get((void*) &status_reg)==HAL_OK) {
+			can_stat = status_reg.value;
+			if (can_stat.opmod != mode) {
+				result = MCP25625_CTL_ERR;
+			} else {
+				current_mode = mode;
+				result = MCP25625_OK;
+				break;
+			}
+		}
+	}
+
+	/* If device failed to respond within the timeout period,
+	 * revert the internal mode state variable to match
+	 * the opmode state the hardware is currently in.
+	 */
+	if (result == MCP25625_CTL_ERR) {
+		current_mode = can_stat.opmod;
+	}
+
+	if (current_mode != CAN_MODE_CONFIG) {
+		enable_controller_interrupts();
+	} else {
+		/* Only ever clear interrupts if the transition to
+		 * CONFIG mode has been verified.
+		 */
+		if (result == MCP25625_OK) {
+			disable_controller_interrupts();
 		} else {
-			current_mode = mode;
+			enable_controller_interrupts();
 		}
 	}
 
@@ -562,68 +679,6 @@ CAN_INTERFACE_STATUS CANInterface::btl_config(uint8_t BRP, uint8_t SJW,
 	if (set_mode(default_mode))
 		return MCP25625_MODE_FAULT;
 
-	return MCP25625_OK;
-}
-
-CAN_INTERFACE_STATUS CANInterface::tx_config(MCP25625_TX_BUFFER_INDEX tx_buff,
-		uint8_t TXP) {
-	bool use_RTS_pin = false;
-	CAN_MODE previous_mode = current_mode;
-	disable_CAN_interrupts();
-	tx_ctl.buffer = tx_buff;
-	tx_ctl.txp = TXP & TXB_TXP;
-
-	if (set_mode(CAN_MODE_CONFIG, false)) {
-		enable_CAN_interrupts();
-		return MCP25625_MODE_FAULT;
-	}
-
-	if (HAL_MCP25625_HW_Ctl_Set((void*) &tx_ctl)) {
-		enable_CAN_interrupts();
-		return MCP25625_CTL_ERR;
-	}
-
-	switch (tx_buff) {
-	case TXB0:
-
-		rts_pins.p0_mode = use_RTS_pin;
-		rts_pins.mask = RTS_P0_MODE;
-
-		if (HAL_MCP25625_HW_Ctl_Update((void*) &rts_pins)) {
-			enable_CAN_interrupts();
-			return MCP25625_CTL_ERR;
-		}
-		break;
-	case TXB1:
-
-		rts_pins.p1_mode = use_RTS_pin;
-		rts_pins.mask = RTS_P1_MODE;
-
-		if (HAL_MCP25625_HW_Ctl_Update((void*) &rts_pins)) {
-			enable_CAN_interrupts();
-			return MCP25625_CTL_ERR;
-		}
-		break;
-	case TXB2:
-
-		rts_pins.p2_mode = use_RTS_pin;
-		rts_pins.mask = RTS_P2_MODE;
-
-		if (HAL_MCP25625_HW_Ctl_Update((void*) &rts_pins)) {
-			enable_CAN_interrupts();
-			return MCP25625_CTL_ERR;
-		}
-		break;
-	case TXB_INVALID:
-		break;
-	}
-
-	if (set_mode(previous_mode, false)) {
-		enable_CAN_interrupts();
-		return MCP25625_MODE_FAULT;
-	}
-
-	enable_CAN_interrupts();
 	return MCP25625_OK;
 }
 
@@ -721,15 +776,19 @@ CAN_INTERFACE_STATUS CANInterface::mask_config(MCP25625_RX_BUFFER_INDEX rx_mask,
 	return MCP25625_OK;
 }
 
+CAN_INTERFACE_STATUS CANInterface::get_tx_control(MCP25625_TX_BUFFER_INDEX tx_buff,
+		MCP25625_TXBUFF_CTL& txbuff_ctl) {
+	txbuff_ctl.reg = REG_CTL_TXB;
+	txbuff_ctl.buffer = tx_buff;
+	txbuff_ctl.abtf = 0;
+	txbuff_ctl.txp = 0;
+	txbuff_ctl.mloa = 0;
+	txbuff_ctl.txerr = 0;
+	return HAL_MCP25625_HW_Ctl_Get((void*) &txbuff_ctl);
+}
+
 CAN_INTERFACE_STATUS CANInterface::msg_load(MCP25625_TX_BUFFER_INDEX tx_buff,
 		CAN_TRANSFER_PADDED *p_tx) {
-	tx_ctl.buffer = tx_buff;
-	tx_ctl.txreq = false;
-	tx_ctl.mask = TXB_TXREQ;
-
-	if (HAL_MCP25625_HW_Ctl_Update(&tx_ctl))
-		return MCP25625_CTL_ERR;
-
 	if (HAL_MCP25625_HW_Data_Set(tx_buff, p_tx))
 		return MCP25625_TX_ERR;
 
