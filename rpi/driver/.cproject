@@ -33,7 +33,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/driver/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/driver/src}&quot;"/>
 								</option>
-								<option id="gnu.cpp.compiler.option.other.other.174552881" name="Other flags" superClass="gnu.cpp.compiler.option.other.other" value="-c -fmessage-length=0 -std=c++11" valueType="string"/>
+								<option id="gnu.cpp.compiler.option.other.other.174552881" name="Other flags" superClass="gnu.cpp.compiler.option.other.other" value="-c -fmessage-length=0 -std=c++11 -g -rdynamic" valueType="string"/>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.1887918141" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.c.compiler.so.debug.143368606" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.so.debug">
@@ -44,6 +44,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/driver/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/driver/src}&quot;"/>
 								</option>
+								<option id="gnu.c.compiler.option.misc.other.564633671" superClass="gnu.c.compiler.option.misc.other" value="-c -fmessage-length=0  -g -rdynamic" valueType="string"/>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.41057291" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.c.linker.so.debug.586341033" name="GCC C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.so.debug">
@@ -156,4 +157,5 @@
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
 </cproject>

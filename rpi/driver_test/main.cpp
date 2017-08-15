@@ -38,13 +38,6 @@ static void VMXIOInterruptHandler(uint32_t io_interrupt_num,
 			timestamp_us);
 }
 
-static void CANNewRxDataNotifyHandler(void *param, uint64_t timestamp_us)
-{
-	printf("CAN New Rx Data Notiffy Handler.  Param:  %x, Timestamp:  %" PRIu64 "\n",
-			(unsigned int)param,
-			timestamp_us);
-}
-
 class AHRSCallback : public ITimestampedDataSubscriber
 {
 public:
@@ -73,7 +66,7 @@ int main(int argc, char *argv[])
 			if(vmx.io.Accumulator_GetFullScaleVoltage(full_scale_voltage)) {
 				printf("Analog Input Voltage:  %0.1f\n", full_scale_voltage);
 			} else {
-				printf("ERROR acquring Analog Input Voltage.\n");
+				printf("ERROR acquiring Analog Input Voltage.\n");
 			}
 
 			/* Wait awhile for AHRS data (acquired in background thread) to accumulate */
@@ -87,7 +80,7 @@ int main(int argc, char *argv[])
 				vmx.time.DelayMilliseconds(20);
 			}
 
-			vmx.ahrs.Stop(); /* Stop background AHRS data acquisition thread (during debugging, this can be useful... */
+			//vmx.ahrs.Stop(); /* Stop background AHRS data acquisition thread (during debugging, this can be useful... */
 
 			/* IO test */
 
@@ -375,7 +368,7 @@ int main(int argc, char *argv[])
 					DisplayVMXError(vmxerr);
 					continue;
 				}
-				//vmx.iocx.set_gpio_config(i, GPIO_TYPE_OUTPUT_PUSHPULL, GPIO_INPUT_FLOAT, GPIO_INTERRUPT_DISABLED);
+
 				DIOConfig dio_config;
 				dio_config.SetInput(true);
 				dio_config.SetInputMode(DIOConfig::PULLUP);
@@ -393,7 +386,6 @@ int main(int argc, char *argv[])
 			}
 
 			VMXResourceHandle interrupt_res_handles[num_stm32_gpios];
-
 			/* Configure all DIOs for rising-edge interrupt-handling */
 			for ( uint8_t dio_channel_index = first_stm32_gpio; dio_channel_index < first_stm32_gpio + num_stm32_gpios; dio_channel_index++) {
 				VMXResourceIndex int_res_index = dio_channel_index - first_stm32_gpio;
@@ -414,6 +406,7 @@ int main(int argc, char *argv[])
 #endif
 				}
 			}
+
 			/* 6) Display current input values. */
 			for ( int dio_channel_index = first_stm32_gpio; dio_channel_index < first_stm32_gpio + num_stm32_gpios; dio_channel_index++) {
 				bool high;
@@ -427,27 +420,27 @@ int main(int argc, char *argv[])
 
 			bool hw_rx_overflow_detected = false;
 
-			/* It is recommended, but not strictly required to enter CAN_MODE_CONFIG */
-			/* whenever modifying acceptance filters or masks.                       */
-			vmx.can.Reset(); /* Note:  may block for 3-4ms */
-			/* Wait 10ms after resetting CAN transceiver/controller */
-			vmx.time.DelayMilliseconds(10);
-
-			vmx.can.SetMode(VMXCAN::VMXCAN_CONFIG);
-			VMXCANReceiveStreamHandle rxh1, rxh2;
-			if (!vmx.can.OpenReceiveStream(rxh1, 0x08041400, 0x0FFFFFF0, 100, &vmxerr)) {
+			VMXCANReceiveStreamHandle canrxhandles[3];
+			if (!vmx.can.OpenReceiveStream(canrxhandles[0], 0x08041400, 0x0FFFFFF0, 100, &vmxerr)) {
 				printf("Error opening CAN RX Stream 1.\n");
 				DisplayVMXError(vmxerr);
 			} else {
-				printf("Opened CAN Receive Stream 1, handle:  %d\n", rxh1);
+				printf("Opened CAN Receive Stream 1, handle:  %d\n", canrxhandles[0]);
 			}
-			if (!vmx.can.OpenReceiveStream(rxh2, 0x08041480, 0x0FFFFFF0, 100, &vmxerr)) {
+			if (!vmx.can.OpenReceiveStream(canrxhandles[1], 0x08041480, 0x0FFFFFF0, 100, &vmxerr)) {
 				printf("Error opening CAN RX Stream 2.\n");
 				DisplayVMXError(vmxerr);
 			} else {
-				printf("Opened CAN Receive Stream 2, handle:  %d\n", rxh2);
+				printf("Opened CAN Receive Stream 2, handle:  %d\n", canrxhandles[1]);
+			}
+			if (!vmx.can.OpenReceiveStream(canrxhandles[2], 0x0, 0x0, 100, &vmxerr)) {
+				printf("Error opening CAN RX Stream 2.\n");
+				DisplayVMXError(vmxerr);
+			} else {
+				printf("Opened CAN Receive Stream 2, handle:  %d\n", canrxhandles[2]);
 			}
 
+			/* Flush Rx/Tx fifo not necessary if invoking reset above. */
 			if (!vmx.can.FlushRxFIFO(&vmxerr)) {
 				printf("Error Flushing CAN RX FIFO.\n");
 				DisplayVMXError(vmxerr);
@@ -462,6 +455,8 @@ int main(int argc, char *argv[])
 				printf("Flushed CAN TX FIFO\n");
 			}
 
+			vmx.can.DisplayMasksAndFilters(); /* NOTE:  Must be in config mode to display these. */
+
 			if (!vmx.can.SetMode(VMXCAN::VMXCAN_NORMAL)) {
 				printf("Error setting CAN Mode to NORMAL\n");
 				DisplayVMXError(vmxerr);
@@ -469,30 +464,80 @@ int main(int argc, char *argv[])
 				printf("Set CAN Mode to Normal.\n");
 			}
 
-			//vmx.can.RegisterNewRxDataNotifyHandler(CANNewRxDataNotifyHandler, NULL);
-
 #if 0
 			if (!vmx.can.SetMode(VMXCAN::VMXCAN_LOOPBACK)) {
 				printf("Error setting CAN Mode to LOOPBACK\n");
 				DisplayVMXError(vmxerr);
 			} else {
-				printf("Set CAN Mode to Normal.\n");
+				printf("Set CAN Mode to Loopback.\n");
 			}
+#endif
+
+			/* It's recommended to delay 20 Milliseconds after transitioning modes -
+			 * to allow the CAN circuitry to stabilize; otherwise, sometimes
+			 * there will be errors transmitting data during this period.
+			 */
+			vmx.time.DelayMilliseconds(20);
 
 			for ( int i = 0; i < 10; i++) {
 				VMXCANMessage msg;
 				msg.messageID = 0x8041403; /* This is an extended ID */
 				msg.dataSize = 8;
-				memcpy(msg.data,"Hello!!",msg.dataSize);
+				memcpy(msg.data,"Hellox!",msg.dataSize);
+				msg.data[5] = uint8_t('A') + i;
 				if (!vmx.can.SendMessage(msg, 0, &vmxerr)) {
 					printf("Error sending CAN message %d\n", i);
 					DisplayVMXError(vmxerr);
 				}
 			}
-#endif
 
 			/* Allow time for some CAN messages to be received. */
-			vmx.time.DelayMilliseconds(50);
+			for (int i = 0; i < 10; i++) {
+				vmx.time.DelayMilliseconds(100);
+				VMXCANBusStatus can_bus_status;
+				if (!vmx.can.GetCANBUSStatus(can_bus_status, &vmxerr)) {
+					printf("Error getting CAN BUS Status.\n");
+					DisplayVMXError(vmxerr);
+				} else {
+					if(can_bus_status.busWarning) {
+						printf("CAN Bus Warning.\n");
+					}
+					if(can_bus_status.busPassiveError) {
+						printf("CAN Bus in Passive mode due to errors.\n");
+					}
+					if(can_bus_status.busOffError) {
+						printf("CAN Bus Transmitter Off due to errors.\n");
+					}
+					if(can_bus_status.transmitErrorCount > 0) {
+						printf("CAN Bus Tx Error Count:  %d\n", can_bus_status.transmitErrorCount);
+					}
+					if(can_bus_status.receiveErrorCount > 0) {
+						printf("CAN Bus Rx Error Count:  %d\n", can_bus_status.receiveErrorCount);
+					}
+					if(can_bus_status.busOffCount > 0) {
+						printf("CAN Bus Tx Off Count:  %d\n", can_bus_status.busOffCount);
+					}
+					if(can_bus_status.txFullCount > 0) {
+						printf("CAN Bus Tx Full Count:  %d\n", can_bus_status.txFullCount);
+					}
+					if(can_bus_status.hwRxOverflow) {
+						hw_rx_overflow_detected = true;
+						printf("CAN HW Receive Overflow detected.\n");
+					}
+					if(can_bus_status.swRxOverflow) {
+						printf("CAN SW Receive Overflow detected.\n");
+					}
+					if(can_bus_status.busError) {
+						printf("CAN Bus Error detected.\n");
+					}
+					if(can_bus_status.wake) {
+						printf("CAN Bus Wake occured.\n");
+					}
+					if(can_bus_status.messageError) {
+						printf("CAN Message Error detected.\n");
+					}
+				}
+			}
 
 			VMXCAN::VMXCANMode can_mode;
 			if(vmx.can.GetMode(can_mode)) {
@@ -519,84 +564,39 @@ int main(int argc, char *argv[])
 				printf("Error retrieving current CAN Mode.\n");
 			}
 
-			VMXCANBusStatus can_bus_status;
-			if (!vmx.can.GetCANBUSStatus(can_bus_status, &vmxerr)) {
-				printf("Error getting CAN BUS Status.\n");
-				DisplayVMXError(vmxerr);
-			} else {
-				if(can_bus_status.busWarning) {
-					printf("CAN Bus Warning.\n");
-				}
-				if(can_bus_status.busPassiveError) {
-					printf("CAN Bus in Passive mode due to errors.\n");
-				}
-				if(can_bus_status.busOffError) {
-					printf("CAN Bus Transmitter Off due to errors.\n");
-				}
-				if(can_bus_status.transmitErrorCount > 0) {
-					printf("CAN Bus Tx Error Count:  %d\n", can_bus_status.transmitErrorCount);
-				}
-				if(can_bus_status.receiveErrorCount > 0) {
-					printf("CAN Bus Rx Error Count:  %d\n", can_bus_status.receiveErrorCount);
-				}
-				if(can_bus_status.hwRxOverflow) {
-					hw_rx_overflow_detected = true;
-					printf("CAN HW Receive Overflow detected.\n");
-				}
-				if(can_bus_status.swRxOverflow) {
-					printf("CAN SW Receive Overflow detected.\n");
-				}
-				if(can_bus_status.busError) {
-					printf("CAN Bus Error detected.\n");
-				}
-				if(can_bus_status.wake) {
-					printf("CAN Bus Wake occured.\n");
-				}
-				if(can_bus_status.messageError) {
-					printf("CAN Message Error detected.\n");
-				}
-			}
-
-			if (!vmx.can.RetrieveAllCANData(&vmxerr)) {
-				printf("Error retrieving all CAN Data.");
-				DisplayVMXError(vmxerr);
-			} else {
+			for (int i = 0; i < 3; i++) {
 				bool done = false;
 				while (!done) {
-					VMXCANTimestampedMessage msg;
+					VMXCANTimestampedMessage stream_msg;
 					uint32_t num_msgs_read;
-					if (!vmx.can.ReadReceiveStream(rxh1, &msg, 1, num_msgs_read, &vmxerr)) {
-						printf("Error invoking CAN ReadReceiveStream for stream %d.\n", rxh1);
+					if (!vmx.can.ReadReceiveStream(canrxhandles[i], &stream_msg, 1, num_msgs_read, &vmxerr)) {
+						printf("Error invoking CAN ReadReceiveStream for stream %d.\n", canrxhandles[i]);
 						DisplayVMXError(vmxerr);
 						done = true;
 					}
 					if (num_msgs_read == 0) {
 						done = true;
 					} else {
-						printf("Received CAN Msg from ID 0x%08x [%d bytes]\n", msg.messageID, msg.dataSize);
-					}
-				}
-				done = false;
-				while (!done) {
-					VMXCANTimestampedMessage msg;
-					uint32_t num_msgs_read;
-					if (!vmx.can.ReadReceiveStream(rxh2, &msg, 1, num_msgs_read, &vmxerr)) {
-						printf("Error invoking CAN ReadReceiveStream for stream %d.\n", rxh2);
-						DisplayVMXError(vmxerr);
-						done = true;
-					}
-					if (num_msgs_read == 0) {
-						done = true;
-					} else {
-						printf("Received CAN Msg from ID 0x%08x [%d bytes]\n", msg.messageID, msg.dataSize);
+						bool is_eid = true;
+						if (stream_msg.messageID & VMXCAN_IS_FRAME_11BIT) {
+							is_eid = false;
+							stream_msg.messageID &= ~VMXCAN_IS_FRAME_11BIT;
+						}
+						stream_msg.messageID &= ~VMXCAN_IS_FRAME_REMOTE;
+						printf("[%10d] CAN Stream %d:  %d bytes from %s 0x%x:  ",
+								stream_msg.timeStampMS,
+								canrxhandles[i],
+								stream_msg.dataSize,
+								(is_eid ? "EID" : "ID "),
+								stream_msg.messageID);
+						for ( int j = 0; j < stream_msg.dataSize; j++) {
+							printf("%02X ", stream_msg.data[j]);
+						}
+						printf("\n");
 					}
 				}
 			}
 
-			if(hw_rx_overflow_detected) {
-				vmx.can.ClearErrors();
-				printf("Clearing CAN HW Receive Overflow.\n");
-			}
 			//test_navx_pi_spi();
 			//vmx.io.TestPWMOutputs();
 			//vmx.io.TestExtI2C();
@@ -614,12 +614,27 @@ int main(int argc, char *argv[])
 			} else {
 				printf("Error retrieving RTC date.\n");
 			}
+			VMXTime::DaylightSavingsAdjustment dsa;
+			if (vmx.time.GetRTCDaylightSavingsAdjustment(dsa, &vmxerr)) {
+				if (dsa == VMXTime::DaylightSavingsAdjustment::DSAdjustmentSubtractOneHour) {
+					printf("RTC Daylight Savings Adjustment:  Subtract One Hour\n");
+				} else if (dsa == VMXTime::DaylightSavingsAdjustment::DSAdjustmentAddOneHour) {
+					printf("RTC Daylight Savings Adjustment:  Add One Hour\n");
+				} else {
+					printf("RTC Daylight Savings Adjustment:  None\n");
+				}
+			} else {
+				printf("Error retrieving RTC Daylight Savings Adjustment.");
+				DisplayVMXError(vmxerr);
+			}
 
 		    time_t     now = time(0);
 		    struct tm  tstruct;
 		    tstruct = *localtime(&now);
 
-		    printf("Current Time:  %02d:%02d:%02d\n", tstruct.tm_hour, tstruct.tm_min, tstruct.tm_sec);
+		    printf("Current Time:  %02d:%02d:%02d - %s\n", tstruct.tm_hour, tstruct.tm_min, tstruct.tm_sec,
+		    		tstruct.tm_isdst ? "(Daylight Savings)" : "");
+
 		    if (vmx.time.SetRTCTime(tstruct.tm_hour, tstruct.tm_min, tstruct.tm_sec)) {
 		    	printf("Set VMX RTC Time to current time.\n");
 		    }

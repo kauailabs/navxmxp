@@ -9,6 +9,7 @@
 #define SRC_IREGISTERIO_H_
 
 #include <stdint.h>
+#include <condition_variable>
 
 class IRegisterIO {
 public:
@@ -18,6 +19,7 @@ public:
     virtual bool Write(uint8_t address, uint8_t value ) = 0;
     virtual bool Read(uint8_t first_address, uint8_t* buffer, uint8_t buffer_len) = 0;
     virtual bool Shutdown() = 0;
+    virtual std::condition_variable& GetNewDataConditionVariable() = 0;
 };
 
 #endif /* SRC_IREGISTERIO_H_ */

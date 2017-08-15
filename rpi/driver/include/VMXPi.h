@@ -15,6 +15,7 @@
 #include "VMXPower.h"
 #include "VMXTime.h"
 #include "VMXVersion.h"
+#include "VMXThread.h"
 
 class VMXPiImpl;
 
@@ -30,6 +31,7 @@ public:
 	VMXCAN		can;
 	VMXPower	power;
 	VMXVersion	version;
+	VMXThread	thread;
 
 	VMXPi(bool realtime, uint8_t ahrs_update_rate_hz);
 	virtual ~VMXPi();

@@ -46,6 +46,7 @@ public:
 			interrupt_notifications[i].Init();
 		}
 		pigpio.SetIOInterruptSink(this);
+		pigpio.EnableIOCXInterrupt();
 	}
 
 	virtual void IOCXInterrupt(PIGPIOInterruptEdge edge, uint64_t curr_timestamp) {
@@ -121,6 +122,7 @@ public:
 	virtual ~VMXIO_PIGPIOInterruptSink()
 	{
 		/* Deregister all handlers */
+		pigpio.DisableIOCXInterrupt();
 		pigpio.SetIOInterruptSink(0);
 		for (size_t i = 0; i < (sizeof(interrupt_notifications)/sizeof(interrupt_notifications[0])); i++ ) {
 			if (interrupt_notifications[i].interrupt_func) {
@@ -150,8 +152,10 @@ VMXIO::VMXIO(PIGPIOClient& pigpio_ref,
 
 void VMXIO::ReleaseResources()
 {
-	delete p_int_sink;
-	p_int_sink = 0;
+	if (p_int_sink) {
+		delete p_int_sink;
+		p_int_sink = 0;
+	}
 }
 
 VMXIO::~VMXIO() {
@@ -424,6 +428,11 @@ bool VMXIO::RouteChannelToResource(VMXChannelIndex channel_index, VMXResourceHan
 								GPIO_TYPE_INPUT,
 								GPIO_INPUT_FLOAT,
 								curr_interrupt);
+						if (physical_resource_routed) {
+							printf("Set VMX_PI Gpio %d to type Input, interrupt %d.\n",
+									p_vmx_res->GetProviderResourceIndex(),
+									curr_interrupt);
+						}
 						break;
 					case VMXResourceType::Encoder:
 					case VMXResourceType::PWMCapture:
@@ -731,6 +740,10 @@ bool VMXIO::ActivateResource(VMXResourceHandle resource, VMXErrorCode* errcode)
 										GPIO_INPUT_PULLUP :
 										GPIO_INPUT_PULLDOWN),
 								curr_interrupt)) {
+								printf("Set VMX_PI Gpio %d to type %s, interrupt %d.\n",
+										p_vmx_resource->GetProviderResourceIndex(),
+										(dio_config.GetInput() ? "Input" : "Output"),
+										curr_interrupt);
 								configuration_success = true;
 							}
 						}

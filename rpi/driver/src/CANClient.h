@@ -21,6 +21,7 @@ class CANClient : public ICANInterruptSink {
 
 	SPIClient& client;
 	PIGPIOClient& pigpio;
+	bool resources_released;
 
 	typedef struct {
 		CAN_NewRxDataNotifyHandler handler_func;
@@ -59,7 +60,8 @@ public:
 	bool get_transmit_fifo_entry_count(uint8_t& count);
 	bool enqueue_transmit_data(CAN_TRANSFER *p_tx_data);
 
-	bool get_bus_errors(CAN_ERROR_FLAGS & f, uint8_t& tx_error_count, uint8_t rx_error_count);
+	bool get_bus_errors(CAN_ERROR_FLAGS & f, uint8_t& tx_error_count, uint8_t& rx_error_count,
+			uint32_t& bus_off_count, uint32_t& tx_full_count);
 
 	bool get_mode(CAN_MODE& mode);
 	bool set_mode(CAN_MODE mode);

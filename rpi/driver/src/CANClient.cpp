@@ -22,12 +22,18 @@ CANClient::CANClient(SPIClient& client_ref, PIGPIOClient& pigpio_ref) :
 {
 	can_notification.Init();
 	pigpio.SetCANInterruptSink((ICANInterruptSink *)this);
+	pigpio.EnableCANInterrupt();
+	resources_released = false;
 }
 
 void CANClient::ReleaseResources()
 {
-	pigpio.SetCANInterruptSink(0);
-	DeregisterNewRxDataNotifyHandler();
+	if (!resources_released) {
+		resources_released = true;
+		pigpio.DisableCANInterrupt();
+		pigpio.SetCANInterruptSink(0);
+		DeregisterNewRxDataNotifyHandler();
+	}
 }
 
 CANClient::~CANClient() {
@@ -94,16 +100,21 @@ bool CANClient::enqueue_transmit_data(CAN_TRANSFER *p_tx_data) {
 	return client.write(msg);
 }
 
-bool CANClient::get_bus_errors(CAN_ERROR_FLAGS & f, uint8_t& tx_error_count, uint8_t rx_error_count) {
+bool CANClient::get_bus_errors(CAN_ERROR_FLAGS & f, uint8_t& tx_error_count, uint8_t& rx_error_count,
+		uint32_t& bus_off_count, uint32_t& tx_full_count) {
 	struct __attribute__ ((__packed__)) {
 		CAN_ERROR_FLAGS value1;
 		uint8_t value2;
 		uint8_t value3;
+		uint32_t value4;
+		uint32_t value5;
 	} values;
 	if(client.read(CAN_REGISTER_BANK, offsetof(struct CAN_REGS, bus_error_flags), values)){
 		f = values.value1;
 		tx_error_count = values.value2;
 		rx_error_count = values.value3;
+		bus_off_count = values.value4;
+		tx_full_count = values.value5;
 		return true;
 	}
 	return false;

@@ -20,21 +20,22 @@ VMXPi::VMXPi(bool realtime, uint8_t ahrs_update_rate_hz) :
 	ahrs(p_impl->spi, p_impl->pigpio, ahrs_update_rate_hz),
 	time(p_impl->pigpio, p_impl->misc),
 	io(p_impl->pigpio, p_impl->iocx, p_impl->misc, p_impl->chan_mgr, p_impl->rsrc_mgr, time),
-	can(p_impl->can),
+	can(p_impl->can, time),
 	power(p_impl->misc),
-	version(ahrs)
+	version(ahrs),
+	thread(p_impl->pigpio)
 {
 	VMXChannelManager::Init();
 }
 
 VMXPi::~VMXPi() {
+	ahrs.Stop();	/* Stop AHRS Data IO Thread */
+	thread.ReleaseResources();
 	version.ReleaseResources();
 	power.ReleaseResources();
 	can.ReleaseResources();
 	io.ReleaseResources();
 	time.ReleaseResources();
-	can.ReleaseResources();
-	ahrs.Stop();	/* Stop AHRS Data IO Thread */
 	delete p_impl;
 }
 

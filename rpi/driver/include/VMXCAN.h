@@ -8,34 +8,21 @@
 #ifndef VMXCAN_H_
 #define VMXCAN_H_
 
-class CANClient;
-
 #include <stdint.h>
 #include <string.h>
-
+#include <thread>
 #include "VMXErrors.h"
-#include "CANRegisters.h"
+#include "VMXTime.h"
 
-/* NOTE:  Usage Model can be seen in CtreCanNode.cpp, PCM.cpp, PDP.cpp (hal/lib/athena/ctre) */
-
-// ala CANInterfacePlugin.h
+/* NOTE:  Usage Model similar to that found in the WPILIB Suite HAL */
 
 #define VMXCAN_IS_FRAME_REMOTE			0x80000000
 #define VMXCAN_IS_FRAME_11BIT			0x40000000
 #define VMXCAN_29BIT_MESSAGE_ID_MASK	0x1FFFFFFF
 #define VMXCAN_11BIT_MESSAGE_ID_MASK	0x000007FF
 
-// ala CANSessionMux.h
-
-#define VMXCAN_SEND_PERIOD_NO_REPEAT		0
+#define VMXCAN_SEND_PERIOD_NO_REPEAT		 0
 #define VMXCAN_SEND_PERIOD_STOP_REPEATING	-1
-
-#define VMXERR_CAN_InvalidBuffer 		-44086
-#define VMXERR_CAN_MessageNotFound 		-44087
-#define VMXERR_WARN_NoToken				 44087
-#define VMXERR_NotAllowed				-44088
-#define VMXERR_NotInitialized			-44089
-#define VMXERR_SessionOverrun			 44050
 
 typedef struct sVMXCANMessage {
 	uint32_t messageID;
@@ -73,18 +60,32 @@ typedef struct {
 
 typedef uint32_t VMXCANReceiveStreamHandle;
 
+using namespace std;
+
+class CANClient;
 class VMXCANReceiveStreamManager;
 
+/* The VMXCAN class provides a hardware-abstraction of the VMX-pi CAN functionality.
+ *
+ */
 class VMXCAN {
 
-	CANClient& can;
-	VMXCANReceiveStreamManager *p_stream_mgr;
+	friend class VMXPi;
 
-public:
-	VMXCAN(CANClient& can_ref);
+	CANClient& can;
+	VMXTime& time;
+	VMXCANReceiveStreamManager *p_stream_mgr;
+    thread * task;
+    bool task_done;
+
+	VMXCAN(CANClient& can_ref, VMXTime& time_ref);
 	virtual ~VMXCAN();
 	void ReleaseResources();
 
+	static void CANNewRxDataNotifyHandler(void *param, uint64_t timestamp_us);
+    static int ThreadFunc(VMXCAN *);
+
+public:
 	/* This function may be called from multiple contexts and must therefore be reentrant.
 	 *
 	 * The message is placed into a Fifo and transmitted as soon as possible.
@@ -96,29 +97,117 @@ public:
 	 */
 	bool SendMessage(VMXCANMessage& msg, int32_t periodMs, VMXErrorCode *errcode = 0);
 
-	/* messageID:  The CAN Arb ID for the message of interest.  THis is basically the Message FILTER.  */
-	/* messsageMask:  The Message MASK to use for the messages of interest.  NOTE: the underlying hardware supports */
-	/* one mask for each of the two receive buffers.  If more than two streams are opened with different masks, these */
-	/* masks are ANDed. */
-	/* maxMessages:  This is maximum number of received messages to internally buffer for this stream. */
-	bool OpenReceiveStream(VMXCANReceiveStreamHandle& session_handle, uint32_t messageID, uint32_t messageMask, uint32_t maxMessages, VMXErrorCode *errcode = 0);
-	bool ReadReceiveStream(VMXCANReceiveStreamHandle sessionHandle, VMXCANTimestampedMessage *messages, uint32_t messagesToRead, uint32_t& messagesRead, VMXErrorCode *errcode = 0);
-	bool CloseReceiveStream(VMXCANReceiveStreamHandle, VMXErrorCode *errcode = 0);
+	/* Opens a new VMXCANReceiveStream.
+	 *
+	 * messageID:  The CAN Arb ID for the message of interest.  This is basically the Message FILTER.
+	 * Since this operates as a filter, all bits in the messageID that are masked in by the
+	 * messageMask must match.  Using a combination of messageMask and messageID, it is possible
+	 * to allow ranges of CAN Arb IDs to be received with a single VMXCANReceiveStream.
+	 *
+	 * messsageMask:  The Message MASK to use for the messages of interest.  NOTE: the underlying hardware supports
+	 * a total of two masks.  If a third VMXCANReceiveStream is opened which has a different Mask than the two
+	 * already-opened VMXCANReceiveStreams, the open will fail.  To work around this limitation, the masks can be
+	 * ANDed together (and the bits cleared during the ANDing should be cleared also in the VMXCANReceiveStream
+	 * messageIDs.  In this case, it is likely that additional undesired messages may be received; these should be
+	 * discarded by the application.
+	 *
+	 * maxMessages:  This is maximum number of received messages to internally buffer for this stream.
+	 */
+	bool OpenReceiveStream(VMXCANReceiveStreamHandle& streamHandle, uint32_t messageID, uint32_t messageMask, uint32_t maxMessages, VMXErrorCode *errcode = 0);
+	/* Retrieves recently received data for a VMXCANReceiveStream.
+	 *
+	 * messages:  Pointer to an array VMXCANTimestampedMessage structures.  The number of elements in this array
+	 * must be greater than or equal to the messagesToRead parameter to avoid memory corruption.
+	 *
+	 * messagesToRead:  The maximum number of messages to be read by this function.
+	 *
+	 * messagesRead:  Output from this function, this indicates the actual number of messages read by this function;
+	 * this value will never exceed the value passed in the messagesToRead parameter.
+	 *
+	 * errcode:  If non-null in case of error this will return the error code.
+	 */
+	bool ReadReceiveStream(VMXCANReceiveStreamHandle streamHandle, VMXCANTimestampedMessage *messages, uint32_t messagesToRead, uint32_t& messagesRead, VMXErrorCode *errcode = 0);
 
+	/* Closes a previously-opened VMCANReceiveStream.
+	 *
+	 * errcode:  If non-null in case of error this will return the error code.
+	 */
+	bool CloseReceiveStream(VMXCANReceiveStreamHandle streamHandle, VMXErrorCode *errcode = 0);
+
+	/* Retrieves current CAN Bus statistics and warning/error states.
+	 *
+	 * errcode:  If non-null in case of error this will return the error code.
+	 */
 	bool GetCANBUSStatus(VMXCANBusStatus& bus_status, VMXErrorCode *errcode = 0);
 
-	/* Note:  may block for 3-4ms */
+	/* Resets the CAN Transceiver and Controller.  Note that this operation will clear any previously-
+	 * configured Receive Masks/Filters and other configuration settings.
+	 *
+	 * errcode:  If non-null in case of error this will return the error code.
+	 */
 	bool Reset(VMXErrorCode *errcode = 0);
+
+	/* Empties the Transmit FIFO of any unsent VMXCANMessages.
+	 *
+	 * errcode:  If non-null in case of error this will return the error code.
+	 */
 	bool FlushTxFIFO(VMXErrorCode *errcode = 0);
+	/* Empties the Receive FIFO of any unreceived VMXCANMessages.
+	 *
+	 * errcode:  If non-null in case of error this will return the error code.
+	 */
 	bool FlushRxFIFO(VMXErrorCode *errcode = 0);
 
-	typedef enum {VMXCAN_OFF, VMXCAN_CONFIG, VMXCAN_NORMAL, VMXCAN_LISTEN, VMXCAN_LOOPBACK } VMXCANMode;
+	typedef enum {
+		/* Places the CAN Transceiver/Controller into a sleep state, which may be automatically
+		 * woken from if CAN Bus activity is later detected.
+		 */
+		VMXCAN_OFF,
+		/* Places the CAN Controller into configuration mode, during which the Receive Masks/
+		 * Fiters may be modified.
+		 */
+		VMXCAN_CONFIG,
+		/* Places the CAN Controller into normal mode, where it may transmit messages onto the
+		 * CAN Bus, and may receive messages from the CAN Bus.  All Receive Masks/Filters which
+		 * have previously been configured are active and will be used to filter the reception
+		 * of transmitted messages.
+		 */
+		VMXCAN_NORMAL,
+		/* Places the CAN Controller into a listen-only mode where it passively listens to
+		 * the CAN Bus.  Note that all Receive Masks/Filters which have previously been configured
+		 * will be ignored during this mode.
+		 */
+		VMXCAN_LISTEN,
+		/* Places the CAN Controller into a mode where transmitted messages are looped back internally
+		 * to the Receive circuitry.  During this mode, the Transceiver is completely disconnected
+		 * from the CAN Bus.  Note that during this mode, all Receive Masks/Filters which have previously
+		 * been configured are active and will be used to filter the reception of transmitted messages.
+		 */
+		VMXCAN_LOOPBACK
+	} VMXCANMode;
+
+	/* Sets the CAN Controller/Transceiver's current VMXCANMode.
+	 *
+	 * errcode:  If non-null in case of error this will return the error code.
+	 */
 	bool SetMode(VMXCANMode mode, VMXErrorCode *errcode = 0);
+
+	/* Retrieves the CAN Controller/Transceiver's current VMXCANMode.
+	 *
+	 * errcode:  If non-null in case of error this will return the error code.
+	 */
 	bool GetMode(VMXCANMode& mode, VMXErrorCode *errcode = 0);
 
+	/* Clears any error conditions in the firmware and the CAN Controller/Transceiver.
+	 *
+	 * This function must be invoked in order to reset a hardware overflow condition.
+	 *
+	 * errcode:  If non-null in case of error this will return the error code.
+	 */
 	bool ClearErrors(VMXErrorCode *errcode = 0);
 
-	bool RetrieveAllCANData(VMXErrorCode *errcode = 0);
+	bool RetrieveAllCANData(VMXErrorCode *errcode = 0); /* Todo:  This should be removed from the public interface. */
+	void DisplayMasksAndFilters();
 };
 
 #endif /* VMXCAN_H_ */

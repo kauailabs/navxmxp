@@ -86,10 +86,18 @@ public:
 	bool IsTimerNotificationExpired(VMXNotifyHandler timer_notify_handler, bool& expired);
 
 	/*** RTC ***/
+	typedef enum {
+		DSAdjustmentNone = 0,
+		DSAdjustmentAddOneHour = 1,
+		DSAdjustmentSubtractOneHour = 2,
+	} DaylightSavingsAdjustment;
+
 	bool GetRTCTime(uint8_t& hours, uint8_t& minutes, uint8_t& seconds, uint32_t& subseconds, VMXErrorCode *errcode = 0);
 	bool GetRTCDate(uint8_t& weekday, uint8_t& day, uint8_t& month, uint8_t& years, VMXErrorCode *errcode = 0);
+	bool GetRTCDaylightSavingsAdjustment(DaylightSavingsAdjustment& dsa, VMXErrorCode *errcode = 0);
 	bool SetRTCTime(uint8_t hours, uint8_t minutes, uint8_t seconds, VMXErrorCode *errcode = 0);
 	bool SetRTCDate(uint8_t weekday, uint8_t day, uint8_t month, uint8_t years, VMXErrorCode *errcode = 0);
+	bool SetRTCDaylightSavingsAdjustment(DaylightSavingsAdjustment dsa, VMXErrorCode *errcode = 0);
 };
 
 #endif /* VMXTIME_H_ */

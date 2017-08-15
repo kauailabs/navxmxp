@@ -7,13 +7,13 @@
 
 #include "VMXCANReceiveStream.h"
 
-VMXCANReceiveStream::VMXCANReceiveStream(uint32_t id, uint32_t mask, uint8_t rxb_id, uint8_t rxbfilter_id, uint32_t NumMessages)
+VMXCANReceiveStream::VMXCANReceiveStream(uint32_t id, uint32_t mask, uint8_t rx_buffer_id, uint8_t rx_filter_id, uint32_t NumMessages)
 {
 	p_rx_data = new boost::circular_buffer<VMXCANTimestampedMessage>(NumMessages);
 	CANIDFilter = id;
 	CANIDMask = mask;
-	this->rxb_id = rxb_id;
-	this->rxb_filter_id = rxb_filter_id;
+	this->rxb_id = rx_buffer_id;
+	this->rxb_filter_id = rx_filter_id;
 }
 
 

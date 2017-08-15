@@ -123,6 +123,18 @@ bool MISCClient::set_rtc_date(uint8_t weekday, uint8_t day, uint8_t month, uint8
 			rtc_date);
 }
 
+bool MISCClient::get_rtc_cfg(MISC_RTC_CFG& rtc_cfg)
+{
+	return client.read(MISC_REGISTER_BANK, offsetof(struct MISC_REGS, rtc_cfg), rtc_cfg);
+}
+
+bool MISCClient::set_rtc_cfg(MISC_RTC_CFG rtc_cfg)
+{
+	return client.write(MISC_REGISTER_BANK,
+			offsetof(struct MISC_REGS, rtc_cfg),
+			rtc_cfg);
+}
+
 bool MISCClient::set_analog_trigger_mode(uint8_t analog_trigger_num, ANALOG_TRIGGER_MODE mode)
 {
 	if ( analog_trigger_num > MISC_NUM_ANALOG_TRIGGERS-1) return false;

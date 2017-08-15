@@ -197,6 +197,49 @@ bool VMXTime::SetRTCDate(uint8_t weekday, uint8_t day, uint8_t month, uint8_t ye
 	return true;
 }
 
+bool VMXTime::GetRTCDaylightSavingsAdjustment(DaylightSavingsAdjustment& dsa, VMXErrorCode *errcode)
+{
+	MISC_RTC_CFG rtc_cfg;
+	if (!misc.get_rtc_cfg(rtc_cfg)) {
+		SET_VMXERROR(errcode, VMXERR_IO_BOARD_COMM_ERROR);
+		return false;
+	}
+	switch(rtc_cfg.daylight_savings) {
+	case sub1hr:
+		dsa = VMXTime::DaylightSavingsAdjustment::DSAdjustmentSubtractOneHour;
+		break;
+	case add1hr:
+		dsa = VMXTime::DaylightSavingsAdjustment::DSAdjustmentAddOneHour;
+		break;
+	default:
+		dsa = VMXTime::DaylightSavingsAdjustment::DSAdjustmentNone;
+		break;
+	}
+	return true;
+}
+
+bool VMXTime::SetRTCDaylightSavingsAdjustment(DaylightSavingsAdjustment dsa, VMXErrorCode *errcode)
+{
+	MISC_RTC_CFG rtc_cfg;
+	switch(dsa) {
+	case VMXTime::DaylightSavingsAdjustment::DSAdjustmentSubtractOneHour:
+		rtc_cfg.daylight_savings = sub1hr;
+		break;
+	case VMXTime::DaylightSavingsAdjustment::DSAdjustmentAddOneHour:
+		rtc_cfg.daylight_savings = add1hr;
+		break;
+	default:
+		rtc_cfg.daylight_savings = none;
+		break;
+	}
+	if (!misc.set_rtc_cfg(rtc_cfg)) {
+		SET_VMXERROR(errcode, VMXERR_IO_BOARD_COMM_ERROR);
+		return false;
+	}
+	return true;
+}
+
+
 uint32_t VMXTime::DelayMicroseconds(uint32_t delay_us)
 {
 	return pigpio.Delay(delay_us);

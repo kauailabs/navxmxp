@@ -9,6 +9,7 @@
 #define VMXCHANNEL_H_
 
 #include <stdint.h>
+#include <limits.h>
 
 /* Each VMXChannel has zero or more of the following Capabilities */
 /* Some of these Capabilities are dynamic, and may be changed via
@@ -71,7 +72,7 @@ inline VMXChannelCapability VMXChannelCapabilityClear(VMXChannelCapability cap_b
 inline bool IsVMXChannelCapabilityUnitary(VMXChannelCapability capability) {
 	int cap_count = 0;
 	uint32_t caps = uint32_t(capability);
-	for ( int i = 0; i < 32; i++) {
+	for (uint8_t i = 0; i < (sizeof(caps)*CHAR_BIT); i++) {
 		if (caps & 0x00000001) {
 			cap_count++;
 		}
@@ -84,11 +85,8 @@ inline bool IsVMXChannelCapabilityUnitary(VMXChannelCapability capability) {
 }
 
 typedef uint64_t VMXChannelDescriptor;
-
 typedef uint8_t  VMXChannelIndex;
 
-const VMXChannelIndex LAST_VALID_VMX_CHANNEL_INDEX = 33;
 const VMXChannelIndex INVALID_VMX_CHANNEL_INDEX = 255;
-const VMXChannelIndex SHARED_VMX_CHANNEL_INDEX = 254; /* A VMXChannel already allocated to a VMXResource in a shared resource group. */
 
 #endif /* VMXCHANNEL_H_ */

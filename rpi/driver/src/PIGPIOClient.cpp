@@ -10,6 +10,11 @@
 #include <unistd.h> /* sleep() */
 #include <time.h> /* nanosleep() */
 #include <stdio.h>
+#include <inttypes.h>
+#include <execinfo.h> /* backtrace() */
+#include <errno.h>
+#include <cxxabi.h>
+#include <stdlib.h>
 
 /* VMX Pi Interrupt Signal Pin Mappings */
 const static unsigned vmx_pi_comm_rcv_ready_signal_bcm_pin = 26;
@@ -147,7 +152,7 @@ PIGPIOClient::PIGPIOClient(bool realtime)
 	{
 		printf("pigpio library version %d opened.\n", ret);
 	} else {
-	   printf("Error initializing pigpio library.\n");
+		printf("Error initializing pigpio library.\n");
 	}
 
 	spi_handle = PI_BAD_HANDLE;
@@ -167,7 +172,8 @@ PIGPIOClient::PIGPIOClient(bool realtime)
 		/* Note:  Gen 2 VMX Pi board used a 2.2KOhm resistor between Rpi and STM32, limiting this bitrate to 1Mhz */
 		/* Gen 3 VMX Pi board uses 1KOhm resistor, enabling ~8Mhz bitrate */
 
-		unsigned baud = 8000000; /* APB Clock (125MHz) / 16 = 7.8mHZ */;
+		//unsigned baud = 8000000; /* APB Clock (125MHz) / 16 = 7.8mHZ */;
+		unsigned baud = 8000000; /* APB Clock (125MHz) / 16 = 3.9mHZ */;
 		spi_handle = spiOpen(navxpi_aux_spi_chan, baud, spi_open_flags);
 		if ( spi_handle >= 0 ) {
 		   printf("SPI Aux Channel 2 opened.\n");
@@ -176,14 +182,28 @@ PIGPIOClient::PIGPIOClient(bool realtime)
 		}
 		gpioSetMode(vmx_pi_comm_rcv_ready_signal_bcm_pin, PI_INPUT);
 		gpioSetPullUpDown(vmx_pi_comm_rcv_ready_signal_bcm_pin, PI_PUD_UP);
+		gpioSetMode(vmx_pi_ahrs_int_bcm_pin, PI_INPUT);
+		gpioSetPullUpDown(vmx_pi_ahrs_int_bcm_pin, PI_PUD_UP);
+		gpioSetMode(vmx_pi_can_int_bcm_pin, PI_INPUT);
+		gpioSetPullUpDown(vmx_pi_can_int_bcm_pin, PI_PUD_UP);
+		gpioSetMode(vmx_pi_iocx_int_bcm_pin, PI_INPUT);
+		gpioSetPullUpDown(vmx_pi_iocx_int_bcm_pin, PI_PUD_UP);
 
 		gpioSetMode(rpi_aux_spi_cs2_pin, PI_OUTPUT);
 		gpioWrite(rpi_aux_spi_cs2_pin, 1);
+
+		gpioSetSignalFuncEx(5, signal_func, this);
+		gpioSetSignalFuncEx(6, signal_func, this);
+		gpioSetSignalFuncEx(11, signal_func, this);
 	}
 }
 
 PIGPIOClient::~PIGPIOClient()
 {
+	SetIOInterruptSink(NULL);
+	SetCANInterruptSink(NULL);
+	SetAHRSInterruptSink(NULL);
+
 	if(spi_handle != PI_BAD_HANDLE){
 	   if(spiClose(spi_handle)==0){
 		   printf("Closed SPI Aux Channel 2.\n");
@@ -310,6 +330,87 @@ bool PIGPIOClient::int_spi_receive(uint8_t *p_data, uint8_t len) {
 	return (read_ret == len);
 }
 
+void PIGPIOClient::signal_func(int signum, void *userdata)
+{
+	printf("Signal %d received.\n", signum);
+
+	int max_frames = 200;
+	// storage array for stack trace address data
+	void* addrlist[max_frames+1];
+
+	// retrieve current stack addresses
+	unsigned int addrlen = backtrace( addrlist, sizeof( addrlist ) / sizeof( void* ));
+
+	if ( addrlen == 0 )
+	{
+	  printf("  \n");
+	  return;
+	}
+
+	// create readable strings to each frame.
+	char** symbollist = backtrace_symbols( addrlist, addrlen );
+
+	size_t funcnamesize = 1024;
+	char funcname[1024];
+
+	for (unsigned int i = 0; i < addrlen; i++ ) {
+		printf("%s\n", symbollist[i]);
+	}
+	// iterate over the returned symbol lines. skip the first, it is the
+	// address of this function.
+	for ( unsigned int i = 4; i < addrlen; i++ )
+	{
+		char* begin_name   = NULL;
+		char* begin_offset = NULL;
+		char* end_offset   = NULL;
+
+		// find parentheses and +address offset surrounding the mangled name
+		// ./module(function+0x15c) [0x8048a6d]
+		for ( char *p = symbollist[i]; *p; ++p )
+		{
+			if ( *p == '(' )
+				begin_name = p;
+			else if ( *p == '+' )
+				begin_offset = p;
+			else if ( *p == ')' && ( begin_offset || begin_name ))
+				end_offset = p;
+		}
+
+		if ( begin_name && end_offset && ( begin_name < end_offset ))
+		{
+			*begin_name++   = '\0';
+			*end_offset++   = '\0';
+			if ( begin_offset )
+				*begin_offset++ = '\0';
+
+			// mangled name is now in [begin_name, begin_offset) and caller
+			// offset in [begin_offset, end_offset). now apply
+			// __cxa_demangle():
+
+			int status = 0;
+			char* ret = abi::__cxa_demangle( begin_name, funcname,
+										  &funcnamesize, &status );
+			char* fname = begin_name;
+			if ( status == 0 )
+				fname = ret;
+
+			if ( begin_offset )
+			{
+				printf( "  %-30s ( %-40s  + %-6s) %s\n",
+					 symbollist[i], fname, begin_offset, end_offset );
+			} else {
+				printf( "  %-30s ( %-40s    %-6s) %s\n",
+					 symbollist[i], fname, "", end_offset );
+			}
+		} else {
+			// couldn't parse the line? print the whole line.
+			printf("  %-40s\n", symbollist[i]);
+		}
+	}
+
+   free(symbollist);
+}
+
 void PIGPIOClient::gpio_isr(int gpio, int level, uint32_t tick, void *userdata)
 {
 	PIGPIOClient *p_this = (PIGPIOClient *)userdata;
@@ -318,33 +419,35 @@ void PIGPIOClient::gpio_isr(int gpio, int level, uint32_t tick, void *userdata)
 	switch(gpio){
 	case vmx_pi_iocx_int_bcm_pin:
 		{
-			IIOInterruptSink *p_io_interrupt_sink = p_this->p_io_interrupt_sink;
-			if (p_io_interrupt_sink) {
-				p_io_interrupt_sink->IOCXInterrupt(PIGPIOInterruptEdge(level), curr_timestamp);
+			printf("IOCX  GPIO %d ISR\n", gpio);
+			IIOInterruptSink *p_io_int_sink = p_this->p_io_interrupt_sink;
+			if (p_io_int_sink) {
+				p_io_int_sink->IOCXInterrupt(PIGPIOInterruptEdge(level), curr_timestamp);
 			}
 		}
 		break;
 
 	case vmx_pi_can_int_bcm_pin:
 		{
-			ICANInterruptSink *p_can_interrupt_sink = p_this->p_can_interrupt_sink;
-			if (p_can_interrupt_sink) {
-				p_can_interrupt_sink->CANInterrupt(curr_timestamp);
+			ICANInterruptSink *p_can_int_sink = p_this->p_can_interrupt_sink;
+			if (p_can_int_sink) {
+				p_can_int_sink->CANInterrupt(curr_timestamp);
 			}
 		}
 		break;
 
 	case vmx_pi_ahrs_int_bcm_pin:
 		{
-			IAHRSInterruptSink *p_ahrs_interrupt_sink = p_this->p_ahrs_interrupt_sink;
-			if (p_ahrs_interrupt_sink) {
-				p_ahrs_interrupt_sink->AHRSInterrupt(curr_timestamp);
+			IAHRSInterruptSink *p_ahrs_int_sink = p_this->p_ahrs_interrupt_sink;
+			if (p_ahrs_int_sink) {
+				p_ahrs_int_sink->AHRSInterrupt(curr_timestamp);
 			}
 		}
 		break;
 
 	default:
 		{
+			printf("PIGPIO GPIO %d ISR\n", gpio);
 			IIOInterruptSink *p_io_interrupt_sink = p_this->p_io_interrupt_sink;
 			if (p_io_interrupt_sink) {
 				p_io_interrupt_sink->PIGPIOInterrupt(gpio, PIGPIOInterruptEdge(level), curr_timestamp);
@@ -376,6 +479,92 @@ bool PIGPIOClient::DisableGPIOInterrupt(unsigned vmx_pi_gpio_num){
 		return false;
 	}
 	int retcode = gpioSetISRFunc(vmx_pi_rpi_gpio_to_bcm_pin_map[vmx_pi_gpio_num], RISING_EDGE, 0 /* No Timeout */, NULL);
+	if(retcode == 0) {
+		return true;
+	} else {
+		if (retcode == PI_BAD_GPIO) printf("RPI GPIO Interrupt Enable:  PI_BAD_GPIO.\n");
+		else if (retcode == PI_BAD_EDGE) printf("RPI GPIO Interrupt Enable:  PI_BAD_EDGE.\n");
+		else if (retcode == PI_BAD_ISR_INIT) printf("RPI GPIO Interrupt Enable:  PI_BAD_ISR_INIT.\n");
+		else printf("RPI_GPIO_InterruptEnable:  unknown error code %d.\n", retcode);
+		return false;
+	}
+}
+
+bool PIGPIOClient::EnableIOCXInterrupt()
+{
+	int retcode = gpioSetISRFuncEx(vmx_pi_iocx_int_bcm_pin, FALLING_EDGE, 0, PIGPIOClient::gpio_isr, this);
+	if(retcode == 0) {
+		return true;
+	} else {
+		if (retcode == PI_BAD_GPIO) printf("RPI GPIO Interrupt Enable:  PI_BAD_GPIO.\n");
+		else if (retcode == PI_BAD_EDGE) printf("RPI GPIO Interrupt Enable:  PI_BAD_EDGE.\n");
+		else if (retcode == PI_BAD_ISR_INIT) printf("RPI GPIO Interrupt Enable:  PI_BAD_ISR_INIT.\n");
+		else printf("RPI_GPIO_InterruptEnable:  unknown error code %d.\n", retcode);
+		return false;
+	}
+}
+
+bool PIGPIOClient::DisableIOCXInterrupt()
+{
+	int retcode = gpioSetISRFuncEx(vmx_pi_iocx_int_bcm_pin, FALLING_EDGE, 0 /* No Timeout */, NULL, this);
+	if(retcode == 0) {
+		return true;
+	} else {
+		if (retcode == PI_BAD_GPIO) printf("RPI GPIO Interrupt Enable:  PI_BAD_GPIO.\n");
+		else if (retcode == PI_BAD_EDGE) printf("RPI GPIO Interrupt Enable:  PI_BAD_EDGE.\n");
+		else if (retcode == PI_BAD_ISR_INIT) printf("RPI GPIO Interrupt Enable:  PI_BAD_ISR_INIT.\n");
+		else printf("RPI_GPIO_InterruptEnable:  unknown error code %d.\n", retcode);
+		return false;
+	}
+}
+
+#define CAN_INTERRUPT_TIMEOUT_MS 0 /* 0 = Disable timeout */
+
+bool PIGPIOClient::EnableCANInterrupt()
+{
+	int retcode = gpioSetISRFuncEx(vmx_pi_can_int_bcm_pin, FALLING_EDGE, CAN_INTERRUPT_TIMEOUT_MS, PIGPIOClient::gpio_isr, this);
+	if(retcode == 0) {
+		return true;
+	} else {
+		if (retcode == PI_BAD_GPIO) printf("RPI GPIO Interrupt Enable:  PI_BAD_GPIO.\n");
+		else if (retcode == PI_BAD_EDGE) printf("RPI GPIO Interrupt Enable:  PI_BAD_EDGE.\n");
+		else if (retcode == PI_BAD_ISR_INIT) printf("RPI GPIO Interrupt Enable:  PI_BAD_ISR_INIT.\n");
+		else printf("RPI_GPIO_InterruptEnable:  unknown error code %d.\n", retcode);
+		return false;
+	}
+}
+
+bool PIGPIOClient::DisableCANInterrupt()
+{
+	int retcode = gpioSetISRFuncEx(vmx_pi_can_int_bcm_pin, FALLING_EDGE, 0 /* No Timeout */, NULL, this);
+	if(retcode == 0) {
+		return true;
+	} else {
+		if (retcode == PI_BAD_GPIO) printf("RPI GPIO Interrupt Enable:  PI_BAD_GPIO.\n");
+		else if (retcode == PI_BAD_EDGE) printf("RPI GPIO Interrupt Enable:  PI_BAD_EDGE.\n");
+		else if (retcode == PI_BAD_ISR_INIT) printf("RPI GPIO Interrupt Enable:  PI_BAD_ISR_INIT.\n");
+		else printf("RPI_GPIO_InterruptEnable:  unknown error code %d.\n", retcode);
+		return false;
+	}
+}
+
+bool PIGPIOClient::EnableAHRSInterrupt()
+{
+	int retcode = gpioSetISRFuncEx(vmx_pi_ahrs_int_bcm_pin, FALLING_EDGE, 0 /* No Timeout */, PIGPIOClient::gpio_isr, this);
+	if(retcode == 0) {
+		return true;
+	} else {
+		if (retcode == PI_BAD_GPIO) printf("RPI GPIO Interrupt Enable:  PI_BAD_GPIO.\n");
+		else if (retcode == PI_BAD_EDGE) printf("RPI GPIO Interrupt Enable:  PI_BAD_EDGE.\n");
+		else if (retcode == PI_BAD_ISR_INIT) printf("RPI GPIO Interrupt Enable:  PI_BAD_ISR_INIT.\n");
+		else printf("RPI_GPIO_InterruptEnable:  unknown error code %d.\n", retcode);
+		return false;
+	}
+}
+
+bool PIGPIOClient::DisableAHRSInterrupt()
+{
+	int retcode = gpioSetISRFuncEx(vmx_pi_ahrs_int_bcm_pin, FALLING_EDGE, 0 /* No Timeout */, NULL, this);
 	if(retcode == 0) {
 		return true;
 	} else {

@@ -5,10 +5,13 @@
  *      Author: Scott
  */
 
+#include <inttypes.h>
 #include "RegisterIO.h"
 #include "IMURegisters.h"
 #include "delay.h"
 #include "Timer.h"
+
+std::mutex sample_mtx;
 
 RegisterIO::RegisterIO( IRegisterIO *io_provider,
         uint8_t update_rate_hz,
@@ -35,6 +38,7 @@ static const double IO_TIMEOUT_SECONDS = 1.0;
 static const double DELAY_OVERHEAD_MILLISECONDS = 4.0;
 
 RegisterIO::~RegisterIO() {
+	delete io_provider;
 }
 
 bool RegisterIO::IsConnected() {
@@ -83,12 +87,16 @@ void RegisterIO::Run() {
     }
 
     /* IO Loop */
+	std::unique_lock<std::mutex> lck(sample_mtx);
     while (!stop) {
         if ( board_state.update_rate_hz != this->update_rate_hz ) {
             SetUpdateRateHz(this->update_rate_hz);
         }
-        GetCurrentData();
-        delayMillis(update_rate_ms * 1000);
+		io_provider->GetNewDataConditionVariable().wait_for(
+				lck,std::chrono::milliseconds(int64_t(update_rate_ms)));
+		if (!stop) {
+			GetCurrentData();
+		}
     }
     io_provider->Shutdown();
 }

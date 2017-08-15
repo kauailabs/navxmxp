@@ -15,6 +15,7 @@ RegisterIO_SPI::RegisterIO_SPI(SPIClient& client, PIGPIOClient& pigpio_ref) :
 	pigpio(pigpio_ref)
 {
     this->trace = true;
+    this->first_read = true;
     pigpio.SetAHRSInterruptSink(this);
 }
 
@@ -37,17 +38,33 @@ bool RegisterIO_SPI::Read(uint8_t first_address, uint8_t* buffer, uint8_t buffer
         return false; // READ ERROR
     } else {
     	memcpy(buffer, response_packet, buffer_len);
+    	if (first_read) {
+    		/* Reading clears any pending AHRS interrupts.  Wait until
+    		 * after first read is successful before enabling interrupts.
+    		 */
+    		first_read = false;
+    	    pigpio.EnableAHRSInterrupt();
+    	}
     }
     return true;
 }
 
 bool RegisterIO_SPI::Shutdown() {
+	if (!first_read) {
+		pigpio.DisableAHRSInterrupt();
+	}
 	pigpio.SetAHRSInterruptSink(0);
     return true;
 }
 
 void RegisterIO_SPI::AHRSInterrupt(uint64_t timestamp_us)
 {
-	/* Todo:  Trigger thread to begin acquiring new data */
+	cv.notify_all();
 }
+
+std::condition_variable& RegisterIO_SPI::GetNewDataConditionVariable()
+{
+	return cv;
+}
+
 

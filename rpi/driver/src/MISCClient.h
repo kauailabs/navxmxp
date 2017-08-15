@@ -66,8 +66,11 @@ protected:
 	/* RTC */
 	bool get_rtc_time(uint8_t& hours, uint8_t& minutes, uint8_t& seconds, uint32_t& subseconds);
 	bool get_rtc_date(uint8_t& weekday, uint8_t& day, uint8_t& month, uint8_t& year);
+	bool get_rtc_cfg(MISC_RTC_CFG& rtc_cfg);
+
 	bool set_rtc_time(uint8_t hours, uint8_t minutes, uint8_t seconds);
 	bool set_rtc_date(uint8_t weekday, uint8_t day, uint8_t month, uint8_t year);
+	bool set_rtc_cfg(MISC_RTC_CFG rtc_cfg);
 };
 
 #endif /* MISCCLIENT_H_ */

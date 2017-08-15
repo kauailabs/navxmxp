@@ -10,28 +10,31 @@
 
 #include <deque>
 #include <queue>
+#include <mutex>
 #include "VMXCAN.h"
+#include "CANRegisters.h"
 #include <boost/circular_buffer.hpp>
 
 class VMXCANReceiveStream {
 	uint32_t CANIDFilter;
 	uint32_t CANIDMask;
-	uint32_t NumMessages;
 	uint8_t rxb_id;
 	uint8_t rxb_filter_id;
     boost::circular_buffer<VMXCANTimestampedMessage>* p_rx_data;
+    std::mutex mtx;
 
 public:
-	VMXCANReceiveStream(uint32_t id, uint32_t mask, uint8_t rxb_id, uint8_t rxbfilter_id, uint32_t NumMessages);
+	VMXCANReceiveStream(uint32_t id, uint32_t mask, uint8_t rx_buffer_id, uint8_t rx_filter_id, uint32_t NumMessages);
 	virtual ~VMXCANReceiveStream();
 
-	uint8_t GetRXBID() { return rxb_id; }
-	uint8_t GetRXBFilterID() { return rxb_filter_id; }
+	uint8_t GetRXBufferID() { return rxb_id; }
+	uint8_t GetRXFilterID() { return rxb_filter_id; }
 	uint32_t GetFilter() { return CANIDFilter; }
 	uint32_t GetMask() { return CANIDMask; }
 
 	static void VMXCANMessageToCANTransfer(VMXCANMessage& src, CAN_TRANSFER& dest)
 	{
+		dest.payload.dlc.rtr = 0;
 		dest.payload.dlc.len = src.dataSize;
 		if (dest.payload.dlc.len > 8) {
 			dest.payload.dlc.len = 8;
@@ -96,7 +99,10 @@ public:
 	bool ReceiveNewData(TIMESTAMPED_CAN_TRANSFER& new_data) {
     	VMXCANTimestampedMessage new_msg;
     	TimestampedCANTransferToVMXCANStreamMessage(new_data, new_msg);
-    	p_rx_data->push_back(new_msg);
+    	{
+    		std::unique_lock<std::mutex> lck(this->mtx);
+    		p_rx_data->push_back(new_msg);
+    	}
     	return true;
     }
 
@@ -111,18 +117,25 @@ public:
     }
 
     uint32_t GetNumAvailableMessages() {
+		std::unique_lock<std::mutex> lck(this->mtx);
     	return uint32_t(p_rx_data->size());
     }
 
 	bool Read(VMXCANTimestampedMessage *messages, uint32_t messagesToRead, uint32_t& messagesRead) {
 		messagesRead = 0;
 		for (uint32_t i = 0; i < messagesToRead; i++) {
+    		std::unique_lock<std::mutex> lck(this->mtx);
 			if (p_rx_data->empty()) break;
-			messages[i] = p_rx_data->back();
-			p_rx_data->pop_back();
+			messages[i] = p_rx_data->front();
+			p_rx_data->pop_front();
 			messagesRead++;
 		}
 		return true;
+	}
+
+	void FlushReceiveFifo() {
+   		std::unique_lock<std::mutex> lck(this->mtx);
+   		p_rx_data->clear();
 	}
 };
 

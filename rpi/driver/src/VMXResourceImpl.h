@@ -47,6 +47,7 @@ typedef struct {
 using namespace std;
 
 const int INVALID_PROVIDER_RESOURCE_HANDLE = -1;
+const VMXChannelIndex LAST_VALID_VMX_CHANNEL_INDEX = 33;
 
 class VMXResource {
 	typedef struct {

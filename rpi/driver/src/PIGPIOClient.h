@@ -49,16 +49,16 @@ public:
 
 	PIGPIOClient(bool realtime);
 
-	void SetIOInterruptSink(IIOInterruptSink *p_io_interrupt_sink) {
-		this->p_io_interrupt_sink = p_io_interrupt_sink;
+	void SetIOInterruptSink(IIOInterruptSink *p_io_int_sink) {
+		this->p_io_interrupt_sink = p_io_int_sink;
 	}
 
-	void SetCANInterruptSink(ICANInterruptSink *p_can_interrupt_sink) {
-		this->p_can_interrupt_sink = p_can_interrupt_sink;
+	void SetCANInterruptSink(ICANInterruptSink *p_can_int_sink) {
+		this->p_can_interrupt_sink = p_can_int_sink;
 	}
 
-	void SetAHRSInterruptSink(IAHRSInterruptSink *p_ahrs_interrupt_sink) {
-		this->p_ahrs_interrupt_sink = p_ahrs_interrupt_sink;
+	void SetAHRSInterruptSink(IAHRSInterruptSink *p_ahrs_int_sink) {
+		this->p_ahrs_interrupt_sink = p_ahrs_int_sink;
 	}
 
 	bool IsOpen() { return pigpio_initialized; }
@@ -147,9 +147,16 @@ public:
 
 	bool EnableGPIOInterrupt(unsigned vmx_pi_gpio_num);
 	bool DisableGPIOInterrupt(unsigned vmx_pi_gpio_num);
+	bool EnableIOCXInterrupt();
+	bool DisableIOCXInterrupt();
+	bool EnableCANInterrupt();
+	bool DisableCANInterrupt();
+	bool EnableAHRSInterrupt();
+	bool DisableAHRSInterrupt();
 
 private:
 	static void gpio_isr(int gpio, int level, uint32_t tick, void *userdata);
+	static void signal_func(int signum, void *userdata);
 
 	bool I2CMasterOpenInternal(uint8_t i2c_slave_address, bool bitbang, unsigned bitbang_baudrate, int& i2c_handle);
 	bool I2CMasterReopenInternal(uint8_t new_i2c_slave_address);

@@ -268,21 +268,21 @@ AHRS::AHRS(SPIClient& client, PIGPIOClient& pigpio, uint8_t update_rate_hz)
 
 void AHRS::Stop()
 {
-	io->Stop();
-	try {
-		printf("AHRS thread joinable?:  %s\n", (task->joinable() ? "Yes" : "No"));
-		if(task->joinable()) {
-			task->join();
+	if (io->IsRunning()) {
+		io->Stop();
+		try {
+			printf("AHRS thread joinable?:  %s\n", (task->joinable() ? "Yes" : "No"));
+			if(task->joinable()) {
+				task->join();
+			}
+		} catch(const std::exception& ex){
+			printf("AHRS::Stop() - Caught exception:  %s\n", ex.what());
 		}
-	} catch(const std::exception& ex){
-		printf("AHRS::Stop() - Caught exception:  %s\n", ex.what());
 	}
 }
 
 AHRS::~AHRS() {
-	if(io->IsRunning()) {
-		Stop();
-	}
+	Stop();
 	delete task;
 	delete io;
 	delete ahrs_internal;
@@ -1084,7 +1084,11 @@ std::string AHRS::GetFirmwareVersion() {
 }
 
 int AHRS::ThreadFunc(IIOProvider *io_provider) {
-    io_provider->Run();
+	try {
+		io_provider->Run();
+	} catch (std::runtime_error &ex) {
+		printf("AHRS::ThreadFunc() - Caught exception:  %s\n", ex.what());
+	}
     return 0;
 }
 
