@@ -416,8 +416,8 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
         hdma_spi1_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
         hdma_spi1_rx.Init.Mode = DMA_NORMAL;
         hdma_spi1_rx.Init.Priority = DMA_PRIORITY_HIGH;
-        hdma_spi1_rx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
-        hdma_spi1_rx.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_1QUARTERFULL;
+        hdma_spi1_rx.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
+        hdma_spi1_rx.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_HALFFULL;
         hdma_spi1_rx.Init.MemBurst = DMA_MBURST_SINGLE;
         hdma_spi1_rx.Init.PeriphBurst = DMA_PBURST_SINGLE;
         HAL_DMA_Init(&hdma_spi1_rx);
