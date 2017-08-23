@@ -1224,6 +1224,17 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
         return fw_version;
     }
     
+    /**
+     * Enables or disables logging (via Console I/O) of AHRS library internal
+     * behaviors, including events such as transient communication errors.
+     * @param enable
+     */
+    public void enableLogging(boolean enable) {
+    	if ( this.io != null) {
+    		io.enableLogging(enable);
+    	}
+    }
+    
     /***********************************************************/
     /* Runnable Interface Implementation                       */
     /***********************************************************/

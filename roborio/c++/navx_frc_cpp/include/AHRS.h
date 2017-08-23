@@ -193,6 +193,8 @@ public:
     int GetActualUpdateRate();
     int GetRequestedUpdateRate();
 
+    void EnableLogging(bool enable);
+
 private:
     void SPIInit( SPI::Port spi_port_id, uint32_t bitrate, uint8_t update_rate_hz );
     void I2CInit( I2C::Port i2c_port_id, uint8_t update_rate_hz );

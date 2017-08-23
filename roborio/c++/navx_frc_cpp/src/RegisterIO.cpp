@@ -92,6 +92,10 @@ void RegisterIO::Stop() {
     stop = true;
 }
 
+void RegisterIO::EnableLogging(bool enable) {
+	io_provider->EnableLogging(enable);
+}
+
 bool RegisterIO::GetConfiguration() {
     bool success = false;
     int retry_count = 0;

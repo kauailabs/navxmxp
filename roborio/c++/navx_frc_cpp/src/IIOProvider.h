@@ -21,6 +21,7 @@ public:
     virtual void   ZeroDisplacement() = 0;
     virtual void   Run() = 0;
     virtual void   Stop() = 0;
+    virtual void   EnableLogging(bool enable) = 0;
 };
 
 #endif /* SRC_IIOPROVIDER_H_ */

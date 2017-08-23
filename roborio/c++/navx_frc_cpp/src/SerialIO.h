@@ -55,6 +55,7 @@ public:
     void ZeroDisplacement();
     void Run();
     void Stop();
+    void EnableLogging(bool enable);
 private:
 
     SerialPort *ResetSerialPort();

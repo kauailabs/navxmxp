@@ -14,7 +14,7 @@ import edu.wpi.first.wpilibj.I2C;
 class RegisterIO_I2C implements IRegisterIO{
 
     I2C port;
-    boolean trace = true;
+    boolean trace = false;
     
     public RegisterIO_I2C( I2C i2c_port ) {
         port = i2c_port;
@@ -26,13 +26,18 @@ class RegisterIO_I2C implements IRegisterIO{
     }
 
     @Override
+    public void enableLogging(boolean enable) {
+    	trace = enable;
+    }    
+    
+    @Override
     public boolean write(byte address, byte value ) {
-    	boolean success;
+    	boolean aborted;
     	synchronized(this){
-	        success = port.write(address | 0x80, value);
+	        aborted = port.write(address | 0x80, value);
     	}
-        if ( !success && trace ) System.out.println("navX-MXP I2C Write Error");
-        return success;
+        if ( aborted && trace ) System.out.println("navX-MXP I2C Write Error");
+        return !aborted;
     }
 
     final static int MAX_WPILIB_I2C_READ_BYTES = 127;
@@ -44,15 +49,15 @@ class RegisterIO_I2C implements IRegisterIO{
         while ( len > 0 ) {
             int read_len = (len > MAX_WPILIB_I2C_READ_BYTES) ? MAX_WPILIB_I2C_READ_BYTES : len;
             byte[] read_buffer = new byte[read_len];      
-            boolean write_ok;
-            boolean read_ok = false;
+            boolean write_aborted;
+            boolean read_aborted = true;
             synchronized(this){
-            	write_ok = port.write(first_address + buffer_offset, read_len);
-            	if ( write_ok ) {
-            		read_ok = port.readOnly(read_buffer, read_len);
+            	write_aborted = port.write(first_address + buffer_offset, read_len);
+            	if ( !write_aborted ) {
+            		read_aborted = port.readOnly(read_buffer, read_len);
             	}
             }
-            if ( write_ok && read_ok ) {                
+            if ( !write_aborted && !read_aborted ) {                
                 System.arraycopy(read_buffer, 0,  buffer, buffer_offset, read_len);
                 buffer_offset += read_len;
                 len -= read_len;
