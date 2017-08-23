@@ -5,6 +5,7 @@
 #include "IOCXRegisters.h"
 #include "stm32f4xx_hal.h"
 #include "navx-mxp.h"
+#include "RegisterUtilities.h"
 
 NavXPiBoardTest *p_navxpi_boardtest;
 static IOCX_REGS iocx_regs;
@@ -55,36 +56,56 @@ _EXTERN_ATTRIB uint8_t *IOCX_get_reg_addr_and_max_size( uint8_t bank, uint8_t re
 	        return 0;
 	    }
 
-	    /* Requested data includes interrupt status; update w/latest value */
-	    uint8_t first_offset = register_offset;
-	    uint8_t last_offset = register_offset + requested_count - 1;
-
-	    if((first_offset >= offsetof(struct IOCX_REGS, gpio_intstat)) &&
-	       (last_offset <=
-	    		   offsetof(struct IOCX_REGS, gpio_intstat) +
-	    		   sizeof(iocx_regs.gpio_intstat))) {
-	    	iocx_regs.gpio_intstat = (uint16_t)HAL_IOCX_GetInterruptStatus();
+	    uint8_t intersection_first_byte_offset;
+	    uint8_t intersection_byte_count;
+	    if (get_requested_region_intersection(register_offset, requested_count,
+	    		offsetof(struct IOCX_REGS, gpio_intstat),
+	    		sizeof(iocx_regs.gpio_intstat),
+	    		intersection_first_byte_offset, intersection_byte_count)) {
+	    	iocx_regs.gpio_intstat = HAL_IOCX_GetInterruptStatus();
 	    }
 
-	    if((first_offset >= offsetof(struct IOCX_REGS, timer_counter)) &&
-	       (last_offset <=
-	    		   offsetof(struct IOCX_REGS, timer_counter) +
-	    		   sizeof(iocx_regs.timer_counter))) {
-	    	/* Todo:  This can be optimized to only acquire data for requested
-	    	 * counters, rather than all counters.
-	    	 */
-	    	HAL_IOCX_TIMER_Get_Count(0, IOCX_NUM_TIMERS, &iocx_regs.timer_counter[0]);
-	   }
+	    if (get_requested_region_intersection(register_offset, requested_count,
+	    		offsetof(struct IOCX_REGS, gpio_last_int_edge),
+	    		sizeof(iocx_regs.gpio_last_int_edge),
+	    		intersection_first_byte_offset, intersection_byte_count)) {
+	    	iocx_regs.gpio_last_int_edge = HAL_IOCX_GetLastInterruptEdges();
+	    }
 
-	    if((first_offset >= offsetof(struct IOCX_REGS, gpio_data)) &&
-	       (last_offset <=
-	    		   offsetof(struct IOCX_REGS, gpio_data) +
-	    		   sizeof(iocx_regs.gpio_data))) {
-	    	/* Todo:  This can be optimized to only acquire data for requested
-	    	 * gpios, rather than all gpios.
-	    	 */
-		    HAL_IOCX_GPIO_Get(0, IOCX_NUM_GPIOS, &iocx_regs.gpio_data[0]);
-	   }
+	    uint8_t intersection_first_array_index;
+	    uint8_t intersection_array_item_count;
+	    if (get_requested_array_intersection(register_offset, requested_count,
+	    		   offsetof(struct IOCX_REGS, timer_counter),
+	    		   sizeof(iocx_regs.timer_counter),
+	    		   sizeof(iocx_regs.timer_counter[0]),
+	    		   intersection_first_array_index,
+	    		   intersection_array_item_count)) {
+	    	HAL_IOCX_TIMER_Get_Count(intersection_first_array_index,
+	    			intersection_array_item_count,
+	    			&iocx_regs.timer_counter[intersection_first_array_index]);
+	    }
+
+	    if (get_requested_array_intersection(register_offset, requested_count,
+	    		   offsetof(struct IOCX_REGS, timer_status),
+	    		   sizeof(iocx_regs.timer_status),
+	    		   sizeof(iocx_regs.timer_status[0]),
+	    		   intersection_first_array_index,
+	    		   intersection_array_item_count)) {
+	    	HAL_IOCX_TIMER_Get_Direction(intersection_first_array_index,
+	    			intersection_array_item_count,
+	    			&iocx_regs.timer_status[intersection_first_array_index]);
+	    }
+
+	    if (get_requested_array_intersection(register_offset, requested_count,
+	    		   offsetof(struct IOCX_REGS, gpio_data),
+	    		   sizeof(iocx_regs.gpio_data),
+	    		   sizeof(iocx_regs.gpio_data[0]),
+	    		   intersection_first_array_index,
+	    		   intersection_array_item_count)) {
+	    	HAL_IOCX_GPIO_Get(intersection_first_array_index,
+	    			intersection_array_item_count,
+	    			&iocx_regs.gpio_data[intersection_first_array_index]);
+	    }
 
 	    uint8_t *register_base = (uint8_t *)&iocx_regs;
 	    *size = offsetof(struct IOCX_REGS, end_of_bank) - register_offset;
@@ -130,7 +151,7 @@ void channel_reg_set_modified(uint8_t first_offset, uint8_t count, T* data) {
 }
 
 static void int_cfg_modified(uint8_t first_offset, uint8_t count) {
-	HAL_IOCX_AssertInterrupt(iocx_regs.int_cfg);
+	HAL_IOCX_UpdateInterruptMask(iocx_regs.int_cfg);
 }
 
 static void gpio_intstat_modified(uint8_t first_offset, uint8_t count) {

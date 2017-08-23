@@ -155,11 +155,12 @@ int HAL_IOCX_Ext_Power_Fault(); /* Returns 0 if no ext power fault has occurred,
 void HAL_IOCX_RPI_GPIO_Driver_Enable(int enable);
 void HAL_IOCX_RPI_COMM_Driver_Enable(int enable);
 void HAL_IOCX_Init();
-void HAL_IOCX_AssertInterrupt(uint32_t int_bits_to_set);
-void HAL_IOCX_DeassertInterrupt(uint32_t int_bits_to_clear);
-void HAL_IOCX_UpdateInterruptMask(uint32_t int_new_mask);
-uint32_t HAL_IOCX_GetInterruptMask();
-uint32_t HAL_IOCX_GetInterruptStatus();
+void HAL_IOCX_AssertInterrupt(uint16_t int_bits_to_set);
+void HAL_IOCX_DeassertInterrupt(uint16_t int_bits_to_clear);
+void HAL_IOCX_UpdateInterruptMask(uint16_t int_new_mask);
+uint16_t HAL_IOCX_GetInterruptMask();
+uint16_t HAL_IOCX_GetInterruptStatus();
+uint16_t HAL_IOCX_GetLastInterruptEdges();
 #endif
 
 /* Timers (QuadEncoder/PWM) */
@@ -172,6 +173,7 @@ void HAL_IOCX_TIMER_Get_Prescaler(uint8_t first_timer_index, int count, uint16_t
 
 /* Quad Encoder Data */
 void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, int32_t *values);
+void HAL_IOCX_TIMER_Get_Direction(uint8_t first_timer_index, int count, uint8_t *values);
 
 /* PWM Configuration */
 void HAL_IOCX_TIMER_PWM_Set_FramePeriod(uint8_t timer_index, uint16_t clocks_per_frame_period);

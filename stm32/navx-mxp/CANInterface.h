@@ -81,7 +81,7 @@ class CANInterface {
 	FIFO<TIMESTAMPED_CAN_TRANSFER_PADDED, RECEIVE_FIFO_DEPTH> rx_fifo;
 	FIFO<CAN_TRANSFER_PADDED, TRANSMIT_FIFO_DEPTH> tx_fifo;
 
-	static void mcp25625_isr(void);
+	static void mcp25625_isr(uint8_t gpio_pin);
 	static CANInterface *p_singleton;
 	void interrupt_handler();
 

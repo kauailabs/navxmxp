@@ -198,7 +198,6 @@ HAL_StatusTypeDef HAL_MCP25625_HW_Data_Set(MCP25625_TX_BUFFER_INDEX num,
 
 HAL_StatusTypeDef HAL_MCP25625_HW_Data_Get(MCP25625_RX_BUFFER_INDEX num,
 		CAN_TRANSFER_PADDED *rx_data) {
-#if 1
 	uint8_t cmd = MCP25625_READ_RX_CMD + MCP25625_RX( num );
 	rx_data->cmd = cmd;
 	HAL_GPIO_WritePin( CAN_CS_Port, CAN_CS_Pin, GPIO_PIN_RESET);
@@ -206,15 +205,6 @@ HAL_StatusTypeDef HAL_MCP25625_HW_Data_Get(MCP25625_RX_BUFFER_INDEX num,
 	HAL_GPIO_WritePin( CAN_CS_Port, CAN_CS_Pin, GPIO_PIN_SET);
 	rx_data->cmd = cmd; /* DEBUG:  to help w/record-keeping, update cmd. */
 	return spi_status;
-#else
-	uint8_t reg_addr;
-	if ( num == RXB0) {
-		reg_addr = 0x61;
-	} else {
-		reg_addr = 0x71;
-	}
-	return HAL_MCP25625_Read(reg_addr, ((uint8_t *)rx_data)+1, 13);
-#endif
 }
 
 HAL_StatusTypeDef HAL_MCP25625_HW_Filter_Set(MCP25625_RX_FILTER_INDEX reg,

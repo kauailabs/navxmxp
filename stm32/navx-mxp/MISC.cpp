@@ -4,6 +4,7 @@
 #include "MISCRegisters.h"
 #include "stm32f4xx_hal.h"
 #include "navx-mxp.h"
+#include "RegisterUtilities.h"
 
 static MISC_REGS misc_regs;
 static uint32_t last_loop_timestamp;
@@ -130,14 +131,13 @@ _EXTERN_ATTRIB uint8_t *MISC_get_reg_addr_and_max_size( uint8_t bank, uint8_t re
 	        return 0;
 	    }
 
-	    uint8_t first_offset = register_offset;
-	    uint8_t last_offset = register_offset + requested_count - 1;
-
 	    bool date_read = false;
-	    if((first_offset >= offsetof(struct MISC_REGS, rtc_time)) &&
-	       (last_offset <
-	    		   (offsetof(struct MISC_REGS, rtc_time) +
-	    			sizeof(misc_regs.rtc_time)))) {
+	    uint8_t intersection_first_byte_offset;
+	    uint8_t intersection_byte_count;
+	    if (get_requested_region_intersection(register_offset, requested_count,
+	    		offsetof(struct MISC_REGS, rtc_time),
+	    		sizeof(misc_regs.rtc_time),
+	    		intersection_first_byte_offset, intersection_byte_count)) {
 		    /* Requested data includes rtc timestamp; retrieve current value */
 	    	HAL_RTC_Get_Time(&misc_regs.rtc_time.hours,
 	    			&misc_regs.rtc_time.minutes,
@@ -151,11 +151,10 @@ _EXTERN_ATTRIB uint8_t *MISC_get_reg_addr_and_max_size( uint8_t bank, uint8_t re
 	    			&misc_regs.rtc_date.month,
 	    			&misc_regs.rtc_date.year);
 	    }
-	    if((first_offset >= offsetof(struct MISC_REGS, rtc_date)) &&
-	 	       (last_offset <
-	 	    		   (offsetof(struct MISC_REGS, rtc_date) +
-	 	    			sizeof(misc_regs.rtc_date)))) {
-		    /* Requested data includes rtc datestamp; retrieve current value */
+	    if (get_requested_region_intersection(register_offset, requested_count,
+	    		offsetof(struct MISC_REGS, rtc_date),
+	    		sizeof(misc_regs.rtc_date),
+	    		intersection_first_byte_offset, intersection_byte_count)) {
 	    	if(!date_read) {
 				HAL_RTC_Get_Date(&misc_regs.rtc_date.weekday,
 						&misc_regs.rtc_date.date,
@@ -175,7 +174,6 @@ static void ext_pwr_ctl_cfg_modified(uint8_t first_offset, uint8_t count) {
 }
 
 static void rtc_cfg_modified(uint8_t first_offset, uint8_t count) {
-	uint8_t daylight_savings;
 	HAL_RTC_Set_DaylightSavings(misc_regs.rtc_cfg.daylight_savings);
 }
 
