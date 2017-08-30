@@ -412,7 +412,6 @@ typedef struct {
 	GPIO_TypeDef *p_gpio;
 	uint16_t pin;
 	uint8_t timer_index;
-	uint8_t channel_index;
 	GPIO_INTERRUPT_TYPE interrupt_type;
 	uint8_t interrupt_index;
 	uint8_t alt_function;
@@ -423,33 +422,30 @@ typedef struct {
 
 static GPIO_Channel gpio_channels[IOCX_NUM_GPIOS] =
 {
-	{PWM_GPIO1_GPIO_Port, 	PWM_GPIO1_Pin, 	4,  0, INT_EXTI, 0,  GPIO_AF2_TIM5},
-	{PWM_GPIO2_GPIO_Port, 	PWM_GPIO2_Pin, 	4,  1, INT_EXTI, 1,  GPIO_AF2_TIM5},
-	{PWM_GPIO3_GPIO_Port, 	PWM_GPIO3_Pin, 	5,  0, INT_EXTI, 2,  GPIO_AF3_TIM9},
-	{PWM_GPIO4_GPIO_Port, 	PWM_GPIO4_Pin, 	5,  1, INT_EXTI, 3,  GPIO_AF3_TIM9},
-	{QE1_A_GPIO_Port, 		QE1_A_Pin, 		0,  0, INT_EXTI, 4,  GPIO_AF1_TIM1},
-	{QE1_B_GPIO_Port, 		QE1_B_Pin, 		0,  1, INT_EXTI, 5,  GPIO_AF1_TIM1},
-	{QE2_A_GPIO_Port, 		QE2_A_Pin, 		1,  0, INT_EXTI, 6,  GPIO_AF1_TIM2},
-	{QE2_B_GPIO_Port, 		QE2_B_Pin, 		1,  1, INT_SWED, 7,  GPIO_AF1_TIM2},
-	{QE3_A_GPIO_Port, 		QE3_A_Pin, 		2,  0, INT_SWED, 8,  GPIO_AF2_TIM3},
-	{QE3_B_GPIO_Port, 		QE3_B_Pin, 		2,  1, INT_EXTI, 9,  GPIO_AF2_TIM3},
-	{QE4_A_GPIO_Port, 		QE4_A_Pin, 		3,  0, INT_EXTI, 10, GPIO_AF2_TIM5},
-	{QE4_B_GPIO_Port, 		QE4_B_Pin, 		3,  1, INT_EXTI, 11, GPIO_AF2_TIM5},
+	{PWM_GPIO1_GPIO_Port, 	PWM_GPIO1_Pin, 	4,  INT_EXTI, 0,  GPIO_AF2_TIM5},
+	{PWM_GPIO2_GPIO_Port, 	PWM_GPIO2_Pin, 	4,  INT_EXTI, 1,  GPIO_AF2_TIM5},
+	{PWM_GPIO3_GPIO_Port, 	PWM_GPIO3_Pin, 	5,  INT_EXTI, 2,  GPIO_AF3_TIM9},
+	{PWM_GPIO4_GPIO_Port, 	PWM_GPIO4_Pin, 	5,  INT_EXTI, 3,  GPIO_AF3_TIM9},
+	{QE1_A_GPIO_Port, 		QE1_A_Pin, 		0,  INT_EXTI, 4,  GPIO_AF1_TIM1},
+	{QE1_B_GPIO_Port, 		QE1_B_Pin, 		0,  INT_EXTI, 5,  GPIO_AF1_TIM1},
+	{QE2_A_GPIO_Port, 		QE2_A_Pin, 		1,  INT_EXTI, 6,  GPIO_AF1_TIM2},
+	{QE2_B_GPIO_Port, 		QE2_B_Pin, 		1,  INT_SWED, 7,  GPIO_AF1_TIM2},
+	{QE3_A_GPIO_Port, 		QE3_A_Pin, 		2,  INT_SWED, 8,  GPIO_AF2_TIM3},
+	{QE3_B_GPIO_Port, 		QE3_B_Pin, 		2,  INT_EXTI, 9,  GPIO_AF2_TIM3},
+	{QE4_A_GPIO_Port, 		QE4_A_Pin, 		3,  INT_EXTI, 10, GPIO_AF2_TIM4},
+	{QE4_B_GPIO_Port, 		QE4_B_Pin, 		3,  INT_EXTI, 11, GPIO_AF2_TIM4},
 };
 
-static uint8_t IOCX_gpio_pin_to_interrupt_index_map[16];
-static uint8_t IOCX_gpio_pin_to_gpio_channel_index_map[16];
+static uint8_t IOCX_gpio_pin_to_interrupt_index_map[IOCX_NUM_INTERRUPTS];
+static uint8_t IOCX_gpio_pin_to_gpio_channel_index_map[IOCX_NUM_INTERRUPTS];
+static uint32_t IOCX_gpio_pin_mode_configuration[IOCX_NUM_INTERRUPTS];
 static volatile uint16_t int_status = 0;  /* Todo:  Review Race Conditions */
 static volatile uint16_t last_int_edge = 0;
 static volatile uint16_t int_mask = 0; /* Todo:  Review Race Conditions */
 
-
-#define NUM_GPIO_EXTI_INTERRUPTS 			8
-#define NUM_ANALOG_TRIGGER_INTERRUPTS 		4
-
 static void HAL_IOCX_EXTI_ISR(uint8_t gpio_pin)
 {
-	if (gpio_pin < 16) {
+	if (gpio_pin < IOCX_NUM_INTERRUPTS) {
 		uint8_t gpio_interrupt_index = IOCX_gpio_pin_to_interrupt_index_map[gpio_pin];
 		uint8_t gpio_channel_index = IOCX_gpio_pin_to_gpio_channel_index_map[gpio_pin];
 		uint16_t interrupt_bit = (1 << gpio_interrupt_index);
@@ -470,6 +466,7 @@ void HAL_IOCX_Init()
 		if (gpio_channels[i].interrupt_type == INT_EXTI) {
 			IOCX_gpio_pin_to_interrupt_index_map[POSITION_VAL(gpio_channels[i].pin)] = gpio_channels[i].interrupt_index;
 			IOCX_gpio_pin_to_gpio_channel_index_map[POSITION_VAL(gpio_channels[i].pin)] = i;
+			IOCX_gpio_pin_mode_configuration[POSITION_VAL(gpio_channels[i].pin)] = 0;
 			attachInterrupt(gpio_channels[i].pin, &HAL_IOCX_EXTI_ISR, FALLING);
 		}
 	}
@@ -646,6 +643,10 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 
 	if ( gpio_index > (IOCX_NUM_GPIOS-1) ) return;
 
+	/* Before configuring, deinit; this clears the GPIO to default state */
+	HAL_GPIO_DeInit(gpio_channels[gpio_index].p_gpio, gpio_channels[gpio_index].pin);
+	IOCX_gpio_pin_mode_configuration[gpio_channels[gpio_index].interrupt_index] = 0;
+
 	IOCX_GPIO_TYPE type = iocx_decode_gpio_type(&config);
 	IOCX_GPIO_INPUT input = iocx_decode_gpio_input(&config);
 	IOCX_GPIO_INTERRUPT interrupt_mode = iocx_decode_gpio_interrupt(&config);
@@ -653,6 +654,8 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 	GPIO_InitTypeDef GPIO_InitStruct;
 	GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
 	GPIO_InitStruct.Pin = gpio_channels[gpio_index].pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
 
 	switch(type){
 	case GPIO_TYPE_INPUT:
@@ -708,10 +711,10 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 	case GPIO_TYPE_DISABLED:
 	default:
 		// TODO:  If a software alternate function, disable that function
-		HAL_GPIO_DeInit(gpio_channels[gpio_index].p_gpio, GPIO_InitStruct.Pin);
 		return;
 	}
 	HAL_GPIO_Init(gpio_channels[gpio_index].p_gpio, &GPIO_InitStruct);
+	IOCX_gpio_pin_mode_configuration[gpio_channels[gpio_index].interrupt_index] = GPIO_InitStruct.Mode;
 }
 
 void HAL_IOCX_GPIO_Get(uint8_t first_gpio_index, int count, uint8_t *values)
