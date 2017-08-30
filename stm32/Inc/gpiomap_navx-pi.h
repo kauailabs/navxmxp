@@ -74,7 +74,7 @@
 
 #define QE1_A_Pin GPIO_PIN_9  //PE9, TIM1 CH1
 #define QE1_A_GPIO_Port GPIOE
-#define QE1_B_Pin GPIO_PIN_11 //PE11, TIM1 CH1
+#define QE1_B_Pin GPIO_PIN_11 //PE11, TIM1 CH2
 #define QE1_B_GPIO_Port GPIOE
 #define QE2_A_Pin GPIO_PIN_15 //PA15, TIM2 CH1
 #define QE2_A_GPIO_Port GPIOA

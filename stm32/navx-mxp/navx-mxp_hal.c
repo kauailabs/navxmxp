@@ -30,6 +30,7 @@ THE SOFTWARE.
 #include "gpiomap_navx-pi.h"
 #include "adc_navx-pi.h"
 #include "IOCXRegisters.h"
+#include "ext_interrupts.h"
 #endif
 #ifdef ENABLE_RTC
 extern RTC_HandleTypeDef hrtc;
@@ -401,7 +402,9 @@ void HAL_RTC_Get_Date(uint8_t *weekday, uint8_t *date, uint8_t *month, uint8_t *
 #ifdef ENABLE_IOCX
 
 typedef enum  {
-	INT_EXTI,
+	INT_EXTI,	/* STM32 External Interrupt Line */
+	INT_SWED,	/* Software Edge Detection */
+	INT_ALTPIN, /* This GPIO also connected to a secondary INT input pin. */
 	INT_NONE
 } GPIO_INTERRUPT_TYPE;
 
@@ -409,7 +412,6 @@ typedef struct {
 	GPIO_TypeDef *p_gpio;
 	uint16_t pin;
 	uint8_t timer_index;
-	uint8_t channel_index;
 	GPIO_INTERRUPT_TYPE interrupt_type;
 	uint8_t interrupt_index;
 	uint8_t alt_function;
@@ -420,25 +422,54 @@ typedef struct {
 
 static GPIO_Channel gpio_channels[IOCX_NUM_GPIOS] =
 {
-	{PWM_GPIO1_GPIO_Port, 	PWM_GPIO1_Pin, 	4,  0, INT_EXTI, 0,  GPIO_AF2_TIM5},
-	{PWM_GPIO2_GPIO_Port, 	PWM_GPIO2_Pin, 	4,  1, INT_EXTI, 1,  GPIO_AF2_TIM5},
-	{PWM_GPIO3_GPIO_Port, 	PWM_GPIO3_Pin, 	5,  0, INT_EXTI, 2,  GPIO_AF3_TIM9},
-	{PWM_GPIO4_GPIO_Port, 	PWM_GPIO4_Pin, 	5,  1, INT_EXTI, 3,  GPIO_AF3_TIM9},
-	{QE1_A_GPIO_Port, 		QE1_A_Pin, 		0,  0, INT_EXTI, 4,  GPIO_AF1_TIM1},
-	{QE1_B_GPIO_Port, 		QE1_B_Pin, 		0,  1, INT_EXTI, 5,  GPIO_AF1_TIM1},
-	{QE2_A_GPIO_Port, 		QE2_A_Pin, 		1,  0, INT_EXTI, 6,  GPIO_AF1_TIM2},
-	{QE2_B_GPIO_Port, 		QE2_B_Pin, 		1,  1, INT_EXTI, 7,  GPIO_AF1_TIM2},
-	{QE3_A_GPIO_Port, 		QE3_A_Pin, 		2,  0, INT_EXTI, 8,  GPIO_AF2_TIM3},
-	{QE3_B_GPIO_Port, 		QE3_B_Pin, 		2,  1, INT_EXTI, 9,  GPIO_AF2_TIM3},
-	{QE4_A_GPIO_Port, 		QE4_A_Pin, 		3,  0, INT_EXTI, 10, GPIO_AF2_TIM5},
-	{QE4_B_GPIO_Port, 		QE4_B_Pin, 		3,  1, INT_EXTI, 11, GPIO_AF2_TIM5},
+	{PWM_GPIO1_GPIO_Port, 	PWM_GPIO1_Pin, 	4,  INT_EXTI, 0,  GPIO_AF2_TIM5},
+	{PWM_GPIO2_GPIO_Port, 	PWM_GPIO2_Pin, 	4,  INT_EXTI, 1,  GPIO_AF2_TIM5},
+	{PWM_GPIO3_GPIO_Port, 	PWM_GPIO3_Pin, 	5,  INT_EXTI, 2,  GPIO_AF3_TIM9},
+	{PWM_GPIO4_GPIO_Port, 	PWM_GPIO4_Pin, 	5,  INT_EXTI, 3,  GPIO_AF3_TIM9},
+	{QE1_A_GPIO_Port, 		QE1_A_Pin, 		0,  INT_EXTI, 4,  GPIO_AF1_TIM1},
+	{QE1_B_GPIO_Port, 		QE1_B_Pin, 		0,  INT_EXTI, 5,  GPIO_AF1_TIM1},
+	{QE2_A_GPIO_Port, 		QE2_A_Pin, 		1,  INT_EXTI, 6,  GPIO_AF1_TIM2},
+	{QE2_B_GPIO_Port, 		QE2_B_Pin, 		1,  INT_SWED, 7,  GPIO_AF1_TIM2},
+	{QE3_A_GPIO_Port, 		QE3_A_Pin, 		2,  INT_SWED, 8,  GPIO_AF2_TIM3},
+	{QE3_B_GPIO_Port, 		QE3_B_Pin, 		2,  INT_EXTI, 9,  GPIO_AF2_TIM3},
+	{QE4_A_GPIO_Port, 		QE4_A_Pin, 		3,  INT_EXTI, 10, GPIO_AF2_TIM4},
+	{QE4_B_GPIO_Port, 		QE4_B_Pin, 		3,  INT_EXTI, 11, GPIO_AF2_TIM4},
 };
 
-#define NUM_GPIO_EXTI_INTERRUPTS 			8
-#define NUM_ANALOG_TRIGGER_INTERRUPTS 		4
+static uint8_t IOCX_gpio_pin_to_interrupt_index_map[IOCX_NUM_INTERRUPTS];
+static uint8_t IOCX_gpio_pin_to_gpio_channel_index_map[IOCX_NUM_INTERRUPTS];
+static uint32_t IOCX_gpio_pin_mode_configuration[IOCX_NUM_INTERRUPTS];
+static volatile uint16_t int_status = 0;  /* Todo:  Review Race Conditions */
+static volatile uint16_t last_int_edge = 0;
+static volatile uint16_t int_mask = 0; /* Todo:  Review Race Conditions */
+
+static void HAL_IOCX_EXTI_ISR(uint8_t gpio_pin)
+{
+	if (gpio_pin < IOCX_NUM_INTERRUPTS) {
+		uint8_t gpio_interrupt_index = IOCX_gpio_pin_to_interrupt_index_map[gpio_pin];
+		uint8_t gpio_channel_index = IOCX_gpio_pin_to_gpio_channel_index_map[gpio_pin];
+		uint16_t interrupt_bit = (1 << gpio_interrupt_index);
+		if (HAL_GPIO_ReadPin(gpio_channels[gpio_channel_index].p_gpio, gpio_channels[gpio_channel_index].pin) == GPIO_PIN_SET) {
+			last_int_edge |= interrupt_bit;
+		} else {
+			last_int_edge &= ~interrupt_bit;
+		}
+
+		HAL_IOCX_AssertInterrupt(interrupt_bit);
+	}
+}
 
 void HAL_IOCX_Init()
 {
+	uint8_t i;
+	for (i = 0; i < IOCX_NUM_GPIOS; i++) {
+		if (gpio_channels[i].interrupt_type == INT_EXTI) {
+			IOCX_gpio_pin_to_interrupt_index_map[POSITION_VAL(gpio_channels[i].pin)] = gpio_channels[i].interrupt_index;
+			IOCX_gpio_pin_to_gpio_channel_index_map[POSITION_VAL(gpio_channels[i].pin)] = i;
+			IOCX_gpio_pin_mode_configuration[POSITION_VAL(gpio_channels[i].pin)] = 0;
+			attachInterrupt(gpio_channels[i].pin, &HAL_IOCX_EXTI_ISR, FALLING);
+		}
+	}
 }
 
 void HAL_IOCX_Ext_Power_Enable(int enable)
@@ -505,9 +536,6 @@ int HAL_IOCX_Ext_Power_Fault()
  * in these cases.
  */
 
-static volatile uint32_t int_status = 0;  /* Todo:  Review Race Conditions */
-static volatile uint32_t int_mask = 0; /* Todo:  Review Race Conditions */
-
 void HAL_IOCX_AssertInterruptSignal()
 {
 	/* Assert Interrupt Pin */
@@ -515,16 +543,18 @@ void HAL_IOCX_AssertInterruptSignal()
 }
 
 /* Todo:  For performance, inline and move these to header file. */
-void HAL_IOCX_AssertInterrupt(uint32_t new_int_status_bits)
+void HAL_IOCX_AssertInterrupt(uint16_t new_int_status_bits)
 {
 	/* Mask out any current-disabled bits */
 	/* If any bits remain: */
 	/*   Set the specified bits in the interrupt status */
 	/*   If Interrupt Pin is not Asserted */
 	/*     Assert the Interrupt Pin */
-	int_status |= new_int_status_bits;
-	if (int_status & int_mask) {
-		HAL_IOCX_AssertInterruptSignal();
+	if ((int_status & new_int_status_bits) != new_int_status_bits) {
+		int_status |= new_int_status_bits;
+		if (int_status & int_mask) {
+			HAL_IOCX_AssertInterruptSignal();
+		}
 	}
 }
 
@@ -533,14 +563,14 @@ void HAL_IOCX_DeassertInterruptSignal()
 	HAL_GPIO_WritePin(NAVX_2_RPI_INT4_GPIO_Port, NAVX_2_RPI_INT4_Pin,GPIO_PIN_SET);
 }
 
-void HAL_IOCX_DeassertInterrupt(uint32_t int_bits_to_clear) {
+void HAL_IOCX_DeassertInterrupt(uint16_t int_bits_to_clear) {
 	int_status &= ~int_bits_to_clear;
 	if (!(int_status & int_mask)) {
 		HAL_IOCX_DeassertInterruptSignal();
 	}
 }
 
-void HAL_IOCX_UpdateInterruptMask(uint32_t int_bits) {
+void HAL_IOCX_UpdateInterruptMask(uint16_t int_bits) {
 	int_mask = int_bits;
 	/* If all actively assert interrupts are now masked    */
 	/* then deassert the interrupt signal, and vice versa. */
@@ -552,12 +582,16 @@ void HAL_IOCX_UpdateInterruptMask(uint32_t int_bits) {
 	/* TOdo:  use mask in GPIO EXTI ISRs to avoid unnecessary dispatch */
 }
 
-uint32_t HAL_IOCX_GetInterruptMask() {
+uint16_t HAL_IOCX_GetInterruptMask() {
 	return int_mask;
 }
 
-uint32_t HAL_IOCX_GetInterruptStatus() {
+uint16_t HAL_IOCX_GetInterruptStatus() {
 	return int_status;
+}
+
+uint16_t HAL_IOCX_GetLastInterruptEdges() {
+	return last_int_edge;
 }
 
 /***************************************************************************/
@@ -609,6 +643,10 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 
 	if ( gpio_index > (IOCX_NUM_GPIOS-1) ) return;
 
+	/* Before configuring, deinit; this clears the GPIO to default state */
+	HAL_GPIO_DeInit(gpio_channels[gpio_index].p_gpio, gpio_channels[gpio_index].pin);
+	IOCX_gpio_pin_mode_configuration[gpio_channels[gpio_index].interrupt_index] = 0;
+
 	IOCX_GPIO_TYPE type = iocx_decode_gpio_type(&config);
 	IOCX_GPIO_INPUT input = iocx_decode_gpio_input(&config);
 	IOCX_GPIO_INTERRUPT interrupt_mode = iocx_decode_gpio_interrupt(&config);
@@ -616,6 +654,8 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 	GPIO_InitTypeDef GPIO_InitStruct;
 	GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
 	GPIO_InitStruct.Pin = gpio_channels[gpio_index].pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
 
 	switch(type){
 	case GPIO_TYPE_INPUT:
@@ -671,10 +711,10 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 	case GPIO_TYPE_DISABLED:
 	default:
 		// TODO:  If a software alternate function, disable that function
-		HAL_GPIO_DeInit(gpio_channels[gpio_index].p_gpio, GPIO_InitStruct.Pin);
 		return;
 	}
 	HAL_GPIO_Init(gpio_channels[gpio_index].p_gpio, &GPIO_InitStruct);
+	IOCX_gpio_pin_mode_configuration[gpio_channels[gpio_index].interrupt_index] = GPIO_InitStruct.Mode;
 }
 
 void HAL_IOCX_GPIO_Get(uint8_t first_gpio_index, int count, uint8_t *values)
@@ -865,6 +905,19 @@ void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, int32_t *val
 	}
 	for ( i = first_timer_index; i < first_timer_index + count; i++ ) {
 		*values++ = (int32_t)timer_configs[i].p_tim_handle->Instance->CNT;
+	}
+}
+
+void HAL_IOCX_TIMER_Get_Direction(uint8_t first_timer_index, int count, uint8_t *values)
+{
+	uint8_t i;
+	if ( first_timer_index > (IOCX_NUM_TIMERS-1) ) return;
+	if ( first_timer_index + count > IOCX_NUM_TIMERS) {
+		count = IOCX_NUM_TIMERS - first_timer_index;
+	}
+	for ( i = first_timer_index; i < first_timer_index + count; i++ ) {
+		uint32_t cr1_reg = timer_configs[i].p_tim_handle->Instance->CR1;
+		*values++ = ((cr1_reg & 0x00000010) ? 1 : 0);
 	}
 }
 
