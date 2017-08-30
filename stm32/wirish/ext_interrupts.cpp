@@ -31,8 +31,9 @@
  */
 
 #include "ext_interrupts.h"
+#include "stm32f4xx.h"
 
-static void (*func_array[16])(void) = {
+static void (*func_array[16])(uint8_t) = {
 		0, 0, 0, 0,
 		0, 0, 0, 0,
 		0, 0, 0, 0,
@@ -42,13 +43,9 @@ static void (*func_array[16])(void) = {
 extern "C" {
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	for ( int i = 0; i < 16; i++ ) {
-		if ( GPIO_Pin & (1 << i) ) {
-			if ( func_array[i] != 0 ) {
-				func_array[i]();
-			}
-			break;
-		}
+	uint8_t i = POSITION_VAL(GPIO_Pin);
+	if ( func_array[i] != 0 ) {
+		func_array[i](i);
 	}
 }
 }
@@ -60,7 +57,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
  * @param mode    Trigger mode for the given interrupt.
  * @see ExtIntTriggerMode
  */
-void attachInterrupt(uint16_t pin, void (*func)(void), ExtIntTriggerMode mode) {
+void attachInterrupt(uint16_t pin, void (*func)(uint8_t), ExtIntTriggerMode mode) {
 	for ( int i = 0; i < 16; i++ ) {
 		if ( pin & (1 << i) ) {
 			func_array[i] = func;

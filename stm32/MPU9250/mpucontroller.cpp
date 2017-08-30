@@ -274,7 +274,7 @@ _EXTERN_ATTRIB void mpu_get_mag_cal_data(struct mag_calibration_data *caldata) {
  * ISR context. In this example, it sets a flag protecting the FIFO read
  * function.
  */
-static void gyro_data_ready_cb(void)
+static void gyro_data_ready_cb(uint8_t gpio_pin)
 {
     hal.new_gyro = 1;
 }

@@ -17,7 +17,7 @@
 CANInterface *CANInterface::p_singleton = (CANInterface *) NULL;
 static CAN_IFX_INT_FLAGS CAN_isr_flag_mask;
 
-void CANInterface::mcp25625_isr(void) {
+void CANInterface::mcp25625_isr(uint8_t gpio_pin) {
 	if (p_singleton != NULL) {
 		p_singleton->interrupt_handler();
 	}

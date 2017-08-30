@@ -509,7 +509,7 @@ int caldata_clear_count = 0;            /* Protection against flash wear */
 
 #define BUTTON_DEBOUNCE_SAMPLES 10
 
-static void cal_button_isr(void)
+static void cal_button_isr(uint8_t gpio_pin)
 {
     /* If CAL button held down for sufficient duration, clear accel/gyro cal data */
     bool button_pressed = false;
