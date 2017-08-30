@@ -11,6 +11,8 @@
 
 #include "VMXPi.h"
 
+#define DEBUG_RESOURCE_MANAGEMENT
+
 void DisplayVMXError(VMXErrorCode vmxerr) {
 	const char *p_err_description = GetVMXErrorString(vmxerr);
 	printf("VMXError %d:  %s\n", vmxerr, p_err_description);
@@ -45,9 +47,11 @@ public:
 	virtual ~AHRSCallback() {}
     virtual void timestampedDataReceived( long system_timestamp, long sensor_timestamp, AHRSProtocol::AHRSUpdateBase& sensor_data, void * context )
     {
+#if 0
     	printf("AHRS Callback Data Received.  SysTimestamp:  %ld, SensorTimestamp:  %ld\n",
     			system_timestamp,
     			sensor_timestamp);
+#endif
     }
 };
 
@@ -80,7 +84,7 @@ int main(int argc, char *argv[])
 				vmx.time.DelayMilliseconds(20);
 			}
 
-			//vmx.ahrs.Stop(); /* Stop background AHRS data acquisition thread (during debugging, this can be useful... */
+			vmx.ahrs.Stop(); /* Stop background AHRS data acquisition thread (during debugging, this can be useful... */
 
 			/* IO test */
 
@@ -385,6 +389,17 @@ int main(int argc, char *argv[])
 				}
 			}
 
+			/* 6) Display current input values. */
+			for ( int dio_channel_index = first_stm32_gpio; dio_channel_index < first_stm32_gpio + num_stm32_gpios; dio_channel_index++) {
+				bool high;
+				if (!vmx.io.DIO_Get(gpio_res_handles[dio_channel_index], high, &vmxerr)) {
+					printf("Error Getting Digital Input Value for Channel index %d.\n", dio_channel_index);
+					DisplayVMXError(vmxerr);
+				} else {
+					printf("GPIO Input Channel %d value:  %s.\n", dio_channel_index, high ? "High": "Low");
+				}
+			}
+
 			VMXResourceHandle interrupt_res_handles[num_stm32_gpios];
 			/* Configure all DIOs for rising-edge interrupt-handling */
 			for ( uint8_t dio_channel_index = first_stm32_gpio; dio_channel_index < first_stm32_gpio + num_stm32_gpios; dio_channel_index++) {
@@ -407,15 +422,28 @@ int main(int argc, char *argv[])
 				}
 			}
 
-			/* 6) Display current input values. */
-			for ( int dio_channel_index = first_stm32_gpio; dio_channel_index < first_stm32_gpio + num_stm32_gpios; dio_channel_index++) {
-				bool high;
-				if (!vmx.io.DIO_Get(gpio_res_handles[dio_channel_index], high, &vmxerr)) {
-					printf("Error Getting Digital Input Value for Channel index %d.\n", dio_channel_index);
+			uint8_t num_interrupt_capable_rpi_gpios = num_rpi_gpios - 2; /* The last two VMX Channel #s (33/34) are not cabable of interrupts */
+			VMXResourceHandle rpi_interrupt_res_handles[num_interrupt_capable_rpi_gpios];
+			/* Configure all DIOs for rising-edge interrupt-handling */
+			VMXResourceIndex int_res_index = 0;
+			for ( uint8_t dio_channel_index = first_pigpio_channel; dio_channel_index < first_pigpio_channel + num_interrupt_capable_rpi_gpios; dio_channel_index++) {
+				InterruptConfig int_config;
+				int_config.SetEdge(InterruptConfig::RISING);
+				int_config.SetHandler(VMXIOInterruptHandler);
+				int_config.SetParam((void *)int(dio_channel_index));
+
+				if (!vmx.io.ActivateSinglechannelResource(dio_channel_index, VMXChannelCapability::InterruptInput,
+						rpi_interrupt_res_handles[int_res_index], &int_config, &vmxerr)) {
+					printf("Error Activating Singlechannel Resource Interrupt for Channel index %d.\n", dio_channel_index);
 					DisplayVMXError(vmxerr);
 				} else {
-					printf("GPIO Input Channel %d value:  %s.\n", dio_channel_index, high ? "High": "Low");
+#ifdef DEBUG_RESOURCE_MANAGEMENT
+					printf("Digital Input Channel %d activated on Interrupt Resource type %d, index %d\n", dio_channel_index,
+							EXTRACT_VMX_RESOURCE_TYPE(rpi_interrupt_res_handles[int_res_index]),
+							EXTRACT_VMX_RESOURCE_INDEX(rpi_interrupt_res_handles[int_res_index]));
+#endif
 				}
+				int_res_index++;
 			}
 
 			bool hw_rx_overflow_detected = false;

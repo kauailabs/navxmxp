@@ -6,6 +6,7 @@
  */
 
 #include "PIGPIOClient.h"
+#include "VMXChannelManager.h"
 #include <pigpio.h>
 #include <unistd.h> /* sleep() */
 #include <time.h> /* nanosleep() */
@@ -15,6 +16,7 @@
 #include <errno.h>
 #include <cxxabi.h>
 #include <stdlib.h>
+#include <assert.h>
 
 /* VMX Pi Interrupt Signal Pin Mappings */
 const static unsigned vmx_pi_comm_rcv_ready_signal_bcm_pin = 26;
@@ -32,7 +34,7 @@ const static unsigned vmx_pi_interrupt_signal_to_bcm_pin_map[VMX_NUM_INT_INTERRU
 /* Broadcom Pin #s corresponding to VMX PWM headers.   */
 /* Pins on VMX PWM Headers are listed left-to-right    */
 /* as seen from the board edge.                        */
-const static unsigned vmx_pi_rpi_gpio_to_bcm_pin_map[VMX_NUM_EXT_GPIO_PINS] = {
+const static unsigned vmx_pi_rpi_gpio_to_bcm_pin_map[VMX_NUM_EXT_DEDICATED_GPIO_PINS] = {
 	4,
 	18,
 	17,
@@ -80,6 +82,12 @@ const static unsigned vmx_pi_int_spi_pin_map[VMX_NUM_INT_SPI_PINS] = {
 		19, // MISO
 		rpi_aux_spi_cs2_pin // CS (CE2)
 };
+
+#define MAX_NUM_RPI_BROADCOM_PINS 54
+
+static unsigned vmx_pi_all_gpio_pin_map[VMX_NUM_EXT_TOTAL_GPIO_PINS];
+static unsigned bcm_pin_to_vmx_interrupt_line_map[MAX_NUM_RPI_BROADCOM_PINS];
+static VMXChannelIndex rpi_vmx_channel_num_base;
 
 typedef enum {
 	GPIO,
@@ -137,6 +145,23 @@ PIGPIOClient::PIGPIOClient(bool realtime)
 	curr_i2c_slave_address = default_i2c_slave_address;
 	curr_i2c_bitbang = default_i2c_bitbang;
 	curr_i2c_bitbang_baudrate = default_i2c_bitbang_baudrate;
+
+	uint8_t curr_pin_index = 0;
+	for (uint8_t i = 0; i < VMX_NUM_EXT_DEDICATED_GPIO_PINS; i++) {
+		vmx_pi_all_gpio_pin_map[curr_pin_index++] = vmx_pi_rpi_gpio_to_bcm_pin_map[i];
+	}
+	for (uint8_t i = 0; i < VMX_NUM_EXT_DEDICATED_GPIO_PINS; i++) {
+		vmx_pi_all_gpio_pin_map[curr_pin_index++] = vmx_pi_ext_uart_pin_map[i];
+	}
+	for (uint8_t i = 0; i < VMX_NUM_EXT_DEDICATED_GPIO_PINS; i++) {
+		vmx_pi_all_gpio_pin_map[curr_pin_index++] = vmx_pi_ext_spi_pin_map[i];
+	}
+	for (uint8_t i = 0; i < VMX_NUM_EXT_TOTAL_GPIO_PINS; i++) {
+		bcm_pin_to_vmx_interrupt_line_map[vmx_pi_all_gpio_pin_map[i]] = i;
+	}
+	uint8_t num_rpi_vmx_channels = VMXChannelManager::GetNumChannelsByTypeAndCapability(
+			VMXChannelType::PIGPIO, VMXChannelCapability::InterruptInput, rpi_vmx_channel_num_base);
+	assert(num_rpi_vmx_channels == VMX_NUM_EXT_TOTAL_GPIO_PINS);
 
 	/* If requested, enable realtime priority in the pigpio library.
 	 * Note that gpioCfgSetInternals() must be invoked BEFORE invoking
@@ -322,7 +347,7 @@ bool PIGPIOClient::int_spi_transmit(uint8_t *p_data, uint8_t len, bool write) {
 bool PIGPIOClient::int_spi_receive(uint8_t *p_data, uint8_t len) {
 	if (spi_handle == PI_BAD_HANDLE) return false;
 	if (!pigpio_initialized) return false;
-	wait_for_vmx_int_spi_comm_ready(false, 2000);
+	if (!wait_for_vmx_int_spi_comm_ready(false, 2000)) return false;
 	int read_ret = spiRead(spi_handle,(char *)p_data, len);
 	if ( read_ret < 0 ) {
 		printf("navxpi read failure %d\n", read_ret);
@@ -447,22 +472,34 @@ void PIGPIOClient::gpio_isr(int gpio, int level, uint32_t tick, void *userdata)
 
 	default:
 		{
-			printf("PIGPIO GPIO %d ISR\n", gpio);
+			VMXChannelIndex vmx_channel_index = bcm_pin_to_vmx_interrupt_line_map[gpio];
+			vmx_channel_index += rpi_vmx_channel_num_base;
+			printf("PIGPIO GPIO %d ISR (VMX Channel #:  %d)\n", gpio, vmx_channel_index);
 			IIOInterruptSink *p_io_interrupt_sink = p_this->p_io_interrupt_sink;
 			if (p_io_interrupt_sink) {
-				p_io_interrupt_sink->PIGPIOInterrupt(gpio, PIGPIOInterruptEdge(level), curr_timestamp);
+				p_io_interrupt_sink->PIGPIOInterrupt(vmx_channel_index, PIGPIOInterruptEdge(level), curr_timestamp);
 			}
 		}
 		break;
 	}
 }
 
-bool PIGPIOClient::EnableGPIOInterrupt(unsigned vmx_pi_gpio_num)
+bool PIGPIOClient::EnableGPIOInterrupt(unsigned vmx_pi_gpio_num, PIGPIOIntEdge edge_type)
 {
-	if (vmx_pi_gpio_num >= (sizeof(vmx_pi_rpi_gpio_to_bcm_pin_map)/sizeof(vmx_pi_rpi_gpio_to_bcm_pin_map[0]))) {
+	unsigned pigpio_gpio_num = vmx_pi_gpio_num - rpi_vmx_channel_num_base;
+
+	if (pigpio_gpio_num >= (sizeof(vmx_pi_all_gpio_pin_map)/sizeof(vmx_pi_all_gpio_pin_map[0]))) {
 		return false;
 	}
-	int retcode = gpioSetISRFuncEx(vmx_pi_rpi_gpio_to_bcm_pin_map[vmx_pi_gpio_num], RISING_EDGE, 0 /* No Timeout */, PIGPIOClient::gpio_isr, this);
+	unsigned edge;
+	if (edge_type == PIGPIOClient::INT_EDGE_BOTH) {
+		edge = EITHER_EDGE;
+	} else if (edge_type == PIGPIOClient::INT_EDGE_FALLING) {
+		edge = FALLING_EDGE;
+	} else {
+		edge = RISING_EDGE;
+	}
+	int retcode = gpioSetISRFuncEx(vmx_pi_all_gpio_pin_map[pigpio_gpio_num], edge, 0 /* No Timeout */, PIGPIOClient::gpio_isr, this);
 	if(retcode == 0) {
 		return true;
 	} else {
@@ -475,10 +512,12 @@ bool PIGPIOClient::EnableGPIOInterrupt(unsigned vmx_pi_gpio_num)
 }
 
 bool PIGPIOClient::DisableGPIOInterrupt(unsigned vmx_pi_gpio_num){
-	if (vmx_pi_gpio_num >= (sizeof(vmx_pi_rpi_gpio_to_bcm_pin_map)/sizeof(vmx_pi_rpi_gpio_to_bcm_pin_map[0]))) {
+	unsigned pigpio_gpio_num = vmx_pi_gpio_num - rpi_vmx_channel_num_base;
+
+	if (pigpio_gpio_num >= (sizeof(vmx_pi_all_gpio_pin_map)/sizeof(vmx_pi_all_gpio_pin_map[0]))) {
 		return false;
 	}
-	int retcode = gpioSetISRFunc(vmx_pi_rpi_gpio_to_bcm_pin_map[vmx_pi_gpio_num], RISING_EDGE, 0 /* No Timeout */, NULL);
+	int retcode = gpioSetISRFunc(vmx_pi_all_gpio_pin_map[pigpio_gpio_num], RISING_EDGE, 0 /* No Timeout */, NULL);
 	if(retcode == 0) {
 		return true;
 	} else {
@@ -578,7 +617,7 @@ bool PIGPIOClient::DisableAHRSInterrupt()
 
 void PIGPIOClient::test_gpio_inputs(int iteration_count)
 {
-	for ( int i = 0; i < VMX_NUM_EXT_GPIO_PINS; i++ ) {
+	for ( int i = 0; i < VMX_NUM_EXT_DEDICATED_GPIO_PINS; i++ ) {
 		gpioSetMode(vmx_pi_rpi_gpio_to_bcm_pin_map[i], PI_INPUT);
 	}
 	for (int i = 0; i < VMX_NUM_EXT_SPI_PINS; i++) {
@@ -596,7 +635,7 @@ void PIGPIOClient::test_gpio_inputs(int iteration_count)
 		}
 		sleep(1);
 
-		for ( int i = 0; i < VMX_NUM_EXT_GPIO_PINS; i++ ) {
+		for ( int i = 0; i < VMX_NUM_EXT_DEDICATED_GPIO_PINS; i++ ) {
 			int on = gpioRead(vmx_pi_rpi_gpio_to_bcm_pin_map[i]);
 			if ( i != 0 ) {
 				printf(", ");
@@ -621,11 +660,11 @@ void PIGPIOClient::test_gpio_inputs(int iteration_count)
 		}
 		printf("\n");
 
-		for ( int i = 0; i < VMX_NUM_EXT_GPIO_PINS; i++ ) {
+		for ( int i = 0; i < VMX_NUM_EXT_DEDICATED_GPIO_PINS; i++ ) {
 			gpioSetPullUpDown(vmx_pi_rpi_gpio_to_bcm_pin_map[i], PI_PUD_UP); // Sets a pull-up.
 		}
 		sleep(1);
-		for ( int i = 0; i < VMX_NUM_EXT_GPIO_PINS; i++ ) {
+		for ( int i = 0; i < VMX_NUM_EXT_DEDICATED_GPIO_PINS; i++ ) {
 			int on = gpioRead(vmx_pi_rpi_gpio_to_bcm_pin_map[i]);
 			if ( i != 0 ) {
 				printf(", ");
@@ -713,7 +752,7 @@ bool PIGPIOClient::ConfigurePWMFrequency(PIGPIOChannelIndex gpio_index, unsigned
  */
 void PIGPIOClient::test_pwm_outputs()
 {
-	for (int i = 0; i < VMX_NUM_EXT_GPIO_PINS; i++) {
+	for (int i = 0; i < VMX_NUM_EXT_DEDICATED_GPIO_PINS; i++) {
 		gpioSetMode(vmx_pi_rpi_gpio_to_bcm_pin_map[i], PI_OUTPUT);
 		gpioSetPWMfrequency(vmx_pi_rpi_gpio_to_bcm_pin_map[i], 200);
 		gpioPWM(vmx_pi_rpi_gpio_to_bcm_pin_map[i], 10 + (i*10));
@@ -730,7 +769,7 @@ void PIGPIOClient::test_pwm_outputs()
 		gpioPWM(vmx_pi_ext_uart_pin_map[i], 10 + (i*10));
 	}
 	sleep(20);
-	for (int i = 0; i < VMX_NUM_EXT_GPIO_PINS; i++) {
+	for (int i = 0; i < VMX_NUM_EXT_DEDICATED_GPIO_PINS; i++) {
 		gpioSetMode(vmx_pi_rpi_gpio_to_bcm_pin_map[i], PI_INPUT);
 	}
 	for (int i = 0; i < VMX_NUM_EXT_SPI_PINS; i++) {

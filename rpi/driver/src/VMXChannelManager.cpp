@@ -87,13 +87,13 @@ static const VMXChannelDescriptor channel_descriptors[MAX_VMX_CHANNELS] =
 	CHANID(PIGPIO,  8) | DI | DO | PWMOUT  | INTIN | CHANHWOPT(IODIRSEL),
 	CHANID(PIGPIO,  9) | DI | DO | PWMOUT  | INTIN | CHANHWOPT(IODIRSEL),
 	/* 26-27:  VMX-pi UART Connector (TX/RX) [RPI GPIOs] */
-	CHANID(PIGPIO, 10) | DI | DO | UART_TX,
-	CHANID(PIGPIO, 11) | DI | DO | UART_RX,
+	CHANID(PIGPIO, 10) | DI | DO | PWMOUT  | INTIN | UART_TX,
+	CHANID(PIGPIO, 11) | DI | DO | PWMOUT  | INTIN | UART_RX,
 	/* 28-31:  VMX-pi SPI Connector (CLK, MOSI, MISO, CS) [RPI GPIOs] */
-	CHANID(PIGPIO, 12) | DI | DO | SPI_CLK,
-	CHANID(PIGPIO, 13) | DI | DO | SPI_MISO,
-	CHANID(PIGPIO, 14) | DI | DO | SPI_MOSI,
-	CHANID(PIGPIO, 15) | DI | DO | SPI_CS,
+	CHANID(PIGPIO, 12) | DI | DO | PWMOUT  | INTIN | SPI_CLK,
+	CHANID(PIGPIO, 13) | DI | DO | PWMOUT  | INTIN | SPI_MISO,
+	CHANID(PIGPIO, 14) | DI | DO | PWMOUT  | INTIN | SPI_MOSI,
+	CHANID(PIGPIO, 15) | DI | DO | PWMOUT  | INTIN | SPI_CS,
 	/* 32-33:  VMX-pi I2C Connector (SDA, SCL) */
 	CHANID(PIGPIO, 16) | I2C_SDA,
 	CHANID(PIGPIO, 17) | I2C_SCL
@@ -250,3 +250,18 @@ uint8_t VMXChannelManager::GetNumChannelsByType(VMXChannelType channel_type, VMX
 	return 0;
 }
 
+uint8_t VMXChannelManager::GetNumChannelsByTypeAndCapability(VMXChannelType channel_type, VMXChannelCapability capability, VMXChannelIndex& first_channel_index)
+{
+	uint8_t match_count = 0;
+	for (size_t i = 0; i < MAX_VMX_CHANNELS; i++ ) {
+		if (EXTRACT_CHANTYPE(channel_descriptors[i]) == channel_type) {
+			if (VMXChannelCapabilityCheck(EXTRACT_CHANCAPS(channel_descriptors[i]), capability)) {
+				if (match_count == 0) {
+					first_channel_index = VMXChannelIndex(i);
+				}
+				match_count++;
+			}
+		}
+	}
+	return match_count;
+}

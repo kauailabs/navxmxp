@@ -55,23 +55,24 @@ static const I2CConfig				def_i2c_cfg;
 
 static const VMXResourceDescriptor resource_descriptors[] =
 {
-	{	VMXResourceType::DigitalIO, 	VMX_PI,    	0,	0,	1,	&def_dio_cfg,		0,	12,	1, 1, NULL, 1	},
-	{	VMXResourceType::DigitalIO,		RPI,     	12,	12, 1,	&def_dio_cfg,		12,	10,	1, 1, NULL, 1	},
-	{	VMXResourceType::DigitalIO,		RPI,     	12,	22, 1,	&def_dio_cfg,		22,	 2,	1, 1, &rpi_uart_res_group, 2	},
-	{	VMXResourceType::DigitalIO,		RPI,     	12,	24, 1,	&def_dio_cfg,		24,	 4,	1, 1, &rpi_spi_res_group, 4 },
-	{	VMXResourceType::Interrupt,		VMX_PI,		0,	0,	1,	&def_int_cfg,		0,	16,	1, 1, NULL, 1	},
-	{	VMXResourceType::Interrupt,		RPI,		16,	16,	1,	&def_int_cfg,		16,	16,	1, 1, NULL, 1	},
-	{	VMXResourceType::PWMGenerator,	VMX_PI,		0,	0,	2,	&def_pwmgen_cfg,	0,	5,	1, 2, &stm32_adv_timer_res_group, 1 },
-	{	VMXResourceType::PWMGenerator,	VMX_PI,		0,	10,	2,	&def_pwmgen_cfg,	5,	1,	1, 2, &stm32_basic_timer_res_group, 1 },
-	{	VMXResourceType::PWMGenerator,	RPI,		6,	16,	1,	&def_pwmgen_cfg,	6,	16,	1, 1, NULL, 1	},
-	{	VMXResourceType::PWMCapture,	VMX_PI,		0,	0,	2,	&def_pwmcap_cfg,	0,	5,	1, 1, &stm32_adv_timer_res_group, 1 },
-	{	VMXResourceType::PWMCapture,	VMX_PI,		0,	10,	2,	&def_pwmcap_cfg,	5,	1,	1, 1, &stm32_basic_timer_res_group, 1 },
-	{	VMXResourceType::Encoder,		VMX_PI,		0,	0,	2,	&def_enc_cfg,		0,	4/*5*/,	2, 2, &stm32_adv_timer_res_group, 1 },
-	{	VMXResourceType::Accumulator,	VMX_PI,		0,	12,	1,	&def_accum_cfg,		0,	4,	1, 1, NULL, 1	},
-	{	VMXResourceType::AnalogTrigger,	VMX_PI,		0,	0,	1,	&def_antrig_cfg, 	0,	4,	1, 1, NULL, 1	},
-	{	VMXResourceType::UART,			RPI,		0,	22,	2,	&def_uart_cfg,		0,	1,	2, 2, &rpi_uart_res_group, 1	},
-	{	VMXResourceType::SPI,			RPI,		0,	24,	4,	&def_spi_cfg,		0,	1,	4, 4, &rpi_spi_res_group, 1	},
-	{	VMXResourceType::I2C,			RPI,		0,	32,	2,	&def_i2c_cfg,		0,	1,	2, 2, NULL, 1	},
+	/*  Type                            Provider   PRI FVC #VC/R Default Config     FRI #Res MinP MaxP GRP ResIndexDiv */
+	{	VMXResourceType::DigitalIO, 	VMX_PI,    	0,	0,	1,	 &def_dio_cfg,		0,	12,	 1,   1,  NULL, 1	},
+	{	VMXResourceType::DigitalIO,		RPI,     	0,	16, 1,	 &def_dio_cfg,		12,	10,	 1,   1,  NULL, 1	},
+	{	VMXResourceType::DigitalIO,		RPI,     	10,	26, 1,	 &def_dio_cfg,		22,	 2,	 1,   1,  &rpi_uart_res_group, 2	},
+	{	VMXResourceType::DigitalIO,		RPI,     	12,	28, 1,	 &def_dio_cfg,		24,	 4,	 1,   1,  &rpi_spi_res_group, 4 },
+	{	VMXResourceType::Interrupt,		VMX_PI,		0,	0,	1,	 &def_int_cfg,		0,	16,	 1,   1,  NULL, 1	},
+	{	VMXResourceType::Interrupt,		RPI,		0,	16,	1,	 &def_int_cfg,		16,	16,	 1,   1,  NULL, 1	},
+	{	VMXResourceType::PWMGenerator,	VMX_PI,		0,	0,	2,	 &def_pwmgen_cfg,	0,	5,	 1,   2,  &stm32_adv_timer_res_group, 1 },
+	{	VMXResourceType::PWMGenerator,	VMX_PI,		5,	10,	2,	 &def_pwmgen_cfg,	5,	1,	 1,   2,  &stm32_basic_timer_res_group, 1 },
+	{	VMXResourceType::PWMGenerator,	RPI,		0,	16,	1,	 &def_pwmgen_cfg,	6,	16,	 1,   1,  NULL, 1	},
+	{	VMXResourceType::PWMCapture,	VMX_PI,		0,	0,	2,	 &def_pwmcap_cfg,	0,	5,	 1,   1,  &stm32_adv_timer_res_group, 1 },
+	{	VMXResourceType::PWMCapture,	VMX_PI,		5,	10,	2,	 &def_pwmcap_cfg,	5,	1,	 1,   1,  &stm32_basic_timer_res_group, 1 },
+	{	VMXResourceType::Encoder,		VMX_PI,		0,	0,	2,	 &def_enc_cfg,		0,	4/*5*/,	  2,  2, &stm32_adv_timer_res_group, 1 },
+	{	VMXResourceType::Accumulator,	VMX_PI,		0,	12,	1,	 &def_accum_cfg,		0,	4,	 1,   1,  NULL, 1	},
+	{	VMXResourceType::AnalogTrigger,	VMX_PI,		0,	12,	1,	 &def_antrig_cfg, 	0,	4,	 1,   1,  NULL, 1	},
+	{	VMXResourceType::UART,			RPI,		0,	26,	2,	 &def_uart_cfg,		0,	1,	 2,   2,  &rpi_uart_res_group, 1	},
+	{	VMXResourceType::SPI,			RPI,		0,	28,	4,	 &def_spi_cfg,		0,	1,	 4,   4,  &rpi_spi_res_group, 1	},
+	{	VMXResourceType::I2C,			RPI,		0,	32,	2,	 &def_i2c_cfg,		0,	1,	 2,   2,  NULL, 1	},
 };
 
 typedef struct {
@@ -287,7 +288,8 @@ bool VMXResourceManager::GetResourcesCompatibleWithChannelAndCapability(VMXChann
 					if ((channel_index >= resource_first_channel_index) &&
 						(channel_index <= resource_last_channel_index)) {
 						/* Match */
-						VMXResourceIndex res_index = (channel_index - resource_first_channel_index) / resource_descriptors[i].max_num_ports;
+						VMXResourceIndex res_index = resource_descriptors[i].resource_index_first +
+								((channel_index - resource_first_channel_index) / resource_descriptors[i].max_num_ports);
 						VMXResourceHandle compatible_res_handle = CREATE_VMX_RESOURCE_HANDLE(resource_descriptors[i].type, res_index);
 						compatible_res_handles.push_back(compatible_res_handle);
 						success = true;

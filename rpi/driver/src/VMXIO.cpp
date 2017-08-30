@@ -47,6 +47,13 @@ public:
 		}
 		pigpio.SetIOInterruptSink(this);
 		pigpio.EnableIOCXInterrupt();
+		/* Clear any pending interrupts */
+		uint16_t iocx_int_status;
+		uint16_t iocx_last_interrupt_edges;
+		iocx.get_gpio_interrupt_status(iocx_int_status, iocx_last_interrupt_edges);
+		iocx.set_gpio_interrupt_status(iocx_int_status);
+		/* Mask all IOCX Interrupts */
+		iocx.set_interrupt_config(0);
 	}
 
 	virtual void IOCXInterrupt(PIGPIOInterruptEdge edge, uint64_t curr_timestamp) {
@@ -58,16 +65,21 @@ public:
 		 * iocx_int_status bits.  In this case, interrupt funcs can be triggered for each
 		 * interrupt received. */
 
+		printf("IOCX Interrupt Received.\n");
 		uint16_t iocx_int_status;
 		uint16_t iocx_last_interrupt_edges;
 		if(iocx.get_gpio_interrupt_status(iocx_int_status, iocx_last_interrupt_edges)) {
-			/* Notify HAL Client of Interrupt(s) */
+			/* Clear interrupt */
+			iocx.set_gpio_interrupt_status(iocx_int_status);
+			printf("IOCX Interrupt Status:  0x%2x - Last Edges:  0x%2x\n", iocx_int_status, iocx_last_interrupt_edges);
+			/* Notify Client of Interrupt(s) */
 			for ( int i = 0; i < 16; i++) {
 				if(iocx_int_status & 0x0001) {
 					if (interrupt_notifications[i].interrupt_func) {
 						std::unique_lock<std::mutex> sync(handler_mutex);
 						if (interrupt_notifications[i].interrupt_func) {
-							InterruptEdgeType edge = InterruptEdgeType(iocx_last_interrupt_edges & 0x0001);
+							InterruptEdgeType edge = ((iocx_last_interrupt_edges & 0x0001) ?
+									RISING_EDGE_INTERRUPT : FALLING_EDGE_INTERRUPT);
 							interrupt_notifications[i].interrupt_func(i, edge, interrupt_notifications[i].interrupt_params, curr_timestamp);
 						}
 					}
@@ -84,17 +96,19 @@ public:
 	}
 
 	virtual void PIGPIOInterrupt(int gpio_num, PIGPIOInterruptEdge level, uint64_t curr_timestamp) {
-		uint8_t vmx_interrupt_number = iocx.get_num_interrupts() + gpio_num;
-		if (interrupt_notifications[vmx_interrupt_number].interrupt_func) {
-			InterruptEdgeType edge;
-			if (level == FALLING_EDGE) {
-				edge = FALLING_EDGE_INTERRUPT;
-			} else {
-				edge = RISING_EDGE_INTERRUPT;
-			}
-			std::unique_lock<std::mutex> sync(handler_mutex);
+		uint8_t vmx_interrupt_number = gpio_num;
+		if ( vmx_interrupt_number < MAX_NUM_INTERRUPT_NOTIFY_HANDLERS) {
 			if (interrupt_notifications[vmx_interrupt_number].interrupt_func) {
-				interrupt_notifications[vmx_interrupt_number].interrupt_func(vmx_interrupt_number, edge, interrupt_notifications[vmx_interrupt_number].interrupt_params, curr_timestamp);
+				InterruptEdgeType edge;
+				if (level == FALLING_EDGE) {
+					edge = FALLING_EDGE_INTERRUPT;
+				} else {
+					edge = RISING_EDGE_INTERRUPT;
+				}
+				std::unique_lock<std::mutex> sync(handler_mutex);
+				if (interrupt_notifications[vmx_interrupt_number].interrupt_func) {
+					interrupt_notifications[vmx_interrupt_number].interrupt_func(vmx_interrupt_number, edge, interrupt_notifications[vmx_interrupt_number].interrupt_params, curr_timestamp);
+				}
 			}
 		}
 	}
@@ -443,7 +457,7 @@ bool VMXIO::RouteChannelToResource(VMXChannelIndex channel_index, VMXResourceHan
 								provider_specific_channel_index,
 								GPIO_TYPE_AF,
 								GPIO_INPUT_FLOAT,
-								curr_interrupt);
+								GPIO_INTERRUPT_DISABLED);
 						if (res_type == VMXResourceType::PWMGenerator) {
 							/* Set the duty cycle for this timer channel to the default (0) [off] */
 							iocx.set_timer_chx_ccr(p_vmx_res->GetProviderResourceIndex(), resource_port_index, 0);
@@ -725,25 +739,26 @@ bool VMXIO::ActivateResource(VMXResourceHandle resource, VMXErrorCode* errcode)
 				switch(res_prov_type) {
 				case VMX_PI:
 					{
-						IOCX_GPIO_TYPE curr_type;
-						IOCX_GPIO_INPUT curr_input;
-						IOCX_GPIO_INTERRUPT curr_interrupt;
-						if (iocx.get_gpio_config(p_vmx_resource->GetProviderResourceIndex(), curr_type, curr_input, curr_interrupt)) {
+						if (dio_config.GetInput()) {
 							if (iocx.set_gpio_config(
 								p_vmx_resource->GetProviderResourceIndex(),
-								(dio_config.GetInput() ?
-									GPIO_TYPE_INPUT :
-									((dio_config.GetOutputMode() == DIOConfig::OutputMode::PUSHPULL) ?
-										GPIO_TYPE_OUTPUT_PUSHPULL :
-										GPIO_TYPE_OUTPUT_OPENDRAIN)),
-								((dio_config.GetInputMode() == DIOConfig::InputMode::PULLUP) ?
-										GPIO_INPUT_PULLUP :
-										GPIO_INPUT_PULLDOWN),
-								curr_interrupt)) {
-								printf("Set VMX_PI Gpio %d to type %s, interrupt %d.\n",
+								GPIO_TYPE_INPUT,
+								((dio_config.GetInputMode() == DIOConfig::InputMode::PULLUP) ? GPIO_INPUT_PULLUP : GPIO_INPUT_PULLDOWN),
+								GPIO_INTERRUPT_DISABLED)) {
+								printf("Set VMX_PI Gpio %d to type Input, interrupt %d.\n",
 										p_vmx_resource->GetProviderResourceIndex(),
-										(dio_config.GetInput() ? "Input" : "Output"),
-										curr_interrupt);
+										GPIO_INTERRUPT_DISABLED);
+								configuration_success = true;
+							}
+						}
+						else {
+							if (iocx.set_gpio_config(
+								p_vmx_resource->GetProviderResourceIndex(),
+								((dio_config.GetOutputMode() == DIOConfig::OutputMode::PUSHPULL) ? GPIO_TYPE_OUTPUT_PUSHPULL : GPIO_TYPE_OUTPUT_OPENDRAIN),
+								GPIO_INPUT_FLOAT,
+								GPIO_INTERRUPT_DISABLED)) {
+								printf("Set VMX_PI Gpio %d to type Output.\n",
+										p_vmx_resource->GetProviderResourceIndex());
 								configuration_success = true;
 							}
 						}
@@ -925,9 +940,22 @@ bool VMXIO::ActivateResource(VMXResourceHandle resource, VMXErrorCode* errcode)
 			/* Note:  This interrupt will be received at RPI via Internal VMX IOCX Interrupt Signal */
 
 			case RPI:
-				/* Todo:  Configure the interrupt callback function */
-				configuration_success =
-						pigpio.EnableGPIOInterrupt(p_vmx_resource->GetProviderResourceIndex());
+				{
+					PIGPIOClient::PIGPIOIntEdge new_interrupt_cfg;
+					switch(interrupt_cfg.GetEdge()) {
+					case InterruptConfig::InterruptEdge::RISING:
+						new_interrupt_cfg = PIGPIOClient::INT_EDGE_RISING;
+						break;
+					case InterruptConfig::InterruptEdge::FALLING:
+						new_interrupt_cfg = PIGPIOClient::INT_EDGE_FALLING;
+						break;
+					case InterruptConfig::InterruptEdge::BOTH:
+						new_interrupt_cfg = PIGPIOClient::INT_EDGE_BOTH;
+						break;
+					}
+					configuration_success =
+							pigpio.EnableGPIOInterrupt(p_vmx_resource->GetProviderResourceIndex(), new_interrupt_cfg);
+				}
 				break;
 			}
 			if (!configuration_success) {
@@ -1150,11 +1178,19 @@ bool VMXIO::DeactivateResource(VMXResourceHandle resource, VMXErrorCode* errcode
 			switch(res_prov_type) {
 			case VMX_PI:
 			{
+				/* Mask out the interrupt */
+				uint16_t curr_interrupt_mask;
+				configuration_success &= iocx.get_interrupt_config(curr_interrupt_mask);
+				if (configuration_success) {
+					curr_interrupt_mask &= ~(GPIO_NUMBER_TO_INT_BIT(p_vmx_resource->GetProviderResourceIndex()));
+					configuration_success = iocx.set_interrupt_config(curr_interrupt_mask);
+				}
+
 				IOCX_GPIO_TYPE curr_type;
 				IOCX_GPIO_INPUT curr_input;
 				IOCX_GPIO_INTERRUPT curr_interrupt;
 				if (iocx.get_gpio_config(p_vmx_resource->GetProviderResourceIndex(), curr_type, curr_input, curr_interrupt)) {
-					configuration_success =
+					configuration_success &=
 							iocx.set_gpio_config(
 									p_vmx_resource->GetProviderResourceIndex(),
 									curr_type,

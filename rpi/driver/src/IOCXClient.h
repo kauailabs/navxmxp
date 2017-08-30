@@ -39,6 +39,7 @@ public:
 	bool get_interrupt_config(uint16_t& value);
 	bool set_interrupt_config(uint16_t value);
 	bool get_gpio_interrupt_status(uint16_t& interrupt_flags, uint16_t& last_interrupt_edge);
+	bool set_gpio_interrupt_status(uint16_t interrupt_flags_to_clear);
 	bool get_timer_config(int timer_index, uint8_t& mode);
 	bool set_timer_config(int timer_index, uint8_t mode);
 	bool get_timer_control(int timer_index, IOCX_TIMER_COUNTER_RESET& mode);

@@ -13,12 +13,13 @@
 #include "IPIGPIOInterruptSinks.h"
 #include "VMXHandlers.h"
 
-#define VMX_NUM_EXT_GPIO_PINS		10
+#define VMX_NUM_EXT_DEDICATED_GPIO_PINS	10
 #define VMX_NUM_EXT_SPI_PINS 		4
 #define VMX_NUM_EXT_UART_PINS 		2
 #define VMX_NUM_EXT_I2C_PINS   		2
 #define VMX_NUM_INT_SPI_PINS		4
 #define VMX_NUM_INT_INTERRUPT_PINS	4
+#define VMX_NUM_EXT_TOTAL_GPIO_PINS	(VMX_NUM_EXT_DEDICATED_GPIO_PINS + VMX_NUM_EXT_UART_PINS + VMX_NUM_EXT_SPI_PINS)
 
 typedef uint8_t PIGPIOChannelIndex;
 
@@ -47,6 +48,8 @@ private:
 	IAHRSInterruptSink *volatile p_ahrs_interrupt_sink;
 public:
 
+	typedef enum { INT_EDGE_RISING, INT_EDGE_FALLING, INT_EDGE_BOTH } PIGPIOIntEdge;
+
 	PIGPIOClient(bool realtime);
 
 	void SetIOInterruptSink(IIOInterruptSink *p_io_int_sink) {
@@ -64,29 +67,18 @@ public:
 	bool IsOpen() { return pigpio_initialized; }
 
 	uint8_t get_max_num_external_gpio_interrupts() {
-		return (VMX_NUM_EXT_GPIO_PINS +
-				VMX_NUM_EXT_SPI_PINS +
-				VMX_NUM_EXT_UART_PINS);
+		return (VMX_NUM_EXT_TOTAL_GPIO_PINS);
 	}
 
 	uint8_t get_max_num_external_gpios() {
-		return (VMX_NUM_EXT_GPIO_PINS +
-				VMX_NUM_EXT_SPI_PINS +
-				VMX_NUM_EXT_UART_PINS);
+		return (VMX_NUM_EXT_TOTAL_GPIO_PINS);
 	}
 
 	uint8_t get_curr_num_external_interrupts() {
-		uint8_t curr_num_external_interrupts = VMX_NUM_EXT_GPIO_PINS;
-		if(!ext_spi_enabled) {
-			curr_num_external_interrupts += VMX_NUM_EXT_SPI_PINS;
-		}
-		if(!ext_uart_enabled) {
-			curr_num_external_interrupts += VMX_NUM_EXT_UART_PINS;
-		}
 		/* Note:  the ext i2c pins are open drain and are thus not
 		 * made available for use as GPIOs and Interrupts.
 		 */
-		return curr_num_external_interrupts;
+		return VMX_NUM_EXT_TOTAL_GPIO_PINS;
 	}
 
 	uint32_t GetCurrentMicrosecondTicks();
@@ -145,7 +137,7 @@ public:
 
 	~PIGPIOClient();
 
-	bool EnableGPIOInterrupt(unsigned vmx_pi_gpio_num);
+	bool EnableGPIOInterrupt(unsigned vmx_pi_gpio_num, PIGPIOIntEdge edge_type);
 	bool DisableGPIOInterrupt(unsigned vmx_pi_gpio_num);
 	bool EnableIOCXInterrupt();
 	bool DisableIOCXInterrupt();

@@ -129,6 +129,13 @@ bool IOCXClient::get_gpio_interrupt_status(uint16_t& interrupt_flags, uint16_t& 
 	return false;
 }
 
+bool IOCXClient::set_gpio_interrupt_status(uint16_t interrupt_flags_to_clear) {
+
+	return (client.write(IOCX_REGISTER_BANK,
+			offsetof(struct IOCX_REGS, gpio_intstat),
+			interrupt_flags_to_clear));
+}
+
 bool IOCXClient::get_timer_config(int timer_index, uint8_t& mode)
 {
 	if ( timer_index > get_num_timers()-1) return false;

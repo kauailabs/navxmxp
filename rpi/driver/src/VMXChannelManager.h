@@ -55,6 +55,7 @@ public:
 	static VMXChannelCapability GetChannelCapabilityBits(VMXChannelIndex channel_index);
 	static VMXChannelHwOpt GetChannelHwOpts(VMXChannelIndex channel_index);
 	static uint8_t GetNumChannelsByType(VMXChannelType channel_type, VMXChannelIndex& first_channel_index);
+	static uint8_t GetNumChannelsByTypeAndCapability(VMXChannelType channel_type, VMXChannelCapability, VMXChannelIndex& first_channel_index);
 };
 
 #endif /* VMXCHANNELMANAGER_H_ */
