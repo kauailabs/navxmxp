@@ -33,7 +33,7 @@ int VMXCAN::ThreadFunc(VMXCAN *p_this)
 	std::unique_lock<std::mutex> lck(isr_mtx);
 	while (!p_this->task_done) {
 		try {
-			std::cv_status stat = cv.wait_for(lck,std::chrono::milliseconds(20));
+			cv.wait_for(lck,std::chrono::milliseconds(20));
 			/* This can return due to the condition variable being set, or due to timeout. */
 			if (!p_this->task_done) {
 				/* Process data - the data ready condition occurred. */
@@ -346,9 +346,16 @@ bool VMXCAN::OpenReceiveStream(VMXCANReceiveStreamHandle& session_handle,
 				new_mask.sidl.srr = 0;
 				new_mask.sidl.invalid = 0;
 				VMXCANReceiveStream::CANMessageIDToCAN_ID(messageMask, new_mask);
-				if (!can.get_rxbuffer_accept_mask(rxbuffid, existingMask) ||
-					!can.set_rxbuffer_accept_mask(rxbuffid, new_mask)) {
+				if (!can.get_rxbuffer_accept_mask(rxbuffid, existingMask)) {
+					printf("Error retrieving existing accept mask for CAN buffer %d\n", rxbuffid);
 					success = false;
+				} else {
+					if (!can.set_rxbuffer_accept_mask(rxbuffid, new_mask)) {
+						printf("Error setting new accept mask for CAN buffer %d\n", rxbuffid);
+						success = false;
+					}
+				}
+				if (!success) {
 					SET_VMXERROR(errcode, VMXERR_IO_BOARD_COMM_ERROR);
 					uint8_t remaining_num_filters_in_use;
 					p_stream_mgr->UnreserveFilter(rxb_index, rxb_filter_index, remaining_num_filters_in_use);

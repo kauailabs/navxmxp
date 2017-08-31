@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 				vmx.time.DelayMilliseconds(20);
 			}
 
-			vmx.ahrs.Stop(); /* Stop background AHRS data acquisition thread (during debugging, this can be useful... */
+			//vmx.ahrs.Stop(); /* Stop background AHRS data acquisition thread (during debugging, this can be useful... */
 
 			/* IO test */
 

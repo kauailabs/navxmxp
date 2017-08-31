@@ -17,6 +17,7 @@
 #include <cxxabi.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <signal.h>
 
 /* VMX Pi Interrupt Signal Pin Mappings */
 const static unsigned vmx_pi_comm_rcv_ready_signal_bcm_pin = 26;
@@ -47,6 +48,14 @@ const static unsigned vmx_pi_rpi_gpio_to_bcm_pin_map[VMX_NUM_EXT_DEDICATED_GPIO_
 	7,
 };
 
+/* Broadcom Pin #s corresponding to VMX EXT UART port. */
+/* Pins on VMX EXT UART Port are listed left-to-right  */
+/* as seen from the board edge.                        */
+const static unsigned vmx_pi_ext_uart_pin_map[VMX_NUM_EXT_UART_PINS] = {
+	14, // TX
+	15, // RX
+};
+
 /* Broadcom Pin #s corresponding to VMX EXT SPI port.  */
 /* Pins on VMX EXT SPI Port are listed left-to-right   */
 /* as seen from the board edge.                        */
@@ -55,14 +64,6 @@ const static unsigned vmx_pi_ext_spi_pin_map[VMX_NUM_EXT_SPI_PINS] = {
 	10, // MOSI
 	9, // MISO
 	8, // CS (CE0)
-};
-
-/* Broadcom Pin #s corresponding to VMX EXT UART port. */
-/* Pins on VMX EXT UART Port are listed left-to-right  */
-/* as seen from the board edge.                        */
-const static unsigned vmx_pi_ext_uart_pin_map[VMX_NUM_EXT_UART_PINS] = {
-	14, // TX
-	15, // RX
 };
 
 /* Broadcom Pin #s corresponding to VMX EXT I2C port.  */
@@ -129,8 +130,6 @@ static const unsigned default_i2c_slave_address = 0x40;
 static const unsigned default_i2c_bitbang_baudrate = 100000;
 static const bool default_i2c_bitbang = false;
 
-#define USE_RCV_READY_SIGNAL /* Comment out to use simple timed waits */
-
 PIGPIOClient::PIGPIOClient(bool realtime)
 {
 	p_io_interrupt_sink = 0;
@@ -150,10 +149,10 @@ PIGPIOClient::PIGPIOClient(bool realtime)
 	for (uint8_t i = 0; i < VMX_NUM_EXT_DEDICATED_GPIO_PINS; i++) {
 		vmx_pi_all_gpio_pin_map[curr_pin_index++] = vmx_pi_rpi_gpio_to_bcm_pin_map[i];
 	}
-	for (uint8_t i = 0; i < VMX_NUM_EXT_DEDICATED_GPIO_PINS; i++) {
+	for (uint8_t i = 0; i < VMX_NUM_EXT_UART_PINS; i++) {
 		vmx_pi_all_gpio_pin_map[curr_pin_index++] = vmx_pi_ext_uart_pin_map[i];
 	}
-	for (uint8_t i = 0; i < VMX_NUM_EXT_DEDICATED_GPIO_PINS; i++) {
+	for (uint8_t i = 0; i < VMX_NUM_EXT_SPI_PINS; i++) {
 		vmx_pi_all_gpio_pin_map[curr_pin_index++] = vmx_pi_ext_spi_pin_map[i];
 	}
 	for (uint8_t i = 0; i < VMX_NUM_EXT_TOTAL_GPIO_PINS; i++) {
@@ -217,9 +216,14 @@ PIGPIOClient::PIGPIOClient(bool realtime)
 		gpioSetMode(rpi_aux_spi_cs2_pin, PI_OUTPUT);
 		gpioWrite(rpi_aux_spi_cs2_pin, 1);
 
-		gpioSetSignalFuncEx(5, signal_func, this);
-		gpioSetSignalFuncEx(6, signal_func, this);
-		gpioSetSignalFuncEx(11, signal_func, this);
+
+		gpioSetSignalFuncEx(SIGHUP, signal_func, this);
+		gpioSetSignalFuncEx(SIGINT, signal_func, this);
+		gpioSetSignalFuncEx(SIGCONT, signal_func, this);
+		gpioSetSignalFuncEx(SIGTERM, signal_func, this);
+		gpioSetSignalFuncEx(SIGTRAP, signal_func, this);
+		gpioSetSignalFuncEx(SIGABRT, signal_func, this);
+		gpioSetSignalFuncEx(SIGSEGV, signal_func, this);
 	}
 }
 
@@ -288,13 +292,9 @@ static void timespec_diff(struct timespec *start, struct timespec *stop, struct 
 const uint32_t comm_ready_sample_quantum_us = 10;  /* NOTE:  This value should be < 100 to ensure CPU busywait is used. */
 
 static bool wait_for_vmx_int_spi_comm_ready(bool slave_ready_to_receive, uint32_t timeout_us) {
-#ifdef USE_RCV_READY_SIGNAL
-	int begin_signal = gpioRead(vmx_pi_comm_rcv_ready_signal_bcm_pin);
-	bool begin_ready = (slave_ready_to_receive ? (begin_signal == 0) : (begin_signal != 0));
 	struct timespec ts_begin;
 	struct timespec ts_end;
 	clock_gettime(CLOCK_MONOTONIC, &ts_begin);
-#endif
 	uint32_t remaining_us = timeout_us;
 	while (remaining_us > 0) {
 		uint32_t wait_quantum_us = comm_ready_sample_quantum_us;
@@ -303,7 +303,6 @@ static bool wait_for_vmx_int_spi_comm_ready(bool slave_ready_to_receive, uint32_
 		}
 		gpioDelay(wait_quantum_us);
 		remaining_us -= wait_quantum_us;
-#ifdef USE_RCV_READY_SIGNAL
 		int signal = gpioRead(vmx_pi_comm_rcv_ready_signal_bcm_pin);
 		bool ready = (slave_ready_to_receive ? (signal == 0) : (signal != 0));
 		if (ready) {
@@ -315,16 +314,8 @@ static bool wait_for_vmx_int_spi_comm_ready(bool slave_ready_to_receive, uint32_
 			}
 			return true;
 		}
-#endif
 	}
-#ifdef USE_RCV_READY_SIGNAL
-	struct timespec ts_diff;
-	clock_gettime(CLOCK_MONOTONIC, &ts_end);
-	timespec_diff(&ts_begin, &ts_end, &ts_diff);
 	printf("Timeout in wait_for_comm_ready(%s) after %d microseconds.\n", (slave_ready_to_receive ? "true" : "false"), timeout_us);
-	int end_signal = gpioRead(vmx_pi_comm_rcv_ready_signal_bcm_pin);
-	bool end_ready = (slave_ready_to_receive ? (end_signal == 0) : (end_signal != 0));
-#endif
 	return false;
 }
 
@@ -357,6 +348,7 @@ bool PIGPIOClient::int_spi_receive(uint8_t *p_data, uint8_t len) {
 
 void PIGPIOClient::signal_func(int signum, void *userdata)
 {
+	PIGPIOClient *p_this = (PIGPIOClient *)userdata;
 	printf("Signal %d received.\n", signum);
 
 	int max_frames = 200;
@@ -434,6 +426,12 @@ void PIGPIOClient::signal_func(int signum, void *userdata)
 	}
 
    free(symbollist);
+
+	if (p_this->pigpio_initialized) {
+		p_this->pigpio_initialized = false;
+		gpioTerminate();
+		printf("pigpio library closed.\n");
+	}
 }
 
 void PIGPIOClient::gpio_isr(int gpio, int level, uint32_t tick, void *userdata)
