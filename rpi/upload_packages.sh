@@ -9,7 +9,7 @@ ls -l *.deb > override
 dpkg-scanpackages ./ override | gzip > Packages.gz
 # Transfer .deb file and Packages.gz to server
 ftp -n -v ftp.kauailabs.com << EOT
-user slibert Redskin7
+user $1 $2
 prompt
 cd kauailabs.com/packages
 bin
