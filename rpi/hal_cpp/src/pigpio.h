@@ -4274,10 +4274,10 @@ applies.  If no entry matches a file then access is denied.
 Suppose /opt/pigpio/access contains the following entries
 
 . .
-/home/* n
-/home/pi/shared/dir_1/* w
-/home/pi/shared/dir_2/* r
-/home/pi/shared/dir_3/* u
+/home/ * n
+/home/pi/shared/dir_1/ * w
+/home/pi/shared/dir_2/ * r
+/home/pi/shared/dir_3/ * u
 /home/pi/shared/dir_1/file.txt n
 . .
 
@@ -4330,7 +4330,7 @@ int main(int argc, char *argv[])
    if (gpioInitialise() < 0) return 1;
 
    // assumes /opt/pigpio/access contains the following line
-   // /ram/*.c r
+   // /ram/ *.c r
 
    handle = fileOpen("/ram/pigpio.c", PI_FILE_READ);
 
@@ -4486,7 +4486,7 @@ int main(int argc, char *argv[])
    if (gpioInitialise() < 0) return 1;
 
    // assumes /opt/pigpio/access contains the following line
-   // /ram/*.c r
+   // /ram/ *.c r
 
    c = fileList("/ram/p*.c", buf, sizeof(buf));
 
