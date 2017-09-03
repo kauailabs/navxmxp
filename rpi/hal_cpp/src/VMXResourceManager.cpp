@@ -57,19 +57,21 @@ static const VMXResourceDescriptor resource_descriptors[] =
 {
 	/*  Type                            Provider   PRI FVC #VC/R Default Config     FRI #Res MinP MaxP GRP ResIndexDiv */
 	{	VMXResourceType::DigitalIO, 	VMX_PI,    	0,	0,	1,	 &def_dio_cfg,		0,	12,	 1,   1,  NULL, 1	},
-	{	VMXResourceType::DigitalIO,		RPI,     	0,	16, 1,	 &def_dio_cfg,		12,	10,	 1,   1,  NULL, 1	},
+	{	VMXResourceType::DigitalIO,		RPI,     	0,	12, 1,	 &def_dio_cfg,		12,	10,	 1,   1,  NULL, 1	},
 	{	VMXResourceType::DigitalIO,		RPI,     	10,	26, 1,	 &def_dio_cfg,		22,	 2,	 1,   1,  &rpi_uart_res_group, 2	},
 	{	VMXResourceType::DigitalIO,		RPI,     	12,	28, 1,	 &def_dio_cfg,		24,	 4,	 1,   1,  &rpi_spi_res_group, 4 },
-	{	VMXResourceType::Interrupt,		VMX_PI,		0,	0,	1,	 &def_int_cfg,		0,	16,	 1,   1,  NULL, 1	},
-	{	VMXResourceType::Interrupt,		RPI,		0,	16,	1,	 &def_int_cfg,		16,	16,	 1,   1,  NULL, 1	},
+	{	VMXResourceType::Interrupt,		VMX_PI,		0,	0,	1,	 &def_int_cfg,		0,	12,	 1,   1,  NULL, 1	},
+	{	VMXResourceType::Interrupt,		RPI,		0,	12,	1,	 &def_int_cfg,		12,	10,	 1,   1,  NULL, 1	},
+	{	VMXResourceType::Interrupt,		VMX_PI,		12,	22,	1,	 &def_int_cfg,		22,	 4,	 1,   1,  NULL, 1	},
+	{	VMXResourceType::Interrupt,		RPI,		10,	26,	1,	 &def_int_cfg,		26,	 6,	 1,   1,  NULL, 1	},
 	{	VMXResourceType::PWMGenerator,	VMX_PI,		0,	0,	2,	 &def_pwmgen_cfg,	0,	5,	 1,   2,  &stm32_adv_timer_res_group, 1 },
 	{	VMXResourceType::PWMGenerator,	VMX_PI,		5,	10,	2,	 &def_pwmgen_cfg,	5,	1,	 1,   2,  &stm32_basic_timer_res_group, 1 },
-	{	VMXResourceType::PWMGenerator,	RPI,		0,	16,	1,	 &def_pwmgen_cfg,	6,	16,	 1,   1,  NULL, 1	},
+	{	VMXResourceType::PWMGenerator,	RPI,		0,	12,	1,	 &def_pwmgen_cfg,	6,	16,	 1,   1,  NULL, 1	},
 	{	VMXResourceType::PWMCapture,	VMX_PI,		0,	0,	2,	 &def_pwmcap_cfg,	0,	5,	 1,   1,  &stm32_adv_timer_res_group, 1 },
 	{	VMXResourceType::PWMCapture,	VMX_PI,		5,	10,	2,	 &def_pwmcap_cfg,	5,	1,	 1,   1,  &stm32_basic_timer_res_group, 1 },
 	{	VMXResourceType::Encoder,		VMX_PI,		0,	0,	2,	 &def_enc_cfg,		0,	4/*5*/,	  2,  2, &stm32_adv_timer_res_group, 1 },
-	{	VMXResourceType::Accumulator,	VMX_PI,		0,	12,	1,	 &def_accum_cfg,		0,	4,	 1,   1,  NULL, 1	},
-	{	VMXResourceType::AnalogTrigger,	VMX_PI,		0,	12,	1,	 &def_antrig_cfg, 	0,	4,	 1,   1,  NULL, 1	},
+	{	VMXResourceType::Accumulator,	VMX_PI,		0,	22,	1,	 &def_accum_cfg,	0,	4,	 1,   1,  NULL, 1	},
+	{	VMXResourceType::AnalogTrigger,	VMX_PI,		0,	22,	1,	 &def_antrig_cfg, 	0,	4,	 1,   1,  NULL, 1	},
 	{	VMXResourceType::UART,			RPI,		0,	26,	2,	 &def_uart_cfg,		0,	1,	 2,   2,  &rpi_uart_res_group, 1	},
 	{	VMXResourceType::SPI,			RPI,		0,	28,	4,	 &def_spi_cfg,		0,	1,	 4,   4,  &rpi_spi_res_group, 1	},
 	{	VMXResourceType::I2C,			RPI,		0,	32,	2,	 &def_i2c_cfg,		0,	1,	 2,   2,  NULL, 1	},
@@ -109,9 +111,11 @@ typedef struct {
 
 static const VMXChannelTypeToVMXResourceProviderTypeMap chan_type_to_res_prov_type_map[] =
 {
-	{ IOCX_D, VMX_PI },
-	{ IOCX_A, VMX_PI },
-	{ PIGPIO, RPI },
+	{ FlexDIO, VMX_PI },
+	{ AnalogIn, VMX_PI },
+	{ HiCurrDIO, RPI },
+	{ CommDIO, RPI },
+	{ CommI2C, RPI },
 };
 
 VMXResourceManager::VMXResourceManager()
@@ -293,12 +297,6 @@ bool VMXResourceManager::GetResourcesCompatibleWithChannelAndCapability(VMXChann
 						VMXResourceHandle compatible_res_handle = CREATE_VMX_RESOURCE_HANDLE(resource_descriptors[i].type, res_index);
 						compatible_res_handles.push_back(compatible_res_handle);
 						success = true;
-					} else {
-						log_debug("channel index %d is not within range of Resource Descriptor %d's first (%d) and last (%d) channel index\n",
-								channel_index,
-								i,
-								resource_first_channel_index,
-								resource_last_channel_index);
 					}
 				}
 			}
@@ -306,6 +304,42 @@ bool VMXResourceManager::GetResourcesCompatibleWithChannelAndCapability(VMXChann
 	}
 	if (!success) {
 		SET_VMXERROR(errcode, VMXERR_IO_CHANNEL_RESOURCE_INCOMPATIBILITY);
+	}
+	return success;
+}
+
+bool VMXResourceManager::GetResourcesCompatibleWithChannelsAndCapability(uint8_t num_channels, VMXChannelIndex* p_channel_indexes, VMXChannelCapability *p_channel_capabilities, std::list<VMXResourceHandle>& compatible_res_handles, VMXErrorCode *errcode)
+{
+	std::list<VMXResourceHandle> compatible_res_handle_array[num_channels];
+	std::map<VMXResourceHandle, uint8_t> resource_handle_to_count_map;
+	std::map<VMXResourceHandle, uint8_t>::iterator map_it;
+	for (uint8_t i = 0; i < num_channels; i++) {
+		if (!GetResourcesCompatibleWithChannelAndCapability(p_channel_indexes[i], p_channel_capabilities[i], compatible_res_handle_array[i], errcode)) {
+			return false;
+		}
+		std::list<VMXResourceHandle>::iterator list_it;
+		for (list_it = compatible_res_handle_array[i].begin();
+				list_it != compatible_res_handle_array[i].end();
+				list_it++) {
+			VMXResourceHandle res_handle = *list_it;
+			if (i==0) {
+				resource_handle_to_count_map[res_handle] = 1;
+			} else {
+				map_it = resource_handle_to_count_map.find(res_handle);
+				if (map_it != resource_handle_to_count_map.end()) {
+					map_it->second = map_it->second + 1;
+				}
+			}
+		}
+	}
+	for (map_it=resource_handle_to_count_map.begin(); map_it != resource_handle_to_count_map.end(); map_it++ ) {
+		if (map_it->second == num_channels) {
+			compatible_res_handles.push_back(map_it->first);
+		}
+	}
+	bool success = (compatible_res_handles.size() > 0);
+	if (!success) {
+		SET_VMXERROR(errcode, VMXERR_IO_NO_AVAILABLE_RESOURCE_PORTS);
 	}
 	return success;
 }

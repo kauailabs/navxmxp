@@ -1,0 +1,3 @@
+#/bin/bash
+ldconfig
+echo "Ran vmxpi-hal post install script"

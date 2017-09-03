@@ -6,6 +6,7 @@
  */
 
 #include "VMXTime.h"
+#include "VMXTimeImpl.h"
 #include "PIGPIOClient.h"
 #include "MISCClient.h"
 
@@ -24,11 +25,7 @@ VMXTime::VMXTime(PIGPIOClient& pigpio_ref, MISCClient& misc_ref) :
 	pigpio(pigpio_ref),
 	misc(misc_ref)
 {
-	for (size_t i = 0; i < (sizeof(timer_notifications)/sizeof(timer_notifications[0])); i++ ) {
-		timer_notifications[i].Init();
-		timer_notifications[i].index = i;
-		timer_notifications[i].p_this = this;
-	}
+	p_impl = new VMXTimeImpl(pigpio_ref);
 }
 
 bool VMXTime::Init()
@@ -38,32 +35,19 @@ bool VMXTime::Init()
 
 void VMXTime::ReleaseResources()
 {
-	/* Deregister all handlers */
-	for (size_t i = 0; i < (sizeof(timer_notifications)/sizeof(timer_notifications[0])); i++ ) {
-		if (timer_notifications[i].p_handler) {
-			DeregisterTimerNotification(timer_notifications[i].p_handler);
-			timer_notifications[i].p_handler = 0;
-		}
-	}
+	p_impl->ReleaseResources();
 }
 
 VMXTime::~VMXTime() {
 	ReleaseResources();
+	delete p_impl;
 }
 
-uint64_t VMXTime::GetCurrentOSTimeInMicroseconds()
+uint64_t VMXTime::GetCurrentOSTimeMicroseconds()
 {
 	  struct timespec now;
 	  clock_gettime( CLOCK_MONOTONIC_RAW, &now );
 	  return (uint64_t)now.tv_sec * 1000000U + (uint64_t)(now.tv_nsec/1000);
-}
-
-uint64_t VMXTime::GetCurrentOSTimeInMicrosecondsAlt()
-{
-    struct timeval start;
-    gettimeofday(&start, NULL);
-
-    return (uint64_t)start.tv_sec * 1000000U + (uint64_t)start.tv_usec;
 }
 
 uint32_t VMXTime::GetCurrentMicroseconds()
@@ -73,7 +57,7 @@ uint32_t VMXTime::GetCurrentMicroseconds()
 
 uint64_t VMXTime::GetCurrentTotalMicroseconds()
 {
-	return pigpio.GetTotalCurrentMicrosecondTicks();
+	return p_impl->GetCurrentTotalMicroseconds();
 }
 
 uint32_t VMXTime::GetCurrentMicrosecondsHighPortion()
@@ -87,78 +71,22 @@ uint64_t VMXTime::GetTotalSystemTimeOfTick(uint32_t tick) {
 
 bool VMXTime::RegisterTimerNotificationAbsolute(VMXNotifyHandler timer_notify_handler, uint64_t trigger_timestamp_us, void *param)
 {
-	uint64_t now = GetCurrentTotalMicroseconds();
-	if (trigger_timestamp_us > now) {
-		uint64_t microseconds_to_trigger = now - trigger_timestamp_us;
-		return RegisterTimerNotificationRelative(timer_notify_handler, microseconds_to_trigger, param, false);
-	}
-	return false;
-}
-
-void VMXTime::TimerNotificationHandlerInternal(void *param)
-{
-	TimerNotificationInfo *p_info = (TimerNotificationInfo *)param;
-	VMXNotifyHandler p_handler = p_info->p_handler;
-	if (p_handler) {
-		std::unique_lock<std::mutex> sync(time_mutex);
-		if (p_handler) {
-			(p_handler)(p_info->param, p_info->p_this->GetCurrentTotalMicroseconds());
-			if (!p_info->repeat) {
-				p_info->expired = true;
-				p_info->p_this->pigpio.DeregisterTimerNotification(p_info->index);
-			}
-		}
-	}
+	return p_impl->RegisterTimerNotificationAbsolute(timer_notify_handler, trigger_timestamp_us, param);
 }
 
 bool VMXTime::RegisterTimerNotificationRelative(VMXNotifyHandler timer_notify_handler, uint64_t time_from_now_us, void *param, bool repeat)
 {
-	for (size_t i = 0; i < (sizeof(timer_notifications)/sizeof(timer_notifications[0])); i++ ) {
-		if (!timer_notifications[i].p_handler) {
-			std::unique_lock<std::mutex> sync(time_mutex);
-			if (!timer_notifications[i].p_handler) {
-				unsigned millis_from_now = unsigned(time_from_now_us / 1000);
-				if (pigpio.RegisterTimerNotification(i, VMXTime::TimerNotificationHandlerInternal, millis_from_now, (void *)&timer_notifications[i])) {
-					timer_notifications[i].p_handler  = timer_notify_handler;
-					timer_notifications[i].param = param;
-					timer_notifications[i].expired = false;
-					timer_notifications[i].repeat = repeat;
-					return true;
-				}
-			}
-		}
-	}
-	return false;
+	return p_impl->RegisterTimerNotificationRelative(timer_notify_handler, time_from_now_us, param, repeat);
 }
 
 bool VMXTime::DeregisterTimerNotification(VMXNotifyHandler timer_notify_handler)
 {
-	for (size_t i = 0; i < (sizeof(timer_notifications)/sizeof(timer_notifications[0])); i++ ) {
-		if (timer_notifications[i].p_handler == timer_notify_handler) {
-			std::unique_lock<std::mutex> sync(time_mutex);
-			if (timer_notifications[i].p_handler == timer_notify_handler) {
-				if(pigpio.DeregisterTimerNotification(i)){
-					timer_notifications[i].p_handler  = NULL;
-					timer_notifications[i].param = NULL;
-					timer_notifications[i].expired = true;
-					timer_notifications[i].repeat = false;
-					return true;
-				}
-			}
-			break;
-		}
-	}
-	return false;
+	return p_impl->DeregisterTimerNotification(timer_notify_handler);
 }
 
 bool VMXTime::IsTimerNotificationExpired(VMXNotifyHandler timer_notify_handler, bool& expired)
 {
-	for (size_t i = 0; i < (sizeof(timer_notifications)/sizeof(timer_notifications[0])); i++ ) {
-		if (timer_notifications[i].p_handler == timer_notify_handler) {
-			expired = timer_notifications[i].expired;
-		}
-	}
-	return false;
+	return p_impl->IsTimerNotificationExpired(timer_notify_handler, expired);
 }
 
 bool VMXTime::GetRTCTime(uint8_t& hours, uint8_t& minutes, uint8_t& seconds, uint32_t& subseconds, VMXErrorCode *errcode)
@@ -239,10 +167,22 @@ bool VMXTime::SetRTCDaylightSavingsAdjustment(DaylightSavingsAdjustment dsa, VMX
 	return true;
 }
 
-
 uint32_t VMXTime::DelayMicroseconds(uint32_t delay_us)
 {
 	return pigpio.Delay(delay_us);
 }
 
+uint32_t VMXTime::DelayMilliseconds(uint32_t delay_ms)
+{
+	uint32_t delay_us = delay_ms * 1000;
+	uint32_t actual_delay_us = DelayMicroseconds(delay_us);
+	return actual_delay_us / 1000;
+}
+
+uint32_t VMXTime::DelaySeconds(uint32_t delay_sec)
+{
+	uint32_t delay_ms = delay_sec * 1000;
+	uint32_t actual_delay_ms = DelayMilliseconds(delay_ms);
+	return actual_delay_ms / 1000;
+}
 

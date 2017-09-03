@@ -30,9 +30,11 @@
 #define ANTRIGIN	VMXChannelCapability::AnalogTriggerInput
 #define IODIRSEL	VMXChannelHwOpt::IODirectionSelect
 
-#define IOCX_D		VMXChannelType::IOCX_D
-#define IOCX_A		VMXChannelType::IOCX_A
-#define PIGPIO		VMXChannelType::PIGPIO
+#define IOCX_D		VMXChannelType::FlexDIO
+#define IOCX_A		VMXChannelType::AnalogIn
+#define PIGPIO		VMXChannelType::HiCurrDIO
+#define PICMIO		VMXChannelType::CommDIO
+#define PI_I2C		VMXChannelType::CommI2C
 
 #define UNUSED		(VMXChannelCapability)0
 
@@ -69,12 +71,7 @@ static const VMXChannelDescriptor channel_descriptors[MAX_VMX_CHANNELS] =
 	CHANID(IOCX_D,  9) | DI | DO | PWMOUT2 | PWMIN | INTIN,
 	CHANID(IOCX_D, 10) | DI | DO | PWMOUT  | PWMIN | INTIN,
 	CHANID(IOCX_D, 11) | DI | DO | PWMOUT2 | PWMIN | INTIN,
-	/* 12-15:  VMX-pi Analog In Header (1-4) */
-	CHANID(IOCX_A,  0) | ACCUMIN | ANTRIGIN | INTIN,
-	CHANID(IOCX_A,  1) | ACCUMIN | ANTRIGIN | INTIN,
-	CHANID(IOCX_A,  2) | ACCUMIN | ANTRIGIN | INTIN,
-	CHANID(IOCX_A,  3) | ACCUMIN | ANTRIGIN | INTIN,
-	/* 16-25:  VMX-pi PWM Header (1-10) [RPI GPIOs] */
+	/* 12-21:  VMX-pi PWM Header (1-10) [RPI GPIOs] */
 	/* Note:  as a group, these are Jumper-selected between DO/PWMOut & DI InterruptInput */
 	CHANID(PIGPIO,  0) | DI | DO | PWMOUT  | INTIN | CHANHWOPT(IODIRSEL),
 	CHANID(PIGPIO,  1) | DI | DO | PWMOUT  | INTIN | CHANHWOPT(IODIRSEL),
@@ -86,27 +83,36 @@ static const VMXChannelDescriptor channel_descriptors[MAX_VMX_CHANNELS] =
 	CHANID(PIGPIO,  7) | DI | DO | PWMOUT  | INTIN | CHANHWOPT(IODIRSEL),
 	CHANID(PIGPIO,  8) | DI | DO | PWMOUT  | INTIN | CHANHWOPT(IODIRSEL),
 	CHANID(PIGPIO,  9) | DI | DO | PWMOUT  | INTIN | CHANHWOPT(IODIRSEL),
+	/* 22-25:  VMX-pi Analog In Header (1-4) */
+	CHANID(IOCX_A,  0) | ACCUMIN | ANTRIGIN | INTIN,
+	CHANID(IOCX_A,  1) | ACCUMIN | ANTRIGIN | INTIN,
+	CHANID(IOCX_A,  2) | ACCUMIN | ANTRIGIN | INTIN,
+	CHANID(IOCX_A,  3) | ACCUMIN | ANTRIGIN | INTIN,
 	/* 26-27:  VMX-pi UART Connector (TX/RX) [RPI GPIOs] */
-	CHANID(PIGPIO, 10) | DI | DO | PWMOUT  | INTIN | UART_TX,
-	CHANID(PIGPIO, 11) | DI | DO | PWMOUT  | INTIN | UART_RX,
+	CHANID(PICMIO,  0) | DI | DO | PWMOUT  | INTIN | UART_TX,
+	CHANID(PICMIO,  1) | DI | DO | PWMOUT  | INTIN | UART_RX,
 	/* 28-31:  VMX-pi SPI Connector (CLK, MOSI, MISO, CS) [RPI GPIOs] */
-	CHANID(PIGPIO, 12) | DI | DO | PWMOUT  | INTIN | SPI_CLK,
-	CHANID(PIGPIO, 13) | DI | DO | PWMOUT  | INTIN | SPI_MISO,
-	CHANID(PIGPIO, 14) | DI | DO | PWMOUT  | INTIN | SPI_MOSI,
-	CHANID(PIGPIO, 15) | DI | DO | PWMOUT  | INTIN | SPI_CS,
+	CHANID(PICMIO,  2) | DI | DO | PWMOUT  | INTIN | SPI_CLK,
+	CHANID(PICMIO,  3) | DI | DO | PWMOUT  | INTIN | SPI_MISO,
+	CHANID(PICMIO,  4) | DI | DO | PWMOUT  | INTIN | SPI_MOSI,
+	CHANID(PICMIO,  5) | DI | DO | PWMOUT  | INTIN | SPI_CS,
 	/* 32-33:  VMX-pi I2C Connector (SDA, SCL) */
-	CHANID(PIGPIO, 16) | I2C_SDA,
-	CHANID(PIGPIO, 17) | I2C_SCL
+	CHANID(PI_I2C,  0) | I2C_SDA,
+	CHANID(PI_I2C,  1) | I2C_SCL
 	/* 34-63:  Unused */
 };
 
 static uint8_t s_num_iocx_d_channels;
 static uint8_t s_num_iocx_a_channels;
 static uint8_t s_num_pigpio_channels;
+static uint8_t s_num_picmio_channels;
+static uint8_t s_num_pi_i2c_channels;
 
 static VMXChannelIndex s_first_iocx_d_channel_index;
 static VMXChannelIndex s_first_iocx_a_channel_index;
 static VMXChannelIndex s_first_pigpio_channel_index;
+static VMXChannelIndex s_first_picmio_channel_index;
+static VMXChannelIndex s_first_pi_i2c_channel_index;
 
 typedef struct {
 	VMXChannelType channel_type;
@@ -119,6 +125,8 @@ static VMXChannelTypeToCountMap chan_type_to_count_map[] =
 		{ IOCX_D, &s_num_iocx_d_channels, &s_first_iocx_d_channel_index },
 		{ IOCX_A, &s_num_iocx_a_channels, &s_first_iocx_a_channel_index },
 		{ PIGPIO, &s_num_pigpio_channels, &s_first_pigpio_channel_index },
+		{ PICMIO, &s_num_picmio_channels, &s_first_picmio_channel_index },
+		{ PI_I2C, &s_num_pi_i2c_channels, &s_first_pi_i2c_channel_index },
 };
 
 static uint8_t s_num_di_channels;

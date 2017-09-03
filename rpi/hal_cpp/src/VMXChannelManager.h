@@ -8,6 +8,7 @@
 #ifndef VMXCHANNELMANAGER_H_
 #define VMXCHANNELMANAGER_H_
 
+#include <limits.h>
 #include "VMXChannel.h"
 
 /* Channel Map:
@@ -40,6 +41,39 @@ inline bool VMXChannelHwOptCheck(VMXChannelHwOpt info1, VMXChannelHwOpt info2) {
 	 return (VMXChannelHwOptAnd(info1, info2) != 0);
 }
 
+inline VMXChannelCapability VMXChannelCapabilityAnd(VMXChannelCapability cap1, VMXChannelCapability cap2) {
+	return (VMXChannelCapability)(int(cap1) & int(cap2));
+}
+
+inline VMXChannelCapability VMXChannelCapabilityOr(VMXChannelCapability cap1, VMXChannelCapability cap2) {
+	return (VMXChannelCapability)(int(cap1) | int(cap2));
+}
+
+inline bool VMXChannelCapabilityCheck(VMXChannelCapability cap_bits, VMXChannelCapability cap) {
+	 return (VMXChannelCapabilityAnd(cap_bits, cap) != 0);
+}
+
+inline VMXChannelCapability VMXChannelCapabilityClear(VMXChannelCapability cap_bits, VMXChannelCapability caps_to_clear) {
+	int caps_inverse = ~int(caps_to_clear);
+	return (VMXChannelCapability)(int(cap_bits) & caps_inverse);
+}
+
+inline bool IsVMXChannelCapabilityUnitary(VMXChannelCapability capability) {
+	int cap_count = 0;
+	uint32_t caps = uint32_t(capability);
+	for (uint8_t i = 0; i < (sizeof(caps)*CHAR_BIT); i++) {
+		if (caps & 0x00000001) {
+			cap_count++;
+		}
+		if (cap_count > 1) {
+			return false;
+		}
+		caps >>= 1;
+	}
+	return (cap_count == 1);
+}
+
+typedef uint64_t VMXChannelDescriptor;
 
 class VMXChannelManager
 {

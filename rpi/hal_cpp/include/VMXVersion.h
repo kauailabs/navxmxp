@@ -22,6 +22,7 @@ class VMXVersion {
 
 public:
 	std::string GetFirmwareVersion();
+	std::string GetHALVersion();
 };
 
 #endif /* VMXVERSION_H_ */

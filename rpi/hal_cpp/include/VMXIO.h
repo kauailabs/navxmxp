@@ -47,6 +47,7 @@ public:
 	uint8_t GetNumChannelsByCapability(VMXChannelCapability channel_capability);
 	uint8_t GetNumChannelsByType(VMXChannelType channel_type, VMXChannelIndex& first_channel_index);
 	bool GetChannelCapabilities(VMXChannelIndex channel_index, VMXChannelType& channel_type, VMXChannelCapability& capability_bits);
+	bool ChannelSupportsCapability(VMXChannelIndex channel_index, VMXChannelCapability capability);
 
 	/*** RESOURCE HANDLE ACQUISITION */
 	bool GetResourceHandle(VMXResourceType resource_type, VMXResourceIndex res_index, VMXResourceHandle& resource_handle, VMXErrorCode *errcode = 0);
@@ -64,12 +65,12 @@ public:
 	/*** RESOURCE-CHANNEL ROUTING ***/
 
 	bool RouteChannelToResource(VMXChannelIndex channel, VMXResourceHandle resource, VMXErrorCode* errcode = 0);
-	bool RouteResourceToResource(VMXResourceHandle from, VMXResourceHandle to);
+	bool RouteResourceToResource(VMXResourceHandle from, VMXResourceHandle to, VMXErrorCode* errcode = 0);
 	bool UnrouteChannelFromResource(VMXChannelIndex channel, VMXResourceHandle resource, VMXErrorCode *errcode = 0);
 	bool UnrouteAllChannelsFromResource(VMXResourceHandle resource, VMXErrorCode *errcode = 0);
-	bool UnrouteResourceFromResource(VMXResourceHandle from, VMXResourceHandle to);
-	bool GetRoutedChannels(VMXResourceHandle resource, std::unordered_set<VMXChannelIndex>& routed_channels);
-	bool GetRoutedResources(VMXResourceHandle resource, std::unordered_set<VMXResourceHandle>& routed_resources);
+	bool UnrouteResourceFromResource(VMXResourceHandle from, VMXResourceHandle to, VMXErrorCode* errcode = 0);
+	bool GetRoutedChannels(VMXResourceHandle resource, std::unordered_set<VMXChannelIndex>& routed_channels, VMXErrorCode* errcode = 0);
+	bool GetRoutedResources(VMXResourceHandle resource, std::unordered_set<VMXResourceHandle>& routed_resources, VMXErrorCode* errcode = 0);
 
 	/*** RESOURCE CONFIGURATION (see VMXResourceConfig.h for various configuration classes) ***/
 
@@ -85,6 +86,8 @@ public:
 
 	/*** ACTIVATION HELPERS ***/
 	bool ActivateSinglechannelResource(VMXChannelIndex channel_index, VMXChannelCapability channel_capability,
+			VMXResourceHandle& res_handle, const VMXResourceConfig *res_cfg = 0, VMXErrorCode *errcode = 0);
+	bool ActivateMultichannelResource(uint8_t num_channels, VMXChannelIndex *p_channel_indexes, VMXChannelCapability *p_channel_capabilities,
 			VMXResourceHandle& res_handle, const VMXResourceConfig *res_cfg = 0, VMXErrorCode *errcode = 0);
 
 	/*** RESOURCE ACTIONS ***/
@@ -142,12 +145,6 @@ public:
 	bool I2C_Transaction(VMXResourceHandle i2c_res_handle, uint8_t deviceAddress,
 	                    uint8_t* dataToSend, uint16_t sendSize,
 	                    uint8_t* dataReceived, uint16_t receiveSize, VMXErrorCode *errcode = 0);
-
-	/* TESTS (TODO:  Remove this cruft as soon as possible). */
-	void TestPWMOutputs();
-	void TestExtI2C();
-	void TestGPIInputs(int iteration_count);
-
 };
 
 #endif /* VMXIO_H_ */

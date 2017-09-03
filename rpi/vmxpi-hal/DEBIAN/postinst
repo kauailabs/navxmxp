@@ -1,0 +1,3 @@
+#/bin/bash
+ldconfig /usr/local/lib/vmxpi_hal_cpp
+echo "Ran vmxpi-hal post install script"

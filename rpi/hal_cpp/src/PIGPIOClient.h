@@ -13,13 +13,14 @@
 #include "IPIGPIOInterruptSinks.h"
 #include "VMXHandlers.h"
 
-#define VMX_NUM_EXT_DEDICATED_GPIO_PINS	10
-#define VMX_NUM_EXT_SPI_PINS 		4
-#define VMX_NUM_EXT_UART_PINS 		2
-#define VMX_NUM_EXT_I2C_PINS   		2
-#define VMX_NUM_INT_SPI_PINS		4
-#define VMX_NUM_INT_INTERRUPT_PINS	4
-#define VMX_NUM_EXT_TOTAL_GPIO_PINS	(VMX_NUM_EXT_DEDICATED_GPIO_PINS + VMX_NUM_EXT_UART_PINS + VMX_NUM_EXT_SPI_PINS)
+#define VMX_NUM_EXT_HIGHCURRENT_DIO_PINS	10
+#define VMX_NUM_EXT_SPI_PINS 				4
+#define VMX_NUM_EXT_UART_PINS 				2
+#define VMX_NUM_EXT_COMM_DIO_PINS			(VMX_NUM_EXT_SPI_PINS + VMX_NUM_EXT_UART_PINS)
+#define VMX_NUM_EXT_I2C_PINS   				2
+#define VMX_NUM_INT_SPI_PINS				4
+#define VMX_NUM_INT_INTERRUPT_PINS			4
+#define VMX_NUM_EXT_TOTAL_INTERRUPT_PINS	(VMX_NUM_EXT_HIGHCURRENT_DIO_PINS + VMX_NUM_EXT_COMM_DIO_PINS)
 
 typedef uint8_t PIGPIOChannelIndex;
 
@@ -66,21 +67,6 @@ public:
 
 	bool IsOpen() { return pigpio_initialized; }
 
-	uint8_t get_max_num_external_gpio_interrupts() {
-		return (VMX_NUM_EXT_TOTAL_GPIO_PINS);
-	}
-
-	uint8_t get_max_num_external_gpios() {
-		return (VMX_NUM_EXT_TOTAL_GPIO_PINS);
-	}
-
-	uint8_t get_curr_num_external_interrupts() {
-		/* Note:  the ext i2c pins are open drain and are thus not
-		 * made available for use as GPIOs and Interrupts.
-		 */
-		return VMX_NUM_EXT_TOTAL_GPIO_PINS;
-	}
-
 	uint32_t GetCurrentMicrosecondTicks();
 	uint64_t GetTotalCurrentMicrosecondTicks();
 	uint32_t GetCurrentMicrosecondTicksHighPortion();
@@ -108,10 +94,6 @@ public:
 	bool I2CMasterTransaction(int i2c_handle, uint8_t deviceAddress_7bit,
 	                    uint8_t* dataToSend, uint16_t sendSize,
 	                    uint8_t* dataReceived, uint16_t receiveSize);
-
-	uint8_t get_num_internal_interrupts() {
-		return VMX_NUM_INT_INTERRUPT_PINS;
-	}
 
 	/* The following "ext" comm enables only allocate the gpio resources */
 	/* to the communication function.  Separate methods for configuring  */

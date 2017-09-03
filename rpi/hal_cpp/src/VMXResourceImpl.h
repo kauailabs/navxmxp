@@ -135,7 +135,7 @@ public:
 	}
 
 	uint8_t GetProviderResourceIndex() const {
-		return resource_index - descriptor.provider_resource_index_offset;
+		return (resource_index - descriptor.resource_index_first) + descriptor.provider_resource_index_offset;
 	}
 
 	VMXSharedResourceGroup *GetSharedResourceGroup() const {

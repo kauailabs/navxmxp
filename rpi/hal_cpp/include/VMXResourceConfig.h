@@ -34,11 +34,19 @@ struct InterruptConfig : public VMXResourceConfig {
 	InterruptEdge edge;
 	VMXIO_InterruptHandler p_handler;
 	void *p_param;
+
 	InterruptConfig() : VMXResourceConfig(VMXResourceType::Interrupt) {
 		edge = InterruptEdge::RISING;
 		p_handler = 0;
 		p_param = 0;
 	}
+	InterruptConfig(InterruptEdge edge, VMXIO_InterruptHandler p_handler, void *p_param) :
+		VMXResourceConfig(VMXResourceType::Interrupt) {
+		this->edge = edge;
+		this->p_handler = p_handler;
+		this->p_param = p_param;
+	}
+
 	VMXIO_InterruptHandler GetHandler() { return p_handler; }
 	void * GetParam() { return p_param; }
 	InterruptEdge GetEdge() { return edge; }
@@ -70,10 +78,23 @@ struct DIOConfig : public VMXResourceConfig {
 	bool input;
 	OutputMode outputmode; /* Not all DIO (e.g., rpi) channels can support !pushpull (opendrain) */
 	InputMode inputmode;
+
 	DIOConfig() : VMXResourceConfig(VMXResourceType::DigitalIO) {
 		input = true;
 		outputmode = OutputMode::PUSHPULL;
 		inputmode = InputMode::PULLUP;
+	}
+	DIOConfig(InputMode inputmode) :
+		VMXResourceConfig(VMXResourceType::DigitalIO) {
+		this->input = true;
+		this->inputmode = inputmode;
+		this->outputmode = OutputMode::PUSHPULL;
+	}
+	DIOConfig(OutputMode outputmode) :
+		VMXResourceConfig(VMXResourceType::DigitalIO) {
+		this->input = false;
+		this->inputmode = InputMode::NONE;
+		this->outputmode = outputmode;
 	}
 
 	bool GetInput() { return input; }
@@ -99,8 +120,12 @@ struct DIOConfig : public VMXResourceConfig {
 
 struct PWMGeneratorConfig : public VMXResourceConfig {
 	uint32_t frequency_hz;
+
 	PWMGeneratorConfig() : VMXResourceConfig(VMXResourceType::PWMGenerator) {
 		frequency_hz = 200;
+	}
+	PWMGeneratorConfig(uint32_t frequency_hz) : VMXResourceConfig(VMXResourceType::PWMGenerator) {
+		this->frequency_hz = frequency_hz;
 	}
 
 	uint32_t GetFrequencyHz() { return frequency_hz; }
@@ -123,8 +148,12 @@ struct PWMGeneratorConfig : public VMXResourceConfig {
 struct PWMCaptureConfig : public VMXResourceConfig {
 	typedef enum { RISING, FALLING } CaptureEdge;
 	CaptureEdge edge_type;
+
 	PWMCaptureConfig() : VMXResourceConfig(VMXResourceType::PWMCapture) {
 		edge_type = CaptureEdge::RISING;
+	}
+	PWMCaptureConfig(CaptureEdge edge_type) : VMXResourceConfig(VMXResourceType::PWMCapture) {
+		this->edge_type = edge_type;
 	}
 
 	CaptureEdge GetCaptureEdge() { return edge_type; }
@@ -147,8 +176,12 @@ struct PWMCaptureConfig : public VMXResourceConfig {
 struct EncoderConfig : public VMXResourceConfig {
 	typedef enum { x1, x2, x4 } EncoderEdge;
 	EncoderEdge edge_count;
+
 	EncoderConfig() : VMXResourceConfig(VMXResourceType::Encoder) {
 		edge_count = EncoderEdge::x4;
+	}
+	EncoderConfig(EncoderEdge edge) : VMXResourceConfig(VMXResourceType::Encoder) {
+		edge_count = edge;
 	}
 
 	EncoderEdge GetEncoderEdge() { return edge_count; }
@@ -171,9 +204,15 @@ struct EncoderConfig : public VMXResourceConfig {
 struct AccumulatorConfig : public VMXResourceConfig {
 	uint8_t num_average_bits;
 	uint8_t num_oversample_bits;
+
 	AccumulatorConfig() : VMXResourceConfig(VMXResourceType::Accumulator) {
 		num_oversample_bits = 3;
 		num_average_bits = 3;
+	}
+	AccumulatorConfig(uint8_t num_oversample_bits, uint8_t num_average_bits) :
+		VMXResourceConfig(VMXResourceType::Accumulator) {
+		this->num_oversample_bits = num_oversample_bits;
+		this->num_average_bits = num_average_bits;
 	}
 
 	uint8_t GetNumAverageBits() { return num_average_bits; }
@@ -207,6 +246,13 @@ struct AnalogTriggerConfig : public VMXResourceConfig {
 		threshold_low = 2482; /* 2V on a 3.3V scale */
 		mode = AnalogTriggerMode::STATE;
 	}
+	AnalogTriggerConfig(uint16_t threshold_high, uint16_t threshold_low, AnalogTriggerMode mode) :
+		VMXResourceConfig(VMXResourceType::AnalogTrigger) {
+		this->threshold_high = threshold_high;
+		this->threshold_low = threshold_low;
+		this->mode = mode;
+	}
+
 	uint16_t GetThresholdHigh() { return threshold_high; }
 	uint16_t GetThresholdLow() { return threshold_low; }
 	AnalogTriggerMode GetMode() { return mode; }
@@ -230,8 +276,12 @@ struct AnalogTriggerConfig : public VMXResourceConfig {
 
 struct UARTConfig : public VMXResourceConfig {
 	uint32_t baudrate_bps;
+
 	UARTConfig() : VMXResourceConfig(VMXResourceType::UART) {
 		baudrate_bps = 57600;
+	}
+	UARTConfig(uint32_t baudrate_bps) : VMXResourceConfig(VMXResourceType::UART) {
+		this->baudrate_bps = baudrate_bps;
 	}
 
 	uint32_t GetBaudrate() { return baudrate_bps; }
@@ -256,11 +306,26 @@ struct SPIConfig : public VMXResourceConfig {
 	uint8_t mode; /* Range:  0-3 */
 	bool cs_active_low;
 	bool msbfirst;
+
 	SPIConfig() : VMXResourceConfig(VMXResourceType::SPI) {
 		bitrate_bps = 1000000;
 		mode = 3;
 		cs_active_low = true;
 		msbfirst = true;
+	}
+	SPIConfig(uint32_t bitrate) : VMXResourceConfig(VMXResourceType::SPI) {
+		bitrate_bps = bitrate;
+		mode = 3;
+		cs_active_low = true;
+		msbfirst = true;
+	}
+	SPIConfig(uint32_t bitrate, uint8_t mode, bool cs_active_low, bool msbfirst) :
+		VMXResourceConfig(VMXResourceType::SPI)
+	{
+		this->bitrate_bps = bitrate;
+		this->mode = mode;
+		this->cs_active_low = cs_active_low;
+		this->msbfirst = msbfirst;
 	}
 
 	uint32_t GetBitrate() { return bitrate_bps; }

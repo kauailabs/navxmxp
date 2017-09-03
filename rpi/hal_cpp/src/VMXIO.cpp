@@ -229,7 +229,7 @@ bool VMXIO::GetChannelCapabilities(VMXChannelIndex channel_index, VMXChannelType
 	if (capability_bits == VMXChannelCapability::None) return false;
 	uint8_t type_specific_index;
 	if (chan_mgr.GetChannelTypeAndProviderSpecificIndex(channel_index, channel_type, type_specific_index)) {
-		if (channel_type == PIGPIO) {
+		if (channel_type == HiCurrDIO) {
 			VMXChannelHwOpt vmx_hw_opt = chan_mgr.GetChannelHwOpts(channel_index);
 			if (VMXChannelHwOptCheck(vmx_hw_opt, VMXChannelHwOpt::IODirectionSelect)) {
 				IOCX_CAPABILITY_FLAGS iocx_caps;
@@ -250,6 +250,16 @@ bool VMXIO::GetChannelCapabilities(VMXChannelIndex channel_index, VMXChannelType
 			}
 		}
 		return true;
+	}
+	return false;
+}
+
+bool VMXIO::ChannelSupportsCapability(VMXChannelIndex channel_index, VMXChannelCapability capability)
+{
+	VMXChannelType channel_type;
+	VMXChannelCapability capability_bits;
+	if(GetChannelCapabilities(channel_index, channel_type, capability_bits)) {
+		return VMXChannelCapabilityCheck(capability_bits, VMXChannelCapability::DigitalOutput);
 	}
 	return false;
 }
@@ -465,7 +475,7 @@ bool VMXIO::RouteChannelToResource(VMXChannelIndex channel_index, VMXResourceHan
 						break;
 					case VMXResourceType::Interrupt:
 						switch(vmx_chan_type) {
-						case VMXChannelType::IOCX_D:
+						case VMXChannelType::FlexDIO:
 							/* Note:  During resource configuration phase, the chosen interrupt
 							 * edge will be configured.  For now, assume it is rising-edge only.
 							 */
@@ -476,7 +486,7 @@ bool VMXIO::RouteChannelToResource(VMXChannelIndex channel_index, VMXResourceHan
 									curr_input,
 									GPIO_INTERRUPT_RISING_EDGE);
 							break;
-						case VMXChannelType::IOCX_A:
+						case VMXChannelType::AnalogIn:
 							/* Analog Input Channels routing to Interrupt Resources is necessary,
 							 * but not sufficient to receive interrupts.  What is also required
 							 * is to route the Analog Input Channel to an Accumulator as well.  */
@@ -574,7 +584,7 @@ bool VMXIO::UnrouteChannelFromResource(VMXChannelIndex channel_index, VMXResourc
 						IOCX_GPIO_INTERRUPT curr_interrupt;
 						// Leave existing gpio config, but disable interrupt generation */
 						switch(vmx_chan_type) {
-						case VMXChannelType::IOCX_D:
+						case VMXChannelType::FlexDIO:
 							if (iocx.get_gpio_config(provider_specific_channel_index, curr_type,
 									curr_input, curr_interrupt)) {
 								physical_channel_unrouted =
@@ -585,7 +595,7 @@ bool VMXIO::UnrouteChannelFromResource(VMXChannelIndex channel_index, VMXResourc
 										GPIO_INTERRUPT_DISABLED);
 							}
 							break;
-						case VMXChannelType::IOCX_A:
+						case VMXChannelType::AnalogIn:
 							/* Disconnect the Analog Trigger Interrupt Routing, if any. */
 							physical_channel_unrouted = DisconnectAnalogInputInterrupt(provider_specific_channel_index);
 							break;
@@ -1025,14 +1035,25 @@ bool VMXIO::ActivateResource(VMXResourceHandle resource, VMXErrorCode* errcode)
 bool VMXIO::ActivateSinglechannelResource(VMXChannelIndex channel_index, VMXChannelCapability channel_capability,
 		VMXResourceHandle& res_handle, const VMXResourceConfig *res_cfg, VMXErrorCode *errcode)
 {
-	if (!IsVMXChannelCapabilityUnitary(channel_capability)) {
-		SET_VMXERROR(errcode, VMXERR_IO_UNITARY_CHANNEL_CAP_REQUIRED);
-		return false;
+	return ActivateMultichannelResource(1, &channel_index, &channel_capability, res_handle, res_cfg, errcode);
+}
+
+bool VMXIO::ActivateMultichannelResource(uint8_t num_channels, VMXChannelIndex *p_channel_indexes, VMXChannelCapability *p_channel_capabilities,
+		VMXResourceHandle& res_handle, const VMXResourceConfig *res_cfg, VMXErrorCode *errcode)
+{
+	for (uint8_t i = 0; i < num_channels; i++) {
+		if (!IsVMXChannelCapabilityUnitary(p_channel_capabilities[i])) {
+			SET_VMXERROR(errcode, VMXERR_IO_UNITARY_CHANNEL_CAP_REQUIRED);
+			return false;
+		}
 	}
 
 	std::list<VMXResourceHandle> compatible_res_handles;
-	if (!res_mgr.GetResourcesCompatibleWithChannelAndCapability(channel_index, channel_capability, compatible_res_handles, errcode)) {
-		log_debug("No compatible resources found for Channel index %d and Channel capability %x", channel_index, channel_capability);
+	if (!res_mgr.GetResourcesCompatibleWithChannelsAndCapability(num_channels, p_channel_indexes, p_channel_capabilities, compatible_res_handles, errcode)) {
+		log_debug("No compatible resources found for the following %d channels:", num_channels);
+		for (uint8_t i = 0; i < num_channels; i++) {
+			log_debug("    - Channel %d, Capability %x", p_channel_indexes[i], p_channel_capabilities[i]);
+		}
 		return false;
 	}
 
@@ -1047,10 +1068,9 @@ bool VMXIO::ActivateSinglechannelResource(VMXChannelIndex channel_index, VMXChan
 				p_compatible_unallocated_resource = p_vmx_res;
 				break;
 			} else {
-				log_debug("Resource Type %d Index %d is already allocated; Channel %d cannot be routed to it.",
+				log_debug("Resource Type %d Index %d is already allocated; Channel(s) cannot be routed to it.",
 						p_vmx_res->GetResourceType(),
-						p_vmx_res->GetResourceIndex(),
-						channel_index);
+						p_vmx_res->GetResourceIndex());
 			}
 		}
 	}
@@ -1063,9 +1083,14 @@ bool VMXIO::ActivateSinglechannelResource(VMXChannelIndex channel_index, VMXChan
 		return false;
 	}
 
-	if (!RouteChannelToResource(channel_index, p_compatible_unallocated_resource->GetResourceHandle(), errcode)) {
-		DeallocateResource(p_compatible_unallocated_resource->GetResourceHandle());
-		return false;
+	for (uint8_t i = 0; i < num_channels; i++) {
+		if (!RouteChannelToResource(p_channel_indexes[i], p_compatible_unallocated_resource->GetResourceHandle(), errcode)) {
+			for (uint8_t j = 0; j < i; j++) {
+				UnrouteChannelFromResource(p_channel_indexes[j], p_compatible_unallocated_resource->GetResourceHandle());
+			}
+			DeallocateResource(p_compatible_unallocated_resource->GetResourceHandle());
+			return false;
+		}
 	}
 
 	if (!res_cfg) {
@@ -1073,7 +1098,9 @@ bool VMXIO::ActivateSinglechannelResource(VMXChannelIndex channel_index, VMXChan
 	}
 
 	if (!SetResourceConfig(p_compatible_unallocated_resource->GetResourceHandle(), res_cfg, errcode)) {
-		UnrouteChannelFromResource(channel_index, p_compatible_unallocated_resource->GetResourceHandle());
+		for (uint8_t i = 0; i < num_channels; i++) {
+			UnrouteChannelFromResource(p_channel_indexes[i], p_compatible_unallocated_resource->GetResourceHandle());
+		}
 		DeallocateResource(p_compatible_unallocated_resource->GetResourceHandle());
 		return false;
 	}
@@ -1082,7 +1109,9 @@ bool VMXIO::ActivateSinglechannelResource(VMXChannelIndex channel_index, VMXChan
 		res_handle = p_compatible_unallocated_resource->GetResourceHandle();
 		return true;
 	} else {
-		UnrouteChannelFromResource(channel_index, p_compatible_unallocated_resource->GetResourceHandle());
+		for (uint8_t i = 0; i < num_channels; i++) {
+			UnrouteChannelFromResource(p_channel_indexes[i], p_compatible_unallocated_resource->GetResourceHandle());
+		}
 		DeallocateResource(p_compatible_unallocated_resource->GetResourceHandle());
 		return false;
 	}
@@ -1425,17 +1454,3 @@ bool VMXIO::AnalogTrigger_GetState(VMXResourceHandle antrig_res_handle, AnalogTr
 	return true;
 }
 
-void VMXIO::TestPWMOutputs()
-{
-	pigpio.test_pwm_outputs();
-}
-
-void VMXIO::TestExtI2C()
-{
-	pigpio.test_ext_i2c();
-}
-
-void VMXIO::TestGPIInputs(int iteration_count)
-{
-	pigpio.test_gpio_inputs(iteration_count);
-}

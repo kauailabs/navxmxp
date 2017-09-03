@@ -31,6 +31,7 @@ public:
 	VMXChannelCapability GetCompatibleChannelCapabilityBits(VMXChannelIndex channel_index, VMXResource *p_resource);
 	bool GetResourcesCompatibleWithChannelAndCapability(VMXChannelIndex channel_index, VMXChannelCapability channel_capability, std::list<VMXResourceHandle>& compatible_res_handles, VMXErrorCode *errcode = 0);
 	bool GetChannelsCompatibleWithResource(VMXResourceHandle resource_handle, VMXChannelIndex& first_channel_index, uint8_t& num_channels);
+	bool GetResourcesCompatibleWithChannelsAndCapability(uint8_t num_channels, VMXChannelIndex* p_channel_indexes, VMXChannelCapability *p_channel_capabilities, std::list<VMXResourceHandle>& compatible_res_handles, VMXErrorCode *errcode = 0);
 
 	VMXResource *GetVMXResource(VMXResourceHandle vmx_res_handle);
 	VMXResource *GetVMXResourceAndVerifyType(VMXResourceHandle vmx_res_handle, VMXResourceType vmx_res_type);

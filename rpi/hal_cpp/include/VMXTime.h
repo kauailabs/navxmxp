@@ -12,11 +12,10 @@
 
 class PIGPIOClient;
 class MISCClient;
+class VMXTimeImpl;
 
 #include "VMXErrors.h"
 #include "VMXHandlers.h"
-
-#define MAX_NUM_TIMER_NOTIFY_HANDLERS 10
 
 class VMXTime {
 
@@ -25,35 +24,17 @@ class VMXTime {
 
 	PIGPIOClient& pigpio;
 	MISCClient& misc;
+	VMXTimeImpl *p_impl;
 
 	VMXTime(PIGPIOClient& pigpio_ref, MISCClient& misc_ref);
 	virtual ~VMXTime();
 	bool Init();
 	void ReleaseResources();
-
-	typedef struct {
-		VMXNotifyHandler p_handler;
-		void *param;
-		bool repeat;
-		bool expired;
-		int index;
-		VMXTime *p_this;
-		void Init() {
-			p_handler = 0;
-			param = 0;
-			repeat = false;
-			expired = true;
-		}
-	} TimerNotificationInfo;
-
-	TimerNotificationInfo timer_notifications[MAX_NUM_TIMER_NOTIFY_HANDLERS];
-
-	static void TimerNotificationHandlerInternal(void *param);
 	uint64_t GetTotalSystemTimeOfTick(uint32_t tick);
 
 public:
-	uint64_t GetCurrentOSTimeInMicroseconds();
-	uint64_t GetCurrentOSTimeInMicrosecondsAlt();
+	uint64_t GetCurrentOSTimeMicroseconds();
+
 	uint32_t GetCurrentMicroseconds();
 	uint64_t GetCurrentTotalMicroseconds();
 	uint32_t GetCurrentMicrosecondsHighPortion();
@@ -62,16 +43,8 @@ public:
 	 * are implemented as a busy-wait.
 	 */
 	uint32_t DelayMicroseconds(uint32_t delay_us);
-	uint32_t DelayMilliseconds(uint32_t delay_ms) {
-		uint32_t delay_us = delay_ms * 1000;
-		uint32_t actual_delay_us = DelayMicroseconds(delay_us);
-		return actual_delay_us / 1000;
-	}
-	uint32_t DelaySeconds(uint32_t delay_sec) {
-		uint32_t delay_ms = delay_sec * 1000;
-		uint32_t actual_delay_ms = DelayMilliseconds(delay_ms);
-		return actual_delay_ms / 1000;
-	}
+	uint32_t DelayMilliseconds(uint32_t delay_ms);
+	uint32_t DelaySeconds(uint32_t delay_sec);
 
 	/* Registers for notification at an absolute timestamp [based on the Current System Timestamp] */
 	/* Note:  a maximum of 10 Timer Notifications may be simultaneously registered.  Each of the 10 */
@@ -85,7 +58,7 @@ public:
 	bool DeregisterTimerNotification(VMXNotifyHandler timer_notify_handler);
 	bool IsTimerNotificationExpired(VMXNotifyHandler timer_notify_handler, bool& expired);
 
-	/*** RTC ***/
+	/*** Real-Time Clock ***/
 	typedef enum {
 		DSAdjustmentNone = 0,
 		DSAdjustmentAddOneHour = 1,

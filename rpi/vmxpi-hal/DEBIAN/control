@@ -1,0 +1,9 @@
+Package: vmxpi-hal
+Version: 0.3
+Section: extra
+Priority: optional
+Architecture: all
+Depends:
+Installed-Size: 3000
+Maintainer: Kauai Labs
+Description: unofficial package -- contact support@kauailabs.com for official package

@@ -9,7 +9,6 @@
 #define VMXCHANNEL_H_
 
 #include <stdint.h>
-#include <limits.h>
 
 /* Each VMXChannel has zero or more of the following Capabilities */
 /* Some of these Capabilities are dynamic, and may be changed via
@@ -25,9 +24,11 @@
 
 typedef enum {
 	INVALID = 0,
-	IOCX_D = 1,
-	IOCX_A = 2,
-	PIGPIO = 3
+	FlexDIO  = 1,
+	AnalogIn = 2,
+	HiCurrDIO = 3,
+	CommDIO = 4,
+	CommI2C = 5
 } VMXChannelType;
 
 typedef enum {
@@ -52,39 +53,6 @@ typedef enum {
 	I2C_SCL				= 0x00020000,
 } VMXChannelCapability;
 
-inline VMXChannelCapability VMXChannelCapabilityAnd(VMXChannelCapability cap1, VMXChannelCapability cap2) {
-	return (VMXChannelCapability)(int(cap1) & int(cap2));
-}
-
-inline VMXChannelCapability VMXChannelCapabilityOr(VMXChannelCapability cap1, VMXChannelCapability cap2) {
-	return (VMXChannelCapability)(int(cap1) | int(cap2));
-}
-
-inline bool VMXChannelCapabilityCheck(VMXChannelCapability cap_bits, VMXChannelCapability cap) {
-	 return (VMXChannelCapabilityAnd(cap_bits, cap) != 0);
-}
-
-inline VMXChannelCapability VMXChannelCapabilityClear(VMXChannelCapability cap_bits, VMXChannelCapability caps_to_clear) {
-	int caps_inverse = ~int(caps_to_clear);
-	return (VMXChannelCapability)(int(cap_bits) & caps_inverse);
-}
-
-inline bool IsVMXChannelCapabilityUnitary(VMXChannelCapability capability) {
-	int cap_count = 0;
-	uint32_t caps = uint32_t(capability);
-	for (uint8_t i = 0; i < (sizeof(caps)*CHAR_BIT); i++) {
-		if (caps & 0x00000001) {
-			cap_count++;
-		}
-		if (cap_count > 1) {
-			return false;
-		}
-		caps >>= 1;
-	}
-	return (cap_count == 1);
-}
-
-typedef uint64_t VMXChannelDescriptor;
 typedef uint8_t  VMXChannelIndex;
 
 const VMXChannelIndex INVALID_VMX_CHANNEL_INDEX = 255;
