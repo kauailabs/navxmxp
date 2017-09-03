@@ -2,8 +2,8 @@
 rm -r -f ./vmxpi-hal/usr/local/include/vmxpi_hal_cpp/*
 rm -r -f ./vmxpi-hal/usr/local/lib/vmxpi_hal_cpp/*
 rm -r -f ./vmxpi-hal/usr/local/lib/vmxpi_hal_cpp/*
-cp ./hal_cpp/include/* ./vmxpi-hal/usr/local/include/vmxpi_hal_cpp/
-cp ./hal_cpp/Debug/*.so ./vmxpi-hal/usr/local/lib/vmxpi_hal_cpp/
+cp ./hal_cpp/include/* ./vmxpi-hal/usr/local/include/vmxpi/
+cp ./hal_cpp/Debug/*.so ./vmxpi-hal/usr/local/lib/vmxpi/
 dpkg-deb --build vmxpi-hal
 ls -l *.deb > override
 dpkg-scanpackages ./ override | gzip > Packages.gz

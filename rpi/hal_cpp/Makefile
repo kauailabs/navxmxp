@@ -4,7 +4,7 @@ LIB      = $(LIB1)
 
 ALL     = $(LIB)
 
-package = vmxpi_hal_cpp
+package = vmxpi
 prefix = /usr/local
 exec_prefix = $(prefix)
 bindir = $(exec_prefix)/bin
