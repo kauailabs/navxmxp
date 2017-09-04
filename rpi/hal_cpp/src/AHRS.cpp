@@ -9,7 +9,7 @@
 #include <string>
 #include <iomanip>
 #include <thread>
-#include <AHRSProtocol.h>
+#include "AHRSProtocol.h"
 #include "AHRS.h"
 #include "IIOProvider.h"
 #include "IIOCompleteNotification.h"
