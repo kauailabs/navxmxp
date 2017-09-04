@@ -244,7 +244,6 @@ PIGPIOClient::~PIGPIOClient()
 
 	if(spi_handle != PI_BAD_HANDLE){
 	   if(spiClose(spi_handle)==0){
-		   printf("Closed SPI Aux Channel 2.\n");
 	   } else {
 			printf("Error closing SPI AUX Channel 2.\n");
 	   }
@@ -721,6 +720,22 @@ void PIGPIOClient::test_gpio_outputs()
 	}
 }
 
+bool PIGPIOClient::DIO_Set(PIGPIOChannelIndex gpio_index, bool high) {
+	PIGPIOPinType pintype;
+	unsigned bcm_pin_number;
+	if(!PIGPIOChannelIndexToPinTypeAndBcmPinNumber(gpio_index, pintype, bcm_pin_number)) return false;
+	gpioWrite(bcm_pin_number,(high) ? 1 : 0);
+	return true;
+}
+
+bool PIGPIOClient::DIO_Get(PIGPIOChannelIndex gpio_index, bool& high) {
+	PIGPIOPinType pintype;
+	unsigned bcm_pin_number;
+	if(!PIGPIOChannelIndexToPinTypeAndBcmPinNumber(gpio_index, pintype, bcm_pin_number)) return false;
+	high = (gpioRead(bcm_pin_number) != 0);
+	return true;
+}
+
 bool PIGPIOClient::ConfigureGPIOAsOutput(PIGPIOChannelIndex gpio_index)
 {
 	PIGPIOPinType pintype;
@@ -752,7 +767,7 @@ bool PIGPIOClient::ConfigurePWMFrequency(PIGPIOChannelIndex gpio_index, unsigned
 	PIGPIOPinType pintype;
 	unsigned bcm_pin_number;
 	if(!PIGPIOChannelIndexToPinTypeAndBcmPinNumber(gpio_index, pintype, bcm_pin_number)) return false;
-	return (gpioSetPWMfrequency(bcm_pin_number, frequency_hz) == 0);
+	return (gpioSetPWMfrequency(bcm_pin_number, frequency_hz) != PI_BAD_USER_GPIO);
 }
 
 
@@ -807,6 +822,29 @@ bool PIGPIOClient::UARTClose(int handle)
 	return (serClose(handle) == 0);
 }
 
+bool PIGPIOClient::UART_Write(int handle, uint8_t *p_data, uint16_t size)
+{
+	return (serWrite(handle, (char *)p_data, size) == 0);
+}
+
+bool PIGPIOClient::UART_Read(int handle, uint8_t *p_data, uint16_t max_size, uint16_t actual_num_bytes_read)
+{
+	int num_bytes_read = serRead(handle, (char *)p_data, max_size);
+	if (num_bytes_read < 0) {
+		actual_num_bytes_read = 0;
+		return false;
+	}
+	actual_num_bytes_read = num_bytes_read;
+	return true;
+}
+
+bool PIGPIOClient::UART_GetBytesAvailable(int handle, uint16_t& size)
+{
+	size = serDataAvailable(handle);
+	if (size== PI_BAD_HANDLE) return false;
+	return true;
+}
+
 bool PIGPIOClient::SPIMasterOpen(unsigned baud, unsigned mode /* 0-3 */, bool cs_active_low, bool msbfirst, int& spi_handle)
 {
 	   unsigned spi_open_flags = 0;   /* Primary spi dev, cs active low, 8-bits/word, 4-wire SPI, MSB first, Mode 0 */
@@ -837,6 +875,24 @@ bool PIGPIOClient::SPIMasterOpen(unsigned baud, unsigned mode /* 0-3 */, bool cs
 bool PIGPIOClient::SPIMasterClose(int handle)
 {
 	return (spiClose(handle) == 0);
+}
+
+bool PIGPIOClient::SPI_Write(int handle, uint8_t *p_send_data, uint16_t size)
+{
+	if (spiWrite(handle, (char *)p_send_data, size) != size) return false;
+	return true;
+}
+
+bool PIGPIOClient::SPI_Read(int handle, uint8_t *p_rcv_data, uint16_t size)
+{
+	if (spiRead(handle, (char *)p_rcv_data, size) != size) return false;
+	return true;
+}
+
+bool PIGPIOClient::SPI_Transaction(int handle, uint8_t *p_send_data, uint8_t *p_rcv_data, uint16_t size)
+{
+	if (spiXfer(handle, (char *)p_send_data, (char *)p_rcv_data, size) != size) return false;
+	return true;
 }
 
 bool PIGPIOClient::I2CMasterOpenInternal(uint8_t i2c_slave_address, bool bitbang, unsigned bitbang_baudrate /* 50-500000 */, int& i2c_handle)

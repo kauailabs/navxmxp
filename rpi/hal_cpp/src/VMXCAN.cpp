@@ -53,7 +53,6 @@ void VMXCAN::ReleaseResources()
 		task_done = true;
 		if (task) {
 			try {
-				printf("VMXCAN thread joinable?:  %s\n", (task->joinable() ? "Yes" : "No"));
 				if(task->joinable()) {
 					task->join();
 				}

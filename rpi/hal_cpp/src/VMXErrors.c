@@ -68,6 +68,14 @@ const char *GetVMXErrorString(VMXErrorCode errcode)
 		return "No available CAN Mask/Filter slots";
 	case VMXERR_CAN_INVALID_RECEIVE_STREAM_HANDLE:
 		return "Invalid CAN Receive stream handle";
+	case VMXERR_IO_UART_WRITE_ERROR:
+		return "UART Write Error";
+	case VMXERR_IO_UART_READ_ERROR:
+		return "UART Read Error";
+	case VMXERR_IO_SPI_XFER_ERROR:
+		return "SPI Transfer Error";
+	case VMXERR_IO_I2C_XFER_ERROR:
+		return "I2C Transfer Error";
 	default:
 		return "Unknown Error";
 	}

@@ -82,9 +82,15 @@ public:
 	bool ConfigurePWMFrequency(PIGPIOChannelIndex channel_index, unsigned frequency_hz);
 	bool UARTOpen(unsigned baud, int& handle);
 	bool UARTClose(int handle);
+	bool UART_Write(int handle, uint8_t *p_data, uint16_t size);
+	bool UART_Read(int handle, uint8_t *p_data, uint16_t max_size, uint16_t actual_num_bytes_read);
+	bool UART_GetBytesAvailable(int handle, uint16_t& size);
 
 	bool SPIMasterOpen(unsigned baud, unsigned mode /* 0-3 */, bool cs_active_low, bool msbfirst, int& spi_handle);
 	bool SPIMasterClose(int handle);
+	bool SPI_Write(int handle, uint8_t *p_send_data, uint16_t size);
+	bool SPI_Read(int handle, uint8_t *p_rcv_data, uint16_t size);
+	bool SPI_Transaction(int handle, uint8_t *p_send_data, uint8_t *p_rcv_data, uint16_t size);
 
 	bool I2CMasterOpen(bool bitbang, unsigned baudrate /* 50-500000 */, int& i2c_handle);
 	bool I2CMasterClose(int i2c_handle);
@@ -118,6 +124,9 @@ public:
 	void test_ext_i2c();
 
 	~PIGPIOClient();
+
+	bool DIO_Set(PIGPIOChannelIndex gpio_index, bool high);
+	bool DIO_Get(PIGPIOChannelIndex gpio_index, bool& high);
 
 	bool EnableGPIOInterrupt(unsigned vmx_pi_gpio_num, PIGPIOIntEdge edge_type);
 	bool DisableGPIOInterrupt(unsigned vmx_pi_gpio_num);

@@ -271,7 +271,6 @@ void AHRS::Stop()
 	if (io->IsRunning()) {
 		io->Stop();
 		try {
-			printf("AHRS thread joinable?:  %s\n", (task->joinable() ? "Yes" : "No"));
 			if(task->joinable()) {
 				task->join();
 			}

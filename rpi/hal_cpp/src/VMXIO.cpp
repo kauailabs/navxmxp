@@ -452,11 +452,6 @@ bool VMXIO::RouteChannelToResource(VMXChannelIndex channel_index, VMXResourceHan
 								GPIO_TYPE_INPUT,
 								GPIO_INPUT_FLOAT,
 								curr_interrupt);
-						if (physical_resource_routed) {
-							printf("Set VMX_PI Gpio %d to type Input, interrupt %d.\n",
-									p_vmx_res->GetProviderResourceIndex(),
-									curr_interrupt);
-						}
 						break;
 					case VMXResourceType::Encoder:
 					case VMXResourceType::PWMCapture:
@@ -1350,9 +1345,16 @@ bool VMXIO::DIO_Get(VMXResourceHandle dio_res_handle, bool& high, VMXErrorCode *
 		return false;
 	}
 
-	if (!iocx.get_gpio(p_vmx_res->GetProviderResourceIndex(), high)) {
-		SET_VMXERROR(errcode, VMXERR_IO_BOARD_COMM_ERROR);
-		return false;
+	if (p_vmx_res->GetResourceProviderType() == VMXResourceProviderType::VMX_PI) {
+		if (!iocx.get_gpio(p_vmx_res->GetProviderResourceIndex(), high)) {
+			SET_VMXERROR(errcode, VMXERR_IO_BOARD_COMM_ERROR);
+			return false;
+		}
+	} else {
+		if (!pigpio.DIO_Get(p_vmx_res->GetProviderResourceIndex(), high)) {
+			SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_INDEX);
+			return false;
+		}
 	}
 	return true;
 }
@@ -1365,9 +1367,16 @@ bool VMXIO::DIO_Set(VMXResourceHandle dio_res_handle, bool high, VMXErrorCode *e
 		return false;
 	}
 
-	if (!iocx.set_gpio(p_vmx_res->GetProviderResourceIndex(), high)) {
-		SET_VMXERROR(errcode, VMXERR_IO_BOARD_COMM_ERROR);
-		return false;
+	if (p_vmx_res->GetResourceProviderType() == VMXResourceProviderType::VMX_PI) {
+		if (!iocx.set_gpio(p_vmx_res->GetProviderResourceIndex(), high)) {
+			SET_VMXERROR(errcode, VMXERR_IO_BOARD_COMM_ERROR);
+			return false;
+		}
+	} else {
+		if (!pigpio.DIO_Set(p_vmx_res->GetProviderResourceIndex(), high)) {
+			SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_INDEX);
+			return false;
+		}
 	}
 	return true;
 }
@@ -1454,3 +1463,138 @@ bool VMXIO::AnalogTrigger_GetState(VMXResourceHandle antrig_res_handle, AnalogTr
 	return true;
 }
 
+bool VMXIO::UART_Write(VMXResourceHandle reshandle, uint8_t *p_data, uint16_t size, VMXErrorCode *errcode)
+{
+	VMXResource *p_vmx_res = res_mgr.GetVMXResourceAndVerifyType(reshandle, VMXResourceType::UART);
+	if (!p_vmx_res) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+
+	if (!pigpio.UART_Write(p_vmx_res->GetProviderResourceHandle(), p_data, size)) {
+		SET_VMXERROR(errcode, VMXERR_IO_UART_WRITE_ERROR);
+		return false;
+	}
+	return true;
+}
+
+bool VMXIO::UART_Read(VMXResourceHandle reshandle, uint8_t *p_data, uint16_t max_size, uint16_t& actual_num_bytes_read, VMXErrorCode *errcode)
+{
+	VMXResource *p_vmx_res = res_mgr.GetVMXResourceAndVerifyType(reshandle, VMXResourceType::UART);
+	if (!p_vmx_res) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+
+	if (!pigpio.UART_Read(p_vmx_res->GetProviderResourceHandle(), p_data, max_size, actual_num_bytes_read)) {
+		SET_VMXERROR(errcode, VMXERR_IO_UART_WRITE_ERROR);
+		return false;
+	}
+	return true;
+}
+
+bool VMXIO::UART_GetBytesAvailable(VMXResourceHandle reshandle, uint16_t& size, VMXErrorCode *errcode)
+{
+	VMXResource *p_vmx_res = res_mgr.GetVMXResourceAndVerifyType(reshandle, VMXResourceType::UART);
+	if (!p_vmx_res) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+
+	if (!pigpio.UART_GetBytesAvailable(p_vmx_res->GetProviderResourceHandle(), size)) {
+		SET_VMXERROR(errcode, VMXERR_IO_INTERNAL_LOGIC_ERROR);
+		return false;
+	}
+	return true;
+}
+
+bool VMXIO::SPI_Write(VMXResourceHandle spi_res_handle, uint8_t *p_send_data, uint16_t size, VMXErrorCode *errcode)
+{
+	VMXResource *p_vmx_res = res_mgr.GetVMXResourceAndVerifyType(spi_res_handle, VMXResourceType::SPI);
+	if (!p_vmx_res) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+	if (!pigpio.SPI_Write(p_vmx_res->GetProviderResourceHandle(), p_send_data, size)) {
+		SET_VMXERROR(errcode, VMXERR_IO_SPI_XFER_ERROR);
+		return false;
+	}
+	return true;
+}
+
+bool VMXIO::SPI_Read(VMXResourceHandle spi_res_handle, uint8_t *p_rcv_data, uint16_t size, VMXErrorCode *errcode)
+{
+	VMXResource *p_vmx_res = res_mgr.GetVMXResourceAndVerifyType(spi_res_handle, VMXResourceType::SPI);
+	if (!p_vmx_res) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+
+	if (!pigpio.SPI_Read(p_vmx_res->GetProviderResourceHandle(), p_rcv_data, size)) {
+		SET_VMXERROR(errcode, VMXERR_IO_SPI_XFER_ERROR);
+		return false;
+	}
+	return true;
+}
+
+bool VMXIO::SPI_Transaction(VMXResourceHandle spi_res_handle, uint8_t *p_send_data, uint8_t *p_rcv_data, uint16_t size, VMXErrorCode *errcode)
+{
+	VMXResource *p_vmx_res = res_mgr.GetVMXResourceAndVerifyType(spi_res_handle, VMXResourceType::SPI);
+	if (!p_vmx_res) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+
+	if (!pigpio.SPI_Transaction(p_vmx_res->GetProviderResourceHandle(), p_send_data, p_rcv_data, size)) {
+		SET_VMXERROR(errcode, VMXERR_IO_SPI_XFER_ERROR);
+		return false;
+	}
+	return true;
+}
+
+bool VMXIO::I2C_Write(VMXResourceHandle i2c_res_handle, uint8_t deviceAddress, uint8_t* dataToSend, int32_t sendSize, VMXErrorCode *errcode)
+{
+	VMXResource *p_vmx_res = res_mgr.GetVMXResourceAndVerifyType(i2c_res_handle, VMXResourceType::I2C);
+	if (!p_vmx_res) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+	if (!pigpio.I2CMasterWrite(p_vmx_res->GetProviderResourceHandle(), deviceAddress, dataToSend, uint16_t(sendSize))) {
+		SET_VMXERROR(errcode, VMXERR_IO_I2C_XFER_ERROR);
+		return false;
+	}
+	return true;
+}
+
+bool VMXIO::I2C_Read(VMXResourceHandle i2c_res_handle, uint8_t deviceAddress, uint8_t* buffer, int32_t count, VMXErrorCode *errcode)
+{
+	VMXResource *p_vmx_res = res_mgr.GetVMXResourceAndVerifyType(i2c_res_handle, VMXResourceType::I2C);
+	if (!p_vmx_res) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+	if (!pigpio.I2CMasterRead(p_vmx_res->GetProviderResourceHandle(), deviceAddress, buffer, count)) {
+		SET_VMXERROR(errcode, VMXERR_IO_I2C_XFER_ERROR);
+		return false;
+	}
+	return true;
+
+}
+
+bool VMXIO::I2C_Transaction(VMXResourceHandle i2c_res_handle, uint8_t deviceAddress,
+                    uint8_t* dataToSend, uint16_t sendSize,
+                    uint8_t* dataReceived, uint16_t receiveSize, VMXErrorCode *errcode)
+{
+	VMXResource *p_vmx_res = res_mgr.GetVMXResourceAndVerifyType(i2c_res_handle, VMXResourceType::I2C);
+	if (!p_vmx_res) {
+		SET_VMXERROR(errcode, VMXERR_IO_INVALID_RESOURCE_HANDLE);
+		return false;
+	}
+	if (!pigpio.I2CMasterTransaction(p_vmx_res->GetProviderResourceHandle(), deviceAddress,
+			dataToSend, uint16_t(sendSize), dataReceived, receiveSize)) {
+		SET_VMXERROR(errcode, VMXERR_IO_I2C_XFER_ERROR);
+		return false;
+	}
+	return true;
+
+}
