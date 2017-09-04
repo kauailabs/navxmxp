@@ -22,6 +22,8 @@ THE SOFTWARE.
 #ifndef VMXHANDLERS_H_
 #define VMXHANDLERS_H_
 
+#include <stdint.h>
+
 typedef enum {
 	FALLING_EDGE_INTERRUPT = 0,
 	RISING_EDGE_INTERRUPT = 1,
