@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 			/* Configure all FlexDIOs as INPUTS. */
 			for ( int dio_channel_index = first_flexio_channel_index; dio_channel_index < first_flexio_channel_index + num_flexio_channels; dio_channel_index++) {
 				DIOConfig dio_config(DIOConfig::InputMode::PULLUP);
-				if (!vmx.io.ActivateSinglechannelResource(dio_channel_index, VMXChannelCapability::DigitalOutput,
+				if (!vmx.io.ActivateSinglechannelResource(dio_channel_index, VMXChannelCapability::DigitalInput,
 						digitalio_res_handles[digital_input_res_handle_index], &dio_config, &vmxerr)) {
 					printf("Error Activating Singlechannel Resource DIO for Channel index %d.\n", dio_channel_index);
 					DisplayVMXError(vmxerr);
@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
 			/* Configure all HighCurrDIOs as INPUTS. */
 			for ( int dio_channel_index = first_hicurrdio_channel_index; dio_channel_index < first_hicurrdio_channel_index + num_hicurrdio_input_channels; dio_channel_index++) {
 				DIOConfig dio_config(DIOConfig::InputMode::PULLUP);
-				if (!vmx.io.ActivateSinglechannelResource(dio_channel_index, VMXChannelCapability::DigitalOutput,
+				if (!vmx.io.ActivateSinglechannelResource(dio_channel_index, VMXChannelCapability::DigitalInput,
 						digitalio_res_handles[digital_input_res_handle_index], &dio_config, &vmxerr)) {
 					printf("Error Activating Singlechannel Resource DIO for Channel index %d.\n", dio_channel_index);
 					DisplayVMXError(vmxerr);
@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
 			/* Configure all CommDIOs as INPUTS. */
 			for ( int dio_channel_index = first_comm_dio_channel_index; dio_channel_index < first_comm_dio_channel_index + num_comm_dio_channels; dio_channel_index++) {
 				DIOConfig dio_config(DIOConfig::InputMode::PULLUP);
-				if (!vmx.io.ActivateSinglechannelResource(dio_channel_index, VMXChannelCapability::DigitalOutput,
+				if (!vmx.io.ActivateSinglechannelResource(dio_channel_index, VMXChannelCapability::DigitalInput,
 						digitalio_res_handles[digital_input_res_handle_index], &dio_config, &vmxerr)) {
 					printf("Error Activating Singlechannel Resource DIO for Channel index %d.\n", dio_channel_index);
 					DisplayVMXError(vmxerr);
