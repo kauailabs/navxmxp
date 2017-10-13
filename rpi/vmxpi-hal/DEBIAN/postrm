@@ -1,3 +1,0 @@
-#/bin/bash
-ldconfig
-echo "Ran vmxpi-hal post remove script"
