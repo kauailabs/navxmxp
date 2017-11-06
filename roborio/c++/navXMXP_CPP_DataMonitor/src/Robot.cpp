@@ -1,6 +1,8 @@
 #include "WPILib.h"
 #include "AHRS.h"
+#include "networktables/NetworkTableInstance.h"
 
+using namespace nt;
 
 /**
  * This is a demo program providing a real-time display of navX
@@ -44,7 +46,7 @@ public:
 private:
     void RobotInit()
     {
-        table = NetworkTable::GetTable("datatable");
+    	NetworkTableInstance::GetDefault().GetTable("datatable");
         lw = LiveWindow::GetInstance();
         try {
 			/***********************************************************************
@@ -58,7 +60,7 @@ private:
 			 *
 			 * Multiple navX-model devices on a single robot are supported.
 			 ************************************************************************/
-            ahrs = new AHRS(SPI::Port::kMXP);
+            ahrs = new AHRS(SerialPort::Port::kUSB);
         } catch (std::exception& ex ) {
             std::string err_string = "Error instantiating navX MXP:  ";
             err_string += ex.what();

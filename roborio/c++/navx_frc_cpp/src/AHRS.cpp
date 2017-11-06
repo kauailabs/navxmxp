@@ -984,7 +984,6 @@ void AHRS::commonInit( uint8_t update_rate_hz ) {
     last_sensor_timestamp = 0;
     last_update_time = 0;
 
-    table = 0;
     io = 0;
 
     for ( int i = 0; i < MAX_NUM_CALLBACKS; i++) {
@@ -1273,9 +1272,7 @@ std::string AHRS::GetFirmwareVersion() {
     /***********************************************************/
 
 void AHRS::UpdateTable() {
-    if (table != 0) {
-        table->PutNumber("Value", GetYaw());
-    }
+    if (m_valueEntry) m_valueEntry.SetDouble(GetYaw());
 }
 
 void AHRS::StartLiveWindowMode() {
@@ -1284,15 +1281,13 @@ void AHRS::StartLiveWindowMode() {
 void AHRS::StopLiveWindowMode() {
 }
 
-/* Are the two following functions still needed? */
-
-void AHRS::InitTable(std::shared_ptr<ITable> itable) {
-    table = itable;
-    UpdateTable();
-}
-
-std::shared_ptr<ITable> AHRS::GetTable() const {
-    return table;
+void AHRS::InitTable(std::shared_ptr<NetworkTable> subTable) {
+	if (subTable) {
+		m_valueEntry = subTable->GetEntry("Value");
+		UpdateTable();
+	} else {
+		m_valueEntry = nt::NetworkTableEntry();
+	}
 }
 
 std::string AHRS::GetSmartDashboardType() const {

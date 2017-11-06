@@ -1,10 +1,15 @@
 package org.usfirst.frc.team2465.robot;
 
 import com.kauailabs.navx.frc.AHRS;
+import com.kauailabs.navx.frc.AHRS.SerialDataType;
 
+import edu.wpi.cscore.UsbCamera;
+import edu.wpi.first.wpilibj.CameraServer;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.SPI;
+import edu.wpi.first.wpilibj.I2C;
+import edu.wpi.first.wpilibj.SerialPort;
 import edu.wpi.first.wpilibj.SampleRobot;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -35,7 +40,7 @@ public class Robot extends SampleRobot {
     Joystick stick;
  
     public Robot() {
-        stick = new Joystick(0);
+        //stick = new Joystick(0);
         try {
 			/***********************************************************************
 			 * navX-MXP:
@@ -48,10 +53,15 @@ public class Robot extends SampleRobot {
 			 * 
 			 * Multiple navX-model devices on a single robot are supported.
 			 ************************************************************************/
-            ahrs = new AHRS(SPI.Port.kMXP);
+            ahrs = new AHRS(SerialPort.Port.kUSB1);
+            //ahrs = new AHRS(SerialPort.Port.kMXP, SerialDataType.kProcessedData, (byte)50);
+            ahrs.enableLogging(true);
         } catch (RuntimeException ex ) {
             DriverStation.reportError("Error instantiating navX MXP:  " + ex.getMessage(), true);
         }
+        Timer.delay(1.0);
+    	//UsbCamera cam = CameraServer.getInstance().startAutomaticCapture();
+    	//cam.setResolution(640, 480);        
     }
 
     /**
@@ -69,7 +79,7 @@ public class Robot extends SampleRobot {
             
             Timer.delay(0.020);		/* wait for one motor update time period (50Hz)     */
             
-            boolean zero_yaw_pressed = stick.getTrigger();
+            boolean zero_yaw_pressed = false; //stick.getTrigger();
             if ( zero_yaw_pressed ) {
                 ahrs.zeroYaw();
             }

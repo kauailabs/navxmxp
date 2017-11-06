@@ -25,19 +25,28 @@ class Robot: public SampleRobot
 
     const static int joystickChannel	= 0;
 
-    RobotDrive robotDrive;	// Robot drive system
+    Spark frontLeft;
+    Spark rearLeft;
+    Spark frontRight;
+    Spark rearRight;
+
+    MecanumDrive robotDrive;	// Robot drive system
     Joystick stick;			// Driver Joystick
     AHRS *ahrs;             // navX MXP
 
 public:
     Robot() :
-            robotDrive(frontLeftChannel, rearLeftChannel,
-                       frontRightChannel, rearRightChannel),	// initialize variables in
+        frontLeft(frontLeftChannel),
+		rearLeft(rearLeftChannel),
+		frontRight(frontRightChannel),
+		rearRight(rearRightChannel),
+		robotDrive(frontLeft,  rearLeft,
+                   frontRight, rearRight),	// these must be initialized in the
             stick(joystickChannel)								// same order declared above
     {
         robotDrive.SetExpiration(0.1);
-        robotDrive.SetInvertedMotor(RobotDrive::kFrontLeftMotor, true);	// invert left side motors
-        robotDrive.SetInvertedMotor(RobotDrive::kRearLeftMotor, true);	// change to match your robot
+        frontLeft.SetInverted(true);	// invert left side motors
+        rearLeft.SetInverted(true);		// change to match your robot
         try {
 			/***********************************************************************
 			 * navX-MXP:
@@ -77,8 +86,8 @@ public:
                 /* Use the joystick X axis for lateral movement,            */
                 /* Y axis for forward movement, and Z axis for rotation.    */
                 /* Use navX MXP yaw angle to define Field-centric transform */
-                robotDrive.MecanumDrive_Cartesian(stick.GetX(), stick.GetY(),
-                                                  stick.GetZ(),ahrs->GetAngle());
+                robotDrive.DriveCartesian(stick.GetX(), stick.GetY(),
+                                  stick.GetZ(),ahrs->GetAngle());
             } catch (std::exception& ex ) {
                 std::string err_string = "Error communicating with Drive System:  ";
                 err_string += ex.what();

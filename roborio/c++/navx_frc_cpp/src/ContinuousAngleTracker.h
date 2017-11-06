@@ -18,7 +18,7 @@ private:
     float curr_yaw_angle;
     float last_yaw_angle;
     double angleAdjust;
-    priority_mutex tracker_mutex;
+    std::mutex tracker_mutex;
 
     void Init();
 

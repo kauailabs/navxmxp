@@ -15,6 +15,8 @@ import com.kauailabs.navx.AHRSProtocol.AHRSPosUpdate;
 import com.kauailabs.navx.AHRSProtocol.BoardID;
 import com.kauailabs.navx.IMUProtocol.YPRUpdate;
 
+import edu.wpi.first.networktables.NetworkTable;
+import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.wpilibj.I2C;
 import edu.wpi.first.wpilibj.PIDSource;
 import edu.wpi.first.wpilibj.PIDSourceType;
@@ -22,7 +24,6 @@ import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.SensorBase;
 import edu.wpi.first.wpilibj.SerialPort;
 import edu.wpi.first.wpilibj.livewindow.LiveWindowSendable;
-import edu.wpi.first.wpilibj.tables.ITable;
 import edu.wpi.first.wpilibj.Timer;
 
 /**
@@ -174,8 +175,6 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     
     long                last_sensor_timestamp;
     double              last_update_time;
-
-    ITable              m_table;
     
     InertialDataIntegrator  integrator;
     ContinuousAngleTracker  yaw_angle_tracker;
@@ -1509,25 +1508,29 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     /* LiveWindowSendable Interface Implementation             */
     /***********************************************************/
     
+    private NetworkTableEntry m_valueEntry;    
+    
+    @Override
+    public void initTable(NetworkTable subtable) {
+      if (subtable != null) {
+        m_valueEntry = subtable.getEntry("Value");
+        updateTable();
+      } else {
+        m_valueEntry = null;
+      }
+    }
+
+    @Override
     public void updateTable() {
-        if (m_table != null) {
-            m_table.putNumber("Value", getYaw());
-        }
+      if (m_valueEntry != null) {
+        m_valueEntry.setDouble(getAngle());
+      }
     }
 
     public void startLiveWindowMode() {
     }
 
     public void stopLiveWindowMode() {
-    }
-
-    public void initTable(ITable itable) {
-        m_table = itable;
-        updateTable();
-    }
-
-    public ITable getTable() {
-        return m_table;
     }
 
     public String getSmartDashboardType() {
