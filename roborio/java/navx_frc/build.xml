@@ -12,7 +12,7 @@
         <pathelement location="bin"/>
     	<pathelement location="../../../java/navx/jar/navx.jar"/>
         <pathelement location="${user.home}/wpilib/java/current/lib/WPILib.jar"/>
-        <pathelement location="${user.home}/wpilib/java/current/lib/NetworkTables.jar"/>
+        <pathelement location="${user.home}/wpilib/java/current/lib/ntcore.jar"/>
     </path>
     <target name="init">
         <mkdir dir="bin"/>
