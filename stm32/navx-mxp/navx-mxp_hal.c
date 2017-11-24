@@ -725,11 +725,12 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 
 	/* Before configuring, deinit; this clears the GPIO to default state */
 	HAL_GPIO_DeInit(gpio_channels[gpio_index].p_gpio, gpio_channels[gpio_index].pin);
+	IOCX_gpio_pin_mode_configuration[POSITION_VAL(gpio_channels[gpio_index].pin)] = 0;
 	if (gpio_channels[gpio_index].interrupt_type == INT_ALTPIN ) {
 		/* Deinit the altpin gpio */
 		HAL_GPIO_DeInit(p_altint_port, altint_pin);
+		IOCX_gpio_pin_mode_configuration[POSITION_VAL(altint_pin)] = 0;
 	}
-	IOCX_gpio_pin_mode_configuration[POSITION_VAL(gpio_channels[gpio_index].pin)] = 0;
 
 	IOCX_GPIO_TYPE type = iocx_decode_gpio_type(&config);
 	IOCX_GPIO_INPUT input = iocx_decode_gpio_input(&config);
@@ -760,7 +761,8 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 			GPIO_InitStruct.Pull = GPIO_PULLDOWN;
 			break;
 		}
-		if(gpio_channels[gpio_index].interrupt_type == INT_EXTI) {
+		if((gpio_channels[gpio_index].interrupt_type == INT_EXTI) ||
+		   (gpio_channels[gpio_index].interrupt_type == INT_ALTPIN)) {
 			switch(interrupt_mode) {
 			case GPIO_INTERRUPT_RISING_EDGE:
 				GPIO_InitStruct.Mode |= GPIO_MODE_IT_RISING;
@@ -780,7 +782,6 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 			GPIO_InitStructAltpin.Pin = altint_pin;
 			GPIO_InitStructAltpin.Mode = GPIO_InitStruct.Mode;
 			GPIO_InitStructAltpin.Pull = GPIO_InitStruct.Pull;
-			HAL_GPIO_Init(p_altint_port, &GPIO_InitStructAltpin);
 			altpin_int_enabled = 1;
 		}
 		break;
@@ -808,13 +809,12 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 		// TODO:  If a software alternate function, disable that function
 		return;
 	}
-	HAL_GPIO_Init(gpio_channels[gpio_index].p_gpio, &GPIO_InitStruct);
-	if (gpio_channels[gpio_index].interrupt_type == INT_ALTPIN) {
-		if (altpin_int_enabled) {
-			IOCX_gpio_pin_mode_configuration[POSITION_VAL(altint_pin)] = GPIO_InitStructAltpin.Mode;
-		}
-	} else {
+	if (!altpin_int_enabled) {
+		HAL_GPIO_Init(gpio_channels[gpio_index].p_gpio, &GPIO_InitStruct);
 		IOCX_gpio_pin_mode_configuration[POSITION_VAL(gpio_channels[gpio_index].pin)] = GPIO_InitStruct.Mode;
+	} else {
+		HAL_GPIO_Init(p_altint_port, &GPIO_InitStructAltpin);
+		IOCX_gpio_pin_mode_configuration[POSITION_VAL(altint_pin)] = GPIO_InitStructAltpin.Mode;
 	}
 }
 
