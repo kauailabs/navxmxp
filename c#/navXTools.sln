@@ -5,7 +5,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "navXMagCalibrator", "navXMa
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "navXConfig", "navXConfig\navXConfig.csproj", "{3EABD58B-7894-4061-B523-00F2F04D13D2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "navXFirmwareUpdater", "navXFirmwareUpdater\navXFirmwareUpdater.csproj", "{65993E71-7D19-421E-9CF1-7DA415AFA1E0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VMXFirmwareUpdater", "navXFirmwareUpdater\VMXFirmwareUpdater.csproj", "{65993E71-7D19-421E-9CF1-7DA415AFA1E0}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetDFULib", "NetDFULib\NetDFULib.csproj", "{11F242A9-FEB4-4C2A-9E6C-A02E947F498D}"
 EndProject

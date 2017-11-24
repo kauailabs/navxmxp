@@ -173,6 +173,9 @@ void SysTick_Handler(void)
 #if 0
   HAL_SYSTICK_IRQHandler(); /* Todo:  not used, remove */
 #endif
+#ifdef ENABLE_IOCX
+  HAL_IOCX_SysTick_Handler();
+#endif
   /* USER CODE BEGIN SysTick_IRQn 1 */
 
   /* USER CODE END SysTick_IRQn 1 */

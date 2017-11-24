@@ -22,8 +22,9 @@ typedef struct {
 } MISC_CAPABILITY_FLAGS;
 
 typedef struct {
-	uint8_t ext_pwr_overcurrent: 1; /* Received data available in Rx FIFO    */
-	uint8_t					   : 7;
+	uint8_t ext_pwr_overcurrent : 1; /* Output Overcurrent currently detected */
+	uint8_t ext_pwr_undervoltage: 1; /* Input Undervoltage currently detected */
+	uint8_t					    : 6;
 } MISC_EXT_PWR_CTL_STATUS;
 
 typedef struct {
@@ -74,6 +75,8 @@ typedef enum {
 
 #define MISC_MAX_NUM_OVERSAMPLE_BITS 6
 #define MISC_MAX_NUM_AVERAGE_BITS MISC_MAX_NUM_OVERSAMPLE_BITS
+
+#define EXTPOWER_INPUT_VDIV_RATIO (3.24f / (11.5f + 3.24f))
 
 struct __attribute__ ((__packed__)) MISC_REGS {
 	/****************************/

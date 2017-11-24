@@ -413,6 +413,10 @@ namespace navXConfig
                                 else if (hwrev == 40) {
                                     boardtype_string = "navX-Micro";
                                 }
+                                else if (hwrev == 60)
+                                {
+                                    boardtype_string = "VMX-pi";
+                                }
                                 string msg = "Board type:  " + boardtype_string + " (" + boardtype + ")\n" +
                                                  "H/W Rev:  " + hwrev + "\n" +
                                                  "F/W Rev:  " + fw_major + "." + fw_minor + "." + fw_revision + "\n" +

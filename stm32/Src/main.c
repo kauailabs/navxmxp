@@ -189,7 +189,7 @@ int main(void)
 #ifdef ENABLE_IOCX
 #define IOCX_BANK_NUMBER 1
     HAL_IOCX_Init();
-    iocx_init();
+    IOCX_init();
     nav10_set_loop(IOCX_BANK_NUMBER, IOCX_loop);
     nav10_set_register_lookup_func(IOCX_BANK_NUMBER, IOCX_get_reg_addr_and_max_size);
     nav10_set_register_write_func(IOCX_BANK_NUMBER, IOCX_banked_writable_reg_update_func);
@@ -328,7 +328,7 @@ void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT; /* NOTE:  Software SPI Chip select used (HW CS doesn't work w/MCP256525) */
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4; /* APB1(24Mhz)/4 = 6Mhz.  MCP25625:  Max 10Mhz */
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2; /* APB1(24Mhz)/4 = 6Mhz.  MCP25625:  Max 10Mhz */
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLED;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLED;
@@ -488,8 +488,18 @@ void MX_RTC_Init(void)
 	if (!calendar_initialized) {
 
 		hrtc.Init.HourFormat = RTC_HOURFORMAT_24;
-		hrtc.Init.AsynchPrediv = 127;
-		hrtc.Init.SynchPrediv = 255;
+
+		/* The LSE is a 32.768 Khz clock, and the Real Time Clock's   */
+		/* desired subsecond resolution is sub 1ms.  Therefore, at    */
+		/* the cost of some extra current consumption, the predivisor */
+		/* is configured to yield 2 ticks per millisecond, using this */
+		/* formula, documented in the STM32 datasheet:                */
+		/* RTCCLK / ((AsynchPrediv + 1) * (SynchPrediv + 1))          */
+		/* RTCCLK=32768, AsynchPrediv=14, SynchPrediv=0               */
+		/* Result:  32768/16 = 2048 ticks/sec (488us/tick).           */
+
+		hrtc.Init.AsynchPrediv = 14;
+		hrtc.Init.SynchPrediv = 0;
 		hrtc.Init.OutPut = RTC_OUTPUT_DISABLE;
 		hrtc.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
 		hrtc.Init.OutPutType = RTC_OUTPUT_TYPE_OPENDRAIN;

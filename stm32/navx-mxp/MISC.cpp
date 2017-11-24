@@ -42,14 +42,20 @@ _EXTERN_ATTRIB void MISC_init()
 }
 
 #define NUM_MS_BETWEEN_SUCCESSIVE_LOOPS 2
-#define NUM_MS_BETWEEN_SUCCESSIVE_OVERCURRENT_CHECKS 500
+#define NUM_MS_BETWEEN_SUCCESSIVE_OVERCURRENT_CHECKS  100
+#define NUM_MS_BETWEEN_SUCCESSIVE_UNDERVOLTAGE_CHECKS 20
 #define NUM_ANALOG_INPUT_OVERSAMPLE_BITS 3
 #define NUM_ANALOG_INPUT_AVERAGE_BITS NUM_ANALOG_INPUT_OVERSAMPLE_BITS
 
 bool ext_power_overcurrent = false;
+bool ext_power_undervoltage = false;
 static uint32_t last_overcurrent_check_timestamp;
+static uint32_t last_undervoltage_check_timestamp;
 static uint32_t analog_oversamples[MISC_NUM_ANALOG_INPUTS];
 static uint32_t analog_averages[MISC_NUM_ANALOG_INPUTS];
+
+const float undervoltage_min = 5.75f;
+const float undervoltage_max = 5.85;
 
 /* Analog Triggers (see IOCX_Registers.h for more) */
 
@@ -104,18 +110,51 @@ _EXTERN_ATTRIB void MISC_loop()
 		    	}
 		    }
 		}
+
+		/* External Power Output Current monitoring */
 		if ((last_overcurrent_check_timestamp - last_loop_timestamp) >= NUM_MS_BETWEEN_SUCCESSIVE_OVERCURRENT_CHECKS){
 			last_overcurrent_check_timestamp = curr_loop_timestamp;
 			if(ext_power_overcurrent) {
-				/* Upon last check, over-current was detected. */
-				/* Re-enable the ext power switch */
-				//ext_power_overcurrent = false;
-				//HAL_IOCX_Ext_Power_Enable(1);
+				/* If Over-current no longer present, re-enable ext power switch */
+				if(!HAL_IOCX_Ext_Power_Fault()) {
+					ext_power_overcurrent = false;
+					HAL_IOCX_Ext_Power_Enable(1);
+					misc_regs.ext_pwr_ctl_status.ext_pwr_overcurrent = 0;
+				}
 			} else {
-				/* Check if over-current is present, and if so disable the ext power switch. */
+				/* If Over-current is present, disable ext power switch. */
 				if(HAL_IOCX_Ext_Power_Fault()) {
-					//ext_power_overcurrent = true;
-					//HAL_IOCX_Ext_Power_Enable(0);
+					/* NOTE:  Only disable power if current limit mode enabled */
+					if (misc_regs.ext_pwr_ctl_cfg.ext_pwr_currentlimit_mode) {
+						ext_power_overcurrent = true;
+						HAL_IOCX_Ext_Power_Enable(0);
+						misc_regs.ext_pwr_ctl_status.ext_pwr_overcurrent = 1;
+					}
+				}
+			}
+		}
+
+		/* External Power Input Voltage monitoring */
+		if ((last_undervoltage_check_timestamp - last_loop_timestamp) >= NUM_MS_BETWEEN_SUCCESSIVE_UNDERVOLTAGE_CHECKS){
+			last_undervoltage_check_timestamp = curr_loop_timestamp;
+			float ext_power_volts = (((float)HAL_IOCX_Get_ExtPower_Voltage()) / 4096) * 3.3f;
+			ext_power_volts *= (1.0f/EXTPOWER_INPUT_VDIV_RATIO);
+
+			if(ext_power_undervoltage) {
+				if (ext_power_volts >= undervoltage_max) {
+					/* If voltage has risen above the upper threshold, */
+					/* re-enable the ext power switch */
+					ext_power_undervoltage = false;
+					HAL_IOCX_Ext_Power_Enable(1);
+					misc_regs.ext_pwr_ctl_status.ext_pwr_undervoltage = 0;
+				}
+			} else {
+				if (ext_power_volts <= undervoltage_min) {
+					/* If voltage falls below lower threshold, */
+					/* disable the ext power switch. */
+					ext_power_undervoltage = true;
+					HAL_IOCX_Ext_Power_Enable(0);
+					misc_regs.ext_pwr_ctl_status.ext_pwr_undervoltage = 1;
 				}
 			}
 		}
@@ -175,7 +214,6 @@ static void ext_pwr_ctl_cfg_modified(uint8_t first_offset, uint8_t count) {
 }
 
 static void rtc_cfg_modified(uint8_t first_offset, uint8_t count) {
-	uint8_t daylight_savings;
 	HAL_RTC_Set_DaylightSavings(misc_regs.rtc_cfg.daylight_savings);
 }
 

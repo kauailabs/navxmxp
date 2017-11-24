@@ -138,8 +138,12 @@ int HAL_SPI_Slave_Enabled()
 #ifdef DISABLE_EXTERNAL_SPI_INTERFACE
     return 0;
 #else
+#ifdef GPIO_MAP_NAVX_PI
+    return 1;
+#else
 	return (HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_14) != GPIO_PIN_SET);
-#endif
+#endif // GPIO_MAP_NAVX_PI
+#endif // DISABLE_EXTERNAL_SPI_INTERFACE
 }
 
 int HAL_UART_Slave_Enabled()
@@ -403,7 +407,6 @@ void HAL_RTC_Get_Date(uint8_t *weekday, uint8_t *date, uint8_t *month, uint8_t *
 
 typedef enum  {
 	INT_EXTI,	/* STM32 External Interrupt Line */
-	INT_SWED,	/* Software Edge Detection */
 	INT_ALTPIN, /* This GPIO also connected to a secondary INT input pin. */
 	INT_NONE
 } GPIO_INTERRUPT_TYPE;
@@ -419,21 +422,27 @@ typedef struct {
 
 #define MAX_VALID_STM32_AF_VALUE 0x0F
 #define GPIO_AF_SW_RESET_COUNTER (MAX_VALID_STM32_AF_VALUE + 1)
+#define INVALID_INTERRUPT_INDEX 255
+
+/* Due to STM32 EXTI Interrupt line routing limitations, Interrupts for one */
+/* of the timer input channels is mapped to a secondary, alternate EXTI line. */
+static GPIO_TypeDef *p_altint_port = QE3_A_Second_GPIO_Port;
+static uint16_t altint_pin = QE3_A_Second_Pin;
 
 static GPIO_Channel gpio_channels[IOCX_NUM_GPIOS] =
 {
-	{PWM_GPIO1_GPIO_Port, 	PWM_GPIO1_Pin, 	4,  INT_EXTI, 0,  GPIO_AF2_TIM5},
-	{PWM_GPIO2_GPIO_Port, 	PWM_GPIO2_Pin, 	4,  INT_EXTI, 1,  GPIO_AF2_TIM5},
-	{PWM_GPIO3_GPIO_Port, 	PWM_GPIO3_Pin, 	5,  INT_EXTI, 2,  GPIO_AF3_TIM9},
-	{PWM_GPIO4_GPIO_Port, 	PWM_GPIO4_Pin, 	5,  INT_EXTI, 3,  GPIO_AF3_TIM9},
-	{QE1_A_GPIO_Port, 		QE1_A_Pin, 		0,  INT_EXTI, 4,  GPIO_AF1_TIM1},
-	{QE1_B_GPIO_Port, 		QE1_B_Pin, 		0,  INT_EXTI, 5,  GPIO_AF1_TIM1},
-	{QE2_A_GPIO_Port, 		QE2_A_Pin, 		1,  INT_EXTI, 6,  GPIO_AF1_TIM2},
-	{QE2_B_GPIO_Port, 		QE2_B_Pin, 		1,  INT_SWED, 7,  GPIO_AF1_TIM2},
-	{QE3_A_GPIO_Port, 		QE3_A_Pin, 		2,  INT_SWED, 8,  GPIO_AF2_TIM3},
-	{QE3_B_GPIO_Port, 		QE3_B_Pin, 		2,  INT_EXTI, 9,  GPIO_AF2_TIM3},
-	{QE4_A_GPIO_Port, 		QE4_A_Pin, 		3,  INT_EXTI, 10, GPIO_AF2_TIM4},
-	{QE4_B_GPIO_Port, 		QE4_B_Pin, 		3,  INT_EXTI, 11, GPIO_AF2_TIM4},
+	{QE1_A_GPIO_Port, 		QE1_A_Pin, 		0,  INT_EXTI, 	0,  GPIO_AF1_TIM1},
+	{QE1_B_GPIO_Port, 		QE1_B_Pin, 		0,  INT_EXTI, 	1,  GPIO_AF1_TIM1},
+	{QE2_A_GPIO_Port, 		QE2_A_Pin, 		1,  INT_EXTI, 	2,  GPIO_AF1_TIM2},
+	{QE2_B_GPIO_Port, 		QE2_B_Pin, 		1,  INT_EXTI, 	3,  GPIO_AF1_TIM2},
+	{QE3_A_GPIO_Port, 		QE3_A_Pin, 		2,  INT_ALTPIN, 4,  GPIO_AF2_TIM3},
+	{QE3_B_GPIO_Port, 		QE3_B_Pin, 		2,  INT_EXTI, 	5,  GPIO_AF2_TIM3},
+	{QE4_A_GPIO_Port, 		QE4_A_Pin, 		3,  INT_EXTI, 	6,  GPIO_AF2_TIM4},
+	{QE4_B_GPIO_Port, 		QE4_B_Pin, 		3,  INT_EXTI, 	7,  GPIO_AF2_TIM4},
+	{QE5_A_GPIO_Port, 		QE5_A_Pin, 		4,  INT_EXTI, 	8,  GPIO_AF2_TIM5},
+	{QE5_B_GPIO_Port, 		QE5_B_Pin, 		4,  INT_EXTI, 	9,  GPIO_AF2_TIM5},
+	{PWM_GPIO3_GPIO_Port, 	PWM_GPIO3_Pin, 	5,  INT_EXTI, 	10, GPIO_AF3_TIM9},
+	{PWM_GPIO4_GPIO_Port, 	PWM_GPIO4_Pin, 	5,  INT_EXTI, 	11, GPIO_AF3_TIM9},
 };
 
 static uint8_t IOCX_gpio_pin_to_interrupt_index_map[IOCX_NUM_INTERRUPTS];
@@ -447,27 +456,43 @@ static void HAL_IOCX_EXTI_ISR(uint8_t gpio_pin)
 {
 	if (gpio_pin < IOCX_NUM_INTERRUPTS) {
 		uint8_t gpio_interrupt_index = IOCX_gpio_pin_to_interrupt_index_map[gpio_pin];
-		uint8_t gpio_channel_index = IOCX_gpio_pin_to_gpio_channel_index_map[gpio_pin];
-		uint16_t interrupt_bit = (1 << gpio_interrupt_index);
-		if (HAL_GPIO_ReadPin(gpio_channels[gpio_channel_index].p_gpio, gpio_channels[gpio_channel_index].pin) == GPIO_PIN_SET) {
-			last_int_edge |= interrupt_bit;
+		if (gpio_interrupt_index != INVALID_INTERRUPT_INDEX) {
+			uint8_t gpio_channel_index = IOCX_gpio_pin_to_gpio_channel_index_map[gpio_pin];
+			uint16_t interrupt_bit = (1 << gpio_channel_index);
+			if (HAL_GPIO_ReadPin(gpio_channels[gpio_channel_index].p_gpio, gpio_channels[gpio_channel_index].pin) == GPIO_PIN_SET) {
+				if (IOCX_gpio_pin_mode_configuration[gpio_pin] & GPIO_MODE_IT_RISING) {
+					last_int_edge |= interrupt_bit;
+					HAL_IOCX_AssertInterrupt(interrupt_bit);
+				}
+			} else {
+				if (IOCX_gpio_pin_mode_configuration[gpio_pin] & GPIO_MODE_IT_FALLING) {
+					last_int_edge &= ~interrupt_bit;
+					HAL_IOCX_AssertInterrupt(interrupt_bit);
+				}
+			}
 		} else {
-			last_int_edge &= ~interrupt_bit;
+			gpio_interrupt_index = 0; /* Error case breakpoint location. */
 		}
-
-		HAL_IOCX_AssertInterrupt(interrupt_bit);
 	}
 }
 
 void HAL_IOCX_Init()
 {
 	uint8_t i;
+	for (i = 0; i < IOCX_NUM_INTERRUPTS; i++) {
+		IOCX_gpio_pin_to_interrupt_index_map[i] = INVALID_INTERRUPT_INDEX;
+	}
 	for (i = 0; i < IOCX_NUM_GPIOS; i++) {
 		if (gpio_channels[i].interrupt_type == INT_EXTI) {
 			IOCX_gpio_pin_to_interrupt_index_map[POSITION_VAL(gpio_channels[i].pin)] = gpio_channels[i].interrupt_index;
 			IOCX_gpio_pin_to_gpio_channel_index_map[POSITION_VAL(gpio_channels[i].pin)] = i;
 			IOCX_gpio_pin_mode_configuration[POSITION_VAL(gpio_channels[i].pin)] = 0;
 			attachInterrupt(gpio_channels[i].pin, &HAL_IOCX_EXTI_ISR, FALLING);
+		} else if (gpio_channels[i].interrupt_type == INT_ALTPIN) {
+			IOCX_gpio_pin_to_interrupt_index_map[POSITION_VAL(altint_pin)] = gpio_channels[i].interrupt_index;
+			IOCX_gpio_pin_to_gpio_channel_index_map[POSITION_VAL(altint_pin)] = i;
+			IOCX_gpio_pin_mode_configuration[POSITION_VAL(altint_pin)] = 0;
+			attachInterrupt(altint_pin, &HAL_IOCX_EXTI_ISR, FALLING);
 		}
 	}
 }
@@ -488,8 +513,6 @@ void HAL_IOCX_RPI_GPIO_Driver_Enable(int enable)
 
 void HAL_IOCX_RPI_COMM_Driver_Enable(int enable)
 {
-	  HAL_GPIO_WritePin(_COMM_OE1_GPIO_Port, _COMM_OE1_Pin,
-			  (enable ? GPIO_PIN_RESET : GPIO_PIN_SET));
 	  HAL_GPIO_WritePin(COMM_OE2_GPIO_Port, COMM_OE2_Pin,
 			  (enable ? GPIO_PIN_SET : GPIO_PIN_RESET));
 }
@@ -543,18 +566,11 @@ void HAL_IOCX_AssertInterruptSignal()
 }
 
 /* Todo:  For performance, inline and move these to header file. */
-void HAL_IOCX_AssertInterrupt(uint16_t new_int_status_bits)
+void HAL_IOCX_AssertInterrupt(uint16_t int_status_bit)
 {
-	/* Mask out any current-disabled bits */
-	/* If any bits remain: */
-	/*   Set the specified bits in the interrupt status */
-	/*   If Interrupt Pin is not Asserted */
-	/*     Assert the Interrupt Pin */
-	if ((int_status & new_int_status_bits) != new_int_status_bits) {
-		int_status |= new_int_status_bits;
-		if (int_status & int_mask) {
-			HAL_IOCX_AssertInterruptSignal();
-		}
+	if (int_status_bit & int_mask) {
+		int_status |= int_status_bit;
+		HAL_IOCX_AssertInterruptSignal();
 	}
 }
 
@@ -599,12 +615,12 @@ uint16_t HAL_IOCX_GetLastInterruptEdges() {
 /*                                                                         */
 /* Each timer is clocked off of either APB1 or APB2, as follows:           */
 /*                                                                         */
-/* APB1 Timer Clocks:  24Mhz (TIM2, TIM3, TIM4, TIM5)					   */
-/* APB2 Timer Clocks:  96Mhz (TIM1, TIM9, TIM10, TIM11)					   */
+/* APB1 Timer Clocks:  48Mhz (TIM1, TIM9, TIM10, TIM11)					   */
+/* APB2 Timer Clocks:  96Mhz (TIM2, TIM3, TIM4, TIM5)					   */
 /*																		   */
 /* To keep things uniform, all 96Mhz clock sources use an internal         */
-/* (/4) divider - thus all clocks operate at a clock frequency (fTIM) of   */
-/* 24Mhz.                                                                  */
+/* (/2) divider - thus all clocks operate at a clock frequency (fTIM) of   */
+/* 48Mhz.                                                                  */
 /***************************************************************************/
 
 TIM_HandleTypeDef htim1 = {TIM1};
@@ -614,30 +630,94 @@ TIM_HandleTypeDef htim4 = {TIM4};
 TIM_HandleTypeDef htim5 = {TIM5};
 TIM_HandleTypeDef htim9 = {TIM9};
 
-//#ifdef ENABLE_PWM_GENERATION
+#define NUM_IOCX_QUAD_ENCODERS 5
+
+int qe_enabled[NUM_IOCX_QUAD_ENCODERS] = { 0, 0, 0, 0, 0 };
+
+uint16_t qe0_last_count = 0;
+uint32_t qe1_last_count = 0;
+uint16_t qe2_last_count = 0;
+uint16_t qe3_last_count = 0;
+uint32_t qe4_last_count = 0;
+
+volatile int32_t qe_total_count[NUM_IOCX_QUAD_ENCODERS] = { 0, 0, 0, 0, 0 };
+
+static int QEIntegratorEnabled(uint8_t qe_index) {
+	if (qe_index < NUM_IOCX_QUAD_ENCODERS) {
+		return qe_enabled[qe_index];
+	} else {
+		return 0;
+	}
+}
+
+static void ResetQEIntegrator(uint8_t qe_index, int enabled) {
+	if (qe_index < NUM_IOCX_QUAD_ENCODERS) {
+        NVIC_DisableIRQ(SysTick_IRQn);
+		qe_enabled[qe_index] = enabled;
+		qe_total_count[qe_index] = 0;
+		switch (qe_index) {
+		case 0:  qe0_last_count = 0; break;
+		case 1:  qe1_last_count = 0; break;
+		case 2:  qe2_last_count = 0; break;
+		case 3:  qe3_last_count = 0; break;
+		case 4:  qe4_last_count = 0; break;
+		default: break;
+		}
+        NVIC_EnableIRQ(SysTick_IRQn);
+	}
+}
+
+void HAL_IOCX_SysTick_Handler()
+{
+	/* NOTE:  Timers 1, 3, 4 are 16-bit; Timers 2, 5 are 32-bit. */
+	if (qe_enabled[0]) {
+		uint16_t qe0_curr_count = (uint16_t)TIM1->CNT;
+		qe_total_count[0] += (int32_t)(qe0_curr_count - qe0_last_count);
+		qe0_last_count = qe0_curr_count;
+	}
+	if (qe_enabled[1]) {
+		uint32_t qe1_curr_count = (uint32_t)TIM2->CNT;
+		qe_total_count[1] += (int32_t)(qe1_curr_count - qe1_last_count);
+		qe1_last_count = qe1_curr_count;
+	}
+	if (qe_enabled[2]) {
+		uint16_t qe2_curr_count = (uint16_t)TIM3->CNT;
+		qe_total_count[2] += (int32_t)(qe2_curr_count - qe2_last_count);
+		qe2_last_count = qe2_curr_count;
+	}
+	if (qe_enabled[3]) {
+		uint16_t qe3_curr_count = (uint16_t)TIM4->CNT;
+		qe_total_count[3] += (int32_t)(qe3_curr_count - qe3_last_count);
+		qe3_last_count = qe3_curr_count;
+	}
+	if (qe_enabled[4]) {
+		uint32_t qe4_curr_count = (uint32_t)TIM5->CNT;
+		qe_total_count[4] += (int32_t)(qe4_curr_count - qe4_last_count);
+		qe4_last_count = qe4_curr_count;
+	}
+}
+
 typedef struct {
 	TIM_HandleTypeDef *p_tim_handle;
 	uint32_t core_clock_divider;
 	uint32_t first_channel_number;
 	uint32_t second_channel_number;
+	uint32_t max_auto_reload_value;
 } Timer_Config;
-
-#define TIMER_CLOCK_FREQUENCY 24000000
-#define TIMER_TICKS_PER_MICROSECOND (TIMER_CLOCK_FREQUENCY/1000000)
 
 static Timer_Config timer_configs[IOCX_NUM_TIMERS] =
 {
-	{&htim1, TIM_CLOCKDIVISION_DIV4, TIM_CHANNEL_1, TIM_CHANNEL_2},
-	{&htim2, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_1, TIM_CHANNEL_2},
-	{&htim3, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_1, TIM_CHANNEL_2},
-	{&htim4, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_1, TIM_CHANNEL_2},
-	{&htim5, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_3, TIM_CHANNEL_4},
-	{&htim9, TIM_CLOCKDIVISION_DIV4, TIM_CHANNEL_1, TIM_CHANNEL_2},
+	{&htim1, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFF},
+	{&htim2, TIM_CLOCKDIVISION_DIV2, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFFFFFF},
+	{&htim3, TIM_CLOCKDIVISION_DIV2, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFF},
+	{&htim4, TIM_CLOCKDIVISION_DIV2, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFF},
+	{&htim5, TIM_CLOCKDIVISION_DIV2, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFFFFFF},
+	{&htim9, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFF},
 };
 
-uint16_t timer_channel_ccr[IOCX_NUM_TIMERS][IOCX_NUM_CHANNELS_PER_TIMER];
+uint8_t curr_timer_cfg[IOCX_NUM_TIMERS]; /* All defaults have 0 value (disabled) */
 
-//#endif
+uint16_t timer_channel_ccr[IOCX_NUM_TIMERS][IOCX_NUM_CHANNELS_PER_TIMER];
 
 void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 
@@ -645,7 +725,11 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 
 	/* Before configuring, deinit; this clears the GPIO to default state */
 	HAL_GPIO_DeInit(gpio_channels[gpio_index].p_gpio, gpio_channels[gpio_index].pin);
-	IOCX_gpio_pin_mode_configuration[gpio_channels[gpio_index].interrupt_index] = 0;
+	if (gpio_channels[gpio_index].interrupt_type == INT_ALTPIN ) {
+		/* Deinit the altpin gpio */
+		HAL_GPIO_DeInit(p_altint_port, altint_pin);
+	}
+	IOCX_gpio_pin_mode_configuration[POSITION_VAL(gpio_channels[gpio_index].pin)] = 0;
 
 	IOCX_GPIO_TYPE type = iocx_decode_gpio_type(&config);
 	IOCX_GPIO_INPUT input = iocx_decode_gpio_input(&config);
@@ -656,6 +740,9 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 	GPIO_InitStruct.Pin = gpio_channels[gpio_index].pin;
 	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
+
+	GPIO_InitTypeDef GPIO_InitStructAltpin;
+	int altpin_int_enabled = 0;
 
 	switch(type){
 	case GPIO_TYPE_INPUT:
@@ -688,6 +775,14 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 				break;
 			}
 		}
+		if (gpio_channels[gpio_index].interrupt_type == INT_ALTPIN) {
+			GPIO_InitStructAltpin.Speed = GPIO_InitStruct.Speed;
+			GPIO_InitStructAltpin.Pin = altint_pin;
+			GPIO_InitStructAltpin.Mode = GPIO_InitStruct.Mode;
+			GPIO_InitStructAltpin.Pull = GPIO_InitStruct.Pull;
+			HAL_GPIO_Init(p_altint_port, &GPIO_InitStructAltpin);
+			altpin_int_enabled = 1;
+		}
 		break;
 	case GPIO_TYPE_OUTPUT_PUSHPULL:
 		GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -714,18 +809,24 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 		return;
 	}
 	HAL_GPIO_Init(gpio_channels[gpio_index].p_gpio, &GPIO_InitStruct);
-	IOCX_gpio_pin_mode_configuration[gpio_channels[gpio_index].interrupt_index] = GPIO_InitStruct.Mode;
+	if (gpio_channels[gpio_index].interrupt_type == INT_ALTPIN) {
+		if (altpin_int_enabled) {
+			IOCX_gpio_pin_mode_configuration[POSITION_VAL(altint_pin)] = GPIO_InitStructAltpin.Mode;
+		}
+	} else {
+		IOCX_gpio_pin_mode_configuration[POSITION_VAL(gpio_channels[gpio_index].pin)] = GPIO_InitStruct.Mode;
+	}
 }
 
 void HAL_IOCX_GPIO_Get(uint8_t first_gpio_index, int count, uint8_t *values)
 {
 	int i;
 	if ( first_gpio_index > (IOCX_NUM_GPIOS-1) ) return;
-	if ( first_gpio_index + count > IOCX_NUM_TIMERS) {
-		count = IOCX_NUM_TIMERS - first_gpio_index;
+	if ( first_gpio_index + count > IOCX_NUM_GPIOS) {
+		count = IOCX_NUM_GPIOS - first_gpio_index;
 	}
 	for ( i = first_gpio_index; i < first_gpio_index + count; i++ ) {
-		*values = (HAL_GPIO_ReadPin(gpio_channels[i].p_gpio, gpio_channels[i].pin) == GPIO_PIN_SET) ?
+		*values++ = (HAL_GPIO_ReadPin(gpio_channels[i].p_gpio, gpio_channels[i].pin) == GPIO_PIN_SET) ?
 			IOCX_GPIO_SET : IOCX_GPIO_RESET;
 	}
 }
@@ -759,11 +860,41 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 
 	IOCX_TIMER_MODE mode = iocx_decode_timer_mode(&config);
 	IOCX_QUAD_ENCODER_MODE qe_mode = iocx_decode_quad_encoder_mode(&config);
+	IOCX_INPUT_CAPTURE_CHANNEL inputcap_channel = iocx_decode_input_capture_channel(&config);
+	IOCX_INPUT_CAPTURE_POLARITY inputcap_polarity = iocx_decode_input_capture_polarity(&config);
+
+	if (mode != TIMER_MODE_QUAD_ENCODER) {
+		ResetQEIntegrator(timer_index, 0 /* Disable */ );
+	}
+
 	switch(mode){
 	case TIMER_MODE_DISABLED:
 		// TODO:  IF was in PWM Mode, stop PWM?
 		// TODO:  IF was in QEMode, stop QE?
 		__HAL_TIM_DISABLE(timer_configs[timer_index].p_tim_handle);
+		switch (iocx_decode_timer_mode(&curr_timer_cfg[timer_index])) {
+		case TIMER_MODE_QUAD_ENCODER:
+			HAL_TIM_Encoder_Stop(timer_configs[timer_index].p_tim_handle, BOTH_ENCODER_TIMER_CHANNELS);
+			break;
+		case TIMER_MODE_PWM_OUT:
+			HAL_TIM_PWM_Stop(timer_configs[timer_index].p_tim_handle, timer_configs[timer_index].first_channel_number);
+			HAL_TIM_PWM_Stop(timer_configs[timer_index].p_tim_handle, timer_configs[timer_index].second_channel_number);
+			break;
+		case TIMER_MODE_INPUT_CAPTURE:
+		{
+			uint32_t channel;
+
+			if (iocx_decode_input_capture_channel(&curr_timer_cfg[timer_index]) == INPUT_CAPTURE_FROM_CH1) {
+				channel = timer_configs[timer_index].first_channel_number;
+			} else {
+				channel = timer_configs[timer_index].second_channel_number;
+			}
+			HAL_TIM_IC_Stop(timer_configs[timer_index].p_tim_handle, channel);
+			break;
+		}
+		default:
+			break;
+		}
 		break;
 
 	case TIMER_MODE_QUAD_ENCODER:
@@ -775,6 +906,7 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 			p_htim->Init.ClockDivision = timer_configs[timer_index].core_clock_divider;
 			p_htim->Init.Prescaler = p_htim->Instance->PSC;
 			p_htim->Init.CounterMode = TIM_COUNTERMODE_UP;
+			p_htim->Instance->ARR = timer_configs[timer_index].max_auto_reload_value;
 			p_htim->Init.Period = p_htim->Instance->ARR;
 			if (qe_mode == QUAD_ENCODER_MODE_1x) {
 				sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
@@ -804,7 +936,10 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 			HAL_TIMEx_MasterConfigSynchronization(p_htim, &sMasterConfig);
 
 			/* Be sure to configure the auto-reload register (ARR) to the max possible value. */
-			p_htim->Instance->ARR = 0xFFFF;
+			p_htim->Instance->ARR = timer_configs[timer_index].max_auto_reload_value;
+
+			ResetQEIntegrator(timer_index, 1 /* Enable */ );
+
 			HAL_TIM_Encoder_Start(p_htim, BOTH_ENCODER_TIMER_CHANNELS);
 		}
 		break;
@@ -836,8 +971,6 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 	case TIMER_MODE_INPUT_CAPTURE:
 		{
 			uint32_t channel;
-			IOCX_INPUT_CAPTURE_CHANNEL inputcap_channel = iocx_decode_input_capture_channel(&config);
-			IOCX_INPUT_CAPTURE_POLARITY inputcap_polarity = iocx_decode_input_capture_polarity(&config);
 
 			if (inputcap_channel == INPUT_CAPTURE_FROM_CH1) {
 				channel = timer_configs[timer_index].first_channel_number;
@@ -864,6 +997,7 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 	default:
 		return;
 	}
+	curr_timer_cfg[timer_index] = config;
 }
 
 void HAL_IOCX_TIMER_Set_Control(uint8_t timer_index, uint8_t* control)
@@ -874,12 +1008,19 @@ void HAL_IOCX_TIMER_Set_Control(uint8_t timer_index, uint8_t* control)
 		/* Generate a Timer Update event - which clears the counter (and prescaler counter) */
 		HAL_TIM_GenerateEvent(timer_configs[timer_index].p_tim_handle, TIM_EventSource_Update);
 		iocx_clear_timer_counter_reset(control);
+		if (QEIntegratorEnabled(timer_index)) {
+			ResetQEIntegrator(timer_index, 1 /* Enable */ );
+		}
 	}
 }
 
 void HAL_IOCX_TIMER_Set_Prescaler(uint8_t timer_index, uint16_t ticks_per_clock)
 {
 	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
+	/* If one of the 96Mhz timers, multiply ticks/clock by 2 to mimic 48Mhz timers */
+	if (timer_configs[timer_index].core_clock_divider == TIM_CLOCKDIVISION_DIV1) {
+		ticks_per_clock *= 2;
+	}
 	timer_configs[timer_index].p_tim_handle->Init.Prescaler = (uint32_t)ticks_per_clock;
 }
 
@@ -904,7 +1045,11 @@ void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, int32_t *val
 		count = IOCX_NUM_TIMERS - first_timer_index;
 	}
 	for ( i = first_timer_index; i < first_timer_index + count; i++ ) {
-		*values++ = (int32_t)timer_configs[i].p_tim_handle->Instance->CNT;
+		if (QEIntegratorEnabled(i)) {
+			*values++ = qe_total_count[i];
+		} else {
+			*values++ = (int32_t)timer_configs[i].p_tim_handle->Instance->CNT;
+		}
 	}
 }
 
@@ -943,6 +1088,14 @@ void HAL_IOCX_TIMER_PWM_Set_DutyCycle(uint8_t timer_index, uint8_t channel_index
 {
 	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
 	timer_channel_ccr[timer_index][channel_index] = clocks_per_active_period;
+	if (iocx_decode_timer_mode(&curr_timer_cfg[timer_index]) != TIMER_MODE_DISABLED) {
+		/* Stop Existing timer; restart to cause new Duty Cycle to take effect. */
+		uint8_t prev_timer_mode = curr_timer_cfg[timer_index];
+		uint8_t disabled_timer_mode;
+		iocx_encode_timer_mode(&disabled_timer_mode, TIMER_MODE_DISABLED);
+		HAL_IOCX_TIMER_Set_Config(timer_index, disabled_timer_mode);
+		HAL_IOCX_TIMER_Set_Config(timer_index, prev_timer_mode);
+	}
 }
 
 void HAL_IOCX_TIMER_PWM_Get_DutyCycle(uint8_t first_timer_index, uint8_t first_channel_index, int channel_count, uint16_t *values)
@@ -1092,14 +1245,21 @@ void HAL_IOCX_ADC_Get_Latest_Samples(int start_channel, int n_channels, uint32_t
 	/* Note each transfer is a 16-bit ADC Sample (2 bytes) */
 	uint32_t remaining_adc_transfers = hadc1.DMA_Handle->Instance->NDTR;
 	uint32_t last_valid_adc_transfer = c_total_adc_transfers - remaining_adc_transfers;
-	uint32_t total_adc_transfer_sets = sizeof(adc_samples) / c_num_adc_transfers_per_sampleset;
+	if (last_valid_adc_transfer == 0) {
+		last_valid_adc_transfer = c_total_adc_transfers - 1;
+	} else{
+		last_valid_adc_transfer -= 1;
+	}
+	uint32_t total_adc_transfer_sets = sizeof(adc_samples) / sizeof(adc_samples[0]);
 
 	uint16_t last_valid_adc_transfer_set = last_valid_adc_transfer / c_num_adc_transfers_per_sampleset;
 	uint16_t first_valid_adc_transfer_set;
 	if (num_samples_to_accumulate <= last_valid_adc_transfer_set) {
-		first_valid_adc_transfer_set = last_valid_adc_transfer_set - num_samples_to_accumulate;
+		first_valid_adc_transfer_set = last_valid_adc_transfer_set - num_samples_to_accumulate + 1;
 	} else {
-		first_valid_adc_transfer_set = total_adc_transfer_sets - num_samples_to_accumulate;
+		/* Buffer wrap around case; accumulate from the end of the buffer. */
+		last_valid_adc_transfer_set = (total_adc_transfer_sets - 1);
+		first_valid_adc_transfer_set = last_valid_adc_transfer_set - num_samples_to_accumulate + 1;
 	}
 
 	/* Zero Accumulator */
@@ -1117,6 +1277,9 @@ void HAL_IOCX_ADC_Get_Latest_Samples(int start_channel, int n_channels, uint32_t
 	/* Average */
 	for ( i = 0; i < n_channels; i++ ) {
 		p_avgsamples[i] = p_oversamples[i] >> avg_bits;
+		if (p_avgsamples[i] > 5000) {
+			p_avgsamples[i] = 1; // debug hook
+		}
 	}
 #endif
 }

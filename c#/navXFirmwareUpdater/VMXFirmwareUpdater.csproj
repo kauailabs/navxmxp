@@ -8,13 +8,13 @@
     <ProjectGuid>{65993E71-7D19-421E-9CF1-7DA415AFA1E0}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>navXFirmwareUpdater</RootNamespace>
-    <AssemblyName>navXFirmwareUpdater</AssemblyName>
+    <RootNamespace>VMXFirmwareUpdater</RootNamespace>
+    <AssemblyName>VMXFirmwareUpdater</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <TargetFrameworkProfile>Client</TargetFrameworkProfile>
     <FileAlignment>512</FileAlignment>
     <IsWebBootstrapper>false</IsWebBootstrapper>
-    <PublishUrl>C:\Users\Scott\Documents\navxmxp-read-only\installers\navXFirmwareUpdater\</PublishUrl>
+    <PublishUrl>C:\Users\Scott\Documents\navxmxp-read-only\installers\VMXFirmwareUpdater\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
     <UpdateEnabled>false</UpdateEnabled>
@@ -24,8 +24,8 @@
     <UpdatePeriodically>false</UpdatePeriodically>
     <UpdateRequired>false</UpdateRequired>
     <MapFileExtensions>true</MapFileExtensions>
-    <SupportUrl>https://code.google.com/p/navx</SupportUrl>
-    <ProductName>navXConfig</ProductName>
+    <SupportUrl>http://vmx.kauailabs.com</SupportUrl>
+    <ProductName>VMXFirmwareUpdater</ProductName>
     <PublisherName>Kauai Labs</PublisherName>
     <ApplicationRevision>9</ApplicationRevision>
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>

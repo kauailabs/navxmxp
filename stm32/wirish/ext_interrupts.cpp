@@ -57,24 +57,14 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
  * @param mode    Trigger mode for the given interrupt.
  * @see ExtIntTriggerMode
  */
-void attachInterrupt(uint16_t pin, void (*func)(uint8_t), ExtIntTriggerMode mode) {
-	for ( int i = 0; i < 16; i++ ) {
-		if ( pin & (1 << i) ) {
-			func_array[i] = func;
-			break;
-		}
-	}
+void attachInterrupt(uint16_t GPIO_Pin, void (*func)(uint8_t), ExtIntTriggerMode mode) {
+	func_array[POSITION_VAL(GPIO_Pin)] = func;
 }
 
 /**
  * @brief Disable any external interrupt attached to a pin.
  * @param pin Pin number to detach any interrupt from.
  */
-void detachInterrupt(uint8_t pin) {
-	for ( int i = 0; i < 16; i++ ) {
-		if ( pin & (1 << i) ) {
-			func_array[i] = 0;
-			break;
-		}
-	}
+void detachInterrupt(uint8_t GPIO_Pin) {
+	func_array[POSITION_VAL(GPIO_Pin)] = 0;
 }

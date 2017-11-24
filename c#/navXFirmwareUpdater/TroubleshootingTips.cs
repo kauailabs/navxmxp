@@ -7,18 +7,13 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
-namespace navXFirmwareUpdater
+namespace VMXFirmwareUpdater
 {
     public partial class TroubleshootingTips : Form
     {
         public TroubleshootingTips()
         {
             InitializeComponent();
-        }
-
-        private void label2_Click(object sender, EventArgs e)
-        {
-
         }
     }
 }

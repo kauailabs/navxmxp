@@ -118,12 +118,12 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="label3.Text" xml:space="preserve">
-    <value>- The very first time you plug in the navX-Model device you should see a "loading driver" message, 
+    <value>- The very first time you plug in the VMX-Model device you should see a "loading driver" message, 
 for a device named "STM32 BOOTLOADER".    This process can take a little while, so wait until 
 that process completes before trying to use the firmware updater.</value>
   </data>
   <data name="label4.Text" xml:space="preserve">
-    <value>- After updating the firmware, the navX-Model device will automatically restart and enter "Operational 
+    <value>- After updating the firmware, the VMX-Model device will automatically restart and enter "Operational 
 Mode".  At that point, the device will show up in the Device Manager under "Ports (COM &amp; LPT)" 
 with a device name of "STMicroelectronics Virtual COM Port (COMx)"
 </value>

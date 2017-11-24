@@ -50,7 +50,7 @@ NavXPiBoardTest::NavXPiBoardTest() {
 	iocx_encode_timer_mode(&timer_cfg, TIMER_MODE_QUAD_ENCODER);
 #else
 	iocx_encode_timer_mode(&timer_cfg, TIMER_MODE_PWM_OUT);
-	HAL_IOCX_TIMER_Set_Prescaler(0,48);
+	HAL_IOCX_TIMER_Set_Prescaler(0,96);
 	HAL_IOCX_TIMER_PWM_Set_FramePeriod(0, 20000);
 	HAL_IOCX_TIMER_PWM_Set_DutyCycle(0, 0, 5000);
 	HAL_IOCX_TIMER_PWM_Set_DutyCycle(0, 1, 6000);

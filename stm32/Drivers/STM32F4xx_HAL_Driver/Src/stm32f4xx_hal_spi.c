@@ -108,7 +108,7 @@
 /* Note that this "stuck busy timeout value" is a workaround for a documented */
 /* Silicon issue w/the STM32F411, see "STM32F40x and STM32F41x Errata sheet " */
 /* under section "2.5.4 BSY bit may stay high at the end of a data transfer   */
-/* in Slave mode "
+/* in Slave mode "															  */
 
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/

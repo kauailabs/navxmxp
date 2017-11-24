@@ -62,41 +62,39 @@
 #define CAL_BTN_GPIO_Port GPIOD
 #define _CAN_RESET_Pin GPIO_PIN_10
 #define _CAN_RESET_GPIO_Port GPIOC
-/* USER CODE BEGIN Private defines */
-#define PWM_GPIO1_Pin GPIO_PIN_2 //PA2, TIM5 CH3
-#define PWM_GPIO1_GPIO_Port GPIOA
-#define PWM_GPIO2_Pin GPIO_PIN_3 //PA3, TIM5 CH4  [sh GPIO ch w/TIM2/Ch2]
-#define PWM_GPIO2_GPIO_Port GPIOA
-#define PWM_GPIO3_Pin GPIO_PIN_5 //PE5, TIM9 CH1
-#define PWM_GPIO3_GPIO_Port GPIOE
-#define PWM_GPIO4_Pin GPIO_PIN_6 //PE6, TIM9 CH2
-#define PWM_GPIO4_GPIO_Port GPIOE
 
-#define QE1_A_Pin GPIO_PIN_9  //PE9, TIM1 CH1
+/* USER CODE BEGIN Private defines */
+#define QE1_A_Pin GPIO_PIN_9  //PE9,  TIM1 CH1
 #define QE1_A_GPIO_Port GPIOE
 #define QE1_B_Pin GPIO_PIN_11 //PE11, TIM1 CH2
 #define QE1_B_GPIO_Port GPIOE
 #define QE2_A_Pin GPIO_PIN_15 //PA15, TIM2 CH1
 #define QE2_A_GPIO_Port GPIOA
-#define QE2_B_Pin GPIO_PIN_3  //PB3, TIM2 CH2 [sh GPIO ch w/ TIM5/Ch4]
+#define QE2_B_Pin GPIO_PIN_3  //PB3,  TIM2 CH2
 #define QE2_B_GPIO_Port GPIOB
-#define QE3_A_Pin GPIO_PIN_6  //PC6, TIM3 CH1
+#define QE3_A_Pin GPIO_PIN_6  //PC6,  TIM3 CH1
 #define QE3_A_GPIO_Port GPIOC
-#define QE3_A_Second_Pin GPIO_PIN_2   /* Used for interrupt input */
-#define QE3_A_Second_GPIO_Port GPIOD  /* Used for interrupt input */
-#define QE3_B_Pin GPIO_PIN_7  //PC7, TIM3 CH2
+#define QE3_A_Second_Pin GPIO_PIN_2   /* To avoid EXTI conflict w/PWM_GPIO4 */
+#define QE3_A_Second_GPIO_Port GPIOD  /* To avoid EXTI conflict w/PWM_GPIO4 */
+#define QE3_B_Pin GPIO_PIN_7  //PC7,  TIM3 CH2
 #define QE3_B_GPIO_Port GPIOC
 #define QE4_A_Pin GPIO_PIN_12 //PD12, TIM4 CH1
 #define QE4_A_GPIO_Port GPIOD
 #define QE4_B_Pin GPIO_PIN_13 //PD13, TIM4 CH2
 #define QE4_B_GPIO_Port GPIOD
+#define QE5_A_Pin   GPIO_PIN_0 //PA0, TIM5 CH1
+#define QE5_A_GPIO_Port GPIOA
+#define QE5_B_Pin   GPIO_PIN_1 //PA1, TIM5 CH2
+#define QE5_B_GPIO_Port GPIOA
+#define PWM_GPIO3_Pin GPIO_PIN_5 //PE5, TIM9 CH1
+#define PWM_GPIO3_GPIO_Port GPIOE
+#define PWM_GPIO4_Pin GPIO_PIN_6 //PE6, TIM9 CH2
+#define PWM_GPIO4_GPIO_Port GPIOE
 
-/* The following are new signals in v5_30 */
+// Note:  UNUSED EXTI INTERRUPT CHANNELS:  4, 8, 10, 14
 
-#define COMM_OE2_Pin GPIO_PIN_0
+#define COMM_OE2_Pin GPIO_PIN_2
 #define COMM_OE2_GPIO_Port GPIOA
-#define _COMM_OE1_Pin GPIO_PIN_1
-#define _COMM_OE1_GPIO_Port GPIOA
 
 /* IOCX Interrupt Signal */
 #define NAVX_2_RPI_INT4_Pin GPIO_PIN_10
@@ -136,8 +134,6 @@
 
 #define CAN_OK_LED_Pin GPIO_PIN_15
 #define CAN_OK_LED_GPIO_Port GPIOE
-
-// UNUSED GPIO INTERRUPT CHANNELS:  0(Now), 1(Now), 2(Future), 4, 8, 10, 14
 
 /* USER CODE END Private defines	 */
 

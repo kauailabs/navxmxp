@@ -139,23 +139,11 @@ void MX_GPIO_Init_NavX_PI(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
   HAL_GPIO_Init(_RPI_GPIO_OE2_GPIO_Port, &GPIO_InitStruct);
 
-  GPIO_InitStruct.Pin = _RPI_GPIO_OE2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
-  HAL_GPIO_Init(_RPI_GPIO_OE2_GPIO_Port, &GPIO_InitStruct);
-
   GPIO_InitStruct.Pin = COMM_OE2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
   HAL_GPIO_Init(COMM_OE2_GPIO_Port, &GPIO_InitStruct);
-
-  GPIO_InitStruct.Pin = _COMM_OE1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
-  HAL_GPIO_Init(_COMM_OE1_GPIO_Port, &GPIO_InitStruct);
 
   GPIO_InitStruct.Pin = EXT_PWR_SWITCH_ON_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -199,7 +187,6 @@ void MX_GPIO_Init_NavX_PI(void)
   HAL_GPIO_WritePin(EXT_PWR_SWITCH_ON_GPIO_Port, EXT_PWR_SWITCH_ON_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(_RPI_GPIO_OE1_GPIO_Port, _RPI_GPIO_OE1_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(_RPI_GPIO_OE2_GPIO_Port, _RPI_GPIO_OE2_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(_COMM_OE1_GPIO_Port, _COMM_OE1_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(COMM_OE2_GPIO_Port, COMM_OE2_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(NAVX_2_RPI_INT2_GPIO_Port, NAVX_2_RPI_INT2_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(NAVX_2_RPI_INT3_GPIO_Port, NAVX_2_RPI_INT3_Pin, GPIO_PIN_SET);
@@ -213,8 +200,9 @@ void MX_GPIO_Init_NavX_PI(void)
   HAL_NVIC_SetPriority((IRQn_Type)EXTI2_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ((IRQn_Type)EXTI3_IRQn);
   HAL_NVIC_SetPriority((IRQn_Type)EXTI3_IRQn, 5, 0);
+  /* CAN Interrupt Line */
   HAL_NVIC_EnableIRQ((IRQn_Type)EXTI4_IRQn);
-  HAL_NVIC_SetPriority((IRQn_Type)EXTI4_IRQn, 5, 0);
+  HAL_NVIC_SetPriority((IRQn_Type)EXTI4_IRQn, 2, 0);
 }
 
 /* USER CODE BEGIN 2 */

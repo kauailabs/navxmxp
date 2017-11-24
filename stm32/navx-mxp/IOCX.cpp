@@ -10,7 +10,7 @@ NavXPiBoardTest *p_navxpi_boardtest;
 static IOCX_REGS iocx_regs;
 static uint32_t last_loop_timestamp;
 
-_EXTERN_ATTRIB void iocx_init()
+_EXTERN_ATTRIB void IOCX_init()
 {
 	HAL_IOCX_TIMER_Enable_Clocks(0,1);
 	HAL_IOCX_TIMER_Enable_Clocks(1,1);
@@ -57,17 +57,17 @@ _EXTERN_ATTRIB uint8_t *IOCX_get_reg_addr_and_max_size( uint8_t bank, uint8_t re
 
 	    /* Requested data includes interrupt status; update w/latest value */
 	    uint8_t first_offset = register_offset;
-	    uint8_t last_offset = register_offset + requested_count - 1;
 
 	    if((first_offset >= offsetof(struct IOCX_REGS, gpio_intstat)) &&
-	       (last_offset <=
+	       (first_offset <=
 	    		   offsetof(struct IOCX_REGS, gpio_intstat) +
 	    		   sizeof(iocx_regs.gpio_intstat))) {
-	    	iocx_regs.gpio_intstat = (uint16_t)HAL_IOCX_GetInterruptStatus();
+	    	iocx_regs.gpio_intstat = HAL_IOCX_GetInterruptStatus();
+	    	iocx_regs.gpio_last_int_edge = HAL_IOCX_GetLastInterruptEdges();
 	    }
 
 	    if((first_offset >= offsetof(struct IOCX_REGS, timer_counter)) &&
-	       (last_offset <=
+	       (first_offset <=
 	    		   offsetof(struct IOCX_REGS, timer_counter) +
 	    		   sizeof(iocx_regs.timer_counter))) {
 	    	/* Todo:  This can be optimized to only acquire data for requested
@@ -77,7 +77,7 @@ _EXTERN_ATTRIB uint8_t *IOCX_get_reg_addr_and_max_size( uint8_t bank, uint8_t re
 	   }
 
 	    if((first_offset >= offsetof(struct IOCX_REGS, gpio_data)) &&
-	       (last_offset <=
+	       (first_offset <=
 	    		   offsetof(struct IOCX_REGS, gpio_data) +
 	    		   sizeof(iocx_regs.gpio_data))) {
 	    	/* Todo:  This can be optimized to only acquire data for requested
@@ -119,7 +119,7 @@ void channel_reg_set_modified(uint8_t first_offset, uint8_t count, T* data) {
 	uint8_t last_channel_modified = ((first_offset + count)-1) % (sizeof(T) * NUM_CHANNELS) / sizeof(T);
 	uint8_t index = first_index_modified;
 	uint8_t channel = first_channel_modified;
-	while ( (index <= last_index_modified) && (channel < last_channel_modified) ) {
+	while ( (index <= last_index_modified) && (channel <= last_channel_modified) ) {
 		HAL_FUNC(index, channel, data[(index * NUM_CHANNELS) + channel]);
 		channel++;
 		if ( channel == NUM_CHANNELS) {
@@ -130,7 +130,7 @@ void channel_reg_set_modified(uint8_t first_offset, uint8_t count, T* data) {
 }
 
 static void int_cfg_modified(uint8_t first_offset, uint8_t count) {
-	HAL_IOCX_AssertInterrupt(iocx_regs.int_cfg);
+	HAL_IOCX_UpdateInterruptMask(iocx_regs.int_cfg);
 }
 
 static void gpio_intstat_modified(uint8_t first_offset, uint8_t count) {
@@ -142,7 +142,7 @@ static void gpio_cfg_modified(uint8_t first_offset, uint8_t count) {
 }
 
 static void gpio_data_modified(uint8_t first_offset, uint8_t count) {
-	reg_set_modified<uint8_t, HAL_IOCX_GPIO_Set>(first_offset, count, iocx_regs.gpio_cfg);
+	reg_set_modified<uint8_t, HAL_IOCX_GPIO_Set>(first_offset, count, iocx_regs.gpio_data);
 }
 
 static void timer_cfg_modified(uint8_t first_offset, uint8_t count) {
@@ -169,7 +169,7 @@ static void timer_aar_modified(uint8_t first_offset, uint8_t count) {
 }
 
 static void timer_chx_ccr_modified(uint8_t first_offset, uint8_t count) {
-	channel_reg_set_modified<uint16_t, HAL_IOCX_TIMER_PWM_Set_DutyCycle, 2>(first_offset, count, iocx_regs.timer_aar);
+	channel_reg_set_modified<uint16_t, HAL_IOCX_TIMER_PWM_Set_DutyCycle, 2>(first_offset, count, iocx_regs.timer_chx_ccr);
 }
 
 WritableRegSet gpio_reg_sets[] =

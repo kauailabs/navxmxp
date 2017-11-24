@@ -47,7 +47,7 @@ THE SOFTWARE.
 #	define NAVX_HARDWARE_REV 60
 #	define ENABLE_USB_VBUS
 #   define DISABLE_COMM_DIP_SWITCHES
-#   define DISABLE_EXTERNAL_I2C_INTERFACE /* ??? */
+#   define DISABLE_EXTERNAL_I2C_INTERFACE
 #   define DISABLE_EXTERNAL_UART_INTERFACE
 #	define ENABLE_CAN_TRANSCEIVER
 #	define ENABLE_QUAD_DECODERS
@@ -160,6 +160,8 @@ void HAL_IOCX_DeassertInterrupt(uint16_t int_bits_to_clear);
 void HAL_IOCX_UpdateInterruptMask(uint16_t int_new_mask);
 uint16_t HAL_IOCX_GetInterruptMask();
 uint16_t HAL_IOCX_GetInterruptStatus();
+uint16_t HAL_IOCX_GetLastInterruptEdges();
+void HAL_IOCX_SysTick_Handler();
 #endif
 
 /* Timers (QuadEncoder/PWM) */

@@ -1,0 +1,3 @@
+If you are new to using VMX-pi, please visit the VMX-pi website at http://vmx-pi.kauailabs.com.
+
+This site includes documentation on Installation and Software, as well as example code and much more.

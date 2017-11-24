@@ -650,7 +650,7 @@ _EXTERN_ATTRIB void nav10_main()
         num_serial_interfaces++;
     }
 
-    attachInterrupt(GPIO_PIN_9,&cal_button_isr,CHANGE);
+    attachInterrupt(CAL_BTN_Pin,&cal_button_isr,CHANGE);
 
     if ( start_timestamp == 0 ) {
         start_timestamp = HAL_GetTick();
@@ -1784,7 +1784,20 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
 #else
                     		process_writable_register_update( reg_address, reg_addr, reg_count /* value */ );
 #endif
-                            HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, next_rcv_size);
+#if 0
+							int rxne_clear_count = 0;
+							int iteration_count = 0;
+							while (rxne_clear_count < 1) {
+								if (__HAL_SPI_GET_FLAG(&hspi1,SPI_FLAG_RXNE) != SET) {
+									rxne_clear_count++;
+								} else {
+									rxne_clear_count = 0;
+								}
+								iteration_count++;
+							}
+#endif
+
+                    		HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, next_rcv_size);
                             HAL_SPI_Comm_Ready_Assert();
                         } else {
                         	HAL_AHRS_Int_Deassert();
@@ -1813,8 +1826,9 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                          ( __HAL_SPI_GET_FLAG(&hspi1,SPI_FLAG_BSY) != RESET ) ) {
                         Reset_SPI();
                    } else {
-                        HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, SPI_RECV_LENGTH);
-                        HAL_SPI_Comm_Ready_Assert();
+                        //HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, SPI_RECV_LENGTH);
+                        Reset_SPI(); /* HACK - remove me! */
+                	    HAL_SPI_Comm_Ready_Assert();
                    }
                 }
             } else {
