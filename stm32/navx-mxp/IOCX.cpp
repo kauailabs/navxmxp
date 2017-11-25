@@ -1,12 +1,10 @@
 #include "IOCX.h"
 #include "IMURegisters.h"
-#include "NavXPiBoardTest.h"
 #include "navx-mxp_hal.h"
 #include "IOCXRegisters.h"
 #include "stm32f4xx_hal.h"
 #include "navx-mxp.h"
 
-NavXPiBoardTest *p_navxpi_boardtest;
 static IOCX_REGS iocx_regs;
 static uint32_t last_loop_timestamp;
 
@@ -21,8 +19,6 @@ _EXTERN_ATTRIB void IOCX_init()
 
 	HAL_IOCX_RPI_GPIO_Driver_Enable(1);
 	HAL_IOCX_RPI_COMM_Driver_Enable(1);
-
-    p_navxpi_boardtest = new NavXPiBoardTest();
 }
 
 #define NUM_MS_BETWEEN_SUCCESSIVE_LOOPS 2
@@ -44,7 +40,6 @@ _EXTERN_ATTRIB void IOCX_loop()
 			last_loop_timestamp = curr_loop_timestamp;
 		}
 	}
-	//p_navxpi_boardtest->loop();
 }
 
 _EXTERN_ATTRIB uint8_t *IOCX_get_reg_addr_and_max_size( uint8_t bank, uint8_t register_offset, uint8_t requested_count, uint16_t* size )

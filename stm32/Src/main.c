@@ -495,11 +495,12 @@ void MX_RTC_Init(void)
 		/* is configured to yield 2 ticks per millisecond, using this */
 		/* formula, documented in the STM32 datasheet:                */
 		/* RTCCLK / ((AsynchPrediv + 1) * (SynchPrediv + 1))          */
-		/* RTCCLK=32768, AsynchPrediv=14, SynchPrediv=0               */
-		/* Result:  32768/16 = 2048 ticks/sec (488us/tick).           */
+		/* RTCCLK=32768, AsynchPrediv=15, SynchPrediv=2047            */
+		/* Result:  1Hz total (32768/16*2048)                         */
+		/*          Subsecond resolution:  1/2048                     */
 
-		hrtc.Init.AsynchPrediv = 14;
-		hrtc.Init.SynchPrediv = 0;
+		hrtc.Init.AsynchPrediv = 15;
+		hrtc.Init.SynchPrediv = 2047;
 		hrtc.Init.OutPut = RTC_OUTPUT_DISABLE;
 		hrtc.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
 		hrtc.Init.OutPutType = RTC_OUTPUT_TYPE_OPENDRAIN;
