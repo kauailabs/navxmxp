@@ -107,7 +107,7 @@ var
 begin
   // initialize default path, which will be returned when the following registry
   // key queries fail due to missing keys or for some different reason
-  Result := 'C:\Program Files (x86)\National Instruments\LabVIEW 2016\';
+  Result := 'C:\Program Files (x86)\National Instruments\LabVIEW 2017\';
   // query the first registry value; if this succeeds, return the obtained value
   if RegQueryStringValue(HKLM, 'Software\National Instruments\LabVIEW\Current Version', 'Path', InstallPath) then
     Result := InstallPath;
