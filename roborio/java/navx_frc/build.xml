@@ -6,8 +6,8 @@
               as the first entry and export the buildfile again. --><project basedir="." default="build" name="navx_frc">
     <property environment="env"/>
     <property name="debuglevel" value="source,lines,vars"/>
-    <property name="target" value="1.6"/>
-    <property name="source" value="1.6"/>
+    <property name="target" value="1.8"/>
+    <property name="source" value="1.8"/>
     <path id="navx_frc.classpath">
         <pathelement location="bin"/>
     	<pathelement location="../../../java/navx/jar/navx.jar"/>
