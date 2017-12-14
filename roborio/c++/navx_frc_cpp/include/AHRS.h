@@ -10,7 +10,6 @@
 
 #include "WPILib.h"
 #include "ITimestampedDataSubscriber.h"
-#include "LiveWindow/LiveWindowSendable.h"
 #include "networktables/NetworkTableEntry.h"
 #include <thread>
 
@@ -21,7 +20,6 @@ class OffsetTracker;
 class AHRSInternal;
 
 class AHRS : public SensorBase,
-             public LiveWindowSendable,
              public PIDSource  {
 public:
 
@@ -202,12 +200,8 @@ private:
     void commonInit( uint8_t update_rate_hz );
     static int ThreadFunc(IIOProvider *io_provider);
 
-    /* LiveWindowSendable implementation */
-    void InitTable(std::shared_ptr<NetworkTable> subtable);
-    std::string GetSmartDashboardType() const;
-    void UpdateTable();
-    void StartLiveWindowMode();
-    void StopLiveWindowMode();
+    /* Sendable implementation */
+    void InitSendable(frc::SendableBuilder&);
 
     /* PIDSource implementation */
     double PIDGet();

@@ -1267,31 +1267,13 @@ std::string AHRS::GetFirmwareVersion() {
     return fw_version;
 }
 
-    /***********************************************************/
-    /* LiveWindowSendable Interface Implementation             */
-    /***********************************************************/
-
-void AHRS::UpdateTable() {
-    if (m_valueEntry) m_valueEntry.SetDouble(GetYaw());
-}
-
-void AHRS::StartLiveWindowMode() {
-}
-
-void AHRS::StopLiveWindowMode() {
-}
-
-void AHRS::InitTable(std::shared_ptr<NetworkTable> subTable) {
-	if (subTable) {
-		m_valueEntry = subTable->GetEntry("Value");
-		UpdateTable();
-	} else {
-		m_valueEntry = nt::NetworkTableEntry();
-	}
-}
-
-std::string AHRS::GetSmartDashboardType() const {
-    return "Gyro";
+/***********************************************************/
+/* Sendable Interface Implementation             */
+/***********************************************************/
+void AHRS::InitSendable(SendableBuilder& builder) {
+  builder.SetSmartDashboardType("Gyro");
+  builder.AddDoubleProperty("Value", [=]() { return GetYaw(); },
+                        nullptr);
 }
 
 /***********************************************************/

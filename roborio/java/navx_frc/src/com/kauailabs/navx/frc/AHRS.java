@@ -21,10 +21,11 @@ import edu.wpi.first.wpilibj.I2C;
 import edu.wpi.first.wpilibj.PIDSource;
 import edu.wpi.first.wpilibj.PIDSourceType;
 import edu.wpi.first.wpilibj.SPI;
+import edu.wpi.first.wpilibj.Sendable;
 import edu.wpi.first.wpilibj.SensorBase;
 import edu.wpi.first.wpilibj.SerialPort;
-import edu.wpi.first.wpilibj.livewindow.LiveWindowSendable;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SendableBuilder;
 
 /**
  * The AHRS class provides an interface to AHRS capabilities
@@ -44,7 +45,7 @@ import edu.wpi.first.wpilibj.Timer;
  * @author Scott
  */
 
-public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
+public class AHRS extends SensorBase implements PIDSource, Sendable {
 
     /**
      * Identifies one of the three sensing axes on the navX sensor board.  Note that these axes are
@@ -1505,35 +1506,10 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     };
     
     /***********************************************************/
-    /* LiveWindowSendable Interface Implementation             */
+    /* Sendable Interface Implementation                       */
     /***********************************************************/
-    
-    private NetworkTableEntry m_valueEntry;    
-    
-    @Override
-    public void initTable(NetworkTable subtable) {
-      if (subtable != null) {
-        m_valueEntry = subtable.getEntry("Value");
-        updateTable();
-      } else {
-        m_valueEntry = null;
-      }
-    }
-
-    @Override
-    public void updateTable() {
-      if (m_valueEntry != null) {
-        m_valueEntry.setDouble(getAngle());
-      }
-    }
-
-    public void startLiveWindowMode() {
-    }
-
-    public void stopLiveWindowMode() {
-    }
-
-    public String getSmartDashboardType() {
-        return "Gyro";
-    }
+    public void initSendable(SendableBuilder builder) {
+      builder.setSmartDashboardType("Gyro");
+      builder.addDoubleProperty("Value", this::getAngle, null);
+   }
 }
