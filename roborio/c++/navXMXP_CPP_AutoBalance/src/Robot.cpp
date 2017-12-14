@@ -79,9 +79,6 @@ public:
         	const char *p_err_msg = err_msg.c_str();
             DriverStation::ReportError(p_err_msg);
         }
-        if ( ahrs ) {
-            LiveWindow::GetInstance()->AddSensor("IMU", "Gyro", ahrs);
-        }
         autoBalanceXMode = false;
         autoBalanceYMode = false;
     }

@@ -105,14 +105,6 @@ public:
         turnController->SetOutputRange(-1.0, 1.0);
         turnController->SetAbsoluteTolerance(kToleranceDegrees);
         turnController->SetContinuous(true);
-
-        /* Add the PID Controller to the Test-mode dashboard, allowing manual  */
-        /* tuning of the Turn Controller's P, I and D coefficients.            */
-        /* Typically, only the P value needs to be modified.                   */
-        LiveWindow::GetInstance()->AddActuator("DriveSystem", "RotateController", turnController);
-        if ( ahrs ) {
-            LiveWindow::GetInstance()->AddSensor("IMU", "Gyro", ahrs);
-        }
     }
 
     /**

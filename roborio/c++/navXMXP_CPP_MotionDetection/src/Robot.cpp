@@ -69,9 +69,6 @@ public:
             err_string += ex.what();
             DriverStation::ReportError(err_string.c_str());
         }
-        if ( ahrs ) {
-            LiveWindow::GetInstance()->AddSensor("IMU", "Gyro", ahrs);
-        }
 	}
 
     /**

@@ -30,7 +30,6 @@ class Robot: public IterativeRobot
 	std::shared_ptr<NetworkTable> table;
 	Joystick stick; // only joystick
     AHRS *ahrs;
-    LiveWindow *lw;
     int autoLoopCounter;
 
 public:
@@ -38,7 +37,7 @@ public:
         table(NULL),
         stick(0),		// as they are declared above.
         ahrs(NULL),
-        lw(NULL),
+        //lw(NULL),
         autoLoopCounter(0)
     {
     }
@@ -47,7 +46,6 @@ private:
     void RobotInit()
     {
     	NetworkTableInstance::GetDefault().GetTable("datatable");
-        lw = LiveWindow::GetInstance();
         try {
 			/***********************************************************************
 			 * navX-MXP:
@@ -60,14 +58,13 @@ private:
 			 *
 			 * Multiple navX-model devices on a single robot are supported.
 			 ************************************************************************/
-            ahrs = new AHRS(SerialPort::Port::kUSB);
+            //ahrs = new AHRS(SPI::Port::kMXP);
+            ahrs = new AHRS(I2C::Port::kMXP);
+            ahrs->EnableLogging(true);
         } catch (std::exception& ex ) {
             std::string err_string = "Error instantiating navX MXP:  ";
             err_string += ex.what();
             DriverStation::ReportError(err_string.c_str());
-        }
-        if ( ahrs ) {
-            LiveWindow::GetInstance()->AddSensor("IMU", "Gyro", ahrs);
         }
 	}
 
@@ -160,7 +157,7 @@ private:
 
     void TestPeriodic()
     {
-        lw->Run();
+        //lw->Run();
     }
 };
 
