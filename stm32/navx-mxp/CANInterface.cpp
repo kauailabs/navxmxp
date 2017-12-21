@@ -9,6 +9,7 @@
 #include "CAN_hal.h"
 #include <string.h>
 #include "ext_interrupts.h"
+#include "navx-mxp_hal.h"
 
 /******************************************************************************
  * Private Function Definitions
@@ -172,11 +173,21 @@ bool CANInterface::clear_rx_overflow() {
 	uint8_t clear_all = 0;
 	uint8_t clear_rx_full_flags_mask = (uint8_t)QSTAT_RX0IF | (uint8_t)QSTAT_RX1IF | 0x20/* ERRIF*/;
 	disable_CAN_interrupts();
-	/* Clear RX0/RX1 Overflow Error Flags */
-	CAN_INTERFACE_STATUS s = HAL_MCP25625_HW_Ctl_Update(&eflg_ctl);
 	/* Clear RX Buffer Full & Error Interrupt Flags */
-	s = HAL_MCP25625_BitModify(REG_INT_FLG, clear_rx_full_flags_mask, &clear_all);
+	CAN_INTERFACE_STATUS s = HAL_MCP25625_BitModify(REG_INT_FLG, clear_rx_full_flags_mask, &clear_all);
+	/* Clear RX0/RX1 Overflow Error Flags */
+	s = HAL_MCP25625_HW_Ctl_Update(&eflg_ctl);
+
+	/* Workaround; for some unknown reason, in certain cases the GPIO
+	 * configuration for the CAN Interrupt becomes disabled.  If this occurs,
+	 * the CAN Interrupt is no longer received and an observable result is
+	 * that a receive overflow occurs. In this case, restore the GPIO
+	 * configuration.
+	 */
+	HAL_Ensure_CAN_EXTI_Configuration();
+
 	enable_CAN_interrupts();
+
 	return (s == MCP25625_OK);
 }
 
@@ -193,10 +204,10 @@ bool CANInterface::get_errors(bool& rx_overflow, CAN_ERROR_FLAGS& error_flags,
 	CAN_INTERFACE_STATUS s2 = HAL_MCP25625_Read(REG_STAT_TEC, err_cnt, sizeof(err_cnt));
 	enable_CAN_interrupts();
 	if(s1 == MCP25625_OK){
-		rx_overflow = ((eflg_ctl.rx0ovr | eflg_ctl.rx1ovr) != 0);
+		rx_overflow = (eflg_ctl.rx0ovr || eflg_ctl.rx1ovr);
 		error_flags.can_bus_warn = eflg_ctl.ewarn;
-		error_flags.can_bus_err_pasv = (eflg_ctl.rxerr | eflg_ctl.txerr);
-		error_flags.can_bus_tx_off = (eflg_ctl.txbo);
+		error_flags.can_bus_err_pasv = (eflg_ctl.rxerr || eflg_ctl.txerr);
+		error_flags.can_bus_tx_off = eflg_ctl.txbo;
 	}
 	if(s2 == MCP25625_OK){
 		tx_err_count = err_cnt[0];

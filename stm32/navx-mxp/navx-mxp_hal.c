@@ -281,7 +281,12 @@ void HAL_CAN_Int_Deassert()
 {
 #ifdef CAN_INTERRUPT
 	  HAL_GPIO_WritePin(NAVX_2_RPI_INT3_GPIO_Port, NAVX_2_RPI_INT3_Pin, GPIO_PIN_SET);
-#endif
+#endif    bool gpio_group_enabled = false;
+}
+
+void HAL_Ensure_CAN_EXTI_Configuration()
+{
+	MX_CAN_Interrupt_Verify();
 }
 
 void HAL_AHRS_Int_Assert()

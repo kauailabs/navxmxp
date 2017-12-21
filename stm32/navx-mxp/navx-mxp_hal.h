@@ -122,6 +122,8 @@ void HAL_AHRS_Int_Deassert();
 
 void HAL_CAN_Status_LED_On(int on);
 
+void HAL_Ensure_CAN_EXTI_Configuration();
+
 /**********************/
 /* RTC                */
 /**********************/

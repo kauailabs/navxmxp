@@ -147,6 +147,9 @@ public:
 
 	uint32_t get_bus_off_count() { return bus_off_count; }
 
+	/* Returns true if any error conditions (further specified in the
+	 * output parameters from this function) exist.
+	 */
 	bool get_errors(bool& rx_overflow, CAN_ERROR_FLAGS& error_flags,
 			uint8_t& tx_err_count, uint8_t& rx_err_count);
 

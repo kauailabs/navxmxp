@@ -103,7 +103,7 @@ _EXTERN_ATTRIB void CAN_init()
 static uint32_t last_loop_timestamp = 0;
 static uint32_t last_can_bus_error_check_timestamp = 0;
 #define NUM_MS_BETWEEN_SUCCESSIVE_LOOPS 1
-#define NUM_MS_BETWEEN_SUCCESSIVE_CAN_BUS_ERROR_CHECKS 10
+#define NUM_MS_BETWEEN_SUCCESSIVE_CAN_BUS_ERROR_CHECKS 50
 
 static void CAN_process_pending_updates()
 {

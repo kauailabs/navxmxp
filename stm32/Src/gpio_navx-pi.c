@@ -43,6 +43,50 @@
 /*----------------------------------------------------------------------------*/
 /* USER CODE BEGIN 1 */
 
+void MX_CAN_Interrupt_Enable(void) {
+	GPIO_InitTypeDef GPIO_InitStruct;
+
+	GPIO_InitStruct.Pin = _CAN_INT_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(_CAN_INT_GPIO_Port, &GPIO_InitStruct);
+}
+
+void MX_CAN_Interrupt_Verify()
+{
+	int gpio_group_enabled = 0;
+    int gpio_pin_masked_in = 0;
+    int gpio_falling_edge_trigger = 0;
+    int gpio_floating_input = 1;
+    uint32_t temp;
+    temp = SYSCFG->EXTICR[2];
+    if ( temp & 0x00000002 ) {
+        /* EXTI is enabled for GPIOB Group */
+        gpio_group_enabled = 1;
+    }
+    temp = EXTI->IMR;
+    if ( temp & _CAN_INT_Pin ) {
+        /* EXTI is masked in */
+        gpio_pin_masked_in = 1;
+    }
+    temp = EXTI->FTSR;
+    if ( temp & _CAN_INT_Pin ) {
+        /* Falling edge triggered */
+        gpio_falling_edge_trigger = 1;
+    }
+    temp = GPIOC->PUPDR;
+    temp >>= (_CAN_INT_Pin * 2); // 2 bits per pin
+    temp &= 0x00000003;
+    if ( temp != GPIO_NOPULL) {
+        /* Floating input */
+    	gpio_floating_input = 0;
+    }
+    if ((!gpio_group_enabled) || (!gpio_pin_masked_in) ||
+    	(!gpio_falling_edge_trigger) || (!gpio_floating_input)) {
+    	MX_CAN_Interrupt_Enable();
+    }
+}
+
 /* USER CODE END 1 */
 
 /** Configure pins as 
@@ -86,10 +130,7 @@ void MX_GPIO_Init_NavX_PI(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(NAVX_2_RPI_INT4_GPIO_Port, &GPIO_InitStruct);
 
-  GPIO_InitStruct.Pin = _CAN_INT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(_CAN_INT_GPIO_Port, &GPIO_InitStruct);
+  MX_CAN_Interrupt_Enable();
 
   /*Configure GPIO pins : PCPin PCPin PCPin */
   GPIO_InitStruct.Pin = S2_LED_Pin|S1_LED_Pin|_CAN_RESET_Pin;

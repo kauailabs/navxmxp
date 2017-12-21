@@ -430,6 +430,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
 
         /* USER CODE END SPI1_MspInit 1 */
     }
+#ifdef ENABLE_CAN_TRANSCEIVER
     else if(hspi->Instance==SPI2)
     {
     /* USER CODE BEGIN SPI2_MspInit 0 */
@@ -463,6 +464,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
 
     /* USER CODE END SPI2_MspInit 1 */
     }
+#endif
 }
 
 void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
