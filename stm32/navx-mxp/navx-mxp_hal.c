@@ -639,6 +639,13 @@ TIM_HandleTypeDef htim9 = {TIM9};
 
 int qe_enabled[NUM_IOCX_QUAD_ENCODERS] = { 0, 0, 0, 0, 0 };
 
+int qe_curr_mode[NUM_IOCX_QUAD_ENCODERS] = {
+		QUAD_ENCODER_MODE_4x,
+		QUAD_ENCODER_MODE_4x,
+		QUAD_ENCODER_MODE_4x,
+		QUAD_ENCODER_MODE_4x,
+		QUAD_ENCODER_MODE_4x,
+};
 uint16_t qe0_last_count = 0;
 uint32_t qe1_last_count = 0;
 uint16_t qe2_last_count = 0;
@@ -677,7 +684,7 @@ void HAL_IOCX_SysTick_Handler()
 	/* NOTE:  Timers 1, 3, 4 are 16-bit; Timers 2, 5 are 32-bit. */
 	if (qe_enabled[0]) {
 		uint16_t qe0_curr_count = (uint16_t)TIM1->CNT;
-		qe_total_count[0] += (int32_t)(qe0_curr_count - qe0_last_count);
+		qe_total_count[0] += (int16_t)(qe0_curr_count - qe0_last_count);
 		qe0_last_count = qe0_curr_count;
 	}
 	if (qe_enabled[1]) {
@@ -687,12 +694,12 @@ void HAL_IOCX_SysTick_Handler()
 	}
 	if (qe_enabled[2]) {
 		uint16_t qe2_curr_count = (uint16_t)TIM3->CNT;
-		qe_total_count[2] += (int32_t)(qe2_curr_count - qe2_last_count);
+		qe_total_count[2] += (int16_t)(qe2_curr_count - qe2_last_count);
 		qe2_last_count = qe2_curr_count;
 	}
 	if (qe_enabled[3]) {
 		uint16_t qe3_curr_count = (uint16_t)TIM4->CNT;
-		qe_total_count[3] += (int32_t)(qe3_curr_count - qe3_last_count);
+		qe_total_count[3] += (int16_t)(qe3_curr_count - qe3_last_count);
 		qe3_last_count = qe3_curr_count;
 	}
 	if (qe_enabled[4]) {
@@ -913,27 +920,23 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 			p_htim->Init.CounterMode = TIM_COUNTERMODE_UP;
 			p_htim->Instance->ARR = timer_configs[timer_index].max_auto_reload_value;
 			p_htim->Init.Period = p_htim->Instance->ARR;
-			if (qe_mode == QUAD_ENCODER_MODE_1x) {
-				sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
-			} else { /* 2x, 4x */
+			if (qe_mode == QUAD_ENCODER_MODE_4x) {
+				// A & B signal, both edges
 				sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+			} else /* 1x or 2x */ {
+				// A signal only.  Both edges are counted,
+				// and if 1x the count is divided by two (later)
+				sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
 			}
-			if (qe_mode == QUAD_ENCODER_MODE_4x) {
-				sConfig.IC1Polarity = TIM_ICPOLARITY_BOTHEDGE;
-			} else {
-				sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
-			}
-			sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+			qe_curr_mode[timer_index] = qe_mode;
 			sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-			sConfig.IC1Filter = 2;
-			if (qe_mode == QUAD_ENCODER_MODE_4x) {
-				sConfig.IC2Polarity = TIM_ICPOLARITY_BOTHEDGE;
-			} else {
-				sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
-			}
-			sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
 			sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-			sConfig.IC2Filter = 2;
+			sConfig.IC1Polarity  = TIM_ICPOLARITY_RISING;
+			sConfig.IC2Polarity  = TIM_ICPOLARITY_RISING;
+			sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+			sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+			sConfig.IC1Filter    = 0x05;
+			sConfig.IC2Filter    = 0x05;
 			HAL_TIM_Encoder_Init(p_htim, &sConfig);
 
 			sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
@@ -943,7 +946,7 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 			/* Be sure to configure the auto-reload register (ARR) to the max possible value. */
 			p_htim->Instance->ARR = timer_configs[timer_index].max_auto_reload_value;
 
-			ResetQEIntegrator(timer_index, 1 /* Enable */ );
+			ResetQEIntegrator(timer_index, 1 /* Enable */);
 
 			HAL_TIM_Encoder_Start(p_htim, BOTH_ENCODER_TIMER_CHANNELS);
 		}
@@ -1051,7 +1054,11 @@ void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, int32_t *val
 	}
 	for ( i = first_timer_index; i < first_timer_index + count; i++ ) {
 		if (QEIntegratorEnabled(i)) {
-			*values++ = qe_total_count[i];
+			if (qe_curr_mode[i] == QUAD_ENCODER_MODE_1x) {
+				*values++ = qe_total_count[i] >> 1; /* Divide by 2 */
+			} else {
+				*values++ = qe_total_count[i];
+			}
 		} else {
 			*values++ = (int32_t)timer_configs[i].p_tim_handle->Instance->CNT;
 		}
