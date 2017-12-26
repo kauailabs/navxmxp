@@ -5,6 +5,10 @@ pushd ..
 md dist
 pushd dist
 
+mkdir enclosure
+
+cp -r ../enclosure/vmx-pi/* ./enclosure
+
 cp ../setup/Output_vmx-pi/* .
 cp ../setup/target/vmx-pi/readme.txt ./
 cp ../setup/target/vmx-pi/getting_started.txt ./
