@@ -15,15 +15,17 @@ import com.kauailabs.navx.AHRSProtocol.AHRSPosUpdate;
 import com.kauailabs.navx.AHRSProtocol.BoardID;
 import com.kauailabs.navx.IMUProtocol.YPRUpdate;
 
+import edu.wpi.first.networktables.NetworkTable;
+import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.wpilibj.I2C;
 import edu.wpi.first.wpilibj.PIDSource;
 import edu.wpi.first.wpilibj.PIDSourceType;
 import edu.wpi.first.wpilibj.SPI;
+import edu.wpi.first.wpilibj.Sendable;
 import edu.wpi.first.wpilibj.SensorBase;
 import edu.wpi.first.wpilibj.SerialPort;
-import edu.wpi.first.wpilibj.livewindow.LiveWindowSendable;
-import edu.wpi.first.wpilibj.tables.ITable;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SendableBuilder;
 
 /**
  * The AHRS class provides an interface to AHRS capabilities
@@ -43,7 +45,7 @@ import edu.wpi.first.wpilibj.Timer;
  * @author Scott
  */
 
-public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
+public class AHRS extends SensorBase implements PIDSource, Sendable {
 
     /**
      * Identifies one of the three sensing axes on the navX sensor board.  Note that these axes are
@@ -174,8 +176,6 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     
     long                last_sensor_timestamp;
     double              last_update_time;
-
-    ITable              m_table;
     
     InertialDataIntegrator  integrator;
     ContinuousAngleTracker  yaw_angle_tracker;
@@ -1224,6 +1224,17 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
         return fw_version;
     }
     
+    /**
+     * Enables or disables logging (via Console I/O) of AHRS library internal
+     * behaviors, including events such as transient communication errors.
+     * @param enable
+     */
+    public void enableLogging(boolean enable) {
+    	if ( this.io != null) {
+    		io.enableLogging(enable);
+    	}
+    }
+    
     /***********************************************************/
     /* Runnable Interface Implementation                       */
     /***********************************************************/
@@ -1495,31 +1506,10 @@ public class AHRS extends SensorBase implements PIDSource, LiveWindowSendable {
     };
     
     /***********************************************************/
-    /* LiveWindowSendable Interface Implementation             */
+    /* Sendable Interface Implementation                       */
     /***********************************************************/
-    
-    public void updateTable() {
-        if (m_table != null) {
-            m_table.putNumber("Value", getYaw());
-        }
-    }
-
-    public void startLiveWindowMode() {
-    }
-
-    public void stopLiveWindowMode() {
-    }
-
-    public void initTable(ITable itable) {
-        m_table = itable;
-        updateTable();
-    }
-
-    public ITable getTable() {
-        return m_table;
-    }
-
-    public String getSmartDashboardType() {
-        return "Gyro";
-    }
+    public void initSendable(SendableBuilder builder) {
+      builder.setSmartDashboardType("Gyro");
+      builder.addDoubleProperty("Value", this::getAngle, null);
+   }
 }

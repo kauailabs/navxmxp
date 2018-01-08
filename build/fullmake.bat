@@ -4,5 +4,6 @@ call dosyncftp_docs
 call buildall
 call makedist
 call makedist_navX-Micro
-rem call dosyncftp
+call dosyncftp
 rem call dosyncftp_navX-Micro
+call maven_deploy

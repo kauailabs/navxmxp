@@ -1126,6 +1126,7 @@ public class AHRS {
             I2cDevice navXDevice                    = null;
             DimI2cDeviceWriter navxUpdateRateWriter = null;
             DimI2cDeviceWriter navxZeroYawWriter    = null;
+            Boolean i2c_timeout                     = false;
 
             byte[] update_rate_command  = new byte[1];
             update_rate_command[0]      = (byte)update_rate_hz;
@@ -1189,8 +1190,8 @@ public class AHRS {
 
                             /* if any reading is underway, wait for it to complete. */
                             cancel_all_reads = true;
-                            if (navxReader[1].isBusy()) { navxReader[1].waitForCompletion(I2C_TIMEOUT_MS); }
-                            if (navxReader[2].isBusy()) { navxReader[2].waitForCompletion(I2C_TIMEOUT_MS); }
+                            if (navxReader[1].isBusy(i2c_timeout)) { navxReader[1].waitForCompletion(I2C_TIMEOUT_MS); }
+                            if (navxReader[2].isBusy(i2c_timeout)) { navxReader[2].waitForCompletion(I2C_TIMEOUT_MS); }
                             cancel_all_reads = false;
 
                             navxZeroYawWriter = new DimI2cDeviceWriter(navXDevice,
@@ -1208,9 +1209,13 @@ public class AHRS {
 
                         if ((data_type == DeviceDataType.kProcessedData) ||
                                 ((data_type == DeviceDataType.kAll) && first_bank)) {
-                            if ( !navxReader[1].isBusy() ) {
-                                navxReader[1].start(I2C_TIMEOUT_MS,
-                                        (data_type == DeviceDataType.kProcessedData));
+                            if ( !navxReader[1].isBusy(i2c_timeout) ) {
+                                if(i2c_timeout) {
+                                    setConnected(false);
+                                } else {
+                                    navxReader[1].start(I2C_TIMEOUT_MS,
+                                            (data_type == DeviceDataType.kProcessedData));
+                                }
                             }
                         }
 
@@ -1218,9 +1223,13 @@ public class AHRS {
 
                         if ((data_type == DeviceDataType.kQuatAndRawData) ||
                                 ((data_type == DeviceDataType.kAll) && !first_bank)) {
-                            if ( !navxReader[2].isBusy() ) {
-                                 navxReader[2].start(I2C_TIMEOUT_MS,
-                                         (data_type == DeviceDataType.kQuatAndRawData));
+                            if ( !navxReader[2].isBusy(i2c_timeout) ) {
+                                if(i2c_timeout) {
+                                    setConnected(false);
+                                } else {
+                                    navxReader[2].start(I2C_TIMEOUT_MS,
+                                            (data_type == DeviceDataType.kQuatAndRawData));
+                                }
                             }
                         }
                     }
@@ -1240,11 +1249,13 @@ public class AHRS {
             /* Cancel any pending IO, and wait for them to complete (or timeout) */
             cancel_all_reads = true;
 
-            if (navxReader[1].isBusy()) { navxReader[1].waitForCompletion(I2C_TIMEOUT_MS); }
-            if (navxReader[2].isBusy()) { navxReader[2].waitForCompletion(I2C_TIMEOUT_MS); }
+            if (navxReader[1].isBusy(i2c_timeout)) { navxReader[1].waitForCompletion(I2C_TIMEOUT_MS); }
+            if (navxReader[2].isBusy(i2c_timeout)) { navxReader[2].waitForCompletion(I2C_TIMEOUT_MS); }
 
             navxReader[1].deregisterIoCallback(this);
             navxReader[2].deregisterIoCallback(this);
+
+            setConnected(false);
 
             global_dim_state_tracker.reset();
 
@@ -1257,7 +1268,11 @@ public class AHRS {
         boolean decodeNavxBoardData(byte[] curr_data, int first_address, int len) {
             final int I2C_NAVX_DEVICE_TYPE = 50;
             boolean valid_data;
-            if ( curr_data[IMURegisters.NAVX_REG_WHOAMI - first_address] == I2C_NAVX_DEVICE_TYPE ){
+            if ((curr_data == null) ||
+                    (len < (IMURegisters.NAVX_REG_CAPABILITY_FLAGS_H - first_address))) {
+                return false;
+            }
+            if (curr_data[IMURegisters.NAVX_REG_WHOAMI - first_address] == I2C_NAVX_DEVICE_TYPE){
                 valid_data = true;
                 board_id.hw_rev = curr_data[IMURegisters.NAVX_REG_HW_REV - first_address];
                 board_id.fw_ver_major = curr_data[IMURegisters.NAVX_REG_FW_VER_MAJOR - first_address];
@@ -1299,6 +1314,10 @@ public class AHRS {
         boolean decodeNavxProcessedData(byte[] curr_data, int first_address, int len) {
             long timestamp_low, timestamp_high;
 
+            if ((curr_data == null) ||
+                    (len < (IMURegisters.NAVX_REG_LINEAR_ACC_Z_H - first_address))) {
+                return false;
+            }
             boolean data_valid = doesDataAppearValid(curr_data);
             if ( !data_valid ) {
                 Arrays.fill(curr_data, (byte)0);
@@ -1321,6 +1340,10 @@ public class AHRS {
         }
 
         boolean decodeNavxQuatAndRawData(byte[] curr_data, int first_address, int len) {
+            if ((curr_data == null) ||
+                    (len < (IMURegisters.NAVX_REG_MAG_Y_H - first_address))) {
+                return false;
+            }
             boolean data_valid = doesDataAppearValid(curr_data);
             if ( !data_valid ) {
                 Arrays.fill(curr_data, (byte)0);
@@ -1611,12 +1634,14 @@ public class AHRS {
             busy = true;
         }
 
-        public boolean isBusy() {
+        public boolean isBusy(Boolean timeout) {
+            timeout = false;
             long busy_period = SystemClock.elapsedRealtime() - read_start_timestamp;
             if ( busy && ( busy_period >= this.timeout_ms ) ) {
                 if ( enable_logging ) {
                     Log.w("navx_ftc", "Reader TIMEOUT!!!");
                 }
+                timeout = true;
                 busy = false;
                 state_tracker.reset();
             }

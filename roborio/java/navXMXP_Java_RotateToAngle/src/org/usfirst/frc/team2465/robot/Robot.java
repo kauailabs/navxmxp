@@ -7,9 +7,10 @@ import edu.wpi.first.wpilibj.PIDController;
 import edu.wpi.first.wpilibj.PIDOutput;
 import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.SampleRobot;
-import edu.wpi.first.wpilibj.RobotDrive;
+import edu.wpi.first.wpilibj.Spark;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.drive.MecanumDrive;
 import edu.wpi.first.wpilibj.livewindow.LiveWindow;
 
 /**
@@ -36,7 +37,7 @@ import edu.wpi.first.wpilibj.livewindow.LiveWindow;
 
 public class Robot extends SampleRobot implements PIDOutput {
     AHRS ahrs;
-    RobotDrive myRobot;
+    MecanumDrive myRobot;
     Joystick stick;
     PIDController turnController;
     double rotateToAngleRate;
@@ -60,9 +61,18 @@ public class Robot extends SampleRobot implements PIDOutput {
     final static int frontRightChannel	= 1;
     final static int rearRightChannel	= 0;
         
+    Spark frontLeft;
+    Spark rearLeft;
+    Spark frontRight;
+    Spark rearRight;
+
     public Robot() {
-        myRobot = new RobotDrive(frontLeftChannel, rearLeftChannel,
-        		frontRightChannel, rearRightChannel);
+    	frontLeft = new Spark(frontLeftChannel);
+    	rearLeft = new Spark(rearLeftChannel);
+    	frontRight = new Spark(frontRightChannel);
+    	rearRight = new Spark(rearRightChannel);
+        myRobot = new MecanumDrive(frontLeft, rearLeft, 
+  				 frontRight, rearRight);
         myRobot.setExpiration(0.1);
         stick = new Joystick(0);
         try {
@@ -98,9 +108,9 @@ public class Robot extends SampleRobot implements PIDOutput {
      */
     public void autonomous() {
         myRobot.setSafetyEnabled(false);
-        myRobot.drive(0.0, 0.0);    // stop robot
-        Timer.delay(2.0);		    //    for 2 seconds
-        myRobot.drive(0.0, 0.0);	// stop robot
+        myRobot.driveCartesian(0.0, 0.0, 0.0);    // stop robot
+        Timer.delay(2.0);		    			  //    for 2 seconds
+        myRobot.driveCartesian(0.0, 0.0, 0.0);	  // stop robot
     }
 
     /**
@@ -148,8 +158,8 @@ public class Robot extends SampleRobot implements PIDOutput {
                 /* Y axis for forward movement, and the current           */
                 /* calculated rotation rate (or joystick Z axis),         */
                 /* depending upon whether "rotate to angle" is active.    */
-                myRobot.mecanumDrive_Cartesian(stick.getX(), stick.getY(), 
-                                               currentRotationRate, ahrs.getAngle());
+                myRobot.driveCartesian(stick.getX(), stick.getY(), 
+                                       currentRotationRate, ahrs.getAngle());
             } catch( RuntimeException ex ) {
                 DriverStation.reportError("Error communicating with drive system:  " + ex.getMessage(), true);
             }

@@ -50,7 +50,12 @@ class Robot: public SampleRobot, public PIDOutput
 
     const static int joystickChannel	= 0;
 
-    RobotDrive robotDrive;	            // Robot drive system
+    Spark frontLeft;
+    Spark rearLeft;
+    Spark frontRight;
+    Spark rearRight;
+
+    MecanumDrive robotDrive;	        // Robot drive system
     Joystick stick;			            // Driver Joystick
     AHRS *ahrs;                         // navX MXP
     PIDController *turnController;      // PID Controller
@@ -65,14 +70,18 @@ public:
     }
 
 	Robot() :
-            robotDrive(frontLeftChannel, rearLeftChannel,
-                       frontRightChannel, rearRightChannel), // initialize variables in same
+        frontLeft(frontLeftChannel),
+		rearLeft(rearLeftChannel),
+		frontRight(frontRightChannel),
+		rearRight(rearRightChannel),
+		robotDrive(frontLeft,  rearLeft,
+                   frontRight, rearRight),	// these must be initialized in the
             stick(joystickChannel)                           // order as declared above.
     {
 	    rotateToAngleRate = 0.0f;
         robotDrive.SetExpiration(0.1);
-        robotDrive.SetInvertedMotor(RobotDrive::kFrontLeftMotor, true);	// invert left side motors
-        robotDrive.SetInvertedMotor(RobotDrive::kRearLeftMotor, true);	// change to match your robot
+        frontLeft.SetInverted(true);  // invert the left side motors
+        rearLeft.SetInverted(true);   // (remove/modify to match your robot)
         try {
 			/***********************************************************************
 			 * navX-MXP:
@@ -96,14 +105,6 @@ public:
         turnController->SetOutputRange(-1.0, 1.0);
         turnController->SetAbsoluteTolerance(kToleranceDegrees);
         turnController->SetContinuous(true);
-
-        /* Add the PID Controller to the Test-mode dashboard, allowing manual  */
-        /* tuning of the Turn Controller's P, I and D coefficients.            */
-        /* Typically, only the P value needs to be modified.                   */
-        LiveWindow::GetInstance()->AddActuator("DriveSystem", "RotateController", turnController);
-        if ( ahrs ) {
-            LiveWindow::GetInstance()->AddSensor("IMU", "Gyro", ahrs);
-        }
     }
 
     /**
@@ -145,8 +146,8 @@ public:
                 /* Y axis for forward movement, and the current           */
                 /* calculated rotation rate (or joystick Z axis),         */
                 /* depending upon whether "rotate to angle" is active.    */
-                robotDrive.MecanumDrive_Cartesian(stick.GetX(), stick.GetY(),
-                                                  currentRotationRate ,ahrs->GetAngle());
+                robotDrive.DriveCartesian(stick.GetX(), stick.GetY(),
+                                          currentRotationRate ,ahrs->GetAngle());
             } catch (std::exception& ex ) {
                 std::string err_string = "Error communicating with Drive System:  ";
                 err_string += ex.what();

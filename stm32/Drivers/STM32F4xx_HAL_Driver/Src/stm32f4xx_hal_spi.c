@@ -103,6 +103,13 @@
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 #define SPI_TIMEOUT_VALUE  10
+
+#define SPI_TX_COMPLETE_STUCK_BUSY_ITER_COUNT 200 /* Scott Libert, 6/13/2017 */
+/* Note that this "stuck busy timeout value" is a workaround for a documented */
+/* Silicon issue w/the STM32F411, see "STM32F40x and STM32F41x Errata sheet " */
+/* under section "2.5.4 BSY bit may stay high at the end of a data transfer   */
+/* in Slave mode "
+
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 /* Private function prototypes -----------------------------------------------*/
@@ -1926,6 +1933,9 @@ static void SPI_RxISR(SPI_HandleTypeDef *hspi)
   }
 }
 
+static int last_spi_dma_transmit_cmplt_success_loop_count = -1;
+static int max_spi_dma_transmit_cmplt_success_loop_count = -1;
+static int num_spi_dma_transmit_cmplt_no_wait_count = -1;
 /**
   * @brief DMA SPI transmit process complete callback 
   * @param  hdma: pointer to a DMA_HandleTypeDef structure that contains
@@ -1934,6 +1944,7 @@ static void SPI_RxISR(SPI_HandleTypeDef *hspi)
   */
 static void SPI_DMATransmitCplt(DMA_HandleTypeDef *hdma)
 {
+  int i;
   SPI_HandleTypeDef* hspi = ( SPI_HandleTypeDef* )((DMA_HandleTypeDef* )hdma)->Parent;
 
   /* DMA Normal Mode */
@@ -1948,9 +1959,31 @@ static void SPI_DMATransmitCplt(DMA_HandleTypeDef *hdma)
     hspi->Instance->CR2 &= (uint32_t)(~SPI_CR2_TXDMAEN);
 
     /* Wait until Busy flag is reset before disabling SPI */
-    if(SPI_WaitOnFlagUntilTimeout(hspi, SPI_FLAG_BSY, SET, SPI_TIMEOUT_VALUE) != HAL_OK)
-    {
-      hspi->ErrorCode |= HAL_SPI_ERROR_FLAG;
+    /* Scott Libert, 6/13/2017 - workaround documented silicon issue, see */
+    /* comments at the top of this file for more details.  When the BUSY  */
+    /* flag is stuck, wait for the maximum time to transmit the remaining */
+    /* 7 bits of the last byte.  At minimum SPI speed of 100kbps, this is */
+    /* 70 microseconds (7 * 1000000/100000 microseconds).                 */
+    /* The loop below is assumed to iterate at .5 microseconds/iteration. */
+    if(__HAL_SPI_GET_FLAG(hspi, SPI_FLAG_BSY) == SET) {
+       for(i = 0; i < SPI_TX_COMPLETE_STUCK_BUSY_ITER_COUNT; i++) {
+           if(__HAL_SPI_GET_FLAG(hspi, SPI_FLAG_BSY) == RESET) {
+               last_spi_dma_transmit_cmplt_success_loop_count = i;
+               if(i > max_spi_dma_transmit_cmplt_success_loop_count) {
+                   max_spi_dma_transmit_cmplt_success_loop_count = i;
+               }
+               break;
+           }
+       }
+       /* If busy bit is still set, cleanup and flag an error. */
+       if(__HAL_SPI_GET_FLAG(hspi, SPI_FLAG_BSY) == SET) {
+           if(SPI_WaitOnFlagUntilTimeout(hspi, SPI_FLAG_BSY, SET, 0 /*Immediate Timeout*/) != HAL_OK)
+           {
+               hspi->ErrorCode |= HAL_SPI_ERROR_FLAG;
+           }
+       }
+    } else {
+       num_spi_dma_transmit_cmplt_no_wait_count++;
     }
 
     hspi->TxXferCount = 0;

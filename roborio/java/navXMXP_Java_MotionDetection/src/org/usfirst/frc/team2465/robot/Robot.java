@@ -5,9 +5,10 @@ import com.kauailabs.navx.frc.AHRS;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.SampleRobot;
-import edu.wpi.first.wpilibj.RobotDrive;
+import edu.wpi.first.wpilibj.Spark;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.drive.MecanumDrive;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 /**
@@ -29,7 +30,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 public class Robot extends SampleRobot {
   AHRS ahrs;
-  RobotDrive myRobot;
+  MecanumDrive myRobot;
   Joystick stick;
 
   // Channels for the wheels
@@ -38,9 +39,18 @@ public class Robot extends SampleRobot {
   final static int frontRightChannel	= 1;
   final static int rearRightChannel	= 0;
   
+  Spark frontLeft;
+  Spark rearLeft;
+  Spark frontRight;
+  Spark rearRight;
+
   public Robot() {
-      myRobot = new RobotDrive(frontLeftChannel, rearLeftChannel,
-      		frontRightChannel, rearRightChannel);
+  	  frontLeft = new Spark(frontLeftChannel);
+  	  rearLeft = new Spark(rearLeftChannel);
+  	  frontRight = new Spark(frontRightChannel);
+  	  rearRight = new Spark(rearRightChannel);
+      myRobot = new MecanumDrive(frontLeft, rearLeft, 
+				 frontRight, rearRight);
       myRobot.setExpiration(0.1);
       stick = new Joystick(0);
       try {
@@ -66,9 +76,9 @@ public class Robot extends SampleRobot {
    */
   public void autonomous() {
       myRobot.setSafetyEnabled(false);
-      myRobot.drive(-0.5, 0.0);	// drive forwards half speed
-      Timer.delay(2.0);		//    for 2 seconds
-      myRobot.drive(0.0, 0.0);	// stop robot
+      myRobot.driveCartesian(0.0, -0.5, 0.0);	// drive forwards half speed
+      Timer.delay(2.0);							//    for 2 seconds
+      myRobot.driveCartesian(0.0, 0.0, 0.0);	// stop robot
   }
 
   /**
@@ -83,7 +93,7 @@ public class Robot extends SampleRobot {
           SmartDashboard.putBoolean("MotionDetected", motionDetected);
           
           try {
-              myRobot.mecanumDrive_Cartesian(stick.getX(), stick.getY(), stick.getTwist(),0);
+              myRobot.driveCartesian(stick.getX(), stick.getY(), stick.getTwist(),0);
           } catch( RuntimeException ex ) {
               String err_string = "Drive system error:  " + ex.getMessage();
               DriverStation.reportError(err_string, true);
