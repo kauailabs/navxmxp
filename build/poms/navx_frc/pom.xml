@@ -4,7 +4,7 @@
   <groupId>com.kauailabs.navx.frc</groupId>
   <artifactId>navx_frc</artifactId>
   <packaging>jar</packaging>
-  <version>3.0.341</version>
+  <version>3.0.342</version>
   <name>navX FRC Java Library</name>
   <dependencies>
     <dependency>
@@ -15,7 +15,7 @@
 	<dependency>
       <groupId> edu.wpi.first.wpilibj</groupId>
       <artifactId>wpilibj-java</artifactId>
-      <version>2018.1.1-beta-3</version>
+      <version>2018.1.1</version>
     </dependency>  
   </dependencies>
   <repositories>
