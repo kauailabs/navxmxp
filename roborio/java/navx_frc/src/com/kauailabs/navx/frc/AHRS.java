@@ -1235,6 +1235,9 @@ public class AHRS extends SensorBase implements PIDSource, Sendable {
     	}
     }
     
+    public short getGyroFullScaleRangeDPS() { return this.gyro_fsr_dps; }
+    public short getAccelFullScaleRangeG() { return this.accel_fsr_g; }
+    
     /***********************************************************/
     /* Runnable Interface Implementation                       */
     /***********************************************************/
