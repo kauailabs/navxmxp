@@ -39,15 +39,19 @@ _EXTERN_ATTRIB void MISC_init()
 	misc_regs.capability_flags.analog_trigger = 1;
 	misc_regs.capability_flags.rtc = 1;
 	misc_regs.capability_flags.analog_in = 1;
+	/* By default, enable power currentlimit mode */
+	misc_regs.ext_pwr_ctl_cfg.ext_pwr_currentlimit_mode = 1;
 }
 
 #define NUM_MS_BETWEEN_SUCCESSIVE_LOOPS 2
-#define NUM_MS_BETWEEN_SUCCESSIVE_OVERCURRENT_CHECKS  100
+#define NUM_MS_BETWEEN_SUCCESSIVE_OVERCURRENT_CHECKS  10
+#define NUM_OVERCURRENT_POWER_OFF_PERIODS             20
 #define NUM_MS_BETWEEN_SUCCESSIVE_UNDERVOLTAGE_CHECKS 20
 #define NUM_ANALOG_INPUT_OVERSAMPLE_BITS 3
 #define NUM_ANALOG_INPUT_AVERAGE_BITS NUM_ANALOG_INPUT_OVERSAMPLE_BITS
 
 bool ext_power_overcurrent = false;
+int  ext_power_num_power_off_periods = 0;
 bool ext_power_undervoltage = false;
 static uint32_t last_overcurrent_check_timestamp;
 static uint32_t last_undervoltage_check_timestamp;
@@ -117,9 +121,13 @@ _EXTERN_ATTRIB void MISC_loop()
 			if(ext_power_overcurrent) {
 				/* If Over-current no longer present, re-enable ext power switch */
 				if(!HAL_IOCX_Ext_Power_Fault()) {
-					ext_power_overcurrent = false;
-					HAL_IOCX_Ext_Power_Enable(1);
-					misc_regs.ext_pwr_ctl_status.ext_pwr_overcurrent = 0;
+					ext_power_num_power_off_periods++;
+					if (ext_power_num_power_off_periods > NUM_OVERCURRENT_POWER_OFF_PERIODS) {
+						ext_power_overcurrent = false;
+						ext_power_num_power_off_periods = 0;
+						HAL_IOCX_Ext_Power_Enable(1);
+						misc_regs.ext_pwr_ctl_status.ext_pwr_overcurrent = 0;
+					}
 				}
 			} else {
 				/* If Over-current is present, disable ext power switch. */
@@ -127,6 +135,7 @@ _EXTERN_ATTRIB void MISC_loop()
 					/* NOTE:  Only disable power if current limit mode enabled */
 					if (misc_regs.ext_pwr_ctl_cfg.ext_pwr_currentlimit_mode) {
 						ext_power_overcurrent = true;
+						ext_power_num_power_off_periods = 0;
 						HAL_IOCX_Ext_Power_Enable(0);
 						misc_regs.ext_pwr_ctl_status.ext_pwr_overcurrent = 1;
 					}
