@@ -120,7 +120,7 @@ typedef enum _IOCX_TIMER_MODE {
 	TIMER_MODE_DISABLED 		= 0, /* Default */
 	TIMER_MODE_QUAD_ENCODER		= 1,
 	TIMER_MODE_PWM_OUT			= 2,
-	TIMER_MODE_INPUT_CAPTURE	= 3,
+	TIMER_MODE_PWM_CAPTURE		= 3,
 } IOCX_TIMER_MODE;
 
 typedef enum _IOCX_QUAD_ENCODER_MODE {
@@ -152,11 +152,11 @@ typedef enum _IOCX_TIMER_COUNTER_RESET {
 #define IOCX_ALL_TIMER_MODES 				\
 	((1 << TIMER_MODE_QUAD_ENCODER) || 		\
 	 (1 << TIMER_MODE_PWM_OUT) ||			\
-	 (1 << TIMER_MODE_INPUT_CAPTURE))
+	 (1 << TIMER_MODE_PWM_CAPTURE))
 
 #define IOCX_NON_QUAD_ENCODER_TIMER_MODES	\
 		((1 << TIMER_MODE_PWM_OUT) ||			\
-		 (1 << TIMER_MODE_INPUT_CAPTURE))
+		 (1 << TIMER_MODE_PWM_CAPTURE))
 
 const uint8_t SUPPORTED_TIMER_MODES[IOCX_NUM_TIMERS] = {
 	IOCX_ALL_TIMER_MODES,
@@ -202,8 +202,8 @@ static RegEncoding gpio_input_reg = { offsetof(struct IOCX_REGS, gpio_cfg), 3, 0
 static RegEncoding gpio_interrupt_reg = { offsetof(struct IOCX_REGS, gpio_cfg), 5, 0x03 };
 static RegEncoding timer_mode_reg = { offsetof(struct IOCX_REGS, timer_cfg), 0, 0x03 };
 static RegEncoding quad_enc_mode_reg = {offsetof(struct IOCX_REGS, timer_cfg), 2, 0x03 };
-static RegEncoding input_cap_ch_reg = {offsetof(struct IOCX_REGS, timer_cfg), 4, 0x10 };
-static RegEncoding input_cap_polarity_reg = {offsetof(struct IOCX_REGS, timer_cfg), 5, 0x30 };
+static RegEncoding input_cap_ch_reg = {offsetof(struct IOCX_REGS, timer_cfg), 4, 0x01 };
+static RegEncoding input_cap_polarity_reg = {offsetof(struct IOCX_REGS, timer_cfg), 5, 0x01};
 static RegEncoding timer_counter_reset_reg = { offsetof(struct IOCX_REGS, timer_ctl), 0, 0x01 };
 static RegEncoding timer_direction_reg = { offsetof(struct IOCX_REGS, timer_status), 0, 0x01 };
 

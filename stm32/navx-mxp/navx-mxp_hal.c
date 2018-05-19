@@ -873,7 +873,7 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 	IOCX_TIMER_MODE mode = iocx_decode_timer_mode(&config);
 	IOCX_QUAD_ENCODER_MODE qe_mode = iocx_decode_quad_encoder_mode(&config);
 	IOCX_INPUT_CAPTURE_CHANNEL inputcap_channel = iocx_decode_input_capture_channel(&config);
-	IOCX_INPUT_CAPTURE_POLARITY inputcap_polarity = iocx_decode_input_capture_polarity(&config);
+	//IOCX_INPUT_CAPTURE_POLARITY inputcap_polarity = iocx_decode_input_capture_polarity(&config);
 
 	if (mode != TIMER_MODE_QUAD_ENCODER) {
 		ResetQEIntegrator(timer_index, 0 /* Disable */ );
@@ -892,16 +892,10 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 			HAL_TIM_PWM_Stop(timer_configs[timer_index].p_tim_handle, timer_configs[timer_index].first_channel_number);
 			HAL_TIM_PWM_Stop(timer_configs[timer_index].p_tim_handle, timer_configs[timer_index].second_channel_number);
 			break;
-		case TIMER_MODE_INPUT_CAPTURE:
+		case TIMER_MODE_PWM_CAPTURE:
 		{
-			uint32_t channel;
-
-			if (iocx_decode_input_capture_channel(&curr_timer_cfg[timer_index]) == INPUT_CAPTURE_FROM_CH1) {
-				channel = timer_configs[timer_index].first_channel_number;
-			} else {
-				channel = timer_configs[timer_index].second_channel_number;
-			}
-			HAL_TIM_IC_Stop(timer_configs[timer_index].p_tim_handle, channel);
+			HAL_TIM_IC_Stop(timer_configs[timer_index].p_tim_handle, timer_configs[timer_index].first_channel_number);
+			HAL_TIM_IC_Stop(timer_configs[timer_index].p_tim_handle, timer_configs[timer_index].second_channel_number);
 			break;
 		}
 		default:
@@ -976,29 +970,61 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 		}
 		break;
 
-	case TIMER_MODE_INPUT_CAPTURE:
+	case TIMER_MODE_PWM_CAPTURE:
 		{
-			uint32_t channel;
-
-			if (inputcap_channel == INPUT_CAPTURE_FROM_CH1) {
-				channel = timer_configs[timer_index].first_channel_number;
-			} else {
-				channel = timer_configs[timer_index].second_channel_number;
-			}
+			uint32_t input_trigger;
+			TIM_ClockConfigTypeDef sClockSourceConfig;
+			TIM_SlaveConfigTypeDef sSlaveConfig;
+			TIM_IC_InitTypeDef sConfigIC;
+			TIM_MasterConfigTypeDef sMasterConfig;
 
 			TIM_HandleTypeDef * p_htim = timer_configs[timer_index].p_tim_handle;
-			// Configure the Input Capture channel
-			TIM_IC_InitTypeDef sConfig;
-			sConfig.ICPrescaler = TIM_ICPSC_DIV1;
-			sConfig.ICFilter = 0x0;
-			if (inputcap_polarity == INPUT_CAPTURE_POLARITY_RISING) {
-				sConfig.ICPolarity = TIM_ICPOLARITY_RISING;
+			p_htim->Init.ClockDivision = timer_configs[timer_index].core_clock_divider;
+			p_htim->Init.Prescaler = 0;
+			p_htim->Init.CounterMode = TIM_COUNTERMODE_UP;
+			p_htim->Instance->ARR = timer_configs[timer_index].max_auto_reload_value;
+			// p_htim->Init.RepetitionCounter = 0 (???)
+
+			sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+			HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig);
+
+			HAL_TIM_IC_Init(&htim1);
+
+			if (inputcap_channel == INPUT_CAPTURE_FROM_CH1) {
+				input_trigger = TIM_TS_TI1FP1;
 			} else {
-				sConfig.ICPolarity = TIM_ICPOLARITY_FALLING;
+				input_trigger = TIM_TS_TI2FP2;
 			}
-			sConfig.ICSelection = TIM_ICSELECTION_DIRECTTI;
-			HAL_TIM_IC_ConfigChannel(p_htim, &sConfig, channel);
-			HAL_TIM_IC_Start (p_htim, channel);
+
+			sSlaveConfig.SlaveMode = TIM_SLAVEMODE_RESET;
+			sSlaveConfig.InputTrigger = input_trigger;
+			sSlaveConfig.TriggerPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+			sSlaveConfig.TriggerPrescaler = TIM_ICPSC_DIV1;
+			sSlaveConfig.TriggerFilter = 0;
+			HAL_TIM_SlaveConfigSynchronization(p_htim, &sSlaveConfig);
+
+			sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+			sConfigIC.ICSelection =
+					(inputcap_channel == INPUT_CAPTURE_FROM_CH1) ?
+						TIM_ICSELECTION_DIRECTTI :
+						TIM_ICSELECTION_INDIRECTTI;
+			sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+			sConfigIC.ICFilter = 0; // Increase to filter out noise?
+			HAL_TIM_IC_ConfigChannel(p_htim, &sConfigIC, TIM_CHANNEL_1);
+
+			sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
+			sConfigIC.ICSelection =
+					(inputcap_channel == INPUT_CAPTURE_FROM_CH1) ?
+						TIM_ICSELECTION_INDIRECTTI :
+						TIM_ICSELECTION_DIRECTTI;
+			HAL_TIM_IC_ConfigChannel(p_htim, &sConfigIC, TIM_CHANNEL_2);
+
+			sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+			sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+			HAL_TIMEx_MasterConfigSynchronization(p_htim, &sMasterConfig);
+
+			HAL_TIM_IC_Start (p_htim, timer_configs[timer_index].first_channel_number);
+			HAL_TIM_IC_Start (p_htim, timer_configs[timer_index].second_channel_number);
 		}
 		break;
 
