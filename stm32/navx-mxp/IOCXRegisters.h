@@ -139,6 +139,13 @@ typedef enum _IOCX_INPUT_CAPTURE_POLARITY {
 	INPUT_CAPTURE_POLARITY_FALLING = 1
 } IOCX_INPUT_CAPTURE_POLARITY;
 
+typedef enum _IOCX_PWM_CAPTURE_TIMEOUT {
+	PWM_CAPTURE_TIMEOUT_NONE = 0,
+	PWM_CAPTURE_TIMEOUT_1X = 1,
+	PWM_CAPTURE_TIMEOUT_2X = 2,
+	PWM_CAPTURE_TIMEOUT_3X = 3,
+} IOCX_PWM_CAPTURE_TIMEOUT;
+
 typedef enum _IOCX_TIMER_DIRECTION {
 	UP				= 0,
 	DOWN		    = 1,
@@ -178,7 +185,7 @@ struct __attribute__ ((__packed__)) IOCX_REGS {
 	/*****************/
 	/* Configuration */
 	/*****************/
-	uint8_t timer_cfg[IOCX_NUM_TIMERS]; /* IOCX_TIMER_MODE, IOCX_QUAD_ENCODER_MODE, IOCX_INPUT_CAPTURE_CHANNEL, IOCX_INPUT_CAPTURE_POLARITY */
+	uint8_t timer_cfg[IOCX_NUM_TIMERS]; /* IOCX_TIMER_MODE, IOCX_QUAD_ENCODER_MODE, IOCX_INPUT_CAPTURE_CHANNEL, IOCX_INPUT_CAPTURE_POLARITY, PWM_CAPTURE_TIMEOUT */
 	uint8_t timer_ctl[IOCX_NUM_TIMERS]; /* IOCX_TIMER_COUNTER_RESET */
 	uint16_t timer_prescaler[IOCX_NUM_TIMERS]; /* Timer Frequency (48Mhz divider) */
 	uint16_t timer_aar[IOCX_NUM_TIMERS]; /* PWM:  Frame Period; QE:  auto-set to 0xFFFF */
@@ -204,6 +211,7 @@ static RegEncoding timer_mode_reg = { offsetof(struct IOCX_REGS, timer_cfg), 0, 
 static RegEncoding quad_enc_mode_reg = {offsetof(struct IOCX_REGS, timer_cfg), 2, 0x03 };
 static RegEncoding input_cap_ch_reg = {offsetof(struct IOCX_REGS, timer_cfg), 4, 0x01 };
 static RegEncoding input_cap_polarity_reg = {offsetof(struct IOCX_REGS, timer_cfg), 5, 0x01};
+static RegEncoding pwm_cap_timeout_reg = {offsetof(struct IOCX_REGS, timer_cfg), 6, 0x03};
 static RegEncoding timer_counter_reset_reg = { offsetof(struct IOCX_REGS, timer_ctl), 0, 0x01 };
 static RegEncoding timer_direction_reg = { offsetof(struct IOCX_REGS, timer_status), 0, 0x01 };
 
@@ -261,6 +269,12 @@ inline void iocx_encode_input_capture_polarity(uint8_t* reg, IOCX_INPUT_CAPTURE_
 }
 inline IOCX_INPUT_CAPTURE_POLARITY iocx_decode_input_capture_polarity(uint8_t *reg) {
 	return (IOCX_INPUT_CAPTURE_POLARITY)decode_reg(reg, &input_cap_polarity_reg);
+}
+inline void iocx_encode_pwm_capture_timeout(uint8_t* reg, IOCX_PWM_CAPTURE_TIMEOUT val) {
+	encode_reg(reg, (uint8_t)val, &pwm_cap_timeout_reg);
+}
+inline IOCX_PWM_CAPTURE_TIMEOUT iocx_decode_pwm_capture_timeout(uint8_t *reg) {
+	return (IOCX_PWM_CAPTURE_TIMEOUT)decode_reg(reg, &pwm_cap_timeout_reg);
 }
 inline void iocx_encode_timer_direction(uint8_t *reg, IOCX_TIMER_DIRECTION val) {
 	encode_reg(reg, (uint8_t)val, &timer_direction_reg);
