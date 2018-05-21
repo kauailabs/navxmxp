@@ -174,6 +174,7 @@ void HAL_IOCX_TIMER_Get_Config(uint8_t first_timer_index, int count, uint8_t *va
 void HAL_IOCX_TIMER_Set_Prescaler(uint8_t timer_index, uint16_t ticks_per_clock);
 void HAL_IOCX_TIMER_Get_Prescaler(uint8_t first_timer_index, int count, uint16_t *values);
 void HAL_IOCX_TIMER_ConfigureInterruptPriorities(uint8_t timer_index);
+void HAL_IOCX_TIMER_Get_Normalized_Prescaler(uint8_t timer_index, uint16_t *prescaler_normalized);
 
 /* Quad Encoder Data */
 void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, int32_t *values);

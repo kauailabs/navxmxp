@@ -281,7 +281,7 @@ void HAL_CAN_Int_Deassert()
 {
 #ifdef CAN_INTERRUPT
 	  HAL_GPIO_WritePin(NAVX_2_RPI_INT3_GPIO_Port, NAVX_2_RPI_INT3_Pin, GPIO_PIN_SET);
-#endif    bool gpio_group_enabled = false;
+#endif
 }
 
 void HAL_Ensure_CAN_EXTI_Configuration()
@@ -1009,8 +1009,8 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 			TIM_IC_InitTypeDef sConfigIC;
 			TIM_MasterConfigTypeDef sMasterConfig;
 
-			uint16_t normalized_prescaler;
-			HAL_IOCX_TIMER_Get_Normalized_Prescaler(timer_index, normalized_prescaler);
+			uint16_t normalized_prescaler = 0;
+			HAL_IOCX_TIMER_Get_Normalized_Prescaler(timer_index, &normalized_prescaler);
 			uint32_t max_capture_period_ms =
 					1 * (65535 / (48000/normalized_prescaler));
 			switch(pwm_cap_timeout) {
@@ -1131,7 +1131,6 @@ void HAL_IOCX_TIMER_Get_Prescaler(uint8_t first_timer_index, int count, uint16_t
 /* Gets prescaler value in microseconds */
 void HAL_IOCX_TIMER_Get_Normalized_Prescaler(uint8_t timer_index, uint16_t *prescaler_normalized)
 {
-	uint8_t i;
 	*prescaler_normalized = 0;
 	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
 
@@ -1140,7 +1139,7 @@ void HAL_IOCX_TIMER_Get_Normalized_Prescaler(uint8_t timer_index, uint16_t *pres
 	if (timer_configs[timer_index].core_clock_divider == TIM_CLOCKDIVISION_DIV1) {
 		raw_prescaler_value /= 2;
 	}
-	prescaler_normalized = raw_prescaler_value;
+	*prescaler_normalized = raw_prescaler_value;
 }
 
 
