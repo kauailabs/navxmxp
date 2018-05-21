@@ -17,6 +17,14 @@ _EXTERN_ATTRIB void IOCX_init()
 	HAL_IOCX_TIMER_Enable_Clocks(4,1);
 	HAL_IOCX_TIMER_Enable_Clocks(5,1);
 
+	/* Configure Timer Capture Event Interrupt Priorities */
+	HAL_IOCX_TIMER_ConfigureInterruptPriorities(0);
+	HAL_IOCX_TIMER_ConfigureInterruptPriorities(1);
+	HAL_IOCX_TIMER_ConfigureInterruptPriorities(2);
+	HAL_IOCX_TIMER_ConfigureInterruptPriorities(3);
+	HAL_IOCX_TIMER_ConfigureInterruptPriorities(4);
+	HAL_IOCX_TIMER_ConfigureInterruptPriorities(5);
+
 	HAL_IOCX_RPI_GPIO_Driver_Enable(1);
 	HAL_IOCX_RPI_COMM_Driver_Enable(1);
 }
@@ -69,6 +77,16 @@ _EXTERN_ATTRIB uint8_t *IOCX_get_reg_addr_and_max_size( uint8_t bank, uint8_t re
 	    	 * counters, rather than all counters.
 	    	 */
 	    	HAL_IOCX_TIMER_Get_Count(0, IOCX_NUM_TIMERS, &iocx_regs.timer_counter[0]);
+	   }
+
+	    if((first_offset >= offsetof(struct IOCX_REGS, timer_chx_ccr)) &&
+	       (first_offset <=
+	    		   offsetof(struct IOCX_REGS, timer_chx_ccr) +
+	    		   sizeof(iocx_regs.timer_chx_ccr))) {
+	    	/* Todo:  This can be optimized to only acquire data for requested
+	    	 * timer channel ccr values, rather than all.
+	    	 */
+	    	HAL_IOCX_TIMER_PWM_Get_DutyCycle(0, 0, (IOCX_NUM_TIMERS * IOCX_NUM_CHANNELS_PER_TIMER), &iocx_regs.timer_chx_ccr[0]);
 	   }
 
 	    if((first_offset >= offsetof(struct IOCX_REGS, gpio_data)) &&

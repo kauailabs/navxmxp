@@ -715,21 +715,25 @@ typedef struct {
 	uint32_t first_channel_number;
 	uint32_t second_channel_number;
 	uint32_t max_auto_reload_value;
+	int cc_irqn;
 } Timer_Config;
 
 static Timer_Config timer_configs[IOCX_NUM_TIMERS] =
 {
-	{&htim1, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFF},
-	{&htim2, TIM_CLOCKDIVISION_DIV2, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFFFFFF},
-	{&htim3, TIM_CLOCKDIVISION_DIV2, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFF},
-	{&htim4, TIM_CLOCKDIVISION_DIV2, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFF},
-	{&htim5, TIM_CLOCKDIVISION_DIV2, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFFFFFF},
-	{&htim9, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFF},
+	{&htim1, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFF, TIM1_CC_IRQn},
+	{&htim2, TIM_CLOCKDIVISION_DIV2, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFFFFFF, TIM2_IRQn},
+	{&htim3, TIM_CLOCKDIVISION_DIV2, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFF, TIM3_IRQn},
+	{&htim4, TIM_CLOCKDIVISION_DIV2, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFF, TIM4_IRQn},
+	{&htim5, TIM_CLOCKDIVISION_DIV2, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFFFFFF, TIM5_IRQn},
+	{&htim9, TIM_CLOCKDIVISION_DIV1, TIM_CHANNEL_1, TIM_CHANNEL_2, 0xFFFF, TIM1_BRK_TIM9_IRQn},
 };
 
 uint8_t curr_timer_cfg[IOCX_NUM_TIMERS]; /* All defaults have 0 value (disabled) */
 
 uint16_t timer_channel_ccr[IOCX_NUM_TIMERS][IOCX_NUM_CHANNELS_PER_TIMER];
+
+uint32_t timer_last_capture_interrupt_timestamp_ms[IOCX_NUM_TIMERS];
+uint32_t timer_last_capture_max_timestamp_delta_ms[IOCX_NUM_TIMERS];
 
 void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 
@@ -866,6 +870,33 @@ void HAL_IOCX_TIMER_Enable_Clocks(uint8_t timer_index, int enable)
 
 #define BOTH_ENCODER_TIMER_CHANNELS 0xFF /*(TIM_CHANNEL_1 and TIM_CHANNEL_2)*/
 
+/* Timer Capture Complete Interrupt Service Routine Callback */
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *p_htim) {
+	int i;
+	for ( i = 0; i < IOCX_NUM_TIMERS; i++ ) {
+		if (p_htim == timer_configs[i].p_tim_handle) {
+			timer_last_capture_interrupt_timestamp_ms[i] = HAL_GetTick();
+			break;
+		}
+	}
+}
+
+void HAL_IOCX_TIMER_ConfigureInterruptPriorities(uint8_t timer_index) {
+	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
+	int cc_irqn = timer_configs[timer_index].cc_irqn;
+    HAL_NVIC_SetPriority(cc_irqn, 7, 0);
+}
+
+void HAL_IOCX_TIMER_Enable_Capture_Interrupt(uint8_t timer_index, int enable) {
+	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
+	int cc_irqn = timer_configs[timer_index].cc_irqn;
+	if (enable) {
+		HAL_NVIC_EnableIRQ(cc_irqn);
+	} else {
+		HAL_NVIC_DisableIRQ(cc_irqn);
+	}
+}
+
 void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 {
 	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
@@ -874,6 +905,7 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 	IOCX_QUAD_ENCODER_MODE qe_mode = iocx_decode_quad_encoder_mode(&config);
 	IOCX_INPUT_CAPTURE_CHANNEL inputcap_channel = iocx_decode_input_capture_channel(&config);
 	//IOCX_INPUT_CAPTURE_POLARITY inputcap_polarity = iocx_decode_input_capture_polarity(&config);
+	IOCX_PWM_CAPTURE_TIMEOUT pwm_cap_timeout = iocx_decode_pwm_capture_timeout(&config);
 
 	if (mode != TIMER_MODE_QUAD_ENCODER) {
 		ResetQEIntegrator(timer_index, 0 /* Disable */ );
@@ -881,8 +913,7 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 
 	switch(mode){
 	case TIMER_MODE_DISABLED:
-		// TODO:  IF was in PWM Mode, stop PWM?
-		// TODO:  IF was in QEMode, stop QE?
+		HAL_IOCX_TIMER_Enable_Capture_Interrupt(timer_index,0);
 		__HAL_TIM_DISABLE(timer_configs[timer_index].p_tim_handle);
 		switch (iocx_decode_timer_mode(&curr_timer_cfg[timer_index])) {
 		case TIMER_MODE_QUAD_ENCODER:
@@ -894,7 +925,7 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 			break;
 		case TIMER_MODE_PWM_CAPTURE:
 		{
-			HAL_TIM_IC_Stop(timer_configs[timer_index].p_tim_handle, timer_configs[timer_index].first_channel_number);
+			HAL_TIM_IC_Stop_IT(timer_configs[timer_index].p_tim_handle, timer_configs[timer_index].first_channel_number);
 			HAL_TIM_IC_Stop(timer_configs[timer_index].p_tim_handle, timer_configs[timer_index].second_channel_number);
 			break;
 		}
@@ -978,17 +1009,40 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 			TIM_IC_InitTypeDef sConfigIC;
 			TIM_MasterConfigTypeDef sMasterConfig;
 
+			uint16_t normalized_prescaler;
+			HAL_IOCX_TIMER_Get_Normalized_Prescaler(timer_index, normalized_prescaler);
+			uint32_t max_capture_period_ms =
+					1 * (65535 / (48000/normalized_prescaler));
+			switch(pwm_cap_timeout) {
+			case PWM_CAPTURE_TIMEOUT_NONE:
+				timer_last_capture_max_timestamp_delta_ms[timer_index] = 0;
+				break;
+			case PWM_CAPTURE_TIMEOUT_1X:
+				timer_last_capture_max_timestamp_delta_ms[timer_index] =
+						1 * max_capture_period_ms;
+				break;
+			case PWM_CAPTURE_TIMEOUT_2X:
+				timer_last_capture_max_timestamp_delta_ms[timer_index] =
+						2 * max_capture_period_ms;
+				break;
+			case PWM_CAPTURE_TIMEOUT_3X:
+				timer_last_capture_max_timestamp_delta_ms[timer_index] =
+						3 * max_capture_period_ms;
+				break;
+			}
+
 			TIM_HandleTypeDef * p_htim = timer_configs[timer_index].p_tim_handle;
-			p_htim->Init.ClockDivision = timer_configs[timer_index].core_clock_divider;
-			p_htim->Init.Prescaler = 0;
+
+			// Prescaler must be already set before enabling.
 			p_htim->Init.CounterMode = TIM_COUNTERMODE_UP;
-			p_htim->Instance->ARR = timer_configs[timer_index].max_auto_reload_value;
-			// p_htim->Init.RepetitionCounter = 0 (???)
+			p_htim->Init.Period = timer_configs[timer_index].max_auto_reload_value;
+			p_htim->Init.ClockDivision = timer_configs[timer_index].core_clock_divider;
+			p_htim->Init.RepetitionCounter = 0;
+
+			HAL_TIM_IC_Init(p_htim);
 
 			sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-			HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig);
-
-			HAL_TIM_IC_Init(&htim1);
+			HAL_TIM_ConfigClockSource(p_htim, &sClockSourceConfig);
 
 			if (inputcap_channel == INPUT_CAPTURE_FROM_CH1) {
 				input_trigger = TIM_TS_TI1FP1;
@@ -1009,7 +1063,7 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 						TIM_ICSELECTION_DIRECTTI :
 						TIM_ICSELECTION_INDIRECTTI;
 			sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
-			sConfigIC.ICFilter = 0; // Increase to filter out noise?
+			sConfigIC.ICFilter = 0x05;
 			HAL_TIM_IC_ConfigChannel(p_htim, &sConfigIC, TIM_CHANNEL_1);
 
 			sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
@@ -1023,8 +1077,11 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 			sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
 			HAL_TIMEx_MasterConfigSynchronization(p_htim, &sMasterConfig);
 
-			HAL_TIM_IC_Start (p_htim, timer_configs[timer_index].first_channel_number);
-			HAL_TIM_IC_Start (p_htim, timer_configs[timer_index].second_channel_number);
+			/* Start channels; first channel should generate capture interrupts */
+			HAL_TIM_IC_Start_IT(p_htim, timer_configs[timer_index].first_channel_number);
+			HAL_TIM_IC_Start(p_htim, timer_configs[timer_index].second_channel_number);
+
+			HAL_IOCX_TIMER_Enable_Capture_Interrupt(timer_index,1);
 		}
 		break;
 
@@ -1070,6 +1127,22 @@ void HAL_IOCX_TIMER_Get_Prescaler(uint8_t first_timer_index, int count, uint16_t
 		*values++ = (uint16_t)timer_configs[i].p_tim_handle->Init.Prescaler;
 	}
 }
+
+/* Gets prescaler value in microseconds */
+void HAL_IOCX_TIMER_Get_Normalized_Prescaler(uint8_t timer_index, uint16_t *prescaler_normalized)
+{
+	uint8_t i;
+	*prescaler_normalized = 0;
+	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
+
+	uint16_t raw_prescaler_value = (uint16_t)timer_configs[timer_index].p_tim_handle->Init.Prescaler;
+	/* Normalize prescaler value to be based on 48Mhz clock */
+	if (timer_configs[timer_index].core_clock_divider == TIM_CLOCKDIVISION_DIV1) {
+		raw_prescaler_value /= 2;
+	}
+	prescaler_normalized = raw_prescaler_value;
+}
+
 
 void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, int32_t *values)
 {
@@ -1136,19 +1209,68 @@ void HAL_IOCX_TIMER_PWM_Set_DutyCycle(uint8_t timer_index, uint8_t channel_index
 	}
 }
 
+#define MAX_PWM_CAP_TIMESTAMP_DELTA_MS 100
+
 void HAL_IOCX_TIMER_PWM_Get_DutyCycle(uint8_t first_timer_index, uint8_t first_channel_index, int channel_count, uint16_t *values)
 {
 	if ( first_timer_index > (IOCX_NUM_TIMERS-1) ) return;
 	if ( first_channel_index > (IOCX_NUM_CHANNELS_PER_TIMER-1) ) return;
 	size_t curr_struct_index = (first_timer_index * IOCX_NUM_CHANNELS_PER_TIMER) + first_channel_index;
-	size_t num_entries = (sizeof(timer_channel_ccr) / sizeof(timer_channel_ccr[0]))-1;
+	size_t num_entries = (sizeof(timer_channel_ccr) / sizeof(timer_channel_ccr[0][0]));
 	if ( channel_count > (num_entries - curr_struct_index) ) {
 		channel_count = num_entries - curr_struct_index;
 	}
-	uint16_t *p_curr_entry = &(timer_channel_ccr[first_timer_index][first_channel_index]);
-	int i;
-	for ( i = 0; i < channel_count; i++) {
-		*values++ = *p_curr_entry++;;
+	int iTimer;
+	int iChannel;
+	int iValueIndex = 0;
+	int iChannelCount = 0;
+	for ( iTimer = 0; iTimer < IOCX_NUM_TIMERS; iTimer++ ) {
+		uint8_t timer_cfg = curr_timer_cfg[iTimer];
+		IOCX_TIMER_MODE mode = iocx_decode_timer_mode(&timer_cfg);
+		IOCX_INPUT_CAPTURE_CHANNEL inputcap_channel = iocx_decode_input_capture_channel(&timer_cfg);
+		uint32_t last_capture_timestamp = timer_last_capture_interrupt_timestamp_ms[iTimer];
+		uint32_t curr_timestamp = HAL_GetTick();
+		uint32_t ts_delta = curr_timestamp - last_capture_timestamp;
+		for ( iChannel = 0; iChannel < IOCX_NUM_CHANNELS_PER_TIMER; iChannel++ ) {
+			if (((iTimer == first_timer_index) && (iChannel >= first_channel_index)) ||
+			    (iTimer > first_timer_index)) {
+				TIM_HandleTypeDef * p_htim = timer_configs[iTimer].p_tim_handle;
+				if (iChannel == 0) {
+					if (mode == TIMER_MODE_PWM_CAPTURE) {
+						if (ts_delta < MAX_PWM_CAP_TIMESTAMP_DELTA_MS) {
+							if (inputcap_channel == INPUT_CAPTURE_FROM_CH1) {
+								values[iValueIndex] = (uint16_t)p_htim->Instance->CCR1;
+							} else {
+								values[iValueIndex] = (uint16_t)p_htim->Instance->CCR2;
+							}
+						} else {
+							values[iValueIndex] = 0; // No recent data received
+						}
+					} else {
+						values[iValueIndex] = (uint16_t)p_htim->Instance->CCR1;
+					}
+				} else if (iChannel == 1) {
+					if (mode == TIMER_MODE_PWM_CAPTURE) {
+						if (ts_delta < MAX_PWM_CAP_TIMESTAMP_DELTA_MS) {
+							if (inputcap_channel == INPUT_CAPTURE_FROM_CH1) {
+								values[iValueIndex] = (uint16_t)p_htim->Instance->CCR2;
+							} else {
+								values[iValueIndex] = (uint16_t)p_htim->Instance->CCR1;
+							}
+						} else {
+							values[iValueIndex] = 0; // No recent data received
+						}
+					} else {
+						values[iValueIndex] = (uint16_t)p_htim->Instance->CCR2;
+					}
+				}
+				iValueIndex++;
+				iChannelCount++;
+			}
+			if (iChannelCount >= channel_count) {
+				break;
+			}
+		}
 	}
 }
 #endif

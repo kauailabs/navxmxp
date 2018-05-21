@@ -64,6 +64,7 @@ extern DMA_HandleTypeDef hdma_usart6_tx;
 /* 4 - USB                */
 /* 5 - MPU                */
 /* 6 - ADC                */
+/* 7 - Timer (CCR)        */
 /* Lower priority numbers */
 /* Should preempt higher  */
 
