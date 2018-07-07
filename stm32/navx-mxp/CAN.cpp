@@ -213,28 +213,34 @@ static void CAN_process_pending_updates()
 					true);
 		}
 		if (pending_updates & CAN_DEVICE_UPDATE_MASK_0) {
-			p_CAN->mask_config(RXB0, &can_regs_pending.accept_mask_rxb0);
+			p_CAN->mask_config(RXB0, &can_regs_pending.accept_mask_rxb0, &can_regs.accept_mask_rxb0);
 		}
 		if (pending_updates & CAN_DEVICE_UPDATE_MASK_1) {
-			p_CAN->mask_config(RXB1, &can_regs_pending.accept_mask_rxb1);
+			p_CAN->mask_config(RXB1, &can_regs_pending.accept_mask_rxb1, &can_regs.accept_mask_rxb1);
 		}
 		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_0) {
-			p_CAN->filter_config(rxb0_filter_indices[0], &can_regs.accept_filter_rxb0[0]);
+			p_CAN->filter_config(rxb0_filter_indices[0], &can_regs_pending.accept_filter_rxb0[0],
+					&can_regs.accept_filter_rxb0[0]);
 		}
 		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_1) {
-			p_CAN->filter_config(rxb0_filter_indices[1], &can_regs.accept_filter_rxb0[1]);
+			p_CAN->filter_config(rxb0_filter_indices[1], &can_regs_pending.accept_filter_rxb0[1],
+					&can_regs.accept_filter_rxb0[1]);
 		}
 		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_2) {
-			p_CAN->filter_config(rxb1_filter_indices[0], &can_regs.accept_filter_rxb1[0]);
+			p_CAN->filter_config(rxb1_filter_indices[0], &can_regs_pending.accept_filter_rxb1[0],
+					&can_regs.accept_filter_rxb1[0]);
 		}
 		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_3) {
-			p_CAN->filter_config(rxb1_filter_indices[1], &can_regs.accept_filter_rxb1[1]);
+			p_CAN->filter_config(rxb1_filter_indices[1], &can_regs_pending.accept_filter_rxb1[1],
+					&can_regs.accept_filter_rxb1[1]);
 		}
 		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_4) {
-			p_CAN->filter_config(rxb1_filter_indices[2], &can_regs.accept_filter_rxb1[2]);
+			p_CAN->filter_config(rxb1_filter_indices[2], &can_regs_pending.accept_filter_rxb1[2],
+					&can_regs.accept_filter_rxb1[2]);
 		}
 		if (pending_updates & CAN_DEVICE_UPDATE_FILTER_5) {
-			p_CAN->filter_config(rxb1_filter_indices[3], &can_regs.accept_filter_rxb1[3]);
+			p_CAN->filter_config(rxb1_filter_indices[3], &can_regs_pending.accept_filter_rxb1[3],
+					&can_regs.accept_filter_rxb1[3]);
 		}
 	}
 }

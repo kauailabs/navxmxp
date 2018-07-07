@@ -127,13 +127,15 @@ public:
 	CAN_INTERFACE_STATUS filter_config
 	(
 			MCP25625_RX_FILTER_INDEX rx_filter,
-	        CAN_ID *p_id
+	        CAN_ID *p_id,
+	        CAN_ID *p_id_out
 	);
 
 	CAN_INTERFACE_STATUS mask_config
 	(
 			MCP25625_RX_BUFFER_INDEX rx_mask,
-	        CAN_ID *p_id
+	        CAN_ID *p_id,
+	        CAN_ID *p_id_out
 	);
 	CAN_INTERFACE_STATUS msg_load(MCP25625_TX_BUFFER_INDEX tx_buff,
 		CAN_TRANSFER_PADDED *p_tx);

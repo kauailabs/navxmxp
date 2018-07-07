@@ -466,18 +466,20 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 	/* Configure all masks/filters to be extremely restrictive. */
 
 	CAN_ID default_mask;
+	CAN_ID mask_out;
 	CAN_pack_extended_id(0x1FFFFFFF, &default_mask);
-	mask_config(RXB0, &default_mask);
-	mask_config(RXB1, &default_mask);
+	mask_config(RXB0, &default_mask, &mask_out);
+	mask_config(RXB1, &default_mask, &mask_out);
 
 	CAN_ID default_filter;
+	CAN_ID filter_out;
 	CAN_pack_extended_id(0x1FFFFFFF, &default_filter);
-	filter_config(RXF_0, &default_filter);
-	filter_config(RXF_1, &default_filter);
-	filter_config(RXF_2, &default_filter);
-	filter_config(RXF_3, &default_filter);
-	filter_config(RXF_4, &default_filter);
-	filter_config(RXF_5, &default_filter);
+	filter_config(RXF_0, &default_filter, &filter_out);
+	filter_config(RXF_1, &default_filter, &filter_out);
+	filter_config(RXF_2, &default_filter, &filter_out);
+	filter_config(RXF_3, &default_filter, &filter_out);
+	filter_config(RXF_4, &default_filter, &filter_out);
+	filter_config(RXF_5, &default_filter, &filter_out);
 
 	if (set_mode(default_mode))
 		goto error_cleanup;
@@ -742,7 +744,7 @@ CAN_INTERFACE_STATUS CANInterface::rx_config(MCP25625_RX_BUFFER_INDEX rx_buff,
 }
 
 CAN_INTERFACE_STATUS CANInterface::filter_config(
-		MCP25625_RX_FILTER_INDEX rx_filter, CAN_ID *p_id) {
+		MCP25625_RX_FILTER_INDEX rx_filter, CAN_ID *p_id, CAN_ID *p_id_out) {
 	CAN_MODE previous_mode = current_mode;
 	disable_CAN_interrupts();
 	if (set_mode(CAN_MODE_CONFIG, false)) {
@@ -754,6 +756,7 @@ CAN_INTERFACE_STATUS CANInterface::filter_config(
 		enable_CAN_interrupts();
 		return MCP25625_CTL_ERR;
 	}
+	HAL_MCP25625_HW_Filter_Get(rx_filter, p_id_out);
 
 	if (set_mode(previous_mode, false)) {
 		enable_CAN_interrupts();
@@ -765,7 +768,7 @@ CAN_INTERFACE_STATUS CANInterface::filter_config(
 }
 
 CAN_INTERFACE_STATUS CANInterface::mask_config(MCP25625_RX_BUFFER_INDEX rx_mask,
-		CAN_ID *p_id) {
+		CAN_ID *p_id, CAN_ID *p_id_out) {
 	CAN_MODE previous_mode = current_mode;
 	disable_CAN_interrupts();
 	if (set_mode(CAN_MODE_CONFIG, false)) {
@@ -777,6 +780,7 @@ CAN_INTERFACE_STATUS CANInterface::mask_config(MCP25625_RX_BUFFER_INDEX rx_mask,
 		enable_CAN_interrupts();
 		return MCP25625_CTL_ERR;
 	}
+	HAL_MCP25625_HW_Mask_Get(rx_mask, p_id_out);
 
 	if (set_mode(previous_mode, false)) {
 		enable_CAN_interrupts();
