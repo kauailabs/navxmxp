@@ -25,7 +25,7 @@ typedef int CAN_INTERFACE_STATUS;
 #define MCP25625_RXP_ERR    	9
 
 #define RECEIVE_FIFO_DEPTH	64
-#define TRANSMIT_FIFO_DEPTH 10
+#define TRANSMIT_FIFO_DEPTH 64
 
 typedef void (*CAN_interrupt_flag_func)(CAN_IFX_INT_FLAGS mask, CAN_IFX_INT_FLAGS flags);
 
