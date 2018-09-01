@@ -104,7 +104,7 @@
 /* Private define ------------------------------------------------------------*/
 #define SPI_TIMEOUT_VALUE  10
 
-#define SPI_TX_COMPLETE_STUCK_BUSY_ITER_COUNT 100 /* Scott Libert, 6/13/2017 */
+#define SPI_TX_COMPLETE_STUCK_BUSY_ITER_COUNT 40 /* Scott Libert, 6/13/2017 */
 /* Note that this "stuck busy timeout value" is a workaround for a documented */
 /* Silicon issue w/the STM32F411, see "STM32F40x and STM32F41x Errata sheet " */
 /* under section "2.5.4 BSY bit may stay high at the end of a data transfer   */
