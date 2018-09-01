@@ -1199,12 +1199,11 @@ void HAL_IOCX_TIMER_PWM_Set_DutyCycle(uint8_t timer_index, uint8_t channel_index
 	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
 	timer_channel_ccr[timer_index][channel_index] = clocks_per_active_period;
 	if (iocx_decode_timer_mode(&curr_timer_cfg[timer_index]) != TIMER_MODE_DISABLED) {
-		/* Stop Existing timer; restart to cause new Duty Cycle to take effect. */
-		uint8_t prev_timer_mode = curr_timer_cfg[timer_index];
-		uint8_t disabled_timer_mode;
-		iocx_encode_timer_mode(&disabled_timer_mode, TIMER_MODE_DISABLED);
-		HAL_IOCX_TIMER_Set_Config(timer_index, disabled_timer_mode);
-		HAL_IOCX_TIMER_Set_Config(timer_index, prev_timer_mode);
+	    if (channel_index == 0) {
+	        __HAL_TIM_SetCompare(timer_configs[timer_index].p_tim_handle, timer_configs[timer_index].first_channel_number, clocks_per_active_period);
+	    } else {
+            __HAL_TIM_SetCompare(timer_configs[timer_index].p_tim_handle, timer_configs[timer_index].second_channel_number, clocks_per_active_period);
+	    }
 	}
 }
 
