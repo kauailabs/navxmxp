@@ -48,6 +48,8 @@ extern SPI_HandleTypeDef hspi1; /* External SPI Interface */
 TIM_HandleTypeDef TimHandle; /* Internal Timer */
 FlashStorageClass FlashStorage; /* Class managing persistent configuration data */
 
+void SpiTxTimeoutCheck();
+
 int prepare_i2c_receive_timeout_count = 0;
 unsigned long prepare_i2c_receive_last_attempt_timestamp = 0;
 bool i2c_rx_in_progress = false;
@@ -673,6 +675,8 @@ _EXTERN_ATTRIB void nav10_main()
         int num_resp_bytes[2] = { 0, 0 };
 
         periodic_compass_update();
+
+        SpiTxTimeoutCheck();
 
         if ( sample_rate_update ) {
             if ( new_sample_rate != 0 ) {
@@ -1678,29 +1682,67 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *I2cHandle)
     }
 }
 
-bool spi_transmitting = false;
-uint8_t spi_bytes_to_be_transmitted = 0;
-unsigned long last_spi_tx_start_timestamp = 0;
-#define SPI_TX_TIMEOUT_MS ((unsigned long)10)
+typedef enum  {
+    NONE,
+    WRITE_REQ,    /* SPI Master sent write request to SPI Slave */
+    READ_REQ,     /* SPI Master sent read request to SPI Slave. */
+    READ_RESP,    /* SPI Slave is sending reponse to read request from SPI Master. */
+    SLAVE_RX_ERR, /* SPI Slave received an invalid request, which was discarded, or rx overflow occurred. */
+    SLAVE_TX_ERR  /* Error occurred during SPI Slave transmit [NOTE:  not an error if BUSY error occurs. */
+} SPI_MSG_TYPE;
 
-void Reset_SPI() {
+bool spi_transmitting = false;                  // TRUE:  SPI Slave Transmit in progress (awaiting Master to complete Read)
+SPI_MSG_TYPE spi_last_valid_msg_type = NONE;    // Previous valid spi transaction type
+SPI_MSG_TYPE spi_last_err_msg_type = NONE;      // Previous invalid spi transaction type
+uint8_t spi_last_read_req_len = 0;              // # Bytes to be transmitted in curr/previous SPI Slave Transmit
+uint8_t spi_last_read_req_reg_addr = 0;         // Starting register address of last READ_REQ
+uint8_t spi_last_read_req_bank = 0;             // Register Bank # of last READ_REQ
+uint8_t spi_last_write_req_len = 0;             // # Bytes last written in curr/previous WRITE_REQ
+uint8_t spi_last_write_req_reg_addr = 0;        // Starting register address of last WRITE_REQ
+uint8_t spi_last_write_req_bank = 0;            // Register Bank # of last WRITE_REQ
+uint32_t spi_SR_at_beginning_of_last_write = 0;
+unsigned long last_spi_tx_start_timestamp = 0;  // Timestamp when last SPI Slave Transmit was initiated
+#define SPI_TX_TIMEOUT_MS ((unsigned long)100)  // Max allowed duration of in-progress SPI Slave Transmit
+
+/* SPI Error Counts */
+int wrong_size_spi_receive_count = 0;           // SPI Slave Receive w/invalid byte count
+int invalid_char_spi_receive_count = 0;         // SPI Slave Receive w/CRC err, bad address or count
+int invalid_reg_address_spi_count = 0;          // SPI Slave Receive contained Invalid Register Address
+int spi_error_count = 0;                        // SPI Slave Error Callback count
+int spi_ovr_error_count = 0;                    // SPI Slave Receive Overflow count
+int spi_txne_error_count = 0;                   // SPI Slave Transmit (TXNE) Underflow count [e.g., DMA Underrun;
+                                                // (this can also occur during cleanup of a SPI Transmit Timeout)
+int spi_rxne_error_count = 0;                   // During SPI Slave Receive, data lost because RX register was full
+int spi_busy_error_count = 0;                   // SPI Busy after SPI Slave Transmit completed [caused by Silicon bug]
+int spi_rx_while_tx_error_count = 0;            // SPI Data Receive Callback invoked during SPI Slave Transmit ['impossible' condition]
+int spi_tx_complete_timeout_count = 0;          // SPI Slave Transmit completion timeout [protocol error]
+
+void Reset_SPI_And_PrepareToReceive() {
     HAL_SPI_Comm_Ready_Deassert();
     HAL_SPI_DeInit(&hspi1);
     HAL_SPI_Init(&hspi1);
     spi_transmitting = false;
+    __HAL_SPI_CLEAR_OVRFLAG(&hspi1);
     HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, SPI_RECV_LENGTH);
     HAL_SPI_Comm_Ready_Assert();
 }
 
-int wrong_size_spi_receive_count = 0;
-int invalid_char_spi_receive_count = 0;
-int invalid_reg_address_spi_count = 0;
-int spi_error_count = 0;
-int spi_ovr_error_count = 0;
-int spi_txe_error_count = 0;
-int spi_rxne_error_count = 0;
-int spi_busy_error_count = 0;
-int spi_tx_complete_timeout_count = 0;
+// This function should be polled periodically (at least once every
+// SPI_TX_TIMEOUT_MS period).
+//
+// If the SPI transmitter has been waiting more than the timeout period
+// to complete the transmission, disable the transmitter and prepare
+// again to receive data.
+void SpiTxTimeoutCheck() {
+    if (spi_transmitting) {
+        unsigned long now = HAL_GetTick();
+        unsigned long transmit_period = now - last_spi_tx_start_timestamp;
+        if (transmit_period > SPI_TX_TIMEOUT_MS) {
+            Reset_SPI_And_PrepareToReceive();
+            spi_tx_complete_timeout_count++;
+        }
+    }
+}
 
 #ifdef ENABLE_BANKED_REGISTERS
 int spi_rx_variable_message_len = 0;
@@ -1764,7 +1806,7 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                     }
                     if ( reg_addr ) {
                     	if ( write ) {
-
+                    	    // Write Request
                     		HAL_SPI_Comm_Ready_Deassert();
                     		uint16_t next_rcv_size = SPI_RECV_LENGTH;
 #ifdef ENABLE_BANKED_REGISTERS
@@ -1784,58 +1826,67 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
 #else
                     		process_writable_register_update( reg_address, reg_addr, reg_count /* value */ );
 #endif
-#if 0
-							int rxne_clear_count = 0;
-							int iteration_count = 0;
-							while (rxne_clear_count < 1) {
-								if (__HAL_SPI_GET_FLAG(&hspi1,SPI_FLAG_RXNE) != SET) {
-									rxne_clear_count++;
-								} else {
-									rxne_clear_count = 0;
-								}
-								iteration_count++;
-							}
-#endif
 
+							spi_last_valid_msg_type = WRITE_REQ;
+                            spi_last_write_req_len = (bank == 0) ? 1 : reg_count;
+                            spi_last_write_req_reg_addr = reg_address;
+                            spi_last_write_req_bank = bank;
+                            __HAL_SPI_CLEAR_OVRFLAG(hspi);
                     		HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, next_rcv_size);
                             HAL_SPI_Comm_Ready_Assert();
                         } else {
-                        	HAL_AHRS_Int_Deassert();
+                            // Read Request
+                            if (bank == 0) {
+                                HAL_AHRS_Int_Deassert();
+                            }
                         	spi_transmitting = true;
-                            spi_bytes_to_be_transmitted = (reg_count > max_size) ? max_size : reg_count;
-                            memcpy(spi_tx_buffer,reg_addr,spi_bytes_to_be_transmitted);
-                            spi_tx_buffer[spi_bytes_to_be_transmitted] =
+                            spi_last_read_req_len = (reg_count > max_size) ? max_size : reg_count;
+                            spi_last_read_req_reg_addr = reg_address;
+                            spi_last_read_req_bank = bank;
+                            memcpy(spi_tx_buffer,reg_addr,spi_last_read_req_len);
+                            spi_tx_buffer[spi_last_read_req_len] =
                                     IMURegisters::getCRCWithTable(crc_lookup_table, spi_tx_buffer,
-                                                                  (uint8_t)spi_bytes_to_be_transmitted);
-                            HAL_SPI_Transmit_DMA(&hspi1, spi_tx_buffer, spi_bytes_to_be_transmitted+1);
+                                                                  (uint8_t)spi_last_read_req_len);
+                            spi_last_valid_msg_type = READ_REQ;
+                            spi_SR_at_beginning_of_last_write = hspi->Instance->SR;
+                            __HAL_SPI_CLEAR_OVRFLAG(hspi);
+                            __HAL_SPI_DISABLE(hspi);
+                            HAL_SPI_Transmit_DMA(&hspi1, spi_tx_buffer, spi_last_read_req_len+1);
                             last_spi_tx_start_timestamp = HAL_GetTick();
                         	HAL_SPI_Comm_Ready_Deassert();
                         }
                     } else {
                         invalid_reg_address_spi_count++;
+                        spi_last_err_msg_type = SLAVE_RX_ERR;
+                        __HAL_SPI_CLEAR_OVRFLAG(hspi);
                         HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, SPI_RECV_LENGTH);
                         HAL_SPI_Comm_Ready_Assert();
                     }
                 } else {
                     invalid_char_spi_receive_count++;
+                    spi_last_err_msg_type = SLAVE_RX_ERR;
                     /* If repeated invalid requests are received, and if the */
                     /* SPI interface is still busy, reset the SPI interface. */
-                    /* This condition occurs sometimes after the RoboRIO     */
+                    /* This condition can occurs sometimes after the         */
                     /* host computer is power-cycled.                        */
                     if ( ( (invalid_char_spi_receive_count % 5) == 0 ) &&
                          ( __HAL_SPI_GET_FLAG(&hspi1,SPI_FLAG_BSY) != RESET ) ) {
-                        Reset_SPI();
+                        Reset_SPI_And_PrepareToReceive();
                    } else {
-                        //HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, SPI_RECV_LENGTH);
-                        Reset_SPI(); /* HACK - remove me! */
-                	    HAL_SPI_Comm_Ready_Assert();
+                       Reset_SPI_And_PrepareToReceive();
+                       HAL_SPI_Comm_Ready_Assert(); /* This shouldn't be necessary - remove it! */
                    }
                 }
             } else {
+                spi_last_err_msg_type = SLAVE_RX_ERR;
                 wrong_size_spi_receive_count++;
+                __HAL_SPI_CLEAR_OVRFLAG(hspi);
                 HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, SPI_RECV_LENGTH);
                 HAL_SPI_Comm_Ready_Assert();
             }
+        } else {
+            // A SPI receive event occurred while transmitting.  This should never happen!
+            spi_rx_while_tx_error_count++;
         }
     }
 }
@@ -1849,23 +1900,42 @@ void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
 
         /* Clear the error, and prepare for next receive.                             */
         spi_error_count++;
-        spi_transmitting = false;
-        if ( hspi->ErrorCode == HAL_SPI_ERROR_OVR) {
+        if ((hspi->ErrorCode & HAL_SPI_ERROR_OVR) != 0) {
             __HAL_SPI_CLEAR_OVRFLAG(hspi);
+            spi_last_err_msg_type = spi_transmitting ? SLAVE_TX_ERR : SLAVE_RX_ERR;
             spi_ovr_error_count++;
-        } else if ( hspi->ErrorCode == HAL_SPI_ERROR_FLAG) {
-        	/* Either RXNE,TXE, BSY flags are set */
+        }
+
+        if ((hspi->ErrorCode == HAL_SPI_ERROR_FLAG) != 0) {
+        	/* Either RXNE,TXE, BSY flags are set.  It's also possible the OVR flag is set. */
         	uint32_t status_bits = hspi->Instance->SR;
-        	if (status_bits & 0x00000001 ) {
-        		spi_rxne_error_count++;
+        	if (status_bits & 0x00000001) {
+        	    spi_last_err_msg_type = spi_transmitting ? SLAVE_TX_ERR : SLAVE_RX_ERR;
+        	    spi_rxne_error_count++;
         	}
-        	if (status_bits & 0x00000002) {
-        		spi_txe_error_count++;
+        	if (spi_transmitting) {
+        	    // Transmitter NE is only an error during SPI Slave Transmit
+        	    if ((status_bits & 0x00000002) == 0) {
+        	        spi_last_err_msg_type = SLAVE_TX_ERR;
+        	        spi_txne_error_count++;
+        	    }
+        	}
+        	if (status_bits & 0x00000040) {
+                __HAL_SPI_CLEAR_OVRFLAG(hspi);
+                spi_last_err_msg_type = spi_transmitting ? SLAVE_TX_ERR : SLAVE_RX_ERR;
+                spi_ovr_error_count++;
         	}
         	if (status_bits & 0x00000080) {
+        	    // NOTE:  This occurs often due to a silicon bug
+        	    // Therefore, this is not considered a SLAVE_TX_ERR.
         		spi_busy_error_count++;
+                /* Disable the SPI, which clears the busy condition   */
+        		/* (SPI will be reenabled upon the next invocation of */
+        		/* HAL_SPI_Receive_DMA or HAL_SPI_Transmit_DMA)       */
+                __HAL_SPI_DISABLE(hspi);
         	}
         }
+        spi_transmitting = false;
         HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, SPI_RECV_LENGTH);
         HAL_SPI_Comm_Ready_Assert();
     }
@@ -1875,6 +1945,7 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 {
     if ( hspi->Instance == SPI1 ) {
         spi_transmitting = false;
+        __HAL_SPI_CLEAR_OVRFLAG(hspi);
         HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, SPI_RECV_LENGTH);
         HAL_SPI_Comm_Ready_Assert();
     }
