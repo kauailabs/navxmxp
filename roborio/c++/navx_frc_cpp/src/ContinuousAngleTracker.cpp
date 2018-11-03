@@ -5,7 +5,7 @@
  *      Author: Scott
  */
 
-#include <ContinuousAngleTracker.h>
+#include "ContinuousAngleTracker.h"
 
 ContinuousAngleTracker::ContinuousAngleTracker() {
 	Init();

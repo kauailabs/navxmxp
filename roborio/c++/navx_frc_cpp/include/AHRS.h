@@ -8,7 +8,7 @@
 #ifndef SRC_AHRS_H_
 #define SRC_AHRS_H_
 
-#include "WPILib.h"
+#include "frc/WPILib.h"
 #include "ITimestampedDataSubscriber.h"
 #include <thread>
 
@@ -18,8 +18,10 @@ class InertialDataIntegrator;
 class OffsetTracker;
 class AHRSInternal;
 
-class AHRS : public SensorBase,
-             public LiveWindowSendable,
+using namespace frc;
+
+class AHRS : public SendableBase,
+             public ErrorBase,
              public PIDSource  {
 public:
 
@@ -108,8 +110,6 @@ private:
 
     long                last_sensor_timestamp;
     double              last_update_time;
-
-    std::shared_ptr<ITable>	table;
 
     InertialDataIntegrator *integrator;
     ContinuousAngleTracker *yaw_angle_tracker;
@@ -202,13 +202,8 @@ private:
     void commonInit( uint8_t update_rate_hz );
     static int ThreadFunc(IIOProvider *io_provider);
 
-    /* LiveWindowSendable implementation */
-    void InitTable(std::shared_ptr<ITable> subtable);
-    std::shared_ptr<ITable> GetTable() const;
-    std::string GetSmartDashboardType() const;
-    void UpdateTable();
-    void StartLiveWindowMode();
-    void StopLiveWindowMode();
+    /* SendableBase implementation */
+    void InitSendable(SendableBuilder& builder) override;
 
     /* PIDSource implementation */
     double PIDGet();

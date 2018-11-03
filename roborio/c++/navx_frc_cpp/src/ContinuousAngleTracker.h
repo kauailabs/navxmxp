@@ -8,7 +8,10 @@
 #ifndef SRC_CONTINUOUSANGLETRACKER_H_
 #define SRC_CONTINUOUSANGLETRACKER_H_
 
-#include "WPILib.h"
+#include "frc/WPILib.h"
+#include "wpi/priority_mutex.h"
+
+using namespace wpi;
 
 class ContinuousAngleTracker {
 private:

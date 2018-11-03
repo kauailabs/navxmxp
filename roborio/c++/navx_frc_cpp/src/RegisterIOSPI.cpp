@@ -5,7 +5,10 @@
  *      Author: Scott
  */
 
-#include <RegisterIOSPI.h>
+#include "RegisterIOSPI.h"
+#include "wpi/priority_mutex.h"
+
+using namespace wpi;
 
 static priority_mutex imu_mutex;
 RegisterIO_SPI::RegisterIO_SPI(SPI *port, uint32_t bitrate) {
@@ -17,7 +20,7 @@ RegisterIO_SPI::RegisterIO_SPI(SPI *port, uint32_t bitrate) {
 bool RegisterIO_SPI::Init() {
     port->SetClockRate(bitrate);
     port->SetMSBFirst();
-    port->SetSampleDataOnFalling();
+    port->SetSampleDataOnTrailingEdge();
     port->SetClockActiveLow();
     port->SetChipSelectActiveLow();
     if (trace) printf("navX-MXP:  Initialized SPI communication at bitrate %d\n", bitrate);

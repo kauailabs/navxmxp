@@ -5,8 +5,10 @@
  *      Author: Scott
  */
 
-#include <RegisterIOI2C.h>
-#include "HAL/cpp/priority_mutex.h"
+#include "RegisterIOI2C.h"
+#include "wpi/priority_mutex.h"
+
+using namespace wpi;
 
 static priority_mutex imu_mutex;
 RegisterIO_I2C::RegisterIO_I2C(I2C* port) {
@@ -25,7 +27,7 @@ bool RegisterIO_I2C::Write(uint8_t address, uint8_t value ) {
     return !aborted;
 }
 
-static int MAX_WPILIB_I2C_READ_BYTES = 127;
+static const int MAX_WPILIB_I2C_READ_BYTES = 127;
 
 bool RegisterIO_I2C::Read(uint8_t first_address, uint8_t* buffer, uint8_t buffer_len) {
 	std::unique_lock<priority_mutex> sync(imu_mutex);

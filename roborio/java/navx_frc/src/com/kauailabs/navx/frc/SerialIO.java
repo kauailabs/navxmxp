@@ -69,7 +69,7 @@ class SerialIO implements IIOProvider {
     {
         if (serial_port != null) {
             try {
-                serial_port.free();
+                serial_port.close();
             } catch (Exception ex) {
                 // This has been seen to happen before....
             }

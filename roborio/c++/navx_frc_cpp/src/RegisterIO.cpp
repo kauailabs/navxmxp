@@ -5,9 +5,11 @@
  *      Author: Scott
  */
 
-#include <RegisterIO.h>
+#include "RegisterIO.h"
 #include "IMURegisters.h"
 #include "delay.h"
+
+using namespace frc;
 
 RegisterIO::RegisterIO( IRegisterIO *io_provider,
         uint8_t update_rate_hz,
@@ -23,11 +25,11 @@ RegisterIO::RegisterIO( IRegisterIO *io_provider,
     this->last_update_time      = 0;
     this->stop                  = false;
 
-    raw_data_update = {0};
+    raw_data_update = {};
     ahrs_update     = {};
     ahrspos_update  = {};
-    board_state     = {0};
-    board_id        = {0};
+    board_state     = {};
+    board_id        = {};
 }
 
 static const double IO_TIMEOUT_SECONDS = 1.0;

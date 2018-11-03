@@ -1,0 +1,113 @@
+def netCommLibConfigs = [:];
+def chipObjectConfigs = [:];
+
+project.chipObjectComponents.each { String s->
+  chipObjectConfigs[s] = ['linux:athena']
+}
+
+project.netCommComponents.each { String s->
+  netCommLibConfigs[s] = ['linux:athena']
+}
+
+model {
+    dependencyConfigs {
+        chipobject(DependencyConfig) {
+            groupId = 'edu.wpi.first.ni-libraries'
+            artifactId = 'chipobject'
+            headerClassifier = 'headers'
+            ext = 'zip'
+            version = '2019.4.2'
+            sharedConfigs = chipObjectConfigs
+            staticConfigs = [:]
+            compileOnlyShared = true
+        }
+        netcomm(DependencyConfig) {
+            groupId = 'edu.wpi.first.ni-libraries'
+            artifactId = 'netcomm'
+            headerClassifier = 'headers'
+            ext = 'zip'
+            version = '2019.4.2'
+            sharedConfigs = netCommLibConfigs
+            staticConfigs = [:]
+            compileOnlyShared = true
+        }
+        hal(DependencyConfig) {
+            groupId = 'edu.wpi.first.hal'
+            artifactId = 'hal-cpp'
+            headerClassifier = 'headers'
+            sourceClassifier = 'sources'
+            ext = 'zip'
+            version = '2019.+'
+            sharedConfigs = project.sharedConfigs
+            staticConfigs = [:]
+        }
+        wpiutil(DependencyConfig) {
+            groupId = 'edu.wpi.first.wpiutil'
+            artifactId = 'wpiutil-cpp'
+            headerClassifier = 'headers'
+            sourceClassifier = 'sources'
+            ext = 'zip'
+            version = '2019.+'
+            sharedConfigs = project.sharedConfigs
+            staticConfigs = [:]
+        }
+        ntcore(DependencyConfig) {
+            groupId = 'edu.wpi.first.ntcore'
+            artifactId = 'ntcore-cpp'
+            headerClassifier = 'headers'
+            sourceClassifier = 'sources'
+            ext = 'zip'
+            version = '2019.+'
+            sharedConfigs = project.sharedConfigs
+            staticConfigs = [:]
+        }
+        cscore(DependencyConfig) {
+            groupId = 'edu.wpi.first.cscore'
+            artifactId = 'cscore-cpp'
+            headerClassifier = 'headers'
+            sourceClassifier = 'sources'
+            ext = 'zip'
+            version = '2019.+'
+            sharedConfigs = project.sharedConfigs
+            staticConfigs = [:]
+        }
+        cameraserver(DependencyConfig) {
+            groupId = 'edu.wpi.first.cameraserver'
+            artifactId = 'cameraserver-cpp'
+            headerClassifier = 'headers'
+            sourceClassifier = 'sources'
+            ext = 'zip'
+            version = '2019.+'
+            sharedConfigs = project.sharedConfigs
+            staticConfigs = [:]
+        }
+        wpilibc(DependencyConfig) {
+            groupId = 'edu.wpi.first.wpilibc'
+            artifactId = 'wpilibc-cpp'
+            headerClassifier = 'headers'
+            sourceClassifier = 'sources'
+            ext = 'zip'
+            version = '2019.+'
+            sharedConfigs = project.sharedConfigs
+            staticConfigs = [:]
+        }
+        opencv(DependencyConfig) {
+            groupId = 'edu.wpi.first.thirdparty.frc2019.opencv'
+            artifactId = 'opencv-cpp'
+            headerClassifier = 'headers'
+            ext = 'zip'
+            version = '3.4.3-15'
+            sharedConfigs = project.sharedConfigs
+            staticConfigs = [:]
+        }
+        googletest(DependencyConfig) {
+            groupId = 'edu.wpi.first.thirdparty.frc2019'
+            artifactId = 'googletest'
+            headerClassifier = 'headers'
+            ext = 'zip'
+            version = '1.8.0-4-4e4df22'
+            sharedConfigs = [:]
+            staticConfigs = project.staticGtestConfigs
+        }
+    }
+}

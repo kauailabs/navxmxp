@@ -1,0 +1,126 @@
+apply plugin: 'maven-publish'
+
+// Ensure that the WPILibVersioningPlugin is setup by setting the release type, if releaseType wasn't
+// already specified on the command line
+if (!hasProperty('releaseType')) {
+    WPILibVersion {
+        releaseType = 'dev'
+    }
+}
+
+ext.licenseFile = files("$rootDir/LICENSE.txt")
+
+// Retrieve version number from core navxmxp build version.txt file
+def pubVersion = rootProject.file("${System.getProperty('user.home')}/Documents/Github/navxmxp/build/version.txt").text.trim()
+
+def outputsFolder = file("$buildDir/allOutputs")
+
+def versionFile = file("$outputsFolder/version.txt")
+
+task outputVersions() {
+    description = 'Prints the versions of wpilib to a file for use by the downstream packaging project'
+    group = 'Build'
+    outputs.files(versionFile)
+
+    doFirst {
+        buildDir.mkdir()
+        outputsFolder.mkdir()
+    }
+
+    doLast {
+        versionFile.write pubVersion
+    }
+}
+
+task libraryBuild() {}
+
+build.dependsOn outputVersions
+
+task copyAllOutputs(type: Copy) {
+    destinationDir outputsFolder
+}
+
+build.dependsOn copyAllOutputs
+copyAllOutputs.dependsOn outputVersions
+
+ext.addTaskToCopyAllOutputs = { task ->
+    copyAllOutputs.dependsOn task
+    copyAllOutputs.inputs.file task.archivePath
+    copyAllOutputs.from task.archivePath
+}
+
+def baseArtifactId = 'navx-cpp'
+def artifactGroupId = 'com.kauailabs.first.navx'
+def zipBaseName = '_GROUP_com_kauailabs_ID_navx_frc_CLS'
+
+task cppHeadersZip(type: Zip) {
+    destinationDir = outputsFolder
+    baseName = zipBaseName
+    classifier = "headers"
+
+    from(licenseFile) {
+        into '/'
+    }
+
+    from('include') {
+        into '/'
+    }
+}
+
+task cppSourcesZip(type: Zip) {
+    destinationDir = outputsFolder
+    baseName = zipBaseName
+    classifier = "sources"
+
+    from(licenseFile) {
+        into '/'
+    }
+
+    from('src') {
+        into '/'
+    }
+}
+
+task linuxAthenaZip(type: Zip) {
+    destinationDir = outputsFolder
+    baseName = zipBaseName
+    classifier = "linuxathena"
+
+    from("$buildDir/libs/navx_frc/static/athena/release") {
+        into '/linux/athena/static'
+    }
+}
+
+build.dependsOn cppHeadersZip
+addTaskToCopyAllOutputs(cppHeadersZip)
+build.dependsOn linuxAthenaZip
+addTaskToCopyAllOutputs(linuxAthenaZip)
+build.dependsOn cppSourcesZip
+addTaskToCopyAllOutputs(cppSourcesZip)
+
+model {
+    publishing {
+        def navXTaskList = createComponentZipTasks($.components, ['KauaiLabs_navX_FRC'], zipBaseName, Zip, project, includeStandardZipFormat)
+
+        repositories {
+            maven {
+                url "${System.getProperty('user.home')}/releases/maven/development"
+            }
+        }
+
+        publications {
+            cpp(MavenPublication) {
+                navXTaskList.each {
+                    artifact it
+                }
+                artifact cppHeadersZip
+				artifact linuxAthenaZip
+				artifact cppSourcesZip
+
+                artifactId = baseArtifactId
+                groupId artifactGroupId
+                version pubVersion
+            }
+        }
+    }
+}

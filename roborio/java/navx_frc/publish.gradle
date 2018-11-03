@@ -1,0 +1,107 @@
+apply plugin: 'maven-publish'
+
+// Ensure that the WPILibVersioningPlugin is setup by setting the release type, if releaseType wasn't
+// already specified on the command line
+if (!hasProperty('releaseType')) {
+    WPILibVersion {
+        releaseType = 'dev'
+    }
+}
+
+ext.licenseFile = files("$rootDir/LICENSE.txt")
+
+// Retrieve version number from core navxmxp build version.txt file
+def pubVersion = rootProject.file("${System.getProperty('user.home')}/Documents/Github/navxmxp/build/version.txt").text.trim()
+
+def outputsFolder = file("$buildDir/libs")
+
+def versionFile = file("$outputsFolder/version.txt")
+
+task outputVersions() {
+    description = 'Prints the versions of wpilib to a file for use by the downstream packaging project'
+    group = 'Build'
+    outputs.files(versionFile)
+
+    doFirst {
+        buildDir.mkdir()
+        outputsFolder.mkdir()
+    }
+
+    doLast {
+        versionFile.write pubVersion
+    }
+}
+
+task libraryBuild() {}
+
+build.dependsOn outputVersions
+
+task copyAllOutputs(type: Copy) {
+    destinationDir outputsFolder
+}
+
+build.dependsOn copyAllOutputs
+copyAllOutputs.dependsOn outputVersions
+
+ext.addTaskToCopyAllOutputs = { task ->
+    copyAllOutputs.dependsOn task
+    copyAllOutputs.inputs.file task.archivePath
+    copyAllOutputs.from task.archivePath
+}
+
+def baseArtifactId = 'navx-java'
+def artifactGroupId = 'com.kauailabs.first.navx'
+
+task sourcesJar(type: Jar) {
+    from sourceSets.main.allJava
+    classifier = 'sources'
+}
+
+task javadocJar(type: Jar) {
+    from javadoc
+    classifier = 'javadoc'
+}
+
+model {
+    publishing {
+        repositories {
+            maven {
+                url "${System.getProperty('user.home')}/releases/maven/development"
+            }
+        }
+
+        publications {
+            mavenJava(MavenPublication) {
+                artifactId = baseArtifactId
+				from components.java
+				artifact sourcesJar
+				artifact javadocJar
+                groupId artifactGroupId
+                version pubVersion				
+				pom {
+					name = 'navX FRC Java Library'
+					description = 'navX FRC Java Library'
+					url = 'https://pdocs.kauailabs.com/navx-mxp/software/roborio-libraries/java/'
+					licenses {
+						license {
+							name = 'The MIT License (MIT)'
+							url = 'https://raw.githubusercontent.com/kauailabs/navxmxp/master/LICENSE.txt'
+						}
+					}
+					developers {
+						developer {
+							id = 'kauailabs'
+							name = 'KauaiLabs'
+							email = 'scott@kauailabs.com'
+						}
+					}
+					scm {
+						connection = 'scm:git:ssh://github.com/kauailabs/navxmxp.git'
+						developerConnection = 'scm:git:ssh://github.com/kauailabs/navxmxp.git'
+						url = 'https://github.com/kauailabs/navxmxp'
+					}
+				}
+            }
+        }
+    }
+}
