@@ -13,12 +13,11 @@ call ant clean build
 popd
 
 REM
-REM Begin a command-line "clean build" of the navx frc java library
+REM Copy navx protocol java library file to project folders that need it.
 REM
 
-pushd .\roborio\java\navx_frc
-call ant clean build
-popd
+mkdir .\processing\libraries\navx\library\
+copy .\java\navx\jar\*.jar .\processing\libraries\navx\library\ /Y
 
 REM
 REM Copy the navX protocol library .h files to the 
@@ -27,26 +26,6 @@ REM
 
 cp ./stm32/navx-mxp/IMU*.h  ./arduino/navXTestJig/
 cp ./stm32/navx-mxp/AHRS*.h ./arduino/navXTestJig/
-cp ./stm32/navx-mxp/IMU*.h  ./roborio/c++/navx_frc_cpp/include
-cp ./stm32/navx-mxp/AHRS*.h ./roborio/c++/navx_frc_cpp/include
-
-REM
-REM Begin a command-line "clean build" of the navx frc C++ library
-REM
-
-pushd .\roborio\c++
-REM rm -r -f ./build_workspace_luna
-mkdir build_workspace_luna
-
-%ECLIPSEC_MARS% -nosplash -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data ./build_workspace_luna -import ./navx_frc_cpp -cleanBuild navx_frc_cpp/Debug
-popd
-
-REM
-REM Copy navx protocol java library file to project folders that need it.
-REM
-
-mkdir .\processing\libraries\navx\library\
-copy .\java\navx\jar\*.jar .\processing\libraries\navx\library\ /Y
 
 REM
 REM Begin a command-line "clean build" of the Debug version of the navx-mxp firmware
@@ -93,6 +72,33 @@ call buildcsharp.bat
 REM Build Processing components
 
 call buildprocessing.bat
+popd
+
+REM
+REM Begin a command-line "clean build" of the navx frc C++ library
+REM
+
+pushd .\roborio\c++\navx_frc_cpp
+call gradlew clean
+call gradlew build
+REM for now, publish to the local maven repo until we verify it works correctly.
+call gradlew publish
+REM rm -r -f ./build_workspace_luna
+REM mkdir build_workspace_luna
+
+REM %ECLIPSEC_MARS% -nosplash -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data ./build_workspace_luna -import ./navx_frc_cpp -cleanBuild navx_frc_cpp/Debug
+popd
+
+REM
+REM Begin a command-line "clean build" of the navx frc Java library
+REM
+
+pushd .\roborio\java\navx_frc
+REM call ant clean build
+call gradlew clean
+call gradlew build
+REM for now, publish to the local maven repo until we verify it works correctly.
+call gradlew publish
 popd
 
 REM Build FTC Library

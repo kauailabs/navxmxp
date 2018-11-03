@@ -1,6 +1,8 @@
 #include "WPILib.h"
 #include "AHRS.h"
+#include "networktables/NetworkTableInstance.h"
 
+using namespace nt;
 
 /**
  * This is a demo program providing a real-time display of navX
@@ -28,7 +30,6 @@ class Robot: public IterativeRobot
 	std::shared_ptr<NetworkTable> table;
 	Joystick stick; // only joystick
     AHRS *ahrs;
-    LiveWindow *lw;
     int autoLoopCounter;
 
 public:
@@ -36,7 +37,7 @@ public:
         table(NULL),
         stick(0),		// as they are declared above.
         ahrs(NULL),
-        lw(NULL),
+        //lw(NULL),
         autoLoopCounter(0)
     {
     }
@@ -44,8 +45,7 @@ public:
 private:
     void RobotInit()
     {
-        table = NetworkTable::GetTable("datatable");
-        lw = LiveWindow::GetInstance();
+    	NetworkTableInstance::GetDefault().GetTable("datatable");
         try {
 			/***********************************************************************
 			 * navX-MXP:
@@ -58,14 +58,13 @@ private:
 			 *
 			 * Multiple navX-model devices on a single robot are supported.
 			 ************************************************************************/
-            ahrs = new AHRS(SPI::Port::kMXP);
+            //ahrs = new AHRS(SPI::Port::kMXP);
+            ahrs = new AHRS(I2C::Port::kMXP);
+            ahrs->EnableLogging(true);
         } catch (std::exception& ex ) {
             std::string err_string = "Error instantiating navX MXP:  ";
             err_string += ex.what();
             DriverStation::ReportError(err_string.c_str());
-        }
-        if ( ahrs ) {
-            LiveWindow::GetInstance()->AddSensor("IMU", "Gyro", ahrs);
         }
 	}
 
@@ -158,7 +157,7 @@ private:
 
     void TestPeriodic()
     {
-        lw->Run();
+        //lw->Run();
     }
 };
 

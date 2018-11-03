@@ -47,14 +47,14 @@ mkdir android\libs
 mkdir android\src
 mkdir android\examples
 
-cp ../roborio/java/navx_frc/jar/* ./roborio/java/lib
+cp ../roborio/java/navx_frc/build/libs/* ./roborio/java/lib
 rm -r ../roborio/java/navXMXP_*/bin
 rm -r ../roborio/java/navXMXP_*/build
 rm -r ../roborio/java/navXMXP_*/dist
 cp -r ../roborio/java/navXMXP_* ./roborio/java/examples
-cp -r ../roborio/java/navx/src/com ./roborio/java/src
+cp -r ../java/navx/src/com ./roborio/java/src
 cp -r ../roborio/java/navx_frc/src/com ./roborio/java/src
-cp ../roborio/c++/navx_frc_cpp/Debug/* ./roborio/cpp/lib
+cp ../roborio/c++/navx_frc_cpp/build/libs/navx_frc/static/athena/debug/* ./roborio/cpp/lib
 cp ../roborio/c++/navx_frc_cpp/include/* ./roborio/cpp/include
 rm -r ../roborio/c++/navXMXP_*/Debug
 cp -r ../roborio/c++/navXMXP_* ./roborio/cpp/examples
@@ -62,7 +62,7 @@ cp -r ../roborio/c++/navx_frc_cpp/.settings ./roborio/cpp/src
 cp ../roborio/c++/navx_frc_cpp/* ./roborio/cpp/src
 cp -r ../roborio/c++/navx_frc_cpp/src ./roborio/cpp/src
 cp -r ../roborio/c++/navx_frc_cpp/include ./roborio/cpp/src
-cp -r ../roborio/labview/* ./roborio/labview
+cp -r ../roborio/labviewae/* ./roborio/labviewae
 cp ../android/navx_ftc/build/outputs/aar/* ./android/libs
 cp -r ../android/navx_ftc/src/main/* ./android/src
 cp -r ../android/OpModes/* ./android/examples
@@ -75,6 +75,8 @@ REM Create the "libs" zip file
 
 rm ../navx-mxp-libs.zip
 %ZIP_UTILITY% a ../navx-mxp-libs.zip *
+
+cp ../navx-mxp-libs.zip ../navx-micro-libs.zip
 
 popd
 rm -r -f dist2

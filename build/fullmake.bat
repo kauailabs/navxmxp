@@ -6,3 +6,4 @@ call makedist
 call makedist_navX-Micro
 rem call dosyncftp
 rem call dosyncftp_navX-Micro
+rem call maven_deploy

@@ -893,6 +893,13 @@ void AHRS::EnableLogging(bool enable) {
 	}
 }
 
+int16_t AHRS::GetGyroFullScaleRangeDPS() {
+	return gyro_fsr_dps;
+}
+
+int16_t AHRS::GetAccelFullScaleRangeG() {
+	return accel_fsr_g;
+}
 
 #define NAVX_IO_THREAD_NAME "navXIOThread"
 

@@ -32,7 +32,7 @@
 
 #include "ext_interrupts.h"
 
-static void (*func_array[16])(void) = {
+static void (*func_array[16])(unsigned char) = {
 		0, 0, 0, 0,
 		0, 0, 0, 0,
 		0, 0, 0, 0,
@@ -45,7 +45,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	for ( int i = 0; i < 16; i++ ) {
 		if ( GPIO_Pin & (1 << i) ) {
 			if ( func_array[i] != 0 ) {
-				func_array[i]();
+				func_array[i](GPIO_Pin);
 			}
 			break;
 		}
@@ -60,7 +60,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
  * @param mode    Trigger mode for the given interrupt.
  * @see ExtIntTriggerMode
  */
-void attachInterrupt(uint16_t pin, void (*func)(void), ExtIntTriggerMode mode) {
+void attachInterrupt(uint16_t pin, void (*func)(unsigned char), ExtIntTriggerMode mode) {
 	for ( int i = 0; i < 16; i++ ) {
 		if ( pin & (1 << i) ) {
 			func_array[i] = func;

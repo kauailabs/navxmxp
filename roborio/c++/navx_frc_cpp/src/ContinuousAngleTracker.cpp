@@ -21,14 +21,14 @@ void ContinuousAngleTracker::Init() {
 }
 
 void ContinuousAngleTracker::NextAngle( float newAngle ) {
-	std::unique_lock<priority_mutex> sync(tracker_mutex);
+	std::unique_lock<std::mutex> sync(tracker_mutex);
 	last_yaw_angle = curr_yaw_angle;
 	curr_yaw_angle = newAngle;
 }
 
 /* Invoked (internally) whenever yaw reset occurs. */
 void ContinuousAngleTracker::Reset() {
-	std::unique_lock<priority_mutex> sync(tracker_mutex);
+	std::unique_lock<std::mutex> sync(tracker_mutex);
 	Init();
 }
 
@@ -59,7 +59,7 @@ double ContinuousAngleTracker::GetAngle() {
 	double yawVal;
 
 	{
-		std::unique_lock<priority_mutex> sync(tracker_mutex);
+		std::unique_lock<std::mutex> sync(tracker_mutex);
 
 		yawVal = curr_yaw_angle;
 
@@ -106,7 +106,7 @@ double ContinuousAngleTracker::GetAngleAdjustment() {
 double ContinuousAngleTracker::GetRate() {
 	float difference;
 	{
-		std::unique_lock<priority_mutex> sync(tracker_mutex);
+		std::unique_lock<std::mutex> sync(tracker_mutex);
 		difference = curr_yaw_angle - last_yaw_angle;
 	}
 	if ( difference > 180.0f) {

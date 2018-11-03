@@ -38,7 +38,6 @@
 /* USER CODE BEGIN Includes */
 #include "navx-mxp.h"
 #include "navx-mxp_hal.h"
-#include "gpio_navx-pi.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/

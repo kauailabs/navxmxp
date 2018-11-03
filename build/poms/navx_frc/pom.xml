@@ -1,0 +1,41 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.kauailabs.navx.frc</groupId>
+  <artifactId>navx_frc</artifactId>
+  <packaging>jar</packaging>
+  <version>3.0.342</version>
+  <name>navX FRC Java Library</name>
+  <dependencies>
+    <dependency>
+      <groupId>com.kauailabs.navx</groupId>
+      <artifactId>navx</artifactId>
+      <version>3.0.324</version>
+    </dependency>
+	<dependency>
+      <groupId> edu.wpi.first.wpilibj</groupId>
+      <artifactId>wpilibj-java</artifactId>
+      <version>2018.1.1</version>
+    </dependency>  
+  </dependencies>
+  <repositories>
+    <repository>
+      <id>wpilib</id>
+      <url>http://first.wpi.edu/FRC/roborio/maven/release</url>
+    </repository>  
+    <repository>
+      <id>kauailabs-maven</id>
+      <name>Kauai Labs Maven Repository</name>
+      <url>http://www.kauailabs.com/maven2</url>
+    </repository>
+  </repositories>
+  <build>
+    <extensions>
+      <extension>
+        <groupId>org.apache.maven.wagon</groupId>
+        <artifactId>wagon-ftp</artifactId>
+        <version>1.0-alpha-6</version>
+      </extension>
+    </extensions>
+  </build>
+</project>

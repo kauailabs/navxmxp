@@ -26,7 +26,7 @@ OutputBaseFilename=setup
 Compression=lzma
 SolidCompression=yes
 OutputDir=.\Output_navX-Micro
-
+SignTool=signtool
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

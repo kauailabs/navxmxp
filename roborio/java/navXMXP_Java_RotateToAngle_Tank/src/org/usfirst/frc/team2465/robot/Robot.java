@@ -3,13 +3,14 @@ package org.usfirst.frc.team2465.robot;
 import com.kauailabs.navx.frc.AHRS;
 
 import edu.wpi.first.wpilibj.SampleRobot;
-import edu.wpi.first.wpilibj.RobotDrive;
+import edu.wpi.first.wpilibj.Spark;
 import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.PIDController;
 import edu.wpi.first.wpilibj.PIDOutput;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.livewindow.LiveWindow;
 
 /**
@@ -39,7 +40,7 @@ import edu.wpi.first.wpilibj.livewindow.LiveWindow;
  */
 
 public class Robot extends SampleRobot implements PIDOutput {
-    RobotDrive myRobot;  // class that handles basic drive operations
+    DifferentialDrive myRobot;  // class that handles basic drive operations
     Joystick leftStick;  // set to ID 1 in DriverStation
     Joystick rightStick; // set to ID 2 in DriverStation
     AHRS ahrs;
@@ -62,8 +63,17 @@ public class Robot extends SampleRobot implements PIDOutput {
     
     static final double kTargetAngleDegrees = 90.0f;
     
+    // Channels for the wheels
+    final static int leftChannel	= 0;
+    final static int rightChannel	= 1;
+    
+    Spark leftMotor;
+    Spark rightMotor;
+
     public Robot() {
-        myRobot = new RobotDrive(0, 1);
+    	leftMotor = new Spark(leftChannel);
+    	rightMotor = new Spark(rightChannel);
+        myRobot = new DifferentialDrive(leftMotor, rightMotor); 
         myRobot.setExpiration(0.1);
         leftStick = new Joystick(0);
         rightStick = new Joystick(1);
@@ -139,12 +149,12 @@ public class Robot extends SampleRobot implements PIDOutput {
         		double rightStickValue = magnitude - rotateToAngleRate;
         		myRobot.tankDrive(leftStickValue,  rightStickValue);
         	} else {
-        		/* If the turn controller had been enabled, disable it now.
+        		/* If the turn controller had been enabled, disable it now. */
         		if(turnController.isEnabled()) {
         			turnController.disable();
         		}
         		/* Standard tank drive, no driver assistance. */
-        		myRobot.tankDrive(leftStick, rightStick);
+        		myRobot.tankDrive(leftStick.getY(), rightStick.getY());
         	}
             Timer.delay(0.005);		// wait for a motor update time
         }

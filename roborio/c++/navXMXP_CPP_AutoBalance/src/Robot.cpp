@@ -1,3 +1,4 @@
+#include <string>
 #include "WPILib.h"
 #include "AHRS.h"
 #include <math.h>
@@ -22,6 +23,8 @@
 static const double kOffBalanceThresholdDegrees = 10.0f;
 static const double kOnBalanceThresholdDegrees  = 5.0f;
 
+using namespace std;
+
 class Robot: public SampleRobot
 {
 
@@ -31,9 +34,14 @@ class Robot: public SampleRobot
     const static int frontRightChannel	= 1;
     const static int rearRightChannel	= 0;
 
+    Spark frontLeft;
+    Spark rearLeft;
+    Spark frontRight;
+    Spark rearRight;
+
     const static int joystickChannel	= 0;
 
-    RobotDrive robotDrive;	// robot drive system
+    MecanumDrive robotDrive;	// robot drive system
     Joystick stick;			// only joystick
     AHRS *ahrs;
     bool autoBalanceXMode;
@@ -41,13 +49,17 @@ class Robot: public SampleRobot
 
 public:
     Robot() :
-            robotDrive(frontLeftChannel,  rearLeftChannel,
-                       frontRightChannel, rearRightChannel),	// these must be initialized in the
-            stick(joystickChannel)								// same order as they are declared above.
+            frontLeft(frontLeftChannel),
+			rearLeft(rearLeftChannel),
+			frontRight(frontRightChannel),
+			rearRight(rearRightChannel),
+    		robotDrive(frontLeft,  rearLeft,
+                       frontRight, rearRight),	// these must be initialized in the
+            stick(joystickChannel)				// same order as they are declared above.
     {
         robotDrive.SetExpiration(0.1);
-        robotDrive.SetInvertedMotor(RobotDrive::kFrontLeftMotor, true);	// invert the left side motors
-        robotDrive.SetInvertedMotor(RobotDrive::kRearLeftMotor, true);	// (remove/modify to match your robot)
+        frontLeft.SetInverted(true);  // invert the left side motors
+        rearLeft.SetInverted(true);   // (remove/modify to match your robot)
         try {
 			/***********************************************************************
 			 * navX-MXP:
@@ -61,13 +73,11 @@ public:
 			 * Multiple navX-model devices on a single robot are supported.
 			 ************************************************************************/
             ahrs = new AHRS(SPI::Port::kMXP);
-        } catch (std::exception& ex ) {
-            std::string err_string = "Error instantiating navX MXP:  ";
-            err_string += ex.what();
-            DriverStation::ReportError(err_string.c_str());
-        }
-        if ( ahrs ) {
-            LiveWindow::GetInstance()->AddSensor("IMU", "Gyro", ahrs);
+        } catch (exception& ex ) {
+        	std::string what_string = ex.what();
+        	std::string err_msg("Error instantiating navX MXP:  " + what_string);
+        	const char *p_err_msg = err_msg.c_str();
+            DriverStation::ReportError(p_err_msg);
         }
         autoBalanceXMode = false;
         autoBalanceYMode = false;
@@ -123,9 +133,9 @@ public:
 
             try {
                 // Use the joystick X axis for lateral movement, Y axis for forward movement, and Z axis for rotation.
-                robotDrive.MecanumDrive_Cartesian(xAxisRate, yAxisRate,stick.GetZ());
-            } catch (std::exception& ex ) {
-                std::string err_string = "Drive system error:  ";
+                robotDrive.DriveCartesian(xAxisRate, yAxisRate,stick.GetZ());
+            } catch (exception& ex ) {
+                string err_string = "Drive system error:  ";
                 err_string += ex.what();
                 DriverStation::ReportError(err_string.c_str());
             }
