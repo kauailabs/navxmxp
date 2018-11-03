@@ -50,7 +50,7 @@ ext.addTaskToCopyAllOutputs = { task ->
 }
 
 def baseArtifactId = 'navx-java'
-def artifactGroupId = 'com.kauailabs.first.navx'
+def artifactGroupId = 'com.kauailabs.navx.frc'
 
 task sourcesJar(type: Jar) {
     from sourceSets.main.allJava
@@ -66,8 +66,8 @@ model {
     publishing {
         repositories {
             maven {
-                url "${System.getProperty('user.home')}/releases/maven/development"
-            }
+                url "${projectDir}/../../../publish/maven"
+			}
         }
 
         publications {

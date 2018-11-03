@@ -50,7 +50,7 @@ ext.addTaskToCopyAllOutputs = { task ->
 }
 
 def baseArtifactId = 'navx-cpp'
-def artifactGroupId = 'com.kauailabs.first.navx'
+def artifactGroupId = 'com.kauailabs.navx.frc'
 def zipBaseName = '_GROUP_com_kauailabs_ID_navx_frc_CLS'
 
 task cppHeadersZip(type: Zip) {
@@ -104,7 +104,7 @@ model {
 
         repositories {
             maven {
-                url "${System.getProperty('user.home')}/releases/maven/development"
+                url "${projectDir}/../../../publish/maven"
             }
         }
 

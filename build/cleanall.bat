@@ -17,4 +17,11 @@ pushd .\stm32\
 del /S /Q Debug\*.*
 del /S /Q Release\*.*
 popd
+
+REM
+REM clean the maven publications
+REM
+
+del /S /Q publish\maven\*.* 
+
 popd

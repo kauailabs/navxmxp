@@ -81,7 +81,7 @@ REM
 pushd .\roborio\c++\navx_frc_cpp
 call gradlew clean
 call gradlew build
-REM for now, publish to the local maven repo until we verify it works correctly.
+REM For now, publish to a local maven repo, for access by setup builder and the maven_deploy script.
 call gradlew publish
 REM rm -r -f ./build_workspace_luna
 REM mkdir build_workspace_luna
@@ -97,7 +97,7 @@ pushd .\roborio\java\navx_frc
 REM call ant clean build
 call gradlew clean
 call gradlew build
-REM for now, publish to the local maven repo until we verify it works correctly.
+REM For now, publish to a local maven repo, for access by setup builder and the maven_deploy script.
 call gradlew publish
 popd
 

@@ -1,5 +1,5 @@
 #define NAVX_MXP_FIRMWARE_VERSION_MAJOR 	3
-#define NAVX_MXP_FIRMWARE_VERSION_MINOR		0
+#define NAVX_MXP_FIRMWARE_VERSION_MINOR		1
 
 #define NAVX_MXP_HARDWARE_VERSION_NUMBER    33 /* Revision 3.3 MXP IO */
 
@@ -41,3 +41,7 @@
 //          - Added new "AHRSPosTimestamp" message, adding timestamp to serial packets
 //          - Updated navXUI to support 200Hz operation and new timestamp message
 //          - Updated navXUI to support save-to-file operation
+// 3.1: Eighth Release Vesrion (11/3/2018)
+//       - No changes to firmware
+//       - Modified FIRST FRC Libraries to not use the firmware-based yaw reset, due to timing issues
+//       - Updated build process to use gradle and support VS Code as required by WPI
