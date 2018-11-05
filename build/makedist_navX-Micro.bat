@@ -75,3 +75,5 @@ REM Create the "libs" zip file
 
 rm ../navx-micro-libs.zip
 %ZIP_UTILITY% a ../navx-micro-libs.zip *
+popd
+popd

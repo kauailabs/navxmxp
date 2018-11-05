@@ -60,7 +60,9 @@ for /f %%i in ('git rev-list --count --first-parent HEAD') do set VER_REVISION=%
 set REVISION_STRING=%VER_MAJOR%.%VER_MINOR%.%VER_REVISION%
 REM Place version string into setup script 
 @echo on
-
+pushd build
+echo %REVISION_STRING% > version.txt
+popd
 copy .\stm32\navX-MXP_Debug\navx-mxp.hex .\stm32\bin\navx-mxp_%REVISION_STRING%.hex
 copy .\stm32\navX-Micro_Debug\navx-micro.hex .\stm32\bin\navx-micro_%REVISION_STRING%.hex
 
@@ -121,13 +123,12 @@ del .\setup\navx-mxp-setup-orig.iss
 copy .\setup\navx-micro-setup.iss .\setup\navx-micro-setup-orig.iss 
 Powershell -command "(get-content .\setup\navx-micro-setup.iss) -replace ('0.0.000','%REVISION_STRING%') | out-file .\setup\navx-micro-setup.iss -encoding ASCII"
 pushd build
-echo %REVISION_STRING% > version.txt
 call buildsetup_navx-micro.bat
 popd
 copy .\setup\navx-micro-setup-orig.iss .\setup\navx-micro-setup.iss
 del .\setup\navx-micro-setup-orig.iss
 
 copy .\build\vendordeps\navx_frc.json.template .\build\vendordeps\navx_frc.json
-Powershell -command "(get-content .\build\vendordeps\navx_frc.json) -replace ('0.0.000','%REVISION_STRING%') | out-file .\build\vendordeps\navx_frc.json -encoding 
+Powershell -command "(get-content .\build\vendordeps\navx_frc.json) -replace ('0.0.000','%REVISION_STRING%') | out-file .\build\vendordeps\navx_frc.json  -encoding ASCII"
 
 popd

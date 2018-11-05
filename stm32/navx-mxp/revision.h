@@ -1,1 +1,1 @@
-#define NAVX_MXP_REVISION  329
+#define NAVX_MXP_REVISION  330
