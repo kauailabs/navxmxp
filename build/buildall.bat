@@ -114,6 +114,10 @@ call gradlew.bat assembleDebug
 call gradlew.bat assembleRelease
 popd
 
+REM Update FRC vendordeps file with latest version number.
+copy .\build\vendordeps\navx_frc.json.template .\build\vendordeps\navx_frc.json
+Powershell -command "(get-content .\build\vendordeps\navx_frc.json) -replace ('0.0.000','%REVISION_STRING%') | out-file .\build\vendordeps\navx_frc.json  -encoding ASCII"
+
 REM Build setup program
 
 copy .\setup\navx-mxp-setup.iss .\setup\navx-mxp-setup-orig.iss 
@@ -131,8 +135,5 @@ call buildsetup_navx-micro.bat
 popd
 copy .\setup\navx-micro-setup-orig.iss .\setup\navx-micro-setup.iss
 del .\setup\navx-micro-setup-orig.iss
-
-copy .\build\vendordeps\navx_frc.json.template .\build\vendordeps\navx_frc.json
-Powershell -command "(get-content .\build\vendordeps\navx_frc.json) -replace ('0.0.000','%REVISION_STRING%') | out-file .\build\vendordeps\navx_frc.json  -encoding ASCII"
 
 popd
