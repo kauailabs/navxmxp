@@ -55,7 +55,7 @@ Source: "..\roborio\java\navx_frc\src\docs\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\
 Source: "..\roborio\java\navx_frc\jar\navx_frc.jar"; DestDir: "{%HOMEPATH}\navx-mxp\java\lib"
 Source: "..\roborio\java\navx_frc\jar\navx_frc.jar"; DestDir: "{%HOMEPATH}\wpilib\user\java\lib"
 ; Install maven rep contents to %PUBLIC%\frc2019\maven, following new convention for FRC 2019 Season (VSCode Support)
-Source: "..\publish\maven\*.*"; DestDir:  "{%PUBLIC}\frc2019\maven"; Flags:recursesubdirs
+Source: "..\..\..\..\.m2\repository\com\kauailabs\navx\*.*"; DestDir:  "{%PUBLIC}\frc2019\maven\com\kauailabs\navx"; Flags:recursesubdirs
 ; Install vendordeps JSON file to %PUBLIC\frc2019\vendordeps
 Source: "..\build\vendordeps\*.json"; DestDir:  "{%PUBLIC}\frc2019\vendordeps"
 Source: "..\roborio\java\navXMXP_Java_DataMonitor\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\DataMonitor"; Flags: createallsubdirs recursesubdirs

@@ -22,7 +22,7 @@ REM
 REM clean the maven publications
 REM
 
-del /S /Q publish\maven\*.* 
-del /S /Q %HOMEDRIVE%%HOMEPATH%\.m2\repository\com\kauailabs\navx
+rmdir /S /Q publish\maven
+rmdir /S /Q %HOMEDRIVE%%HOMEPATH%\.m2\repository\com\kauailabs\navx
 
 popd
