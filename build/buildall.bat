@@ -84,7 +84,8 @@ pushd .\roborio\c++\navx_frc_cpp
 call gradlew clean
 call gradlew build
 REM For now, publish to a local maven repo, for access by setup builder and the maven_deploy script.
-call gradlew publish
+REM The local maven repo is at %HOMEDRIVE%%HOMEPATH%\.m2\repository
+call gradlew publishCppPublicationToMavenLocal
 REM rm -r -f ./build_workspace_luna
 REM mkdir build_workspace_luna
 
@@ -100,7 +101,8 @@ REM call ant clean build
 call gradlew clean
 call gradlew build
 REM For now, publish to a local maven repo, for access by setup builder and the maven_deploy script.
-call gradlew publish
+REM The local maven repo is at %HOMEDRIVE%%HOMEPATH%\.m2\repository
+call gradlew publishMavenJavaPublicationToMavenLocal
 popd
 
 REM Build FTC Library

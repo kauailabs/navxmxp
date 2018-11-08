@@ -3,9 +3,11 @@
   "name": "KauaiLabs_navX_FRC",
   "version": "0.0.000",
   "uuid": "cb311d09-36e9-4143-a032-55bb2b94443b",
-  "mavenUrls": [ "http://www.kauailabs.com/maven2/"
+  "mavenUrls": [ 
+	"https://repo1.maven.org/maven2/",
+	"http://www.kauailabs.com/maven2/"
   ],
-  "jsonUrl": "",
+  "jsonUrl": "https://www.kauailabs.com/dist/frc/2019/navx_frc.json",
   "javaDependencies": [
     {
       "groupId": "com.kauailabs.navx.frc",

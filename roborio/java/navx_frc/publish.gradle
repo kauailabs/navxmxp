@@ -1,4 +1,6 @@
+apply plugin: 'java'
 apply plugin: 'maven-publish'
+apply plugin: 'signing'
 
 // Ensure that the WPILibVersioningPlugin is setup by setting the release type, if releaseType wasn't
 // already specified on the command line
@@ -52,6 +54,51 @@ ext.addTaskToCopyAllOutputs = { task ->
 def baseArtifactId = 'navx-java'
 def artifactGroupId = 'com.kauailabs.navx.frc'
 
+def customizePom(pom) {
+    pom.withXml {
+        def root = asNode()
+
+        // eliminate test-scoped dependencies (no need in maven central POMs)
+        root.dependencies.removeAll { dep ->
+            dep.scope == "test"
+        }
+		
+        // add all items necessary for maven central publication
+        root.children().last() + {
+            resolveStrategy = Closure.DELEGATE_FIRST
+
+            description 'navX-MXP Robotics Navigation Sensor WPI Libraries'
+            name 'navX-MXP'
+            url 'https://github.com/kauailabs/navxmxp'
+            organization {
+                name 'com.github.kauailabs'
+                url 'https://github.com/kauailabs'
+            }
+            issueManagement {
+                system 'GitHub'
+                url 'https://github.com/kauailabs/navxmxp/issues'
+            }
+            licenses {
+                license {
+                    name 'The MIT License (MIT)'
+                    url 'https://github.com/kauailabs/navxmxp/blob/master/LICENSE.txt'
+                    distribution 'repo'
+                }
+            }
+            scm {
+                url 'https://github.com/kauailabs/navxmxp'
+                connection 'scm:git:git://github.com/kauailabs/navxmxp.git'
+                developerConnection 'scm:git:ssh://git@github.com:kauailabs/navxmxp.git'
+            }
+            developers {
+                developer {
+                    name 'kauailabs'
+                }
+            }
+        }
+    }
+}
+
 task sourcesJar(type: Jar) {
     from sourceSets.main.allJava
     classifier = 'sources'
@@ -62,45 +109,72 @@ task javadocJar(type: Jar) {
     classifier = 'javadoc'
 }
 
+artifacts {
+	//archives jar
+	archives sourcesJar
+	archives javadocJar
+}
+
+signing {
+    sign configurations.archives
+}
+
 model {
+
+    tasks.generatePomFileForMavenJavaPublication {
+        destination = file("$buildDir/generated-pom.xml")
+    }
+    tasks.publishMavenJavaPublicationToMavenLocal {
+        dependsOn project.tasks.signArchives
+    }
+    tasks.publishMavenJavaPublicationToMavenRepository {
+        dependsOn project.tasks.signArchives
+    }	
+
     publishing {
         repositories {
             maven {
                 url "${projectDir}/../../../publish/maven"
+				url "https://oss.sonatype.org/service/local/staging/deploy/maven2"
+				credentials {
+					username sonatypeUsername
+					password sonatypePassword
+				}
 			}
         }
 
         publications {
             mavenJava(MavenPublication) {
+				customizePom(pom)			
+                groupId artifactGroupId
+                version pubVersion		
                 artifactId = baseArtifactId
 				from components.java
 				artifact sourcesJar
 				artifact javadocJar
-                groupId artifactGroupId
-                version pubVersion				
-				pom {
-					name = 'navX FRC Java Library'
-					description = 'navX FRC Java Library'
-					url = 'https://pdocs.kauailabs.com/navx-mxp/software/roborio-libraries/java/'
-					licenses {
-						license {
-							name = 'The MIT License (MIT)'
-							url = 'https://raw.githubusercontent.com/kauailabs/navxmxp/master/LICENSE.txt'
-						}
-					}
-					developers {
-						developer {
-							id = 'kauailabs'
-							name = 'KauaiLabs'
-							email = 'scott@kauailabs.com'
-						}
-					}
-					scm {
-						connection = 'scm:git:ssh://github.com/kauailabs/navxmxp.git'
-						developerConnection = 'scm:git:ssh://github.com/kauailabs/navxmxp.git'
-						url = 'https://github.com/kauailabs/navxmxp'
+				
+				// create the sign pom artifact
+				pom.withXml {
+					def pomFile = file("${project.buildDir}/generated-pom.xml")
+					writeTo(pomFile)
+					def pomAscFile = signing.sign(pomFile).signatureFiles[0]
+					artifact(pomAscFile) {
+						classifier = null
+						extension = 'pom.asc'
 					}
 				}
+				// create the signed artifacts
+				project.tasks.signArchives.signatureFiles.each {
+					artifact(it) {
+						def matcher = it.file =~ /-(sources|javadoc)\.jar.asc$/
+						if (matcher.find()) {
+							classifier = matcher.group(1)
+						} else {
+							classifier = null
+						}
+						extension = 'jar.asc'
+					}
+				}				
             }
         }
     }
