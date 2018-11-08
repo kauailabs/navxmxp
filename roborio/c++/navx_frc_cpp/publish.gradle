@@ -160,7 +160,7 @@ model {
         destination = file("$buildDir/generated-pom.xml")
     }
     tasks.publishCppPublicationToMavenLocal {
-        //dependsOn project.tasks.signArchives
+        dependsOn project.tasks.signArchives
     }
     tasks.publishCppPublicationToMavenRepository {
         dependsOn project.tasks.signArchives
@@ -176,7 +176,10 @@ model {
 					password sonatypePassword
 				}
             }
-        }
+            maven {
+				file "${projectDir}/../../../publish/maven"
+            }
+		}
 
         publications {
             Cpp(MavenPublication) {

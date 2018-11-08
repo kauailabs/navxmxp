@@ -141,6 +141,9 @@ model {
 					password sonatypePassword
 				}
 			}
+            maven {
+				file "${projectDir}/../../../publish/maven"
+            }			
         }
 
         publications {
