@@ -175,6 +175,7 @@ void HAL_IOCX_TIMER_Set_Prescaler(uint8_t timer_index, uint16_t ticks_per_clock)
 void HAL_IOCX_TIMER_Get_Prescaler(uint8_t first_timer_index, int count, uint16_t *values);
 void HAL_IOCX_TIMER_ConfigureInterruptPriorities(uint8_t timer_index);
 void HAL_IOCX_TIMER_Get_Normalized_Prescaler(uint8_t timer_index, uint16_t *prescaler_normalized);
+void HAL_IOCX_TIMER_Get_Status(uint8_t first_timer_index, int count, uint8_t *values);
 
 /* Quad Encoder Data */
 void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, int32_t *values);
@@ -184,6 +185,13 @@ void HAL_IOCX_TIMER_PWM_Set_FramePeriod(uint8_t timer_index, uint16_t clocks_per
 void HAL_IOCX_TIMER_PWM_Get_FramePeriod(uint8_t first_timer_index, int count, uint16_t* values);
 void HAL_IOCX_TIMER_PWM_Set_DutyCycle(uint8_t timer_index, uint8_t channel_index, uint16_t clocks_per_active_period);
 void HAL_IOCX_TIMER_PWM_Get_DutyCycle(uint8_t first_timer_index, uint8_t first_channel_index, int count, uint16_t *values);
+
+/* Input Capture Configuration */
+void HAL_IOCX_TIMER_Set_Counter_Cfg(uint8_t timer_index, uint8_t config);
+void HAL_IOCX_TIMER_Set_SlaveMode_Cfg(uint8_t timer_index, uint8_t config);
+void HAL_IOCX_TIMER_INPUTCAP_Set_Cfg(uint8_t timer_index, uint8_t channel_index, uint8_t config);
+void HAL_IOCX_TIMER_INPUTCAP_Set_Cfg2(uint8_t timer_index, uint8_t channel_index, uint8_t config);
+void HAL_IOCX_TIMER_INPUTCAP_Set_StallCfg(uint8_t timer_index, uint8_t stall_cfg);
 
 /* ADC Access */
 
@@ -226,6 +234,13 @@ struct WritableRegSetGroup
 	uint8_t last_offset;
 	struct WritableRegSet *p_sets;
 	uint8_t set_count;
+};
+
+struct BankedWritableRegSetGroups
+{
+	uint8_t	bank;
+	struct WritableRegSetGroup *p_group;
+	uint8_t num_sets_in_group;
 };
 
 #define SIZEOF_STRUCT(s) (sizeof(s)/sizeof(s[0]))

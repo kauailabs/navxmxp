@@ -43,7 +43,7 @@
 /*----------------------------------------------------------------------------*/
 /* USER CODE BEGIN 1 */
 
-void MX_CAN_Interrupt_Enable(void) {
+static void MX_CAN_Interrupt_Enable(void) {
 	GPIO_InitTypeDef GPIO_InitStruct;
 
 	GPIO_InitStruct.Pin = _CAN_INT_Pin;
@@ -75,7 +75,7 @@ void MX_CAN_Interrupt_Verify()
         gpio_falling_edge_trigger = 1;
     }
     temp = GPIOC->PUPDR;
-    temp >>= (_CAN_INT_Pin * 2); // 2 bits per pin
+    temp >>= (POSITION_VAL(_CAN_INT_Pin) * 2); // 2 bits per pin
     temp &= 0x00000003;
     if ( temp != GPIO_NOPULL) {
         /* Floating input */

@@ -2,11 +2,13 @@
 #include "IMURegisters.h"
 #include "navx-mxp_hal.h"
 #include "IOCXRegisters.h"
+#include "IOCXExRegisters.h"
 #include "stm32f4xx_hal.h"
 #include "navx-mxp.h"
 
 static IOCX_REGS iocx_regs;
-static uint32_t last_loop_timestamp;
+static uint32_t last_loop_timestamp = 0;
+static IOCX_EX_REGS iocx_ex_regs;
 
 _EXTERN_ATTRIB void IOCX_init()
 {
@@ -27,18 +29,21 @@ _EXTERN_ATTRIB void IOCX_init()
 
 	HAL_IOCX_RPI_GPIO_Driver_Enable(1);
 	HAL_IOCX_RPI_COMM_Driver_Enable(1);
+
+	/* Update static capability flags */
+	iocx_regs.capability_flags.interrupt_support = 1;
+	iocx_regs.capability_flags.unused = 0;
+	iocx_ex_regs.capability_flags.countercfg_support = 1;
+	iocx_ex_regs.capability_flags.slvmd_cfg_support = 1;
+	iocx_ex_regs.capability_flags.stall_support = 1;
+	iocx_ex_regs.capability_flags.inputcap_support = 1;
+	iocx_ex_regs.capability_flags.unused = 0;
 }
 
-#define NUM_MS_BETWEEN_SUCCESSIVE_LOOPS 2
+#define NUM_MS_BETWEEN_SUCCESSIVE_LOOPS 20
 
 _EXTERN_ATTRIB void IOCX_loop()
 {
-	/* Update Capability Flags */
-	IOCX_CAPABILITY_FLAGS curr_cap_flags;
-	curr_cap_flags.unused = 0;
-	curr_cap_flags.rpi_gpio_out = HAL_IOCX_RPI_GPIO_Output();
-	iocx_regs.capability_flags = *((uint16_t *)&curr_cap_flags);
-
 	uint32_t curr_loop_timestamp = HAL_GetTick();
 	if ( curr_loop_timestamp < last_loop_timestamp) {
 		/* Timestamp rollover */
@@ -46,6 +51,9 @@ _EXTERN_ATTRIB void IOCX_loop()
 	} else {
 		if ((curr_loop_timestamp - last_loop_timestamp) >= NUM_MS_BETWEEN_SUCCESSIVE_LOOPS){
 			last_loop_timestamp = curr_loop_timestamp;
+
+			/* Update dynamic capability flags */
+			iocx_regs.capability_flags.rpi_gpio_out = HAL_IOCX_RPI_GPIO_Output();
 		}
 	}
 }
@@ -79,6 +87,16 @@ _EXTERN_ATTRIB uint8_t *IOCX_get_reg_addr_and_max_size( uint8_t bank, uint8_t re
 	    	HAL_IOCX_TIMER_Get_Count(0, IOCX_NUM_TIMERS, &iocx_regs.timer_counter[0]);
 	   }
 
+	    if((first_offset >= offsetof(struct IOCX_REGS, timer_status)) &&
+	       (first_offset <=
+	    		   offsetof(struct IOCX_REGS, timer_status) +
+	    		   sizeof(iocx_regs.timer_status))) {
+	    	/* Todo:  This can be optimized to only acquire data for requested
+	    	 * status, rather than all statuses.
+	    	 */
+	    	HAL_IOCX_TIMER_Get_Status(0, IOCX_NUM_TIMERS, &iocx_regs.timer_status[0]);
+	   }
+
 	    if((first_offset >= offsetof(struct IOCX_REGS, timer_chx_ccr)) &&
 	       (first_offset <=
 	    		   offsetof(struct IOCX_REGS, timer_chx_ccr) +
@@ -101,6 +119,14 @@ _EXTERN_ATTRIB uint8_t *IOCX_get_reg_addr_and_max_size( uint8_t bank, uint8_t re
 
 	    uint8_t *register_base = (uint8_t *)&iocx_regs;
 	    *size = offsetof(struct IOCX_REGS, end_of_bank) - register_offset;
+	    return register_base + register_offset;
+	} else if ( bank == IOCX_EX_REGISTER_BANK) {
+	    if ( register_offset >= offsetof(struct IOCX_EX_REGS, end_of_bank) ) {
+	        size = 0;
+	        return 0;
+	    }
+	    uint8_t *register_base = (uint8_t *)&iocx_ex_regs;
+	    *size = offsetof(struct IOCX_EX_REGS, end_of_bank) - register_offset;
 	    return register_base + register_offset;
 	}
 	return 0;
@@ -204,7 +230,7 @@ WritableRegSet timer_reg_sets[] =
 	{ offsetof(struct IOCX_REGS, timer_chx_ccr), sizeof(IOCX_REGS::timer_chx_ccr), timer_chx_ccr_modified },
 };
 
-WritableRegSetGroup writable_reg_set_groups[] =
+WritableRegSetGroup iocx_writable_reg_set_groups[] =
 {
 	{ timer_reg_sets[0].start_offset,
 		timer_reg_sets[SIZEOF_STRUCT(timer_reg_sets)-1].start_offset + timer_reg_sets[SIZEOF_STRUCT(timer_reg_sets)-1].num_bytes,
@@ -216,32 +242,79 @@ WritableRegSetGroup writable_reg_set_groups[] =
 		SIZEOF_STRUCT(gpio_reg_sets) },
 };
 
+static void timer_counter_cfg_modified(uint8_t first_offset, uint8_t count) {
+	reg_set_modified<uint8_t, HAL_IOCX_TIMER_Set_Counter_Cfg>(first_offset, count, iocx_ex_regs.timer_counter_cfg);
+}
+
+static void timer_slavemode_cfg_modified(uint8_t first_offset, uint8_t count) {
+	reg_set_modified<uint8_t, HAL_IOCX_TIMER_Set_SlaveMode_Cfg>(first_offset, count, iocx_ex_regs.timer_slavemode_cfg);
+}
+
+static void timer_ic_ch_cfg_modified(uint8_t first_offset, uint8_t count) {
+	channel_reg_set_modified<uint8_t, HAL_IOCX_TIMER_INPUTCAP_Set_Cfg, 2>(first_offset, count, iocx_ex_regs.timer_ic_ch_cfg);
+}
+
+static void timer_ic_ch_cfg2_modified(uint8_t first_offset, uint8_t count) {
+	channel_reg_set_modified<uint8_t, HAL_IOCX_TIMER_INPUTCAP_Set_Cfg2, 2>(first_offset, count, iocx_ex_regs.timer_ic_ch_cfg2);
+}
+
+static void timer_ic_stall_cfg_modified(uint8_t first_offset, uint8_t count) {
+	reg_set_modified<uint8_t, HAL_IOCX_TIMER_INPUTCAP_Set_StallCfg>(first_offset, count, iocx_ex_regs.timer_ic_stall_cfg);
+}
+
+WritableRegSet timer_inputcap_reg_sets[] =
+{
+	/* Contiguous registers, increasing order of offset  */
+	{ offsetof(struct IOCX_EX_REGS, timer_counter_cfg), sizeof(IOCX_EX_REGS::timer_counter_cfg), timer_counter_cfg_modified },
+	{ offsetof(struct IOCX_EX_REGS, timer_slavemode_cfg), sizeof(IOCX_EX_REGS::timer_slavemode_cfg), timer_slavemode_cfg_modified },
+	{ offsetof(struct IOCX_EX_REGS, timer_ic_stall_cfg), sizeof(IOCX_EX_REGS::timer_ic_stall_cfg), timer_ic_stall_cfg_modified },
+	{ offsetof(struct IOCX_EX_REGS, timer_ic_ch_cfg), sizeof(IOCX_EX_REGS::timer_ic_ch_cfg), timer_ic_ch_cfg_modified },
+	{ offsetof(struct IOCX_EX_REGS, timer_ic_ch_cfg2), sizeof(IOCX_EX_REGS::timer_ic_ch_cfg2), timer_ic_ch_cfg2_modified },
+};
+
+WritableRegSetGroup iocx_ex_writable_reg_set_groups[] =
+{
+	{ timer_inputcap_reg_sets[0].start_offset,
+			timer_inputcap_reg_sets[SIZEOF_STRUCT(timer_inputcap_reg_sets)-1].start_offset + timer_inputcap_reg_sets[SIZEOF_STRUCT(timer_inputcap_reg_sets)-1].num_bytes,
+			timer_inputcap_reg_sets,
+		SIZEOF_STRUCT(timer_inputcap_reg_sets) },
+};
+
+BankedWritableRegSetGroups iocx_banked_groups[] =
+{
+	{ IOCX_REGISTER_BANK, iocx_writable_reg_set_groups, SIZEOF_STRUCT(iocx_writable_reg_set_groups) },
+	{ IOCX_EX_REGISTER_BANK, iocx_ex_writable_reg_set_groups, SIZEOF_STRUCT(iocx_ex_writable_reg_set_groups) },
+};
+
 _EXTERN_ATTRIB void IOCX_banked_writable_reg_update_func(uint8_t bank, uint8_t reg_offset, uint8_t *p_reg, uint8_t count, uint8_t *p_new_values )
 {
-	if ( bank == IOCX_REGISTER_BANK) {
-		for ( size_t i = 0; i < SIZEOF_STRUCT(writable_reg_set_groups); i++) {
-			if ( (reg_offset >= writable_reg_set_groups[i].first_offset) &&
-				 (reg_offset <= writable_reg_set_groups[i].last_offset)) {
-				for ( int j = 0; j < writable_reg_set_groups[i].set_count; j++) {
-					WritableRegSet *p_set = &writable_reg_set_groups[i].p_sets[j];
-					if ((reg_offset >= p_set->start_offset) &&
-						(reg_offset < (p_set->start_offset + p_set->num_bytes))){
-						int first_offset = (reg_offset - p_set->start_offset);
-						int max_bytes_to_write_in_set = p_set->num_bytes-first_offset;
-						int num_bytes_in_set_to_modify = (count < max_bytes_to_write_in_set) ? count : max_bytes_to_write_in_set;
-						int num_bytes_in_set_changed = 0;
-						while (num_bytes_in_set_changed < num_bytes_in_set_to_modify )  {
-							*p_reg++ = *p_new_values++;
-							reg_offset++;
-							num_bytes_in_set_changed++;
-							count--;
-						}
-						if (num_bytes_in_set_changed > 0){
-							/* At least one byte in this set was modified. */
-							p_set->changed(first_offset, num_bytes_in_set_changed);
-						}
-						if (count == 0) {
-							break;
+	for (size_t x = 0; x < SIZEOF_STRUCT(iocx_banked_groups); x++) {
+		if (bank == iocx_banked_groups[x].bank) {
+			WritableRegSetGroup *p_group = iocx_banked_groups[x].p_group;
+			for ( size_t i = 0; i < iocx_banked_groups[x].num_sets_in_group; i++) {
+				if ( (reg_offset >= p_group[i].first_offset) &&
+					 (reg_offset <= p_group[i].last_offset)) {
+					for ( int j = 0; j < p_group[i].set_count; j++) {
+						WritableRegSet *p_set = &p_group[i].p_sets[j];
+						if ((reg_offset >= p_set->start_offset) &&
+							(reg_offset < (p_set->start_offset + p_set->num_bytes))){
+							int first_offset = (reg_offset - p_set->start_offset);
+							int max_bytes_to_write_in_set = p_set->num_bytes-first_offset;
+							int num_bytes_in_set_to_modify = (count < max_bytes_to_write_in_set) ? count : max_bytes_to_write_in_set;
+							int num_bytes_in_set_changed = 0;
+							while (num_bytes_in_set_changed < num_bytes_in_set_to_modify )  {
+								*p_reg++ = *p_new_values++;
+								reg_offset++;
+								num_bytes_in_set_changed++;
+								count--;
+							}
+							if (num_bytes_in_set_changed > 0){
+								/* At least one byte in this set was modified. */
+								p_set->changed(first_offset, num_bytes_in_set_changed);
+							}
+							if (count == 0) {
+								break;
+							}
 						}
 					}
 				}
