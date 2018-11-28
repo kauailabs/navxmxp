@@ -204,7 +204,7 @@ inline void iocx_ex_timer_encode_ic_stall_timeout(uint8_t* reg, uint8_t val) {
 	encode_reg(reg, val, &timer_ic_stall_timeout_reg);
 }
 inline uint8_t iocx_ex_timer_decode_ic_stall_timeout(uint8_t *reg) {
-	return decode_reg(reg, &timer_ic_stall_action_reg);
+	return decode_reg(reg, &timer_ic_stall_timeout_reg);
 }
 inline void iocx_ex_timer_encode_ic_stall_action(uint8_t* reg, TIMER_INPUT_CAPTURE_STALL_ACTION val) {
 	encode_reg(reg, (uint8_t)val, &timer_ic_stall_action_reg);
