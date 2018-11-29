@@ -1258,7 +1258,9 @@ void HAL_IOCX_TIMER_Set_Prescaler(uint8_t timer_index, uint16_t ticks_per_clock)
 	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
 	/* If one of the 96Mhz timers, multiply ticks/clock by 2 to mimic 48Mhz timers */
 	if (timer_configs[timer_index].core_clock_divider == TIM_CLOCKDIVISION_DIV1) {
-		ticks_per_clock *= 2;
+		/* NOTE:  When doubling, carefully take into account that the prescaler */
+		/* register is 0-based, not 1-based.                                    */
+		ticks_per_clock = ((ticks_per_clock + 1)* 2) -1;
 	}
 	timer_configs[timer_index].p_tim_handle->Init.Prescaler = (uint32_t)ticks_per_clock;
 }
