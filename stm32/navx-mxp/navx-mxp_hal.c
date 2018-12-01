@@ -33,6 +33,7 @@ THE SOFTWARE.
 #include "IOCXRegisters.h"
 #include "IOCXExRegisters.h"
 #include "ext_interrupts.h"
+#include "DWTDelay.h"
 #endif
 #ifdef ENABLE_RTC
 extern RTC_HandleTypeDef hrtc;
@@ -502,6 +503,7 @@ void HAL_IOCX_Init()
 			attachInterrupt(altint_pin, &HAL_IOCX_EXTI_ISR, FALLING);
 		}
 	}
+	DWT_Init();	/* Initialize microsecond delay ARM DWT mechanism. */
 }
 
 void HAL_IOCX_Ext_Power_Enable(int enable)
@@ -896,11 +898,55 @@ void HAL_IOCX_GPIO_Get(uint8_t first_gpio_index, int count, uint8_t *values)
 	}
 }
 
+/* Requested GPIO state is lowest bit (1:  HIGH; 0:  LOW).                    */
+/* If upper 7 bits are not zero, a pulse is generated, and these bits define  */
+/* the pulse period (in microseconds).                                        */
 void HAL_IOCX_GPIO_Set(uint8_t gpio_index, uint8_t value)
 {
 	if ( gpio_index > (IOCX_NUM_GPIOS-1) ) return;
-    HAL_GPIO_WritePin( gpio_channels[gpio_index].p_gpio, gpio_channels[gpio_index].pin,
-    		(value != IOCX_GPIO_RESET) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
+	int requested_level = value & 0x01;
+	uint8_t pulse_length_microseconds = value >> 1;
+
+	if (pulse_length_microseconds > 0) {
+		HAL_IOCX_GPIO_Pulse(gpio_index, requested_level, pulse_length_microseconds);
+	} else {
+		HAL_GPIO_WritePin( gpio_channels[gpio_index].p_gpio, gpio_channels[gpio_index].pin,
+    		(requested_level != IOCX_GPIO_RESET) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+	}
+}
+
+/* Generates a GPIO pulse, as follows: */
+/* - If current state is same as pulse level, force GPIO to opposite state, wait 1 us.    */
+/* - Then, set the GPIO to the requested state.                                           */
+/* - Then, delay (blocking) the requested number of microseconds.                         */
+/* - Finally, set the GPIO to the opposite of the requested state.                        */
+void HAL_IOCX_GPIO_Pulse(uint8_t gpio_index, int high, uint8_t pulse_length_microseconds)
+{
+	if ( gpio_index > (IOCX_NUM_GPIOS-1) ) return;
+	GPIO_PinState new_gpio_state = (high ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
+	/* Force a leading edge transition, for a minimum of 1 microsecond */
+	GPIO_PinState curr_gpio_state =
+			HAL_GPIO_ReadPin(gpio_channels[gpio_index].p_gpio, gpio_channels[gpio_index].pin);
+	if (curr_gpio_state == new_gpio_state) {
+		HAL_GPIO_WritePin( gpio_channels[gpio_index].p_gpio, gpio_channels[gpio_index].pin,
+				(new_gpio_state == IOCX_GPIO_RESET) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+		DWT_Delay(1);
+	}
+
+	/* Begin pulse */
+	HAL_GPIO_WritePin( gpio_channels[gpio_index].p_gpio, gpio_channels[gpio_index].pin,
+			(new_gpio_state == IOCX_GPIO_SET) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
+	/* Delay */
+	if (pulse_length_microseconds > 0) {
+		DWT_Delay(pulse_length_microseconds);
+	}
+
+	/* End Pulse */
+	HAL_GPIO_WritePin( gpio_channels[gpio_index].p_gpio, gpio_channels[gpio_index].pin,
+		(new_gpio_state == IOCX_GPIO_RESET) ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }
 
 void HAL_IOCX_TIMER_Enable_Clocks(uint8_t timer_index, int enable)

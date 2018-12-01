@@ -149,6 +149,7 @@ void HAL_IOCX_Ext_Power_Enable(int enable);
 void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config);
 void HAL_IOCX_GPIO_Get_Config(uint8_t first_gpio_index, int count, uint8_t *values);
 void HAL_IOCX_GPIO_Set(uint8_t gpio_index, uint8_t value);
+void HAL_IOCX_GPIO_Pulse(uint8_t gpio_index, int high, uint8_t pulse_length_microseconds);
 void HAL_IOCX_GPIO_Get(uint8_t first_gpio_index, int count, uint8_t *values);
 int HAL_IOCX_RPI_GPIO_Output(); /* Returns 0 if pins are input, non-zero if output */
 int HAL_IOCX_Ext_Power_Fault(); /* Returns 0 if no ext power fault has occurred, non-zero indicates fault has occurred. */
