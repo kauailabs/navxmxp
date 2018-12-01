@@ -44,6 +44,9 @@ typedef struct {
 #define IOCX_GPIO_SET	1
 #define IOCX_GPIO_RESET 0
 
+#define IOCX_MIN_PULSELENGTH_US		1
+#define IOCX_MAX_PULSELENGTH_US		127
+
 // GPIO_TYPE
 typedef enum _IOCX_GPIO_TYPE {
 	GPIO_TYPE_DISABLED			= 0, /* Default */
@@ -210,7 +213,10 @@ struct __attribute__ ((__packed__)) IOCX_REGS {
 	/*****************/
 	uint16_t gpio_intstat;  			 /* Bitmask:  1 = int present.  Write 1 to clear. */
 	uint16_t gpio_last_int_edge;		 /* Bitmask:  1 = last edge rising; 0:  last edge falling */
-	uint8_t  gpio_data[IOCX_NUM_GPIOS];  /* IOCX_GPIO_SET = High, IOCX_GPIO_RESET = Low.  */
+	uint8_t  gpio_data[IOCX_NUM_GPIOS];  /* IOCX_GPIO_SET = High, IOCX_GPIO_RESET = Low. */
+										 /* If upper 7 bits are > 0, a pulse of requested level is generated */
+										 /* (pulse period value of upper 7 bits, in units of microseconds. */
+										 /* If upper 7 bits are clear, the requested level is set. */
 	uint8_t timer_status[IOCX_NUM_TIMERS]; /* IOCX_TIMER_DIRECTION, IOCX_INPUTCAP_CH_ACTIVITY */
 	int32_t timer_counter[IOCX_NUM_TIMERS]; /* QE Mode:  Encoder Counts */
 	uint8_t end_of_bank;
