@@ -204,7 +204,7 @@ struct __attribute__ ((__packed__)) IOCX_REGS {
 	uint8_t timer_ctl[IOCX_NUM_TIMERS]; /* IOCX_TIMER_COUNTER_RESET */
 	uint16_t timer_prescaler[IOCX_NUM_TIMERS]; /* Timer Frequency (48Mhz divider) */
 	uint16_t timer_aar[IOCX_NUM_TIMERS]; /* PWM:  Frame Period; QE:  auto-set to 0xFFFF */
-	/* PWM Mode:  Duty-cycle Period; QE: Mode:  read-only, internal use */
+	/* PWM Mode:  Duty-cycle Period; QE: Mode:  last pulse period, in microseconds */
 	uint16_t timer_chx_ccr[IOCX_NUM_TIMERS * IOCX_NUM_CHANNELS_PER_TIMER];
 	uint16_t int_cfg;			/* Mask for:  GPIO/Analog Trigger Interrupts  */
 	uint8_t  gpio_cfg[IOCX_NUM_GPIOS];	 /* IOCX_GPIO_TYPE, _INPUT, _INTERRUPT */

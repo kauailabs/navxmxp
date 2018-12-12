@@ -658,6 +658,57 @@ uint32_t qe4_last_count = 0;
 
 volatile int32_t qe_total_count[NUM_IOCX_QUAD_ENCODERS] = { 0, 0, 0, 0, 0 };
 
+#define SYSTICK_HANDLER_PROCESSING_FREQUENCY 2 /* Every other tick */
+#define NUM_QE_COUNT_DELTAS 25
+#define QE_COUNT_DELTA_PERIOD_MS (NUM_QE_COUNT_DELTAS * SYSTICK_HANDLER_PROCESSING_FREQUENCY)
+
+volatile uint16_t qe_count_index = 0; // Range 0 - (NUM_QE_COUNT_DELTAS-1)
+volatile int16_t qe_count_deltas[NUM_IOCX_QUAD_ENCODERS][NUM_QE_COUNT_DELTAS];
+volatile uint32_t qe_last_delta_timestamp[NUM_IOCX_QUAD_ENCODERS];
+
+static uint32_t GetTotalQECountDelta(uint8_t qe_index) {
+	if (qe_index >= NUM_IOCX_QUAD_ENCODERS) return 0;
+
+    uint32_t total_qe_count_delta = 0;
+	NVIC_DisableIRQ(SysTick_IRQn);
+	volatile int16_t *p_count_deltas = &qe_count_deltas[qe_index][qe_count_index];
+    int i;
+	for (i = qe_count_index; i < NUM_QE_COUNT_DELTAS; i++) {
+    	total_qe_count_delta += abs(*p_count_deltas);
+    	p_count_deltas++;
+    }
+    p_count_deltas = &qe_count_deltas[qe_index][0];
+    for (i = 0; i < qe_count_index; i++) {
+    	total_qe_count_delta += abs(*p_count_deltas);
+    	p_count_deltas++;
+    }
+    NVIC_EnableIRQ(SysTick_IRQn);
+    return total_qe_count_delta;
+}
+
+static uint16_t GetRecentQEPulseLengthMicrosecondsAverage(uint8_t qe_index) {
+	if (qe_index >= NUM_IOCX_QUAD_ENCODERS) return 0;
+
+	uint32_t qe_count = GetTotalQECountDelta(qe_index);
+	uint32_t qe_count_per_sec = qe_count * (1000 / QE_COUNT_DELTA_PERIOD_MS);
+	uint32_t qe_pulse_per_sec;
+	switch (qe_curr_mode[qe_index]) {
+	default:
+	case QUAD_ENCODER_MODE_4x:
+		qe_pulse_per_sec = qe_count_per_sec / 4;
+		break;
+	case QUAD_ENCODER_MODE_2x:
+		qe_pulse_per_sec = qe_count_per_sec / 2;
+		break;
+	case QUAD_ENCODER_MODE_1x:
+		qe_pulse_per_sec = qe_count_per_sec;
+		break;
+	}
+	uint32_t qe_pulse_avg_microseconds =
+			(uint32_t)1000000 / qe_pulse_per_sec;
+	return (uint16_t)qe_pulse_avg_microseconds;
+}
+
 static int QEIntegratorEnabled(uint8_t qe_index) {
 	if (qe_index < NUM_IOCX_QUAD_ENCODERS) {
 		return qe_enabled[qe_index];
@@ -683,33 +734,69 @@ static void ResetQEIntegrator(uint8_t qe_index, int enabled) {
 	}
 }
 
+// Systick interrupt handler (invoked every millisecond).
+// To limit system processing overhead, this handler only performs
+// processing at a tick frequency of SYSTICK_HANDLER_PROCESSING_FREQUENCY
 void HAL_IOCX_SysTick_Handler()
 {
+	uint32_t ts_now = HAL_GetTick();
+	if ((ts_now % SYSTICK_HANDLER_PROCESSING_FREQUENCY) != 0) return;
+
 	/* NOTE:  Timers 1, 3, 4 are 16-bit; Timers 2, 5 are 32-bit. */
 	if (qe_enabled[0]) {
 		uint16_t qe0_curr_count = (uint16_t)TIM1->CNT;
-		qe_total_count[0] += (int16_t)(qe0_curr_count - qe0_last_count);
+		int16_t count_delta = (int16_t)(qe0_curr_count - qe0_last_count);
+		qe_total_count[0] += count_delta;
 		qe0_last_count = qe0_curr_count;
+		qe_count_deltas[0][qe_count_index] = count_delta;
+		if (count_delta != 0) {
+			qe_last_delta_timestamp[0] = ts_now;
+		}
 	}
 	if (qe_enabled[1]) {
 		uint32_t qe1_curr_count = (uint32_t)TIM2->CNT;
-		qe_total_count[1] += (int32_t)(qe1_curr_count - qe1_last_count);
+		int16_t count_delta = (int16_t)(qe1_curr_count - qe1_last_count);
+		qe_total_count[1] += count_delta;
 		qe1_last_count = qe1_curr_count;
+		qe_count_deltas[1][qe_count_index] = count_delta;
+		if (count_delta != 0) {
+			qe_last_delta_timestamp[1] = ts_now;
+		}
 	}
 	if (qe_enabled[2]) {
 		uint16_t qe2_curr_count = (uint16_t)TIM3->CNT;
-		qe_total_count[2] += (int16_t)(qe2_curr_count - qe2_last_count);
+		int16_t count_delta = (int16_t)(qe2_curr_count - qe2_last_count);
+		qe_total_count[2] += count_delta;
 		qe2_last_count = qe2_curr_count;
+		qe_count_deltas[2][qe_count_index] = count_delta;
+		if (count_delta != 0) {
+			qe_last_delta_timestamp[2] = ts_now;
+		}
 	}
 	if (qe_enabled[3]) {
 		uint16_t qe3_curr_count = (uint16_t)TIM4->CNT;
-		qe_total_count[3] += (int16_t)(qe3_curr_count - qe3_last_count);
+		int16_t count_delta = (int16_t)(qe3_curr_count - qe3_last_count);
+		qe_total_count[3] += count_delta;
 		qe3_last_count = qe3_curr_count;
+		qe_count_deltas[3][qe_count_index] = count_delta;
+		if (count_delta != 0) {
+			qe_last_delta_timestamp[3] = ts_now;
+		}
 	}
 	if (qe_enabled[4]) {
 		uint32_t qe4_curr_count = (uint32_t)TIM5->CNT;
-		qe_total_count[4] += (int32_t)(qe4_curr_count - qe4_last_count);
+		int16_t count_delta = (int16_t)(qe4_curr_count - qe4_last_count);
+		qe_total_count[4] += count_delta;
 		qe4_last_count = qe4_curr_count;
+		qe_count_deltas[4][qe_count_index] = count_delta;
+		if (count_delta != 0) {
+			qe_last_delta_timestamp[4] = ts_now;
+		}
+	}
+	if (qe_count_index >= NUM_QE_COUNT_DELTAS) {
+		qe_count_index = 0;
+	} else {
+		qe_count_index++;
 	}
 }
 
@@ -1365,19 +1452,20 @@ static int HAL_IOCX_TIMER_IsCaptureInputActive(uint8_t timer_index) {
 
 	uint8_t timer_config = curr_timer_cfg[timer_index];
 	IOCX_TIMER_MODE timer_mode = iocx_decode_timer_mode(&timer_config);
-	if (timer_mode == TIMER_MODE_INPUT_CAPTURE) {
+	if ((timer_mode == TIMER_MODE_INPUT_CAPTURE) ||
+		(timer_mode == TIMER_MODE_QUAD_ENCODER)) {
 		uint32_t stall_timeout_ms = timer_inputcap_configs[timer_index].stall_timeout_ms;
 		if (stall_timeout_ms == TIMER_INPUT_CH_STALL_TIMEOUT_DISABLED) {
 			input_active = 1;
 		} else {
 			uint32_t curr_timestamp = HAL_GetTick();
-			uint32_t last_capture_timestamp = timer_last_capture_interrupt_timestamp_ms[timer_index];
+			uint32_t last_capture_timestamp =
+				(timer_mode == TIMER_MODE_INPUT_CAPTURE ?
+						timer_last_capture_interrupt_timestamp_ms[timer_index] :
+						qe_last_delta_timestamp[timer_index]);
 			uint32_t ts_delta = curr_timestamp - last_capture_timestamp;
 			input_active = (ts_delta < stall_timeout_ms);
 		}
-	} else if (timer_mode == TIMER_MODE_QUAD_ENCODER) {
-		/* Currently, Quad Encoder inputs are always considered active */
-		input_active = 1;
 	}
 	return input_active;
 }
@@ -1470,6 +1558,10 @@ void HAL_IOCX_TIMER_PWM_Get_DutyCycle(uint8_t first_timer_index, uint8_t first_c
 						} else {
 							values[iValueIndex] = 0; // No recent data received
 						}
+					} else if (mode == TIMER_MODE_QUAD_ENCODER) {
+						uint16_t qe_pulse_avg_microseconds =
+								GetRecentQEPulseLengthMicrosecondsAverage(iTimer);
+						values[iValueIndex] = qe_pulse_avg_microseconds;
 					} else {
 						values[iValueIndex] = (uint16_t)p_htim->Instance->CCR1;
 					}
