@@ -45,6 +45,7 @@ typedef struct {
 	uint16_t slvmd_cfg_support  : 1;  /* 1:  Timer Slave Mode configuration supported.  */
 	uint16_t stall_support		: 1;  /* 1:  Input cap stall detection supported.       */
 	uint16_t inputcap_support	: 1;  /* 1:  Input cap cfg/ch1 & ch2 cfg are supported. */
+	uint16_t tmrcntreset_support: 1;  /* 1:  Timer Counter can be reset by interrupt.   */
 } IOCX_EX_CAPABILITY_FLAGS;
 
 typedef enum _TIMER_COUNTER_CLK_SOURCE {
@@ -58,6 +59,11 @@ typedef enum _TIMER_COUNTER_DIRECTION {
 	TIMER_COUNTER_DIRECTION_UP = 0, /* Default */
 	TIMER_COUNTER_DIRECTION_DN = 1,
 } TIMER_COUNTER_DIRECTION;
+
+typedef enum _TIMER_COUNTER_INTERRUPT_RESET {
+	TIMER_COUNTER_INTERRUPT_RESET_DISABLED = 0,
+	TIMER_COUNTER_INTERRUPT_RESET_ENABLED = 1,
+} TIMER_COUNTER_INTERRUPT_RESET;
 
 typedef enum _TIMER_SLAVE_MODE {
 	TIMER_SLAVE_MODE_DISABLED	= 0, /* Default */
@@ -135,6 +141,9 @@ struct __attribute__ ((__packed__)) IOCX_EX_REGS {
 	uint8_t timer_ic_ch_cfg[IOCX_NUM_TIMERS * IOCX_NUM_CHANNELS_PER_TIMER];
 	/* TIMER_INPUT_CAPTURE_CH_FILTER, TIMER_STALL_CTL */
 	uint8_t timer_ic_ch_cfg2[IOCX_NUM_TIMERS * IOCX_NUM_CHANNELS_PER_TIMER];
+	/* TIMER_COUNTER_INTERRUPT_RESET, Interrupt Reset Source (4 bits) */
+	/* Reset Source:  0-12:  FlexDIO; 13-16:  Analog Triggers */
+	uint8_t timer_counter_reset_cfg[IOCX_NUM_TIMERS];
 	/*****************/
 	/* Configuration */
 	/*****************/
@@ -151,6 +160,8 @@ static RegEncoding timer_ic_ch_prescaler_reg = { offsetof(struct IOCX_EX_REGS, t
 static RegEncoding timer_ic_ch_filter_reg = { offsetof(struct IOCX_EX_REGS, timer_ic_ch_cfg2), 0, 0x0F };
 static RegEncoding timer_ic_stall_timeout_reg = { offsetof(struct IOCX_EX_REGS, timer_ic_stall_cfg), 0, 0x7F };
 static RegEncoding timer_ic_stall_action_reg = { offsetof(struct IOCX_EX_REGS, timer_ic_stall_cfg), 7, 0x01 };
+static RegEncoding timer_counter_reset_mode_reg = { offsetof(struct IOCX_EX_REGS, timer_counter_reset_cfg), 0, 0x01 };
+static RegEncoding timer_counter_reset_src_reg = { offsetof(struct IOCX_EX_REGS, timer_counter_reset_cfg), 1, 0x0F };
 
 inline void iocx_ex_timer_encode_counter_clk_src(uint8_t* reg, TIMER_COUNTER_CLK_SOURCE val) {
 	encode_reg(reg, (uint8_t)val, &timer_counter_clk_src_reg);
@@ -211,6 +222,18 @@ inline void iocx_ex_timer_encode_ic_stall_action(uint8_t* reg, TIMER_INPUT_CAPTU
 }
 inline TIMER_INPUT_CAPTURE_STALL_ACTION iocx_ex_timer_decode_ic_stall_action(uint8_t *reg) {
 	return (TIMER_INPUT_CAPTURE_STALL_ACTION)decode_reg(reg, &timer_ic_stall_action_reg);
+}
+inline void iocx_ex_timer_encode_counter_reset_mode(uint8_t *reg, TIMER_COUNTER_INTERRUPT_RESET val) {
+	encode_reg(reg, (uint8_t)val, &timer_counter_reset_mode_reg);
+}
+inline TIMER_COUNTER_INTERRUPT_RESET iocx_ex_timer_decode_counter_reset_mode(uint8_t *reg) {
+	return (TIMER_COUNTER_INTERRUPT_RESET)decode_reg(reg, &timer_counter_reset_mode_reg);
+}
+inline void iocx_ex_timer_encode_counter_reset_source(uint8_t* reg, uint8_t val) {
+	encode_reg(reg, val, &timer_counter_reset_src_reg);
+}
+inline uint8_t iocx_ex_timer_decode_counter_reset_source(uint8_t *reg) {
+	return decode_reg(reg, &timer_counter_reset_src_reg);
 }
 
 #endif /* IOCX_EX_REGISTERS_H_ */

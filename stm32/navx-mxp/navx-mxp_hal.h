@@ -193,7 +193,7 @@ void HAL_IOCX_TIMER_Set_SlaveMode_Cfg(uint8_t timer_index, uint8_t config);
 void HAL_IOCX_TIMER_INPUTCAP_Set_Cfg(uint8_t timer_index, uint8_t channel_index, uint8_t config);
 void HAL_IOCX_TIMER_INPUTCAP_Set_Cfg2(uint8_t timer_index, uint8_t channel_index, uint8_t config);
 void HAL_IOCX_TIMER_INPUTCAP_Set_StallCfg(uint8_t timer_index, uint8_t stall_cfg);
-
+void HAL_IOCX_TIMER_INPUTCAP_Set_TimerCounterResetCfg(uint8_t timer_index, uint8_t timer_reset_config);
 /* ADC Access */
 
 void HAL_IOCX_ADC_Enable(int enable);

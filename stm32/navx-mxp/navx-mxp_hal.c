@@ -453,9 +453,12 @@ static GPIO_Channel gpio_channels[IOCX_NUM_GPIOS] =
 	{PWM_GPIO4_GPIO_Port, 	PWM_GPIO4_Pin, 	5,  INT_EXTI, 	11, GPIO_AF3_TIM9},
 };
 
+#define TIMER_RESET_DISABLED -1
+
 static uint8_t IOCX_gpio_pin_to_interrupt_index_map[IOCX_NUM_INTERRUPTS];
 static uint8_t IOCX_gpio_pin_to_gpio_channel_index_map[IOCX_NUM_INTERRUPTS];
 static uint32_t IOCX_gpio_pin_mode_configuration[IOCX_NUM_INTERRUPTS];
+static int IOCX_gpio_interrupt_timer_reset_targets[IOCX_NUM_INTERRUPTS];
 static volatile uint16_t int_status = 0;  /* Todo:  Review Race Conditions */
 static volatile uint16_t last_int_edge = 0;
 static volatile uint16_t int_mask = 0; /* Todo:  Review Race Conditions */
@@ -489,6 +492,7 @@ void HAL_IOCX_Init()
 	uint8_t i;
 	for (i = 0; i < IOCX_NUM_INTERRUPTS; i++) {
 		IOCX_gpio_pin_to_interrupt_index_map[i] = INVALID_INTERRUPT_INDEX;
+		IOCX_gpio_interrupt_timer_reset_targets[i] = TIMER_RESET_DISABLED;
 	}
 	for (i = 0; i < IOCX_NUM_GPIOS; i++) {
 		if (gpio_channels[i].interrupt_type == INT_EXTI) {
@@ -578,8 +582,19 @@ void HAL_IOCX_AssertInterruptSignal()
 void HAL_IOCX_AssertInterrupt(uint16_t int_status_bit)
 {
 	if (int_status_bit & int_mask) {
+		uint8_t gpio_index;
 		int_status |= int_status_bit;
 		HAL_IOCX_AssertInterruptSignal();
+		// Clear timer counter, if configured to do so
+		gpio_index = POSITION_VAL(int_status_bit);
+		if (gpio_index < IOCX_NUM_INTERRUPTS) {
+			uint8_t timer_index = IOCX_gpio_interrupt_timer_reset_targets[gpio_index];
+			if (timer_index != TIMER_RESET_DISABLED) {
+				uint8_t reset_control;
+				iocx_encode_timer_counter_reset(&reset_control, RESET_REQUEST);
+				HAL_IOCX_TIMER_Set_Control(timer_index, &reset_control);
+			}
+		}
 	}
 }
 
@@ -1162,6 +1177,20 @@ static void HAL_IOCX_TIMER_ConfigureInputCaptureChannel(uint8_t timer_index, uin
 	}
 	/* Configure Input Filter */
 	psConfigIC->ICFilter = (uint32_t)timer_input_ch_configs[timer_index][channel_index].filter;
+}
+
+void HAL_IOCX_TIMER_INPUTCAP_Set_TimerCounterResetCfg(uint8_t timer_index, uint8_t config)
+{
+	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
+	TIMER_COUNTER_INTERRUPT_RESET reset = iocx_ex_timer_decode_counter_reset_mode(&config);
+	uint8_t reset_src = iocx_ex_timer_decode_counter_reset_source(&config);
+	if (reset == TIMER_COUNTER_INTERRUPT_RESET_ENABLED) {
+		if (reset_src < IOCX_NUM_INTERRUPTS) {
+			IOCX_gpio_interrupt_timer_reset_targets[reset_src] = timer_index;
+		}
+	} else {
+		IOCX_gpio_interrupt_timer_reset_targets[reset_src] = TIMER_RESET_DISABLED;
+	}
 }
 
 void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)

@@ -37,6 +37,7 @@ _EXTERN_ATTRIB void IOCX_init()
 	iocx_ex_regs.capability_flags.slvmd_cfg_support = 1;
 	iocx_ex_regs.capability_flags.stall_support = 1;
 	iocx_ex_regs.capability_flags.inputcap_support = 1;
+	iocx_ex_regs.capability_flags.tmrcntreset_support = 1;
 	iocx_ex_regs.capability_flags.unused = 0;
 }
 
@@ -262,6 +263,10 @@ static void timer_ic_stall_cfg_modified(uint8_t first_offset, uint8_t count) {
 	reg_set_modified<uint8_t, HAL_IOCX_TIMER_INPUTCAP_Set_StallCfg>(first_offset, count, iocx_ex_regs.timer_ic_stall_cfg);
 }
 
+static void timer_counter_reset_cfg_modified(uint8_t first_offset, uint8_t count) {
+	reg_set_modified<uint8_t, HAL_IOCX_TIMER_INPUTCAP_Set_TimerCounterResetCfg>(first_offset, count, iocx_ex_regs.timer_counter_reset_cfg);
+}
+
 WritableRegSet timer_inputcap_reg_sets[] =
 {
 	/* Contiguous registers, increasing order of offset  */
@@ -270,6 +275,7 @@ WritableRegSet timer_inputcap_reg_sets[] =
 	{ offsetof(struct IOCX_EX_REGS, timer_ic_stall_cfg), sizeof(IOCX_EX_REGS::timer_ic_stall_cfg), timer_ic_stall_cfg_modified },
 	{ offsetof(struct IOCX_EX_REGS, timer_ic_ch_cfg), sizeof(IOCX_EX_REGS::timer_ic_ch_cfg), timer_ic_ch_cfg_modified },
 	{ offsetof(struct IOCX_EX_REGS, timer_ic_ch_cfg2), sizeof(IOCX_EX_REGS::timer_ic_ch_cfg2), timer_ic_ch_cfg2_modified },
+	{ offsetof(struct IOCX_EX_REGS, timer_counter_reset_cfg), sizeof(IOCX_EX_REGS::timer_counter_reset_cfg),timer_counter_reset_cfg_modified },
 };
 
 WritableRegSetGroup iocx_ex_writable_reg_set_groups[] =
