@@ -203,6 +203,13 @@ void HAL_IOCX_ADC_Get_Latest_Samples(int start_channel, int n_channels, uint32_t
 int HAL_IOCX_ADC_Voltage_5V(); /* Returns 0 if 3.3V, non-zero of 5V VDA */
 uint16_t HAL_IOCX_Get_ExtPower_Voltage();
 
+#define IOCX_ANALOG_TRIGGER_STATE_LOW 0
+#define IOCX_ANALOG_TRIGGER_STATE_HIGH 1
+#define IOCX_ANALOG_TRIGGER_STATE_IN_WINDOW 2
+#define IOCX_ANALOG_TRIGGER_STATE_LAST IOCX_ANALOG_TRIGGER_STATE_IN_WINDOW
+
+void HAL_IOCX_ADC_SetCurrentAnalogTriggerState(uint8_t analog_trigger_index, uint8_t analog_trigger_state);
+
 void HAL_IOCX_ADC_AWDG_Disable();
 void HAL_IOCX_ADC_AWDG_Enable(uint8_t channel);
 int HAL_IOCX_ADC_AWDG_Is_Enabled(uint8_t* p_channel); /* Returns non-zero if enabled */

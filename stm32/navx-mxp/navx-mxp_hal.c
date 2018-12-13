@@ -32,6 +32,7 @@ THE SOFTWARE.
 #include "adc_navx-pi.h"
 #include "IOCXRegisters.h"
 #include "IOCXExRegisters.h"
+#include "MISCRegisters.h"
 #include "ext_interrupts.h"
 #include "DWTDelay.h"
 #endif
@@ -681,6 +682,29 @@ volatile uint16_t qe_count_index = 0; // Range 0 - (NUM_QE_COUNT_DELTAS-1)
 volatile int16_t qe_count_deltas[NUM_IOCX_QUAD_ENCODERS][NUM_QE_COUNT_DELTAS];
 volatile uint32_t qe_last_delta_timestamp[NUM_IOCX_QUAD_ENCODERS];
 
+typedef enum  {
+	LEVEL_RESET_NONE,
+	LEVEL_RESET_HIGH,
+	LEVEL_RESET_LOW
+} IOCX_COUNTER_LEVEL_RESET_TYPE;
+
+#define INVALID_GPIO_AND_ANALOGTRIGGER_INDEX 255
+
+typedef struct {
+	IOCX_COUNTER_LEVEL_RESET_TYPE level_reset_type;
+	uint8_t gpio_index;
+} TIMER_LevelResetConfig;
+
+static TIMER_LevelResetConfig timer_level_set_configs[IOCX_NUM_TIMERS] =
+{
+	{ LEVEL_RESET_NONE, INVALID_GPIO_AND_ANALOGTRIGGER_INDEX },
+	{ LEVEL_RESET_NONE, INVALID_GPIO_AND_ANALOGTRIGGER_INDEX },
+	{ LEVEL_RESET_NONE, INVALID_GPIO_AND_ANALOGTRIGGER_INDEX },
+	{ LEVEL_RESET_NONE, INVALID_GPIO_AND_ANALOGTRIGGER_INDEX },
+	{ LEVEL_RESET_NONE, INVALID_GPIO_AND_ANALOGTRIGGER_INDEX },
+	{ LEVEL_RESET_NONE, INVALID_GPIO_AND_ANALOGTRIGGER_INDEX },
+};
+
 static uint32_t GetTotalQECountDelta(uint8_t qe_index) {
 	if (qe_index >= NUM_IOCX_QUAD_ENCODERS) return 0;
 
@@ -1182,7 +1206,7 @@ static void HAL_IOCX_TIMER_ConfigureInputCaptureChannel(uint8_t timer_index, uin
 void HAL_IOCX_TIMER_INPUTCAP_Set_TimerCounterResetCfg(uint8_t timer_index, uint8_t config)
 {
 	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
-	TIMER_COUNTER_INTERRUPT_RESET reset = iocx_ex_timer_decode_counter_reset_mode(&config);
+	TIMER_COUNTER_INTERRUPT_RESET reset = iocx_ex_timer_decode_counter_interrupt_reset_mode(&config);
 	uint8_t reset_src = iocx_ex_timer_decode_counter_reset_source(&config);
 	if (reset == TIMER_COUNTER_INTERRUPT_RESET_ENABLED) {
 		if (reset_src < IOCX_NUM_INTERRUPTS) {
@@ -1190,6 +1214,23 @@ void HAL_IOCX_TIMER_INPUTCAP_Set_TimerCounterResetCfg(uint8_t timer_index, uint8
 		}
 	} else {
 		IOCX_gpio_interrupt_timer_reset_targets[reset_src] = TIMER_RESET_DISABLED;
+	}
+
+	TIMER_COUNTER_LEVEL_RESET level_reset = iocx_ex_timer_decode_counter_level_reset_mode(&config);
+	switch (level_reset) {
+	case TIMER_COUNTER_LEVEL_RESET_HIGH:
+		timer_level_set_configs[timer_index].level_reset_type = LEVEL_RESET_HIGH;
+		timer_level_set_configs[timer_index].gpio_index = reset_src;
+		break;
+	case TIMER_COUNTER_LEVEL_RESET_LOW:
+		timer_level_set_configs[timer_index].level_reset_type = LEVEL_RESET_LOW;
+		timer_level_set_configs[timer_index].gpio_index = reset_src;
+		break;
+	default:
+	case TIMER_COUNTER_LEVEL_RESET_NONE:
+		timer_level_set_configs[timer_index].level_reset_type = LEVEL_RESET_NONE;
+		timer_level_set_configs[timer_index].gpio_index = INVALID_GPIO_AND_ANALOGTRIGGER_INDEX;
+		break;
 	}
 }
 
@@ -1454,6 +1495,12 @@ void HAL_IOCX_TIMER_Get_Normalized_Prescaler(uint8_t timer_index, uint16_t *pres
 	*prescaler_normalized = raw_prescaler_value;
 }
 
+static int analog_trigger_state[MISC_NUM_ANALOG_TRIGGERS] = {
+	IOCX_ANALOG_TRIGGER_STATE_LOW,
+	IOCX_ANALOG_TRIGGER_STATE_LOW,
+	IOCX_ANALOG_TRIGGER_STATE_LOW,
+	IOCX_ANALOG_TRIGGER_STATE_LOW,
+};
 
 void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, int32_t *values)
 {
@@ -1463,14 +1510,67 @@ void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, int32_t *val
 		count = IOCX_NUM_TIMERS - first_timer_index;
 	}
 	for ( i = first_timer_index; i < first_timer_index + count; i++ ) {
-		if (QEIntegratorEnabled(i)) {
-			if (qe_curr_mode[i] == QUAD_ENCODER_MODE_1x) {
-				*values++ = qe_total_count[i] >> 1; /* Divide by 2 */
-			} else {
-				*values++ = qe_total_count[i];
+		int level_reset;
+		uint8_t value;
+		uint8_t gpio_index = timer_level_set_configs[i].gpio_index;
+		uint8_t antrig_index;
+		if (gpio_index >= IOCX_NUM_GPIOS) {
+			antrig_index = gpio_index - IOCX_NUM_GPIOS;
+			gpio_index = INVALID_GPIO_AND_ANALOGTRIGGER_INDEX;
+			if (antrig_index >= MISC_NUM_ANALOG_TRIGGERS) {
+				antrig_index = INVALID_GPIO_AND_ANALOGTRIGGER_INDEX;
 			}
 		} else {
-			*values++ = (int32_t)timer_configs[i].p_tim_handle->Instance->CNT;
+			antrig_index = INVALID_GPIO_AND_ANALOGTRIGGER_INDEX;
+		}
+		switch (timer_level_set_configs[i].level_reset_type) {
+		default:
+		case LEVEL_RESET_NONE:
+			level_reset = 0;
+			break;
+		case LEVEL_RESET_HIGH:
+			value = 0;
+			if (gpio_index != INVALID_GPIO_AND_ANALOGTRIGGER_INDEX) {
+				HAL_IOCX_GPIO_Get(gpio_index, 1, &value);
+				level_reset = (value == 1) ? 1 : 0;
+			} else {
+				if (antrig_index != INVALID_GPIO_AND_ANALOGTRIGGER_INDEX) {
+					level_reset =
+							(analog_trigger_state[antrig_index] ==
+									IOCX_ANALOG_TRIGGER_STATE_HIGH) ? 1 : 0;
+				} else {
+					level_reset = 0;
+				}
+			}
+			break;
+		case LEVEL_RESET_LOW:
+			value = 1;
+			if (gpio_index != INVALID_GPIO_AND_ANALOGTRIGGER_INDEX) {
+				HAL_IOCX_GPIO_Get(gpio_index, 1, &value);
+				level_reset = (value == 0) ? 1 : 0;
+			} else {
+				if (antrig_index != INVALID_GPIO_AND_ANALOGTRIGGER_INDEX) {
+					level_reset =
+							(analog_trigger_state[antrig_index] ==
+									IOCX_ANALOG_TRIGGER_STATE_LOW) ? 1 : 0;
+				} else {
+					level_reset = 0;
+				}
+			}
+			break;
+		}
+		if (!level_reset) {
+			if (QEIntegratorEnabled(i)) {
+				if (qe_curr_mode[i] == QUAD_ENCODER_MODE_1x) {
+					*values++ = qe_total_count[i] >> 1; /* Divide by 2 */
+				} else {
+					*values++ = qe_total_count[i];
+				}
+			} else {
+				*values++ = (int32_t)timer_configs[i].p_tim_handle->Instance->CNT;
+			}
+		} else {
+			*values++ = 0;
 		}
 	}
 }
@@ -1982,3 +2082,11 @@ void HAL_IOCX_ADC_AWDG_Set_Interrupt_Enable(int enable)
 #endif
 }
 
+void HAL_IOCX_ADC_SetCurrentAnalogTriggerState(uint8_t analog_trigger_index, uint8_t curr_analog_trigger_state)
+{
+#ifdef ENABLE_ADC
+	if (analog_trigger_index >= MISC_NUM_ANALOG_TRIGGERS) return;
+	if (curr_analog_trigger_state >= IOCX_ANALOG_TRIGGER_STATE_LAST) return;
+	analog_trigger_state[analog_trigger_index] = curr_analog_trigger_state;
+#endif
+}

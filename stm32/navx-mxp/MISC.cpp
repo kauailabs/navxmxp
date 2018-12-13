@@ -110,7 +110,10 @@ _EXTERN_ATTRIB void MISC_loop()
 							}
 		    			}
 		    		}
-		    		analog_trigger[i].last_state = curr_state;
+		    		if (analog_trigger[i].last_state != curr_state) {
+		    			analog_trigger[i].last_state = curr_state;
+		    			HAL_IOCX_ADC_SetCurrentAnalogTriggerState(i, curr_state);
+		    		}
 		    	}
 		    }
 		}

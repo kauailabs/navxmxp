@@ -62,8 +62,14 @@ typedef enum _TIMER_COUNTER_DIRECTION {
 
 typedef enum _TIMER_COUNTER_INTERRUPT_RESET {
 	TIMER_COUNTER_INTERRUPT_RESET_DISABLED = 0,
-	TIMER_COUNTER_INTERRUPT_RESET_ENABLED = 1,
+	TIMER_COUNTER_INTERRUPT_RESET_ENABLED = 1, // Counter reset when interrupt occurs
 } TIMER_COUNTER_INTERRUPT_RESET;
+
+typedef enum _TIMER_COUNTER_LEVEL_RESET {
+	TIMER_COUNTER_LEVEL_RESET_NONE = 0,
+	TIMER_COUNTER_LEVEL_RESET_HIGH = 1,  // Counter returns 0 when level is HIGH
+	TIMER_COUNTER_LEVEL_RESET_LOW = 2,   // Counter returns 0 when level is LOW
+} TIMER_COUNTER_LEVEL_RESET;
 
 typedef enum _TIMER_SLAVE_MODE {
 	TIMER_SLAVE_MODE_DISABLED	= 0, /* Default */
@@ -160,8 +166,9 @@ static RegEncoding timer_ic_ch_prescaler_reg = { offsetof(struct IOCX_EX_REGS, t
 static RegEncoding timer_ic_ch_filter_reg = { offsetof(struct IOCX_EX_REGS, timer_ic_ch_cfg2), 0, 0x0F };
 static RegEncoding timer_ic_stall_timeout_reg = { offsetof(struct IOCX_EX_REGS, timer_ic_stall_cfg), 0, 0x7F };
 static RegEncoding timer_ic_stall_action_reg = { offsetof(struct IOCX_EX_REGS, timer_ic_stall_cfg), 7, 0x01 };
-static RegEncoding timer_counter_reset_mode_reg = { offsetof(struct IOCX_EX_REGS, timer_counter_reset_cfg), 0, 0x01 };
-static RegEncoding timer_counter_reset_src_reg = { offsetof(struct IOCX_EX_REGS, timer_counter_reset_cfg), 1, 0x0F };
+static RegEncoding timer_counter_interrupt_reset_mode_reg = { offsetof(struct IOCX_EX_REGS, timer_counter_reset_cfg), 0, 0x01 };
+static RegEncoding timer_counter_level_reset_mode_reg = { offsetof(struct IOCX_EX_REGS, timer_counter_reset_cfg), 1, 0x03 };
+static RegEncoding timer_counter_reset_src_reg = { offsetof(struct IOCX_EX_REGS, timer_counter_reset_cfg), 4, 0x0F };
 
 inline void iocx_ex_timer_encode_counter_clk_src(uint8_t* reg, TIMER_COUNTER_CLK_SOURCE val) {
 	encode_reg(reg, (uint8_t)val, &timer_counter_clk_src_reg);
@@ -223,11 +230,17 @@ inline void iocx_ex_timer_encode_ic_stall_action(uint8_t* reg, TIMER_INPUT_CAPTU
 inline TIMER_INPUT_CAPTURE_STALL_ACTION iocx_ex_timer_decode_ic_stall_action(uint8_t *reg) {
 	return (TIMER_INPUT_CAPTURE_STALL_ACTION)decode_reg(reg, &timer_ic_stall_action_reg);
 }
-inline void iocx_ex_timer_encode_counter_reset_mode(uint8_t *reg, TIMER_COUNTER_INTERRUPT_RESET val) {
-	encode_reg(reg, (uint8_t)val, &timer_counter_reset_mode_reg);
+inline void iocx_ex_timer_encode_counter_interrupt_reset_mode(uint8_t *reg, TIMER_COUNTER_INTERRUPT_RESET val) {
+	encode_reg(reg, (uint8_t)val, &timer_counter_interrupt_reset_mode_reg);
 }
-inline TIMER_COUNTER_INTERRUPT_RESET iocx_ex_timer_decode_counter_reset_mode(uint8_t *reg) {
-	return (TIMER_COUNTER_INTERRUPT_RESET)decode_reg(reg, &timer_counter_reset_mode_reg);
+inline TIMER_COUNTER_INTERRUPT_RESET iocx_ex_timer_decode_counter_interrupt_reset_mode(uint8_t *reg) {
+	return (TIMER_COUNTER_INTERRUPT_RESET)decode_reg(reg, &timer_counter_interrupt_reset_mode_reg);
+}
+inline void iocx_ex_timer_encode_counter_level_reset_mode(uint8_t *reg, TIMER_COUNTER_LEVEL_RESET val) {
+	encode_reg(reg, (uint8_t)val, &timer_counter_level_reset_mode_reg);
+}
+inline TIMER_COUNTER_LEVEL_RESET iocx_ex_timer_decode_counter_level_reset_mode(uint8_t *reg) {
+	return (TIMER_COUNTER_LEVEL_RESET)decode_reg(reg, &timer_counter_level_reset_mode_reg);
 }
 inline void iocx_ex_timer_encode_counter_reset_source(uint8_t* reg, uint8_t val) {
 	encode_reg(reg, val, &timer_counter_reset_src_reg);
