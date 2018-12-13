@@ -40,12 +40,12 @@ THE SOFTWARE.
 #define IOCX_EX_REGISTER_BANK 4
 
 typedef struct {
-	uint16_t unused				: 12;
+	uint16_t unused				: 11;
+	uint16_t tmrcntreset_support: 1;  /* 1:  Timer Counter can be reset by interrupt.   */
 	uint16_t countercfg_support : 1;  /* 1:  Adv Timer Counter configuration supported. */
 	uint16_t slvmd_cfg_support  : 1;  /* 1:  Timer Slave Mode configuration supported.  */
 	uint16_t stall_support		: 1;  /* 1:  Input cap stall detection supported.       */
 	uint16_t inputcap_support	: 1;  /* 1:  Input cap cfg/ch1 & ch2 cfg are supported. */
-	uint16_t tmrcntreset_support: 1;  /* 1:  Timer Counter can be reset by interrupt.   */
 } IOCX_EX_CAPABILITY_FLAGS;
 
 typedef enum _TIMER_COUNTER_CLK_SOURCE {
@@ -141,8 +141,8 @@ struct __attribute__ ((__packed__)) IOCX_EX_REGS {
 	uint8_t timer_ic_ch_cfg[IOCX_NUM_TIMERS * IOCX_NUM_CHANNELS_PER_TIMER];
 	/* TIMER_INPUT_CAPTURE_CH_FILTER, TIMER_STALL_CTL */
 	uint8_t timer_ic_ch_cfg2[IOCX_NUM_TIMERS * IOCX_NUM_CHANNELS_PER_TIMER];
-	/* TIMER_COUNTER_INTERRUPT_RESET, Interrupt Reset Source (4 bits) */
-	/* Reset Source:  0-12:  FlexDIO; 13-16:  Analog Triggers */
+	/* TIMER_COUNTER_INTERRUPT_RESET, Interrupt Reset Source (4 bits)   */
+	/* Resource Source is Interrupt Index, 0 to (IOCX_NUM_INTERRUPTS-1) */
 	uint8_t timer_counter_reset_cfg[IOCX_NUM_TIMERS];
 	/*****************/
 	/* Configuration */
