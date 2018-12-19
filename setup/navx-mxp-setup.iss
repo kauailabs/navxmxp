@@ -80,7 +80,8 @@ Source: "..\roborio\c++\navXMXP_CPP_CollisionDetection\*.*"; Excludes: "build,di
 Source: "..\roborio\c++\navXMXP_CPP_MotionDetection\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\MotionDetection"; Flags: createallsubdirs recursesubdirs
 Source: "..\roborio\c++\navXMXP_CPP_ExpansionIO\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\ExpansionIO"; Flags: createallsubdirs recursesubdirs
 
-Source: "..\roborio\labview\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\labview"; Flags: createallsubdirs recursesubdirs
+; Remove installation of now-defunct navX-MXP library (this is now replaced by labviewae)
+;Source: "..\roborio\labview\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\labview"; Flags: createallsubdirs recursesubdirs
 Source: "..\roborio\labviewae\*.*"; DestDir: "{code:GetLabVIEWDirName}vi.lib\Rock Robotics\WPI\ThirdParty\sensors\navX"; Flags: createallsubdirs recursesubdirs
 
 Source: "..\android\navx_ftc\build\outputs\aar\*.aar"; DestDir: "{%HOMEPATH}\navx-mxp\android\libs" 

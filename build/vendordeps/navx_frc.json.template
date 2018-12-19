@@ -11,7 +11,7 @@
         {
             "groupId": "com.kauailabs.navx.frc",
             "artifactId": "navx-java",
-            "version": "3.1.336"
+            "version": "0.0.000"
         }
     ],
     "jniDependencies": [],
@@ -19,7 +19,7 @@
         {
             "groupId": "com.kauailabs.navx.frc",
             "artifactId": "navx-cpp",
-            "version": "3.1.336",
+            "version": "0.0.000",
             "headerClassifier": "headers",
             "sourcesClassifier": "sources",
             "sharedLibrary": false,
