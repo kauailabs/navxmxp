@@ -8,13 +8,14 @@
 #ifndef SRC_SERIALIO_H_
 #define SRC_SERIALIO_H_
 
-#include "frc/WPILib.h"
 #include "IIOProvider.h"
 #include <stdint.h>
 #include "AHRSProtocol.h"
 #include "IMUProtocol.h"
 #include "IIOCompleteNotification.h"
 #include "IBoardCapabilities.h"
+#include "frc/SerialPort.h"
+#include "frc/smartdashboard/SmartDashboard.h"
 
 using namespace frc;
 

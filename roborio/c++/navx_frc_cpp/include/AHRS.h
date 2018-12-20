@@ -8,7 +8,13 @@
 #ifndef SRC_AHRS_H_
 #define SRC_AHRS_H_
 
-#include "frc/WPILib.h"
+#include "frc/smartdashboard/SendableBase.h"
+#include "frc/smartdashboard/SendableBuilder.h"
+#include "frc/I2C.h"
+#include "frc/SPI.h"
+#include "frc/SerialPort.h"
+#include "frc/PIDSource.h"
+#include "frc/Timer.h"
 #include "ITimestampedDataSubscriber.h"
 #include "networktables/NetworkTableEntry.h"
 #include <thread>

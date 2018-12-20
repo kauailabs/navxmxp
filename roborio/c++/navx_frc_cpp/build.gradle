@@ -1,8 +1,8 @@
 plugins {
   id 'cpp'
   id 'edu.wpi.first.wpilib.versioning.WPILibVersioningPlugin' version '2.2'
-  id 'edu.wpi.first.NativeUtils' version '2.0.1'
-  id 'edu.wpi.first.GradleVsCode' version '0.6.1'
+  id 'edu.wpi.first.NativeUtils' version '2.1.2'
+  id 'edu.wpi.first.GradleVsCode' version '0.7.1'
 }
 
 apply from: 'config.gradle'
@@ -50,6 +50,7 @@ model {
 //          }
 //        }
 //      }
+      appendDebugPathToBinaries(binaries)
       binaries.all {
         if (it.targetPlatform.architecture.name == 'athena') {
           it.sources {
@@ -79,7 +80,7 @@ model {
           it.sources {
             desktopCpp(CppSourceSet) {
               source {
-                srcDirs = ['desktop']
+                srcDirs = ['src']
                 include '**/*.cpp'
               }
               exportedHeaders {
@@ -96,5 +97,5 @@ model {
 apply from: 'publish.gradle'
 
 wrapper {
-  gradleVersion = '4.9'
+  gradleVersion = '5.0'
 }

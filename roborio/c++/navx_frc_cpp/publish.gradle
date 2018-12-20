@@ -128,26 +128,13 @@ task cppSourcesZip(type: Zip) {
     }
 }
 
-task linuxAthenaZip(type: Zip) {
-    destinationDir = outputsFolder
-    baseName = zipBaseName
-    classifier = "linuxathena"
-
-    from("$buildDir/libs/navx_frc/static/athena/release") {
-        into '/linux/athena/static'
-    }
-}
-
 build.dependsOn cppHeadersZip
 addTaskToCopyAllOutputs(cppHeadersZip)
-build.dependsOn linuxAthenaZip
-addTaskToCopyAllOutputs(linuxAthenaZip)
 build.dependsOn cppSourcesZip
 addTaskToCopyAllOutputs(cppSourcesZip)
 
 artifacts {
 	archives cppHeadersZip
-	archives linuxAthenaZip
 	archives cppSourcesZip
 }
 
@@ -164,9 +151,15 @@ model {
     }
     tasks.publishCppPublicationToMavenRepository {
         dependsOn project.tasks.signArchives
-    }	
+    }
     publishing {
-        def navXTaskList = createComponentZipTasks($.components, ['KauaiLabs_navX_FRC'], zipBaseName, Zip, project, includeStandardZipFormat)
+        def navXTaskList = createComponentZipTasks($.components, ['navx_frc'], zipBaseName, Zip, project, includeStandardZipFormat)
+
+        navXTaskList.each { item ->
+            artifacts {
+                archives item
+            }
+        }
 
         repositories {
             maven {
@@ -185,13 +178,12 @@ model {
                     artifact it
                 }
                 artifact cppHeadersZip
-				artifact linuxAthenaZip
 				artifact cppSourcesZip
 
                 artifactId = baseArtifactId
                 groupId artifactGroupId
                 version pubVersion
-				
+
 				// create the sign pom artifact
 				pom.withXml {
 					def pomFile = file("${project.buildDir}/generated-pom.xml")
@@ -205,7 +197,7 @@ model {
 				// create the signed artifacts
 				project.tasks.signArchives.signatureFiles.each {
 					artifact(it) {
-						def matcher = it.file =~ /-(sources|headers|linuxathena)\.zip\.asc$/
+						def matcher = it.file =~ /-(sources|headers|linuxathena|linuxathenadebug|linuxathenastatic|linuxathenastaticdebug)\.zip\.asc$/
 						if (matcher.find()) {
 							classifier = matcher.group(1)
 						} else {
@@ -213,7 +205,7 @@ model {
 						}
 						extension = 'zip.asc'
 					}
-				}				
+				}
             }
         }
     }
