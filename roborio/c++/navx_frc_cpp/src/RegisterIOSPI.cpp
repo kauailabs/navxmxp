@@ -7,6 +7,7 @@
 
 #include "RegisterIOSPI.h"
 #include "wpi/priority_mutex.h"
+#include "frc/Timer.h"
 
 using namespace wpi;
 

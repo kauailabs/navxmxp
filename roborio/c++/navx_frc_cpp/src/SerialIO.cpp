@@ -7,6 +7,7 @@
 
 #include "SerialIO.h"
 #include "delay.h"
+#include "frc/Timer.h"
 
 static const double IO_TIMEOUT_SECONDS = 1.0;
 

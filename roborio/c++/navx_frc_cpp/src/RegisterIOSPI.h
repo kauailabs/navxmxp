@@ -9,7 +9,7 @@
 #define SRC_REGISTERIOSPI_H_
 
 #include "RegisterIO.h"
-#include "frc/WPILib.h"
+#include "frc/SPI.h"
 
 using namespace frc;
 
