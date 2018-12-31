@@ -121,14 +121,14 @@ struct __attribute__ ((__packed__)) MISC_REGS {
 	uint8_t analog_trigger_cfg[MISC_NUM_ANALOG_TRIGGERS]; /* ANALOG_TRIGGER_MODE */
 	uint16_t analog_trigger_threshold_low[MISC_NUM_ANALOG_TRIGGERS];
 	uint16_t analog_trigger_threshold_high[MISC_NUM_ANALOG_TRIGGERS];
-	/* Analog Input Oversampling/Averaging Configuration */
+	/* Analog Input Oversampling/Averaging Accumulation Configuration */
 	uint8_t analog_input_oversample_bits[MISC_NUM_ANALOG_INPUTS];
 	uint8_t analog_input_average_bits[MISC_NUM_ANALOG_INPUTS];
-	/* Analog Accumulator Configuration */
+	/* Analog Accumulator Counter Configuration */
 	ACCUMULATOR_CONFIG_REG analog_accumulator_cfg[MISC_NUM_ANALOG_ACCUMULATORS];
 	int16_t analog_accumulator_center[MISC_NUM_ANALOG_ACCUMULATORS];
 	int16_t analog_accumulator_deadband[MISC_NUM_ANALOG_ACCUMULATORS];
-	/* Analog Accumulator Data (read-only) */
+	/* Analog Accumulator Counter Data (read-only) */
 	uint32_t analog_accumulator_count[MISC_NUM_ANALOG_ACCUMULATORS];
 	int64_t analog_accumulator_value[MISC_NUM_ANALOG_ACCUMULATORS];
 };
