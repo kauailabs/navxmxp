@@ -39,7 +39,7 @@ typedef struct {
 } AnalogAccumulator;
 
 static AnalogAccumulator analog_accumulator[MISC_NUM_ANALOG_ACCUMULATORS] = {
-		{ true, false, false, 0, 0, },
+		{ false, false, false, 0, 0, },
 		{ false, false, false, 0, 0, },
 };
 
@@ -110,16 +110,17 @@ uint32_t accumulator_overrun_error_count = 0;
 uint64_t accumulator_lost_sample_count = 0;
 
 void AddToAccumulator(uint8_t analog_accumulator_index, uint32_t newOvsAvgValue) {
-	// Accumulating data with negative/positive values, where the configured value is the center.
+	int16_t adjusted_avg;
 	if (misc_regs.analog_accumulator_center[analog_accumulator_index] != 0) {
-		int16_t centered_avg = newOvsAvgValue - misc_regs.analog_accumulator_center[analog_accumulator_index];
-		if (abs(centered_avg) <= abs(misc_regs.analog_accumulator_deadband[analog_accumulator_index])) {
-			centered_avg = 0;
-		}
-		misc_regs.analog_accumulator_value[analog_accumulator_index] += centered_avg;
+		// Accumulating data with negative/positive values, where the configured value is the center.
+		adjusted_avg = newOvsAvgValue - misc_regs.analog_accumulator_center[analog_accumulator_index];
 	} else {
-		misc_regs.analog_accumulator_value[analog_accumulator_index] += newOvsAvgValue;
+		adjusted_avg = newOvsAvgValue;
 	}
+	if (abs(adjusted_avg) <= abs(misc_regs.analog_accumulator_deadband[analog_accumulator_index])) {
+		adjusted_avg = 0;
+	}
+	misc_regs.analog_accumulator_value[analog_accumulator_index] += adjusted_avg;
 	misc_regs.analog_accumulator_count[analog_accumulator_index]++;
 }
 
@@ -476,6 +477,12 @@ static void analog_accumulator_cfg_modified(uint8_t first_offset, uint8_t count)
 	}
 }
 
+static void analog_accumulator_center_modified(uint8_t first_offset, uint8_t count) {
+}
+
+static void analog_accumulator_deadband_modified(uint8_t first_offset, uint8_t count) {
+}
+
 static WritableRegSet all_reg_sets[] =
 {
 	/* Contiguous registers, increasing order of offset  */
@@ -489,6 +496,8 @@ static WritableRegSet all_reg_sets[] =
 	{ offsetof(struct MISC_REGS, analog_input_oversample_bits), sizeof(MISC_REGS::analog_input_oversample_bits), analog_input_oversample_bits_modified },
 	{ offsetof(struct MISC_REGS, analog_input_average_bits), sizeof(MISC_REGS::analog_input_average_bits), analog_input_average_bits_modified },
 	{ offsetof(struct MISC_REGS, analog_accumulator_cfg), sizeof(MISC_REGS::analog_accumulator_cfg), analog_accumulator_cfg_modified },
+	{ offsetof(struct MISC_REGS, analog_accumulator_center), sizeof(MISC_REGS::analog_accumulator_center), analog_accumulator_center_modified },
+	{ offsetof(struct MISC_REGS, analog_accumulator_deadband), sizeof(MISC_REGS::analog_accumulator_deadband), analog_accumulator_deadband_modified },
 };
 
 static WritableRegSetGroup writable_reg_set_groups[] =
