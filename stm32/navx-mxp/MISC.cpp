@@ -86,6 +86,7 @@ _EXTERN_ATTRIB void MISC_init()
 	misc_regs.capability_flags.analog_trigger = 1;
 	misc_regs.capability_flags.rtc = 1;
 	misc_regs.capability_flags.analog_in = 1;
+	misc_regs.capability_flags.accum_counters = 1;
 	/* By default, enable power currentlimit mode */
 	misc_regs.ext_pwr_ctl_cfg.ext_pwr_currentlimit_mode = 1;
 }

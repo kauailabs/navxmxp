@@ -17,8 +17,9 @@ typedef struct {
 	uint16_t powerctl		: 1; /* EXT. Power Management Support */
 	uint16_t analog_trigger	: 1; /* Analog Trigger Support */
 	uint16_t rtc			: 1; /* Real-time Clock/Calendar Support */
-	uint16_t an_in_5V		: 1;  /* If set, analog input voltage is 5V (3.3V if clear) */
-	uint16_t unused		    : 11;
+	uint16_t an_in_5V		: 1; /* If set, analog input voltage is 5V (3.3V if clear) */
+	uint16_t accum_counters : 1; /* If set, analog accumulator counters are supported. */
+	uint16_t unused		    : 10;
 } MISC_CAPABILITY_FLAGS;
 
 typedef struct {
