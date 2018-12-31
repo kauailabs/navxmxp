@@ -1767,10 +1767,12 @@ void HAL_IOCX_TIMER_PWM_Get_DutyCycle(uint8_t first_timer_index, uint8_t first_c
 #define ADC_CLOCK_FREQUENCY 12000000
 #define ADC_CLOCKS_PER_SAMPLE 43
 #define ADC_NUM_CHANNELS 6
+#define ADC_CHANNEL_SAMPLE_PERIOD_US (1000000 / (ADC_CLOCK_FREQUENCY / (ADC_NUM_CHANNELS * ADC_CLOCKS_PER_SAMPLE)))
 #define ADC_NUM_EXTERNAL_CHANNELS 4
 #define ADC_CHANNEL_ANALOG_VOLTAGE_SWITCH 4
 #define ADC_CHANNEL_EXT_POWER_VOLTAGE_DIV 5
 #define INVALID_ADC_CHANNEL_NUMBER 6
+
 /* NOTE:  The last two ADC channels are reserved for internal use; the preceding  */
 /* ADC channels are user GPIOs.                                                   */
 /* The next-to-last channel is the 5V vs 3.3V Analog Input Voltage measure        */
@@ -1791,11 +1793,122 @@ uint32_t adc_channels[ADC_NUM_CHANNELS] = {
 		ADC_CHANNEL_11  // Ext Power Voltage
 };
 
-#define MAX_NUM_ADC_OVERSAMPLE_BITS 7
-#define MAX_NUM_ADC_SAMPLES (1 << MAX_NUM_ADC_OVERSAMPLE_BITS) /* MUST be power of 2 */
+#define MAX_NUM_ADC_SAMPLES (1 << (MAX_NUM_ADC_SAMPLESIZE_POWER_BITS + NUM_ADC_SAMPLE_SET_BITS)) /* MUST be power of 2 */
 ADC_Samples adc_samples[MAX_NUM_ADC_SAMPLES];
 int adc_enabled = 0;
 #endif
+
+static uint32_t adc_dma_completion_count_atomic = 0;
+static int adc_dma_error_callback_count = 0;
+
+void HAL_ADC_ErrorCallback(ADC_HandleTypeDef* hadc) {
+	adc_dma_error_callback_count++;
+}
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	if (hadc->Instance != hadc1.Instance) {
+		return;
+	}
+	if (hadc->State != HAL_ADC_STATE_EOC_REG) {
+		return;
+	}
+	adc_dma_completion_count_atomic++;
+}
+
+#ifdef ENABLE_ADC
+static const uint32_t c_num_adc_samples_per_transfer_cycle = sizeof(adc_samples) / sizeof(uint16_t);
+static const uint8_t c_num_adc_samples_per_channel_per_transfer = (sizeof(adc_samples[0]) / sizeof(uint16_t));
+static const uint16_t c_num_adc_samples_per_channel = sizeof(adc_samples) / sizeof(adc_samples[0]);
+// The oldest quarter of all adc samples are not accessed, because they may be modified by active DMA transfer.
+static const uint16_t c_num_reserved_adc_samples_per_channel = sizeof(adc_samples) / sizeof(adc_samples[0]) / 4;
+#endif
+
+// Returns the total number of samples acquired (one for each ADC channel) since startup, and also
+// a count of the number of full dma transfer cycles and the number of samples currently acquired
+// for the current dma transfer cycle.
+uint64_t HAL_IOCX_ADC_GetLastCompleteSampleCount(uint32_t *full_dma_transfer_cycle_count, uint32_t *num_completed_per_channel_transfers) {
+    uint64_t adc_total_num_samples_per_channel = adc_dma_completion_count_atomic;
+    uint32_t curr_adc_dma_ndtr = hadc1.DMA_Handle->Instance->NDTR;
+
+    // If DMA Transfer Complete interrupt is pending, increment completion count,
+    // since ISR which would have incremented it has not yet fired.
+    // (This is only necessary to handle the case where this function
+    // is invoked from a higher-priority which delays the invocation of the ISR).
+    if(__HAL_DMA_GET_FLAG(hadc1.DMA_Handle, DMA_FLAG_TCIF0_4) != RESET) {
+    	adc_total_num_samples_per_channel++;
+    }
+
+    *full_dma_transfer_cycle_count = adc_total_num_samples_per_channel;
+
+    adc_total_num_samples_per_channel *= c_num_adc_samples_per_channel;
+
+	uint16_t num_curr_transfer_completed_samples_per_channel =
+			(c_num_adc_samples_per_transfer_cycle -
+				curr_adc_dma_ndtr) / ADC_NUM_CHANNELS;
+
+	adc_total_num_samples_per_channel += num_curr_transfer_completed_samples_per_channel;
+	*num_completed_per_channel_transfers = num_curr_transfer_completed_samples_per_channel;
+
+	return adc_total_num_samples_per_channel;
+}
+
+static const uint64_t c_num_clocks_per_microsecond = (ADC_CLOCK_FREQUENCY / 1000000);
+
+// Retrieves a timestamp derived from the ADC DMA Engine, which continuously transfers
+// ADC Data to the DMA Transfer buffer.  Given the total number of transfers and the
+// transfer a, a current timestamp (since the dma transfer engine started) is returned,
+// with a granularity of microseconds.
+// NOTE:  Since DMA FIFO mode is disabled, NTDR directly tracks to-memory transfers
+uint64_t HAL_IOCX_ADC_GetCurrTimestampMicroseconds() {
+    uint64_t dma_num_samples = adc_dma_completion_count_atomic;
+    uint32_t curr_adc_dma_ndtr = hadc1.DMA_Handle->Instance->NDTR;
+
+    // If DMA Transfer Complete interrupt is pending, increment completion count,
+    // since ISR which would have incremented it has not yet fired.
+    // (This is only necessary to handle the case where this function
+    // is invoked from a higher-priority which delays the invocation of the ISR).
+    if(__HAL_DMA_GET_FLAG(hadc1.DMA_Handle, DMA_FLAG_TCIF0_4) != RESET) {
+    	dma_num_samples++;
+    }
+
+    dma_num_samples *= c_num_adc_samples_per_transfer_cycle;
+	uint16_t num_curr_transfer_completed_samples =
+			c_num_adc_samples_per_transfer_cycle -
+				curr_adc_dma_ndtr;
+    dma_num_samples += num_curr_transfer_completed_samples;
+    uint64_t dma_num_clockticks = (dma_num_samples * ADC_CLOCKS_PER_SAMPLE);
+    uint64_t dma_timestamp_us = dma_num_clockticks / c_num_clocks_per_microsecond;
+    return dma_timestamp_us;
+}
+
+// Returns the position (within the dma transfer buffer) of the last sample in the most recent
+// "average sample set".  Also returns the number of "sample average sets" which can be safely accessed
+// that the moment, and the absolute sample position.
+uint64_t HAL_IOCX_ADC_GetAverageSetFinalSamplePosition(uint64_t complete_sample_count, uint8_t oversample_bits, uint8_t average_bits, uint16_t *num_avg_sample_sets, uint64_t *absolute_sample_position)
+{
+	uint32_t complete_transfer_cycle_count = complete_sample_count / c_num_adc_samples_per_channel;
+	uint64_t available_sample_count =
+			complete_sample_count % c_num_adc_samples_per_channel;
+	uint16_t num_samples_in_average = (1 << (oversample_bits + average_bits));
+	// This count now represents the number of samples in the current transfer buffer
+	available_sample_count &= ~(num_samples_in_average - 1);
+	uint16_t final_average_sample_position;
+	uint64_t abs_sample_position;
+	if (available_sample_count > 0) {
+		final_average_sample_position = available_sample_count - 1;
+		abs_sample_position = complete_transfer_cycle_count * c_num_adc_samples_per_channel;
+		abs_sample_position += final_average_sample_position;
+	} else {
+		final_average_sample_position = c_num_adc_samples_per_channel - 1;
+		abs_sample_position = (complete_transfer_cycle_count - 1) * c_num_adc_samples_per_channel;
+		abs_sample_position += final_average_sample_position;
+	}
+	*num_avg_sample_sets = (c_num_adc_samples_per_channel - c_num_reserved_adc_samples_per_channel) / num_samples_in_average;
+	*absolute_sample_position = abs_sample_position;
+	// This count now represents last sample in the most recent "average" sample set.
+	return final_average_sample_position;
+}
 
 /* Note:  ADC DMA is configured for 16-bit words.  The "Length" Parameter to HAL_ADC_Start_DMA */
 /* below is the number of 16-bit words transferred - NOT the number of bytes.                  */
@@ -1807,7 +1920,7 @@ void HAL_IOCX_ADC_Enable(int enable)
 		if (adc_enabled == 0) {
 			memset(&adc_samples,0, sizeof(adc_samples));
 			HAL_StatusTypeDef status = HAL_ADC_Start_DMA(&hadc1,
-					(uint32_t *)&adc_samples, sizeof(adc_samples) / sizeof(uint16_t));
+					(uint32_t *)&adc_samples, c_num_adc_samples_per_transfer_cycle);
 			adc_enabled = ( status == HAL_OK ) ? 1 : 0;
 		}
 	} else {
@@ -1819,21 +1932,127 @@ void HAL_IOCX_ADC_Enable(int enable)
 #endif
 }
 
-#ifdef ENABLE_ADC
-static const uint32_t c_total_adc_transfers = sizeof(adc_samples) / sizeof(uint16_t);
-static const uint8_t c_num_adc_transfers_per_sampleset = (sizeof(adc_samples[0]) / sizeof(uint16_t));
-#endif
+void HAL_IOCX_ADC_Get_OversampledAveraged_Request_Samples(int channel, uint16_t latest_pos, uint32_t *p_latest_oversample, uint8_t oversample_bits, uint32_t *p_avg, uint8_t avg_bits, uint16_t *prev_sample_average_set_pos)
+{
+	// Range check requested position, to ensure the max # of power bits is not exceeded
+	uint16_t count_total = (1 << (MAX_NUM_ADC_SAMPLESIZE_POWER_BITS + NUM_ADC_SAMPLE_SET_BITS));
+	if (latest_pos >= count_total) {
+		return;
+	}
+
+	// Ensure the total number of power bits doesn't exceed the maximum
+	if ((oversample_bits + avg_bits) > MAX_NUM_ADC_SAMPLESIZE_POWER_BITS) {
+		if (oversample_bits > avg_bits) {
+			if (oversample_bits > MAX_NUM_ADC_SAMPLESIZE_POWER_BITS) {
+				oversample_bits = MAX_NUM_ADC_SAMPLESIZE_POWER_BITS;
+				avg_bits = 0;
+			} else if (avg_bits > MAX_NUM_ADC_SAMPLESIZE_POWER_BITS) {
+				avg_bits = MAX_NUM_ADC_SAMPLESIZE_POWER_BITS;
+				oversample_bits = 0;
+			} else {
+				oversample_bits = MAX_NUM_ADC_SAMPLESIZE_POWER_BITS / 2;
+				avg_bits = MAX_NUM_ADC_SAMPLESIZE_POWER_BITS - oversample_bits;
+			}
+		}
+	}
+
+	uint16_t count_requested = (1 << (oversample_bits + avg_bits));
+	uint16_t count_current = latest_pos;
+
+	uint16_t count_requested_1;
+	uint16_t data_requested_1_idx;
+	uint16_t count_requested_2;
+	uint16_t data_requested_2_idx;
+
+	if (count_requested > count_current) {
+		// Wrap around case; some needed (older) data is at end of buffer
+		count_requested_1 = count_requested - count_current;
+		data_requested_1_idx = count_total - count_requested_1;
+		count_requested_2 = count_requested - count_requested_1;
+		data_requested_2_idx = 0;
+		if (data_requested_1_idx > 0) {
+			*prev_sample_average_set_pos = data_requested_1_idx - 1;
+		} else {
+			*prev_sample_average_set_pos = count_total - 1;
+		}
+	} else {
+		// Sufficient most-recent data is at the beginning of the buffer.
+		count_requested_1 = 0;
+		data_requested_1_idx = 0;
+		count_requested_2 = count_requested;
+		data_requested_2_idx = count_current - count_requested;
+		if (data_requested_2_idx > 0) {
+			*prev_sample_average_set_pos = data_requested_2_idx - 1;
+		} else {
+			*prev_sample_average_set_pos = count_total - 1;
+		}
+	}
+
+	register uint16_t ovsMask = ((1 << oversample_bits) - 1);
+	register uint32_t ovsData = 0;
+	register uint32_t avgData = 0;
+	// Process oldest portion, if any
+	register uint16_t *pData;
+	register uint16_t i;
+	if (count_requested_1 > 0) {
+		pData = (uint16_t *)&(adc_samples[data_requested_1_idx].data[channel]);
+		for (i = 0; i < count_requested_1; i++) {
+			// Reset Oversample if at beginning of oversample set
+			if (!(i & ovsMask)) {
+				ovsData = *pData;
+			} else {
+				ovsData += *pData;
+			}
+			// Add Oversample to average if at end of oversample set
+			if (!((i+1) & ovsMask)) {
+				avgData += ovsData;
+			}
+			pData += ADC_NUM_CHANNELS;
+		}
+	}
+	// Process newest portion;
+	pData = (uint16_t *)&(adc_samples[data_requested_2_idx].data[channel]);
+	for (i = count_requested_1; i < count_requested_1 + count_requested_2; i++) {
+		// Reset Oversample if at beginning of oversample set
+		if (!(i & ovsMask)) {
+			ovsData = *pData;
+		} else {
+			ovsData += *pData;
+		}
+		// Add Oversample to average if at end of oversample set
+		if (!((i+1) & ovsMask)) {
+			avgData += ovsData;
+		}
+		pData += ADC_NUM_CHANNELS;
+	}
+
+	avgData /= (1 << avg_bits);
+
+	*p_latest_oversample = ovsData;
+	*p_avg = avgData;
+}
+
 
 void HAL_IOCX_ADC_Get_Latest_Samples(int start_channel, int n_channels, uint32_t *p_oversamples, uint8_t oversample_bits, uint32_t *p_avgsamples, uint8_t avg_bits)
 {
 #ifdef ENABLE_ADC
 	/* Range-check inputs */
-	if (oversample_bits > MAX_NUM_ADC_OVERSAMPLE_BITS) {
-		oversample_bits = MAX_NUM_ADC_OVERSAMPLE_BITS;
+	// Ensure the total number of power bits doesn't exceed the maximum
+	if ((oversample_bits + avg_bits) > MAX_NUM_ADC_SAMPLESIZE_POWER_BITS) {
+		if (oversample_bits > avg_bits) {
+			if (oversample_bits > MAX_NUM_ADC_SAMPLESIZE_POWER_BITS) {
+				oversample_bits = MAX_NUM_ADC_SAMPLESIZE_POWER_BITS;
+				avg_bits = 0;
+			} else if (avg_bits > MAX_NUM_ADC_SAMPLESIZE_POWER_BITS) {
+				avg_bits = MAX_NUM_ADC_SAMPLESIZE_POWER_BITS;
+				oversample_bits = 0;
+			} else {
+				oversample_bits = MAX_NUM_ADC_SAMPLESIZE_POWER_BITS / 2;
+				avg_bits = MAX_NUM_ADC_SAMPLESIZE_POWER_BITS - oversample_bits;
+			}
+		}
 	}
-	if (avg_bits > MAX_NUM_ADC_OVERSAMPLE_BITS) {
-		avg_bits = MAX_NUM_ADC_OVERSAMPLE_BITS;
-	}
+
 	if (start_channel > (ADC_NUM_CHANNELS-1)) {
 		return;
 	}
@@ -1849,15 +2068,15 @@ void HAL_IOCX_ADC_Get_Latest_Samples(int start_channel, int n_channels, uint32_t
 
 	/* Note each transfer is a 16-bit ADC Sample (2 bytes) */
 	uint32_t remaining_adc_transfers = hadc1.DMA_Handle->Instance->NDTR;
-	uint32_t last_valid_adc_transfer = c_total_adc_transfers - remaining_adc_transfers;
+	uint32_t last_valid_adc_transfer = c_num_adc_samples_per_transfer_cycle - remaining_adc_transfers;
 	if (last_valid_adc_transfer == 0) {
-		last_valid_adc_transfer = c_total_adc_transfers - 1;
+		last_valid_adc_transfer = c_num_adc_samples_per_transfer_cycle - 1;
 	} else{
 		last_valid_adc_transfer -= 1;
 	}
 	uint32_t total_adc_transfer_sets = sizeof(adc_samples) / sizeof(adc_samples[0]);
 
-	uint16_t last_valid_adc_transfer_set = last_valid_adc_transfer / c_num_adc_transfers_per_sampleset;
+	uint16_t last_valid_adc_transfer_set = last_valid_adc_transfer / c_num_adc_samples_per_channel_per_transfer;
 	uint16_t first_valid_adc_transfer_set;
 	if (num_samples_to_accumulate <= last_valid_adc_transfer_set) {
 		first_valid_adc_transfer_set = last_valid_adc_transfer_set - num_samples_to_accumulate + 1;
@@ -1925,17 +2144,20 @@ void HAL_IOCX_ADC_Get_Samples( int start_channel, int n_channels, uint16_t* p_sa
 #endif
 }
 
-#define ADC_VOLTAGE_OVERSAMPLE_BITS 3
-#define ADC_VOLTAGE_AVERAGE_BITS ADC_VOLTAGE_OVERSAMPLE_BITS
+#define ADC_VOLTAGE_OVERSAMPLE_BITS 0
+#define ADC_VOLTAGE_AVERAGE_BITS 3
 /* Returns 0 if 3.3V, non-zero of 5V VDA */
 int HAL_IOCX_ADC_Voltage_5V( int n_samples_to_average )
 {
 #ifdef ENABLE_ADC
 	if ( adc_enabled ) {
-		uint32_t oversample;
+		uint32_t last_oversample;
 		uint32_t average;
-		HAL_IOCX_ADC_Get_Latest_Samples(ADC_CHANNEL_ANALOG_VOLTAGE_SWITCH, 1, &oversample, ADC_VOLTAGE_OVERSAMPLE_BITS,
-				&average, ADC_VOLTAGE_AVERAGE_BITS);
+		uint32_t full_dma_transfer_cycle_count;
+		uint32_t num_completed_per_channel_transfers;
+		uint16_t last_sample_pos_in_prev_average_sample_set;
+		HAL_IOCX_ADC_GetLastCompleteSampleCount(&full_dma_transfer_cycle_count, &num_completed_per_channel_transfers);
+		HAL_IOCX_ADC_Get_OversampledAveraged_Request_Samples(ADC_CHANNEL_ANALOG_VOLTAGE_SWITCH, num_completed_per_channel_transfers, &last_oversample, ADC_VOLTAGE_OVERSAMPLE_BITS, &average, ADC_VOLTAGE_AVERAGE_BITS, &last_sample_pos_in_prev_average_sample_set);
 		return (average > 3500) ? 1 : 0;
 	} else {
 		return 0;
@@ -1945,18 +2167,21 @@ int HAL_IOCX_ADC_Voltage_5V( int n_samples_to_average )
 #endif
 }
 
-#define ADC_EXT_POWER_OVERSAMPLE_BITS 3
-#define ADC_EXT_POWER_AVERAGE_BITS ADC_EXT_POWER_OVERSAMPLE_BITS
+#define ADC_EXT_POWER_OVERSAMPLE_BITS 0
+#define ADC_EXT_POWER_AVERAGE_BITS 3
 const float vdiv_ratio = 3.24f / (11.5f + 3.24f);
 
 uint16_t HAL_IOCX_Get_ExtPower_Voltage()
 {
 #ifdef ENABLE_ADC
 	if ( adc_enabled ) {
-		uint32_t oversample;
+		uint32_t last_oversample;
 		uint32_t average;
-		HAL_IOCX_ADC_Get_Latest_Samples(ADC_CHANNEL_EXT_POWER_VOLTAGE_DIV, 1, &oversample,
-				ADC_EXT_POWER_OVERSAMPLE_BITS, &average, ADC_EXT_POWER_AVERAGE_BITS);
+		uint32_t full_dma_transfer_cycle_count;
+		uint32_t num_completed_per_channel_transfers;
+		uint16_t last_sample_pos_in_prev_average_sample_set;
+		HAL_IOCX_ADC_GetLastCompleteSampleCount(&full_dma_transfer_cycle_count, &num_completed_per_channel_transfers);
+		HAL_IOCX_ADC_Get_OversampledAveraged_Request_Samples(ADC_CHANNEL_EXT_POWER_VOLTAGE_DIV, num_completed_per_channel_transfers, &last_oversample, ADC_EXT_POWER_OVERSAMPLE_BITS, &average, ADC_EXT_POWER_AVERAGE_BITS, &last_sample_pos_in_prev_average_sample_set);
 		return average;
 	} else {
 		return 0;

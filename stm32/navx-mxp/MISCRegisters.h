@@ -73,10 +73,19 @@ typedef enum {
 
 #define MISC_NUM_ANALOG_INPUTS 4
 
+#define MISC_NUM_ANALOG_ACCUMULATORS 2
+
 #define MISC_MAX_NUM_OVERSAMPLE_BITS 6
 #define MISC_MAX_NUM_AVERAGE_BITS MISC_MAX_NUM_OVERSAMPLE_BITS
 
 #define EXTPOWER_INPUT_VDIV_RATIO (3.24f / (11.5f + 3.24f))
+
+typedef struct {
+    uint8_t enabled 		: 1;
+    uint8_t anin_channel	: 2;
+    uint8_t unused			: 4;
+    uint8_t reset			: 1;
+} ACCUMULATOR_CONFIG_REG;
 
 struct __attribute__ ((__packed__)) MISC_REGS {
 	/****************************/
@@ -108,18 +117,20 @@ struct __attribute__ ((__packed__)) MISC_REGS {
 	MISC_RTC_CFG rtc_cfg;
 	MISC_RTC_TIME rtc_time_set;
 	MISC_RTC_DATE rtc_date_set;
-	/* Analog Trigger */
+	/* Analog Trigger Configuration */
 	uint8_t analog_trigger_cfg[MISC_NUM_ANALOG_TRIGGERS]; /* ANALOG_TRIGGER_MODE */
 	uint16_t analog_trigger_threshold_low[MISC_NUM_ANALOG_TRIGGERS];
 	uint16_t analog_trigger_threshold_high[MISC_NUM_ANALOG_TRIGGERS];
-	/* Analog Input */
+	/* Analog Input Oversampling/Averaging Configuration */
 	uint8_t analog_input_oversample_bits[MISC_NUM_ANALOG_INPUTS];
 	uint8_t analog_input_average_bits[MISC_NUM_ANALOG_INPUTS];
-
-	/*****************************************************************/
-	/* Advanced Configuration (Read/Write)                           */
-	/*****************************************************************/
-	uint8_t end_of_bank;
+	/* Analog Accumulator Configuration */
+	ACCUMULATOR_CONFIG_REG analog_accumulator_cfg[MISC_NUM_ANALOG_ACCUMULATORS];
+	int16_t analog_accumulator_center[MISC_NUM_ANALOG_ACCUMULATORS];
+	int16_t analog_accumulator_deadband[MISC_NUM_ANALOG_ACCUMULATORS];
+	/* Analog Accumulator Data (read-only) */
+	uint32_t analog_accumulator_count[MISC_NUM_ANALOG_ACCUMULATORS];
+	int64_t analog_accumulator_value[MISC_NUM_ANALOG_ACCUMULATORS];
 };
 
 #endif /* MISCREGISTERS_H_ */

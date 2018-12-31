@@ -196,10 +196,18 @@ void HAL_IOCX_TIMER_INPUTCAP_Set_StallCfg(uint8_t timer_index, uint8_t stall_cfg
 void HAL_IOCX_TIMER_INPUTCAP_Set_TimerCounterResetCfg(uint8_t timer_index, uint8_t timer_reset_config);
 /* ADC Access */
 
+// Max number of ADC samples == 1 << (MAX_NUM_ADC_SAMPLESIZE_POWER_BITS)
+#define MAX_NUM_ADC_SAMPLESIZE_POWER_BITS	10
+#define NUM_ADC_SAMPLE_SET_BITS				2
+
 void HAL_IOCX_ADC_Enable(int enable);
 void HAL_IOCX_ADC_Get_Samples( int start_channel, int n_channels, uint16_t* p_samples, uint8_t n_samples_to_average );
 void HAL_IOCX_ADC_Get_Latest_Samples(int start_channel, int n_channels, uint32_t *p_oversamples,
 		uint8_t num_oversample_bits, uint32_t *p_avgsamples, uint8_t num_avg_bits);
+uint64_t HAL_IOCX_ADC_GetCurrTimestampMicroseconds();
+uint64_t HAL_IOCX_ADC_GetLastCompleteSampleCount(uint32_t *full_dma_transfer_cycle_count, uint32_t *num_completed_per_channel_transfers);
+uint64_t HAL_IOCX_ADC_GetAverageSetFinalSamplePosition(uint64_t complete_sample_count, uint8_t oversample_bits, uint8_t average_bits, uint16_t *num_avg_sample_sets, uint64_t *absolute_sample_position);
+void HAL_IOCX_ADC_Get_OversampledAveraged_Request_Samples(int channel, uint16_t latest_pos, uint32_t *p_latest_oversample, uint8_t oversample_bits, uint32_t *p_avg, uint8_t avg_bits, uint16_t *prev_sample_average_set_pos);
 int HAL_IOCX_ADC_Voltage_5V(); /* Returns 0 if 3.3V, non-zero of 5V VDA */
 uint16_t HAL_IOCX_Get_ExtPower_Voltage();
 

@@ -466,7 +466,7 @@ void MX_DMA_Init(void)
 #endif
 #ifdef ENABLE_ADC
     HAL_NVIC_SetPriority(DMA2_Stream4_IRQn, 6, 0); /* ADC */
-    //HAL_NVIC_EnableIRQ(DMA2_Stream4_IRQn);
+    HAL_NVIC_EnableIRQ(DMA2_Stream4_IRQn);
 #endif
 }
 
