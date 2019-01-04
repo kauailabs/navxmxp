@@ -7,7 +7,7 @@
 
 plugins {
     id "java-library"
-    id "edu.wpi.first.GradleRIO" version "2019.1.1-beta-1"
+    id "edu.wpi.first.GradleRIO" version "2019.1.1"
     id 'edu.wpi.first.wpilib.versioning.WPILibVersioningPlugin' version '2.2'
 }
 
