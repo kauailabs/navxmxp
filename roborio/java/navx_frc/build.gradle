@@ -7,7 +7,7 @@
 
 plugins {
     id "java-library"
-    id "edu.wpi.first.GradleRIO" version "2019.1.1"
+    id "edu.wpi.first.GradleRIO" version "2019.1.1"	
     id 'edu.wpi.first.wpilib.versioning.WPILibVersioningPlugin' version '2.2'
 }
 
@@ -15,9 +15,15 @@ task generateJavadocs(type: Javadoc) {
   source = sourceSets.main.allJava
 }
 
+// Maven central needed for JUnit
+repositories {
+    mavenCentral()
+}
+
 // Defining my dependencies. In this case, WPILib.
 dependencies {
-    compile wpilib()
+//	  compile wpilib()
+    compile wpi.deps.wpilib()
 }
 
 sourceSets {
@@ -33,5 +39,5 @@ build.dependsOn generateJavadocs
 apply from: 'publish.gradle'
 
 wrapper {
-  gradleVersion = '4.9'
+  gradleVersion = '5.0'
 }
