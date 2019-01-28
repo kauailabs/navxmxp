@@ -129,7 +129,7 @@ private:
     ITimestampedDataSubscriber *callbacks[MAX_NUM_CALLBACKS];
     void *callback_contexts[MAX_NUM_CALLBACKS];
 	
-	bool enableBoardlevelYawReset;
+	bool enable_boardlevel_yawreset;
 
 public:
     AHRS(SPI::Port spi_port_id);

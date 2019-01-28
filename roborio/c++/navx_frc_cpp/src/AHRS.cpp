@@ -998,7 +998,7 @@ void AHRS::commonInit( uint8_t update_rate_hz ) {
     	callback_contexts[i] = NULL;
     }
 	
-	enableBoardlevelYawReset = false;
+	enable_boardlevel_yawreset = false;
 }
 
 /**
