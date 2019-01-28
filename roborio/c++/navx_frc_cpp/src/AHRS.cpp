@@ -422,7 +422,7 @@ float AHRS::GetRoll() {
  * @return The current yaw value in degrees (-180 to 180).
  */
 float AHRS::GetYaw() {
-    if ( ahrs_internal->IsBoardYawResetSupported() ) {
+    if ( enable_boardlevel_yawreset && ahrs_internal->IsBoardYawResetSupported() ) {
         return this->yaw;
     } else {
         return (float) yaw_offset_tracker->ApplyOffset(this->yaw);
@@ -456,7 +456,7 @@ float AHRS::GetCompassHeading() {
  * the getYaw() method.
  */
 void AHRS::ZeroYaw() {
-    if ( ahrs_internal->IsBoardYawResetSupported() ) {
+    if ( enable_boardlevel_yawreset && ahrs_internal->IsBoardYawResetSupported() ) {
         io->ZeroYaw();
         /* Notification is deferred until action is complete. */
     } else {
@@ -997,6 +997,8 @@ void AHRS::commonInit( uint8_t update_rate_hz ) {
     	callbacks[i] = NULL;
     	callback_contexts[i] = NULL;
     }
+	
+	enableBoardlevelYawReset = false;
 }
 
 /**

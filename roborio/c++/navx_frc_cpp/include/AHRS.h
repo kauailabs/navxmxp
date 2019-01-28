@@ -128,6 +128,8 @@ private:
 #define MAX_NUM_CALLBACKS 3
     ITimestampedDataSubscriber *callbacks[MAX_NUM_CALLBACKS];
     void *callback_contexts[MAX_NUM_CALLBACKS];
+	
+	bool enableBoardlevelYawReset;
 
 public:
     AHRS(SPI::Port spi_port_id);
@@ -201,6 +203,8 @@ public:
     int GetRequestedUpdateRate();
 
     void EnableLogging(bool enable);
+	void EnableBoardlevelYawReset(bool enable);
+	bool IsBoardlevelYawResetEnabled();
 
     int16_t GetGyroFullScaleRangeDPS();
     int16_t GetAccelFullScaleRangeG();

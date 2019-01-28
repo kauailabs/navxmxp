@@ -192,6 +192,8 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
     private ITimestampedDataSubscriber callbacks[];
     private Object callback_contexts[];
     private final int MAX_NUM_CALLBACKS = 3;
+	
+	private boolean enable_boardlevel_yawreset;
     
     /***********************************************************/
     /* Public Interface Implementation                         */
@@ -357,7 +359,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      * @return The current yaw value in degrees (-180 to 180).
      */
     public float getYaw() {
-        if ( board_capabilities.isBoardYawResetSupported() ) {
+        if ( enable_boardlevel_yawreset && board_capabilities.isBoardYawResetSupported() ) {
             return this.yaw;
         } else {
             return (float) yaw_offset_tracker.applyOffset(this.yaw);
@@ -391,7 +393,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      * the getYaw() method.
      */
     public void zeroYaw() {
-        if ( board_capabilities.isBoardYawResetSupported() ) {
+        if ( enable_boardlevel_yawreset && board_capabilities.isBoardYawResetSupported() ) {
             io.zeroYaw();
             /* Notification is deferred until action is complete. */
         } else {
@@ -922,6 +924,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
         yaw_angle_tracker = new ContinuousAngleTracker();
         this.callbacks = new ITimestampedDataSubscriber[MAX_NUM_CALLBACKS];
         this.callback_contexts = new Object[MAX_NUM_CALLBACKS];
+		this.enable_boardlevel_yawreset = false;
     }
 
     /***********************************************************/
@@ -1235,6 +1238,14 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
     		io.enableLogging(enable);
     	}
     }
+
+    public void enableBoardlevelYawReset(boolean enable) {
+		enable_boardlevel_yawreset = enable;
+	}
+	
+	public boolean isBoardlevelYawResetEnabled() {
+		return enable_boardlevel_yawreset;
+	}
     
     public short getGyroFullScaleRangeDPS() { return this.gyro_fsr_dps; }
     public short getAccelFullScaleRangeG() { return this.accel_fsr_g; }
