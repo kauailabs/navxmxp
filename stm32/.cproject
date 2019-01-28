@@ -12,7 +12,7 @@
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration artifactExtension="elf" artifactName="navx-mxp" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug" cleanCommand="rm -rf" description="" errorParsers="org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GASErrorParser;org.eclipse.cdt.core.GLDErrorParser" id="cdt.managedbuild.config.gnu.cross.exe.debug.1980068213" name="navX-MXP_Debug" parent="cdt.managedbuild.config.gnu.cross.exe.debug" postannouncebuildStep="Create Binary from ELF" postbuildStep="..\upload_navx-mxp_bin.bat ${ConfigurationName}" preannouncebuildStep="" prebuildStep="">
+				<configuration artifactExtension="elf" artifactName="navx-mxp" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug" cleanCommand="rm -rf" description="" errorParsers="org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GASErrorParser;org.eclipse.cdt.core.GLDErrorParser" id="cdt.managedbuild.config.gnu.cross.exe.debug.1980068213" name="navX-MXP_Debug" parent="cdt.managedbuild.config.gnu.cross.exe.debug" postannouncebuildStep="Create Binary from ELF" postbuildStep="C:\Windows\System32\cmd.exe /c ..\upload_navx-mxp_bin.bat ${ConfigurationName}" preannouncebuildStep="" prebuildStep="">
 					<folderInfo id="cdt.managedbuild.config.gnu.cross.exe.debug.1980068213." name="/" resourcePath="">
 						<toolChain errorParsers="" id="cdt.managedbuild.toolchain.gnu.cross.exe.debug.1821677426" name="Cross GCC" nonInternalBuilderId="cdt.managedbuild.builder.gnu.cross" superClass="cdt.managedbuild.toolchain.gnu.cross.exe.debug">
 							<option id="cdt.managedbuild.option.gnu.cross.prefix.915116647" name="Prefix" superClass="cdt.managedbuild.option.gnu.cross.prefix" value="arm-none-eabi-" valueType="string"/>
@@ -250,7 +250,7 @@
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration artifactExtension="elf" artifactName="navx-micro" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug" cleanCommand="rm -rf" description="" errorParsers="org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GASErrorParser;org.eclipse.cdt.core.GLDErrorParser" id="cdt.managedbuild.config.gnu.cross.exe.debug.1980068213.609735147" name="navX-Micro_Debug" parent="cdt.managedbuild.config.gnu.cross.exe.debug" postannouncebuildStep="Create Binary from ELF" postbuildStep="..\upload_navx-micro_bin.bat ${ConfigurationName}" preannouncebuildStep="" prebuildStep="">
+				<configuration artifactExtension="elf" artifactName="navx-micro" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug" cleanCommand="rm -rf" description="" errorParsers="org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GASErrorParser;org.eclipse.cdt.core.GLDErrorParser" id="cdt.managedbuild.config.gnu.cross.exe.debug.1980068213.609735147" name="navX-Micro_Debug" parent="cdt.managedbuild.config.gnu.cross.exe.debug" postannouncebuildStep="Create Binary from ELF" postbuildStep="C:\Windows\System32\cmd.exe /c ..\upload_navx-micro_bin.bat ${ConfigurationName}" preannouncebuildStep="" prebuildStep="">
 					<folderInfo id="cdt.managedbuild.config.gnu.cross.exe.debug.1980068213.609735147." name="/" resourcePath="">
 						<toolChain errorParsers="" id="cdt.managedbuild.toolchain.gnu.cross.exe.debug.165527263" name="Cross GCC" nonInternalBuilderId="cdt.managedbuild.builder.gnu.cross" superClass="cdt.managedbuild.toolchain.gnu.cross.exe.debug">
 							<option id="cdt.managedbuild.option.gnu.cross.prefix.1255285691" name="Prefix" superClass="cdt.managedbuild.option.gnu.cross.prefix" value="arm-none-eabi-" valueType="string"/>
@@ -971,9 +971,16 @@
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="refreshScope" versionNumber="2">
+		<configuration configurationName="navx-blue_Release"/>
+		<configuration configurationName="navX-MXP_Release"/>
+		<configuration configurationName="navx-blue_Debug"/>
+		<configuration configurationName="navX-Micro_Debug"/>
+		<configuration configurationName="navX-PI_Release"/>
 		<configuration configurationName="navX-MXP_Debug">
 			<resource resourceType="PROJECT" workspacePath="/navx-mxp"/>
 		</configuration>
+		<configuration configurationName="navX-Micro_Release"/>
+		<configuration configurationName="navX-PI_Debug"/>
 		<configuration configurationName="navX_Micro_Debug"/>
 		<configuration configurationName="Debug">
 			<resource resourceType="PROJECT" workspacePath="/nav10_3_2_FIRST5"/>
