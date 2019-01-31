@@ -27,7 +27,7 @@ class ContinuousAngleTracker {
         angleAdjust = 0.0f;    	
     }    
 
-    private void init() {
+    public void init() {
         gyro_prevVal = 0.0;
         ctrRollOver  = 0;
         fFirstUse = true;

@@ -487,6 +487,7 @@ float AHRS::GetCompassHeading() {
 }
 
 #define NUM_SUPPRESSED_SUCCESSIVE_YAWRESET_MESSAGES 5
+#define SUPPRESSED_SUCESSIVE_YAWRESET_PERIOD_SECONDS 0.2
 
 /**
  * Sets the user-specified yaw offset to the current
@@ -501,9 +502,9 @@ float AHRS::GetCompassHeading() {
  * interfere with the calibration process.
  */
 void AHRS::ZeroYaw() {
-    long curr_timestamp = Timer::GetFPGATimestamp();
-    long delta_time_since_last_yawreset_request = curr_timestamp - last_yawreset_request_timestamp;
-    if (delta_time_since_last_yawreset_request < 0.2) {
+    double curr_timestamp = Timer::GetFPGATimestamp();
+    double delta_time_since_last_yawreset_request = curr_timestamp - last_yawreset_request_timestamp;
+    if (delta_time_since_last_yawreset_request < SUPPRESSED_SUCESSIVE_YAWRESET_PERIOD_SECONDS) {
         successive_suppressed_yawreset_request_count++;
         if ((successive_suppressed_yawreset_request_count % NUM_SUPPRESSED_SUCCESSIVE_YAWRESET_MESSAGES) == 1) {
             printf("navX-Sensor rapidly-repeated Yaw Reset ignored.  %s\n",

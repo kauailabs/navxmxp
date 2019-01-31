@@ -17,6 +17,7 @@ static wpi::mutex imu_mutex;
 RegisterIO_I2C::RegisterIO_I2C(I2C* port) {
     this->port = port;
     this->trace = false;
+    successive_error_count = 0;
 }
 
 bool RegisterIO_I2C::Init() {

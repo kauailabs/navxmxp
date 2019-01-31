@@ -109,8 +109,18 @@ class SerialIO implements IIOProvider {
     protected void dispatchStreamResponse(IMUProtocol.StreamResponse response) {
         board_state.cal_status = (byte) (response.flags & IMUProtocol.NAV6_FLAG_MASK_CALIBRATION_STATE);
         board_state.capability_flags = (short) (response.flags & ~IMUProtocol.NAV6_FLAG_MASK_CALIBRATION_STATE);
-        board_state.op_status = 0x04; /* TODO:  Create a symbol for this */
-        board_state.selftest_status = 0x07; /* TODO:  Create a symbol for this */
+
+        /* Derive reasonable operational/self-test status from the available stream response data. */
+        if (board_state.cal_status == AHRSProtocol.NAVX_CAL_STATUS_IMU_CAL_COMPLETE) {
+            board_state.op_status = AHRSProtocol.NAVX_OP_STATUS_NORMAL;
+        } else {
+            board_state.op_status = AHRSProtocol.NAVX_OP_STATUS_IMU_AUTOCAL_IN_PROGRESS;
+        }
+        board_state.selftest_status = ( AHRSProtocol.NAVX_SELFTEST_STATUS_COMPLETE |
+                                        AHRSProtocol.NAVX_SELFTEST_RESULT_GYRO_PASSED |
+                                        AHRSProtocol.NAVX_SELFTEST_RESULT_ACCEL_PASSED |
+                                        AHRSProtocol.NAVX_SELFTEST_RESULT_BARO_PASSED );
+    
         board_state.accel_fsr_g = response.accel_fsr_g;
         board_state.gyro_fsr_dps = response.gyro_fsr_dps;
         board_state.update_rate_hz = (byte) response.update_rate_hz;

@@ -84,7 +84,6 @@ void SerialIO::EnqueueIntegrationControlMessage(uint8_t action)
 }
 
 void SerialIO::DispatchStreamResponse(IMUProtocol::StreamResponse& response) {
-    printf("SerialPort StreamResponse Flags:  0x%x\n", response.flags);
     board_state.cal_status = (uint8_t) (response.flags & NAV6_FLAG_MASK_CALIBRATION_STATE);
     board_state.capability_flags = (int16_t) (response.flags & ~NAV6_FLAG_MASK_CALIBRATION_STATE);
 

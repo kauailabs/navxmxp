@@ -15,9 +15,13 @@ class RegisterIO_I2C implements IRegisterIO{
 
     I2C port;
     boolean trace = false;
-    
+    int successive_error_count;
+
+    static final int   NUM_IGNORED_SUCCESSIVE_ERRORS  = 50;
+
     public RegisterIO_I2C( I2C i2c_port ) {
         port = i2c_port;
+        successive_error_count = 0;
     }
     
     @Override
@@ -57,13 +61,19 @@ class RegisterIO_I2C implements IRegisterIO{
             		read_aborted = port.readOnly(read_buffer, read_len);
             	}
             }
-            if ( !write_aborted && !read_aborted ) {                
+            if ( !write_aborted && !read_aborted ) {
+                successive_error_count = 0;                
                 System.arraycopy(read_buffer, 0,  buffer, buffer_offset, read_len);
                 buffer_offset += read_len;
                 len -= read_len;
             } else {
-            	if (trace) System.out.println("navX-MXP I2C Read Error");
-                break;
+                successive_error_count++;
+                if (successive_error_count % NUM_IGNORED_SUCCESSIVE_ERRORS == 1) {
+                    if (trace) {
+                        System.out.printf("navX-MXP I2C Read error %s.\n",
+                            ((successive_error_count < NUM_IGNORED_SUCCESSIVE_ERRORS) ? "" : " (Repeated errors omitted)"));
+                    }
+                }                
             }
         }
         return (len == 0);

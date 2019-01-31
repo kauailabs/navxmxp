@@ -194,7 +194,10 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
     private final int MAX_NUM_CALLBACKS = 3;
 	
 	private boolean enable_boardlevel_yawreset;
-    
+    private boolean previously_connected;
+    private double last_yawreset_request_timestamp;
+    private int successive_suppressed_yawreset_request_count;
+
     /***********************************************************/
     /* Public Interface Implementation                         */
     /***********************************************************/
@@ -384,6 +387,9 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
         return compass_heading;
     }
 
+    static final int NUM_SUPPRESSED_SUCCESSIVE_YAWRESET_MESSAGES = 5;
+    static final double SUPPRESSED_SUCESSIVE_YAWRESET_PERIOD_SECONDS = 0.2;
+
     /**
      * Sets the user-specified yaw offset to the current
      * yaw value reported by the sensor.
@@ -391,11 +397,35 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      * This user-specified yaw offset is automatically
      * subtracted from subsequent yaw values reported by
      * the getYaw() method.
+     * 
+     * NOTE:  This method has no effect if the sensor is 
+     * currently calibrating, since resetting the yaw will
+     * interfere with the calibration process.
      */
     public void zeroYaw() {
+        double curr_timestamp = Timer.getFPGATimestamp();
+        double delta_time_since_last_yawreset_request = curr_timestamp - last_yawreset_request_timestamp;
+        if (delta_time_since_last_yawreset_request < SUPPRESSED_SUCESSIVE_YAWRESET_PERIOD_SECONDS) {
+            successive_suppressed_yawreset_request_count++;
+            if ((successive_suppressed_yawreset_request_count % NUM_SUPPRESSED_SUCCESSIVE_YAWRESET_MESSAGES) == 1) {
+                System.out.printf("navX-Sensor rapidly-repeated Yaw Reset ignored.  %s\n",
+                ((successive_suppressed_yawreset_request_count < NUM_SUPPRESSED_SUCCESSIVE_YAWRESET_MESSAGES) 
+                    ? "" : ("repeated messages suppressed")));
+            }
+            return;
+        }
+    
+        successive_suppressed_yawreset_request_count = 0;
+        if (isCalibrating()) {
+            System.out.printf("navX-Sensor Yaw Reset ignored - board is currently calibrating.\n");
+            return;
+        }
+    
+        last_yawreset_request_timestamp = curr_timestamp; 
         if ( enable_boardlevel_yawreset && board_capabilities.isBoardYawResetSupported() ) {
             io.zeroYaw();
-            /* Notification is deferred until action is complete. */
+            System.out.printf("navX-Sensor Board-level Yaw Reset requested.\n");                    
+            /* Note:  Notification is deferred until action is complete. */            
         } else {
             yaw_offset_tracker.setOffset();
             /* Notification occurs immediately. */
@@ -435,7 +465,12 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      * from the sensor.
      */
     public boolean isConnected() {
-        return io.isConnected();
+        boolean currently_connected = io.isConnected();
+        if (currently_connected != previously_connected) {
+            System.out.printf("navX-Sensor is now %s.\n", currently_connected ? "Connected" : "DISCONNECTED!!!");
+        }
+        previously_connected = currently_connected;
+        return currently_connected;
     }
 
     /**
@@ -924,7 +959,10 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
         yaw_angle_tracker = new ContinuousAngleTracker();
         this.callbacks = new ITimestampedDataSubscriber[MAX_NUM_CALLBACKS];
         this.callback_contexts = new Object[MAX_NUM_CALLBACKS];
-		this.enable_boardlevel_yawreset = false;
+        this.enable_boardlevel_yawreset = false;
+        this.previously_connected = false;
+        this.last_yawreset_request_timestamp = 0;
+        this.successive_suppressed_yawreset_request_count = 0;        
     }
 
     /***********************************************************/
@@ -1239,15 +1277,47 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
     	}
     }
 
+    /**
+     * Enables or disables board-level yaw zero (reset) requests.  Board-level
+     * yaw resets are processed by the sensor board and the resulting yaw
+     * angle may not be available to the client software until at least 
+     * 2 update cycles have occurred.  Board-level yaw resets however do
+     * maintain synchronization between the yaw angle and the sensor-generated
+     * Quaternion and Fused Heading values.  
+     * 
+     * Conversely, Software-based yaw resets occur instantaneously; however, Software-
+     * based yaw resets do not update the yaw angle component of the sensor-generated
+     * Quaternion values or the Fused Heading values.
+     * @param enable
+     */    
     public void enableBoardlevelYawReset(boolean enable) {
 		enable_boardlevel_yawreset = enable;
 	}
 	
-	public boolean isBoardlevelYawResetEnabled() {
+    /**
+     * Returns true if Board-level yaw resets are enabled.  Conversely, returns false
+     * if Software-based yaw resets are active.
+     *
+     * @return true if Board-level yaw resets are enabled.
+     */
+    public boolean isBoardlevelYawResetEnabled() {
 		return enable_boardlevel_yawreset;
 	}
     
+    /**
+     * Returns the sensor full scale range (in degrees per second)
+     * of the X, Y and X-axis gyroscopes.
+     *
+     * @return gyroscope full scale range in degrees/second.
+     */    
     public short getGyroFullScaleRangeDPS() { return this.gyro_fsr_dps; }
+    
+    /**
+     * Returns the sensor full scale range (in G)
+     * of the X, Y and X-axis accelerometers.
+     *
+     * @return accelerometer full scale range in G.
+     */    
     public short getAccelFullScaleRangeG() { return this.accel_fsr_g; }
     
     /***********************************************************/
@@ -1381,6 +1451,12 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
             displacement[1] = ahrs_update.disp_y;
             displacement[2] = ahrs_update.disp_z;
             
+            updateBoardStatus( 
+                ahrs_update.op_status,
+                ahrs_update.sensor_status, 
+                ahrs_update.cal_status, 
+                ahrs_update.selftest_status );
+            
             yaw_angle_tracker.nextAngle(getYaw());
             
             /* Notify external data arrival subscribers, if any. */
@@ -1474,6 +1550,12 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
             
             AHRS.this.last_sensor_timestamp      = sensor_timestamp;           
             
+            updateBoardStatus( 
+                ahrs_update.op_status,
+                ahrs_update.sensor_status, 
+                ahrs_update.cal_status, 
+                ahrs_update.selftest_status );    
+
             updateDisplacement( AHRS.this.world_linear_accel_x, 
                     AHRS.this.world_linear_accel_y, 
                     update_rate_hz,
@@ -1508,15 +1590,43 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
             accel_fsr_g = board_state.accel_fsr_g;
             gyro_fsr_dps = board_state.gyro_fsr_dps;
             capability_flags = board_state.capability_flags;    
-            op_status = board_state.op_status;
-            sensor_status = board_state.sensor_status;
-            cal_status = board_state.cal_status;
-            selftest_status = board_state.selftest_status;
+            updateBoardStatus( board_state.op_status, board_state.sensor_status, 
+            board_state.cal_status, board_state.selftest_status );
+        }
+
+        void updateBoardStatus( byte op_status, short sensor_status, byte cal_status, byte selftest_status) {
+            /* Detect/Report Board operational status transitions */
+            if (AHRS.this.op_status == AHRSProtocol.NAVX_OP_STATUS_NORMAL) {
+                if (op_status != AHRSProtocol.NAVX_OP_STATUS_NORMAL) {
+                    /* Board reset detected */
+                    System.out.printf("navX-Sensor Reset Detected.\n");
+                }
+            } else {
+                if (op_status == AHRSProtocol.NAVX_OP_STATUS_NORMAL) {
+                    System.out.printf("navX-Sensor poweron/reset initialization complete.\n");
+                    /* Detect/report reset of yaw angle tracker */
+                    if (((AHRS.this.cal_status & AHRSProtocol.NAVX_CAL_STATUS_IMU_CAL_STATE_MASK) != AHRSProtocol.NAVX_CAL_STATUS_IMU_CAL_COMPLETE) &&
+                        ((cal_status & AHRSProtocol.NAVX_CAL_STATUS_IMU_CAL_STATE_MASK) == AHRSProtocol.NAVX_CAL_STATUS_MAG_CAL_COMPLETE)) {
+                        AHRS.this.yaw_angle_tracker.init();                        
+                        System.out.printf("navX-Sensor Yaw angle auto-reset to 0.0.\n");
+                    }
+                }
+            }
+    
+            AHRS.this.op_status = op_status;
+            AHRS.this.sensor_status = sensor_status;
+            AHRS.this.cal_status = cal_status;
+            AHRS.this.selftest_status = selftest_status;
         }
 
 		@Override
 		public void yawResetComplete() {
-			AHRS.this.yaw_angle_tracker.reset();
+            AHRS.this.yaw_angle_tracker.reset();
+            if (AHRS.this.enable_boardlevel_yawreset) {
+                System.out.printf("navX-Sensor Board-level Yaw Reset completed.\n");               
+            } else {
+                System.out.printf("navX-Sensor Software Yaw Reset completed.\n");            
+            }            
 		}
     };
     

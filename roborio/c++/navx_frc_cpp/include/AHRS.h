@@ -131,7 +131,7 @@ private:
 	
 	bool enable_boardlevel_yawreset;
     bool previously_connected;
-    long last_yawreset_request_timestamp;
+    double last_yawreset_request_timestamp;
     uint32_t successive_suppressed_yawreset_request_count;
 
 public:
