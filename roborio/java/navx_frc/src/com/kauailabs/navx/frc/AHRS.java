@@ -910,6 +910,10 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      * Note that this callback will occur within the context of the
      * device IO thread, which is not the same thread context the
      * caller typically executes in.
+     * @param callback The callback object to be invoked when callbacks occur
+     * @param callback_context The callback context object to be passed as a parameter
+     * to the callback object.
+     * @return returns true if callback was successfully registered.
      */
     public boolean registerCallback( ITimestampedDataSubscriber callback, Object callback_context) {
         boolean registered = false;
@@ -932,6 +936,8 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      * previously registered, to ensure that the object
      * implementing the callback interface does not continue
      * to be accessed when no longer necessary.
+     * @param callback The previously-registered callback object to be deregistered.
+     * @return returns true if callback was successfully deregistered.
      */
     public boolean deregisterCallback( ITimestampedDataSubscriber callback ) {
         boolean deregistered = false;
@@ -1269,7 +1275,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
     /**
      * Enables or disables logging (via Console I/O) of AHRS library internal
      * behaviors, including events such as transient communication errors.
-     * @param enable
+     * @param enable true to enable logging; false to disable logging
      */
     public void enableLogging(boolean enable) {
     	if ( this.io != null) {
@@ -1288,7 +1294,8 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      * Conversely, Software-based yaw resets occur instantaneously; however, Software-
      * based yaw resets do not update the yaw angle component of the sensor-generated
      * Quaternion values or the Fused Heading values.
-     * @param enable
+     * @param enable true to enable board-level yaw resets; false to enable software-based
+     * yaw resets.
      */    
     public void enableBoardlevelYawReset(boolean enable) {
 		enable_boardlevel_yawreset = enable;
@@ -1298,7 +1305,8 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      * Returns true if Board-level yaw resets are enabled.  Conversely, returns false
      * if Software-based yaw resets are active.
      *
-     * @return true if Board-level yaw resets are enabled.
+     * @return true if Board-level yaw resets are enabled; false if software-based 
+     * yaw resets are active.
      */
     public boolean isBoardlevelYawResetEnabled() {
 		return enable_boardlevel_yawreset;
@@ -1633,7 +1641,12 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
     /***********************************************************/
     /* Sendable Interface Implementation             */
     /***********************************************************/
-    
+
+    /**
+     * Initializes smart dashboard communication.
+     *
+     * @param build The SendableBuilder which will be registered with.
+     */     
 	@Override
 	public void initSendable(SendableBuilder builder) {
 		builder.setSmartDashboardType("Gyro");
