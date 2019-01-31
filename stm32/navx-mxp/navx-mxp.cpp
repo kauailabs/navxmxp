@@ -86,7 +86,8 @@ uint8_t clip_sample_rate(uint8_t update_rate_hz)
 
 #define NUM_STREAMING_INTERFACES 2
 
-char update_type[NUM_STREAMING_INTERFACES] = { MSGID_YPR_UPDATE, MSGID_YPR_UPDATE };
+/* First interface is USB; second interface is TTL UART */
+char update_type[NUM_STREAMING_INTERFACES] = { MSGID_AHRSPOS_TS_UPDATE, MSGID_YPR_UPDATE };
 char update_buffer[NUM_STREAMING_INTERFACES][AHRS_PROTOCOL_MAX_MESSAGE_LENGTH * 3];	/* Buffer for outbound serial update messages. */
 char inbound_data[AHRS_PROTOCOL_MAX_MESSAGE_LENGTH];			/* Buffer for inbound serial messages.  */
 char response_buffer[NUM_STREAMING_INTERFACES][AHRS_PROTOCOL_MAX_MESSAGE_LENGTH * 2];  /* Buffer for building serial response. */
