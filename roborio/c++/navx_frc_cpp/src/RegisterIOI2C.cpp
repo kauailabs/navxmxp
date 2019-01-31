@@ -11,6 +11,8 @@
 
 using namespace wpi;
 
+#define NUM_IGNORED_SUCCESSIVE_ERRORS 50
+
 static wpi::mutex imu_mutex;
 RegisterIO_I2C::RegisterIO_I2C(I2C* port) {
     this->port = port;
@@ -42,9 +44,16 @@ bool RegisterIO_I2C::Read(uint8_t first_address, uint8_t* buffer, uint8_t buffer
             memcpy(buffer + buffer_offset, read_buffer, read_len);
             buffer_offset += read_len;
             len -= read_len;
+            successive_error_count = 0;
         } else {
-        	if (trace) printf("navX-MXP I2C Read error\n");
-            break;
+            successive_error_count++;
+            if (successive_error_count % NUM_IGNORED_SUCCESSIVE_ERRORS == 1) {
+        	    if (trace) {
+                    printf("navX-MXP I2C Read error %s.\n",
+                        ((successive_error_count < NUM_IGNORED_SUCCESSIVE_ERRORS) ? "" : " (Repeated errors omitted)"));
+                }
+                break;
+            }
         }
     }
     return (len == 0);

@@ -25,6 +25,7 @@ public:
 private:
     I2C *port;
     bool trace;
+    int successive_error_count;    
 };
 
 #endif /* SRC_REGISTERIOI2C_H_ */

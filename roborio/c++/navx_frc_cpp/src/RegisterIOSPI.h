@@ -29,6 +29,7 @@ private:
     uint32_t bitrate;
     uint8_t rx_buffer[MAX_SPI_MSG_LENGTH];
     bool trace;
+    int successive_error_count;
 };
 
 #endif /* SRC_REGISTERIOSPI_H_ */

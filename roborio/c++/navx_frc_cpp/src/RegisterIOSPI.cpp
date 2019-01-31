@@ -11,11 +11,14 @@
 
 using namespace wpi;
 
+#define NUM_IGNORED_SUCCESSIVE_ERRORS 50
+
 static wpi::mutex imu_mutex;
 RegisterIO_SPI::RegisterIO_SPI(SPI *port, uint32_t bitrate) {
     this->port = port;
     this->bitrate = bitrate;
     this->trace = false;
+    this->successive_error_count = 0;
 }
 
 bool RegisterIO_SPI::Init() {
@@ -58,10 +61,17 @@ bool RegisterIO_SPI::Read(uint8_t first_address, uint8_t* buffer, uint8_t buffer
     }
     uint8_t crc = IMURegisters::getCRC(rx_buffer, buffer_len);
     if ( crc != rx_buffer[buffer_len] ) {
-        if (trace) printf("navX-MXP SPI CRC err.  Length:  %d, Got:  %d; Calculated:  %d\n", buffer_len, rx_buffer[buffer_len], crc);
+        successive_error_count++;
+        if (successive_error_count % NUM_IGNORED_SUCCESSIVE_ERRORS == 1) {
+            if (trace) {
+                printf("navX-MXP SPI CRC err.  Length:  %d, Got:  %d; Calculated:  %d %s\n", buffer_len, rx_buffer[buffer_len], crc,
+                ((successive_error_count < NUM_IGNORED_SUCCESSIVE_ERRORS) ? "" : " (Repeated errors omitted)"));
+            }
+        }
         return false; // CRC ERROR
     } else {
         memcpy(buffer, rx_buffer, buffer_len);
+        successive_error_count = 0;
     }
     return true;
 }
