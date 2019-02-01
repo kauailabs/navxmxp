@@ -245,7 +245,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      */
 
     public AHRS(SPI.Port spi_port_id, int spi_bitrate, byte update_rate_hz) {
-        System.out.printf("Instantiating navX-Sensor on SPI Port %d.\n", spi_port_id.toString());        
+        System.out.printf("Instantiating navX-Sensor on SPI Port %s.\n", spi_port_id.toString());        
         commonInit(update_rate_hz);
         io = new RegisterIO(new RegisterIO_SPI(new SPI(spi_port_id), spi_bitrate), update_rate_hz, io_complete_sink, board_capabilities);
         io_thread.start();
@@ -263,7 +263,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      * @param update_rate_hz Custom Update Rate (Hz)
      */
     public AHRS(I2C.Port i2c_port_id, byte update_rate_hz) {
-        System.out.printf("Instantiating navX-Sensor on I2C Port %d.\n", i2c_port_id.toString());              
+        System.out.printf("Instantiating navX-Sensor on I2C Port %s.\n", i2c_port_id.toString());              
         commonInit(update_rate_hz);
         io = new RegisterIO(new RegisterIO_I2C(new I2C(i2c_port_id, 0x32)), update_rate_hz, io_complete_sink, board_capabilities);
         io_thread.start();
@@ -290,7 +290,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      * @param update_rate_hz Custom Update Rate (Hz)
      */
     public AHRS(SerialPort.Port serial_port_id, SerialDataType data_type, byte update_rate_hz) {
-        System.out.printf("Instantiating navX-Sensor on Serial Port %d.\n", serial_port_id.toString());        
+        System.out.printf("Instantiating navX-Sensor on Serial Port %s.\n", serial_port_id.toString());        
         commonInit(update_rate_hz);
         boolean processed_data = (data_type == SerialDataType.kProcessedData);
         io = new SerialIO(serial_port_id, update_rate_hz, processed_data, io_complete_sink, board_capabilities);
