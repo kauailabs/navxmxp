@@ -536,18 +536,22 @@ void AHRS::ZeroYaw() {
     if (delta_time_since_last_yawreset_request < SUPPRESSED_SUCESSIVE_YAWRESET_PERIOD_SECONDS) {
         successive_suppressed_yawreset_request_count++;
         if ((successive_suppressed_yawreset_request_count % NUM_SUPPRESSED_SUCCESSIVE_YAWRESET_MESSAGES) == 1) {
-            printf("navX-Sensor rapidly-repeated Yaw Reset ignored.  %s\n",
+            if (logging_enabled) printf("navX-Sensor rapidly-repeated Yaw Reset ignored%s\n",
             ((successive_suppressed_yawreset_request_count < NUM_SUPPRESSED_SUCCESSIVE_YAWRESET_MESSAGES) 
-                ? "" : ("repeated messages suppressed")));
+                ? "." : (" (repeated messages suppressed).")));
         }
         return;
     }
 
-    successive_suppressed_yawreset_request_count = 0;
     if (IsCalibrating()) {
-        printf("navX-Sensor Yaw Reset request ignored - startup calibration is currently in progress.\n");
+        if ((successive_suppressed_yawreset_request_count % NUM_SUPPRESSED_SUCCESSIVE_YAWRESET_MESSAGES) == 1) {
+            if (logging_enabled) printf("navX-Sensor Yaw Reset request ignored - startup calibration is currently in progress%s\n",
+            ((successive_suppressed_yawreset_request_count < NUM_SUPPRESSED_SUCCESSIVE_YAWRESET_MESSAGES) 
+                ? "." : (" (repeated messages suppressed).")));  
         return;
     }
+
+    successive_suppressed_yawreset_request_count = 0;
 
     last_yawreset_request_timestamp = curr_timestamp;        
     if ( enable_boardlevel_yawreset && ahrs_internal->IsBoardYawResetSupported() ) {
@@ -1139,6 +1143,7 @@ void AHRS::commonInit( uint8_t update_rate_hz ) {
     last_yawreset_request_timestamp = 0;
     successive_suppressed_yawreset_request_count = 0;
     disconnect_startupcalibration_recovery_pending = false;
+    logging_enabled = false;
 }
 
 /**

@@ -197,6 +197,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
     private double last_yawreset_request_timestamp;
     private int successive_suppressed_yawreset_request_count;
     private boolean disconnect_startupcalibration_recovery_pending;
+    private boolean logging_enabled;
 
     /***********************************************************/
     /* Public Interface Implementation                         */
@@ -411,19 +412,23 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
         if (delta_time_since_last_yawreset_request < SUPPRESSED_SUCESSIVE_YAWRESET_PERIOD_SECONDS) {
             successive_suppressed_yawreset_request_count++;
             if ((successive_suppressed_yawreset_request_count % NUM_SUPPRESSED_SUCCESSIVE_YAWRESET_MESSAGES) == 1) {
-                System.out.printf("navX-Sensor rapidly-repeated Yaw Reset ignored.  %s\n",
+                if (logging_enabled) System.out.printf("navX-Sensor rapidly-repeated Yaw Reset ignored%s\n",
                 ((successive_suppressed_yawreset_request_count < NUM_SUPPRESSED_SUCCESSIVE_YAWRESET_MESSAGES) 
-                    ? "" : ("repeated messages suppressed")));
+                    ? "." : (" (repeated messages suppressed).")));
             }
             return;
         }
     
-        successive_suppressed_yawreset_request_count = 0;
         if (isCalibrating()) {
-            System.out.printf("navX-Sensor Yaw Reset request ignored - startup calibration is currently in progress.\n");
+            if ((successive_suppressed_yawreset_request_count % NUM_SUPPRESSED_SUCCESSIVE_YAWRESET_MESSAGES) == 1) {
+                if (logging_enabled) System.out.printf("navX-Sensor Yaw Reset request ignored - startup calibration is currently in progress%s\n",
+                ((successive_suppressed_yawreset_request_count < NUM_SUPPRESSED_SUCCESSIVE_YAWRESET_MESSAGES) 
+                    ? "." : (" (repeated messages suppressed).")));            
             return;
         }
     
+        successive_suppressed_yawreset_request_count = 0;
+
         last_yawreset_request_timestamp = curr_timestamp; 
         if ( enable_boardlevel_yawreset && board_capabilities.isBoardYawResetSupported() ) {
             io.zeroYaw();
@@ -967,6 +972,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
         this.last_yawreset_request_timestamp = 0;
         this.successive_suppressed_yawreset_request_count = 0;        
         this.disconnect_startupcalibration_recovery_pending = false;
+        this.logging_enabled = false;
     }
 
     /***********************************************************/
@@ -1278,7 +1284,8 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
     public void enableLogging(boolean enable) {
     	if ( this.io != null) {
     		io.enableLogging(enable);
-    	}
+        }
+        this.logging_enabled = enable;
     }
 
     /**

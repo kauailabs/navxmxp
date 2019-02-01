@@ -133,6 +133,7 @@ private:
     double last_yawreset_request_timestamp;
     uint32_t successive_suppressed_yawreset_request_count;
     bool disconnect_startupcalibration_recovery_pending;
+    bool logging_enabled;
 
 public:
     AHRS(SPI::Port spi_port_id);
