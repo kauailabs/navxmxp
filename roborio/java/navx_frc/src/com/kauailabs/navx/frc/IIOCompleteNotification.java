@@ -28,6 +28,8 @@ interface IIOCompleteNotification {
     void setAHRSPosData(AHRSProtocol.AHRSPosUpdate ahrs_update, long sensor_timestamp);
     void setRawData(IMUProtocol.GyroUpdate raw_data_update, long sensor_timestamp);
     void setBoardID(AHRSProtocol.BoardID board_id);
-    void setBoardState( BoardState board_state);
+    void setBoardState( BoardState board_state, boolean update_board_status);
     void yawResetComplete();
+    void disconnectDetected();
+    void connectDetected();
 }

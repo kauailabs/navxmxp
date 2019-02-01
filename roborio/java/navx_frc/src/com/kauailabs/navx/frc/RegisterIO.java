@@ -30,6 +30,8 @@ class RegisterIO implements IIOProvider {
     int byte_count;
     int update_count;
     long last_sensor_timestamp;
+    boolean disconnect_reported;
+    boolean connect_reported;    
     
     static final double DELAY_OVERHEAD_SECONDS = 0.004;
     
@@ -44,6 +46,8 @@ class RegisterIO implements IIOProvider {
         board_state = new IIOCompleteNotification.BoardState();
         board_id = new AHRSProtocol.BoardID();
         last_sensor_timestamp = 0;
+        disconnect_reported   = false;
+        connect_reported      = true;        
     }
     
     private final double IO_TIMEOUT_SECONDS = 1.0;
@@ -99,7 +103,8 @@ class RegisterIO implements IIOProvider {
                 board_state.accel_fsr_g         = (short)config[IMURegisters.NAVX_REG_ACCEL_FSR_G];
                 board_state.update_rate_hz      = config[IMURegisters.NAVX_REG_UPDATE_RATE_HZ];
                 board_state.capability_flags    = AHRSProtocol.decodeBinaryUint16(config,IMURegisters.NAVX_REG_CAPABILITY_FLAGS_L);
-                notify_sink.setBoardState(board_state);
+                boolean update_board_status = true;
+                notify_sink.setBoardState(board_state, update_board_status);
                 success = true;
             } else {
                 success = false;
@@ -123,14 +128,19 @@ class RegisterIO implements IIOProvider {
             curr_data= new byte[IMURegisters.NAVX_REG_QUAT_OFFSET_Z_H + 1 - first_address];
         }
         if ( io_provider.read(first_address,curr_data) ) {
-        	long sensor_timestamp = AHRSProtocol.decodeBinaryUint32(curr_data, IMURegisters.NAVX_REG_TIMESTAMP_L_L-first_address);
+            long sensor_timestamp = AHRSProtocol.decodeBinaryUint32(curr_data, IMURegisters.NAVX_REG_TIMESTAMP_L_L-first_address);
+            if (!connect_reported) {
+                notify_sink.connectDetected();
+                connect_reported = true;
+                disconnect_reported = false;            
+            }            
             if ( sensor_timestamp == last_sensor_timestamp ) {
             	return;
             }
             last_sensor_timestamp = sensor_timestamp;
             ahrspos_update.op_status    = curr_data[IMURegisters.NAVX_REG_OP_STATUS - first_address];
             ahrspos_update.selftest_status = curr_data[IMURegisters.NAVX_REG_SELFTEST_STATUS - first_address];
-            ahrspos_update.cal_status      = curr_data[IMURegisters.NAVX_REG_CAL_STATUS];
+            ahrspos_update.cal_status      = curr_data[IMURegisters.NAVX_REG_CAL_STATUS - first_address];
             ahrspos_update.sensor_status   = curr_data[IMURegisters.NAVX_REG_SENSOR_STATUS_L - first_address];
             ahrspos_update.yaw             = AHRSProtocol.decodeProtocolSignedHundredthsFloat(curr_data, IMURegisters.NAVX_REG_YAW_L-first_address);
             ahrspos_update.pitch           = AHRSProtocol.decodeProtocolSignedHundredthsFloat(curr_data, IMURegisters.NAVX_REG_PITCH_L-first_address);
@@ -174,15 +184,12 @@ class RegisterIO implements IIOProvider {
                 notify_sink.setAHRSData( ahrs_update, sensor_timestamp );
             }
             
-            board_state.cal_status      = curr_data[IMURegisters.NAVX_REG_CAL_STATUS-first_address];
-            board_state.op_status       = curr_data[IMURegisters.NAVX_REG_OP_STATUS-first_address];
-            board_state.selftest_status = curr_data[IMURegisters.NAVX_REG_SELFTEST_STATUS-first_address];
-            board_state.sensor_status   = AHRSProtocol.decodeBinaryUint16(curr_data,IMURegisters.NAVX_REG_SENSOR_STATUS_L-first_address);
             board_state.update_rate_hz  = curr_data[IMURegisters.NAVX_REG_UPDATE_RATE_HZ-first_address];
             board_state.gyro_fsr_dps    = AHRSProtocol.decodeBinaryUint16(curr_data,IMURegisters.NAVX_REG_GYRO_FSR_DPS_L-first_address);
             board_state.accel_fsr_g     = (short)curr_data[IMURegisters.NAVX_REG_ACCEL_FSR_G-first_address];
             board_state.capability_flags= AHRSProtocol.decodeBinaryUint16(curr_data,IMURegisters.NAVX_REG_CAPABILITY_FLAGS_L-first_address);
-            notify_sink.setBoardState(board_state);
+            boolean update_board_status = false;
+            notify_sink.setBoardState(board_state, update_board_status);  // Board status already updated previously above
             
             raw_data_update.gyro_x      = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_GYRO_X_L-first_address);
             raw_data_update.gyro_y      = AHRSProtocol.decodeBinaryInt16(curr_data,  IMURegisters.NAVX_REG_GYRO_Y_L-first_address);
@@ -200,6 +207,11 @@ class RegisterIO implements IIOProvider {
             byte_count += curr_data.length;
             update_count++;
         }
+        if (connect_reported && !disconnect_reported && !isConnected()) {
+            notify_sink.disconnectDetected();
+            disconnect_reported = true;
+            connect_reported = false;
+        }        
     }
 
     @Override

@@ -41,6 +41,8 @@ class SerialIO implements IIOProvider {
 
     boolean debug = false; /* Set to true to enable debug output (to smart dashboard) */
     boolean is_usb;
+    boolean connect_reported;
+    boolean disconnect_reported;    
     
     public SerialIO( SerialPort.Port port_id, byte update_rate_hz, boolean processed_data, IIOCompleteNotification notify_sink, IBoardCapabilities board_capabilities ) {
         this.serial_port_id = port_id;
@@ -63,11 +65,18 @@ class SerialIO implements IIOProvider {
         } else {
             update_type = IMUProtocol.MSGID_GYRO_UPDATE;
         }
+        connect_reported = 
+            disconnect_reported = false;        
     }
     
     protected SerialPort resetSerialPort()
     {
         if (serial_port != null) {
+            if (connect_reported && !disconnect_reported && !isConnected()) {
+                notify_sink.disconnectDetected();
+                connect_reported = false;
+                disconnect_reported = true;
+            }            
     		System.out.println("Closing " + (is_usb ? "USB " : "TTL UART ") + " serial port to communicate with navX-MXP/Micro"); 
             try {
                 serial_port.close();
@@ -124,7 +133,7 @@ class SerialIO implements IIOProvider {
         board_state.accel_fsr_g = response.accel_fsr_g;
         board_state.gyro_fsr_dps = response.gyro_fsr_dps;
         board_state.update_rate_hz = (byte) response.update_rate_hz;
-        notify_sink.setBoardState(board_state);
+        notify_sink.setBoardState(board_state, true);
         /* If AHRSPOS_TS is update type is requested, but board doesn't support it, */
         /* retransmit the stream config, falling back to AHRSPos update mode, if    */
         /* the board supports it, otherwise fall all the way back to AHRS Update mode. */
@@ -332,6 +341,11 @@ class SerialIO implements IIOProvider {
                         if (packet_length > 0) {
                             packets_received++;
                             update_count++;
+                            if (!connect_reported) {
+                                notify_sink.connectDetected();
+                                connect_reported = true;
+                                disconnect_reported = false;
+                            }                            
                             last_valid_packet_time = Timer.getFPGATimestamp();
                             updates_in_last_second++;
                             if ((last_valid_packet_time - last_second_start_time ) > 1.0 ) {
@@ -349,6 +363,11 @@ class SerialIO implements IIOProvider {
                             if (packet_length > 0) {
                             	System.out.println("navX-MXP/Micro Configuration Response Received.");
                                 packets_received++;
+                                if (!connect_reported) {
+                                    notify_sink.connectDetected();
+                                    connect_reported = true;
+                                    disconnect_reported = false;
+                                }                                
                                 dispatchStreamResponse(response);
                                 stream_response_received = true;
                                 i += packet_length;

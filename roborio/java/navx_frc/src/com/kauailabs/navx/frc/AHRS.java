@@ -194,9 +194,9 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
     private final int MAX_NUM_CALLBACKS = 3;
 	
 	private boolean enable_boardlevel_yawreset;
-    private boolean previously_connected;
     private double last_yawreset_request_timestamp;
     private int successive_suppressed_yawreset_request_count;
+    private boolean disconnect_startupcalibration_recovery_pending;
 
     /***********************************************************/
     /* Public Interface Implementation                         */
@@ -245,6 +245,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      */
 
     public AHRS(SPI.Port spi_port_id, int spi_bitrate, byte update_rate_hz) {
+        System.out.printf("Instantiating navX-Sensor on SPI Port %d.\n", spi_port_id.toString());        
         commonInit(update_rate_hz);
         io = new RegisterIO(new RegisterIO_SPI(new SPI(spi_port_id), spi_bitrate), update_rate_hz, io_complete_sink, board_capabilities);
         io_thread.start();
@@ -262,6 +263,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      * @param update_rate_hz Custom Update Rate (Hz)
      */
     public AHRS(I2C.Port i2c_port_id, byte update_rate_hz) {
+        System.out.printf("Instantiating navX-Sensor on I2C Port %d.\n", i2c_port_id.toString());              
         commonInit(update_rate_hz);
         io = new RegisterIO(new RegisterIO_I2C(new I2C(i2c_port_id, 0x32)), update_rate_hz, io_complete_sink, board_capabilities);
         io_thread.start();
@@ -288,6 +290,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      * @param update_rate_hz Custom Update Rate (Hz)
      */
     public AHRS(SerialPort.Port serial_port_id, SerialDataType data_type, byte update_rate_hz) {
+        System.out.printf("Instantiating navX-Sensor on Serial Port %d.\n", serial_port_id.toString());        
         commonInit(update_rate_hz);
         boolean processed_data = (data_type == SerialDataType.kProcessedData);
         io = new SerialIO(serial_port_id, update_rate_hz, processed_data, io_complete_sink, board_capabilities);
@@ -417,7 +420,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
     
         successive_suppressed_yawreset_request_count = 0;
         if (isCalibrating()) {
-            System.out.printf("navX-Sensor Yaw Reset ignored - board is currently calibrating.\n");
+            System.out.printf("navX-Sensor Yaw Reset request ignored - startup calibration is currently in progress.\n");
             return;
         }
     
@@ -465,12 +468,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      * from the sensor.
      */
     public boolean isConnected() {
-        boolean currently_connected = io.isConnected();
-        if (currently_connected != previously_connected) {
-            System.out.printf("navX-Sensor is now %s.\n", currently_connected ? "Connected" : "DISCONNECTED!!!");
-        }
-        previously_connected = currently_connected;
-        return currently_connected;
+        return io.isConnected();
     }
 
     /**
@@ -966,9 +964,9 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
         this.callbacks = new ITimestampedDataSubscriber[MAX_NUM_CALLBACKS];
         this.callback_contexts = new Object[MAX_NUM_CALLBACKS];
         this.enable_boardlevel_yawreset = false;
-        this.previously_connected = false;
         this.last_yawreset_request_timestamp = 0;
         this.successive_suppressed_yawreset_request_count = 0;        
+        this.disconnect_startupcalibration_recovery_pending = false;
     }
 
     /***********************************************************/
@@ -1593,17 +1591,20 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
         }
     
         @Override
-        public void setBoardState(BoardState board_state) {
+        public void setBoardState(BoardState board_state, boolean update_board_status) {
             update_rate_hz = board_state.update_rate_hz;
             accel_fsr_g = board_state.accel_fsr_g;
             gyro_fsr_dps = board_state.gyro_fsr_dps;
-            capability_flags = board_state.capability_flags;    
-            updateBoardStatus( board_state.op_status, board_state.sensor_status, 
-            board_state.cal_status, board_state.selftest_status );
+            capability_flags = board_state.capability_flags;
+            if (update_board_status) {
+                updateBoardStatus( board_state.op_status, board_state.sensor_status, 
+                    board_state.cal_status, board_state.selftest_status );
+            }
         }
 
         void updateBoardStatus( byte op_status, short sensor_status, byte cal_status, byte selftest_status) {
             /* Detect/Report Board operational status transitions */
+            boolean poweron_init_completed = false;            
             if (AHRS.this.op_status == AHRSProtocol.NAVX_OP_STATUS_NORMAL) {
                 if (op_status != AHRSProtocol.NAVX_OP_STATUS_NORMAL) {
                     /* Board reset detected */
@@ -1611,13 +1612,25 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
                 }
             } else {
                 if (op_status == AHRSProtocol.NAVX_OP_STATUS_NORMAL) {
-                    System.out.printf("navX-Sensor poweron/reset initialization complete.\n");
-                    /* Detect/report reset of yaw angle tracker */
-                    if (((AHRS.this.cal_status & AHRSProtocol.NAVX_CAL_STATUS_IMU_CAL_STATE_MASK) != AHRSProtocol.NAVX_CAL_STATUS_IMU_CAL_COMPLETE) &&
-                        ((cal_status & AHRSProtocol.NAVX_CAL_STATUS_IMU_CAL_STATE_MASK) == AHRSProtocol.NAVX_CAL_STATUS_MAG_CAL_COMPLETE)) {
-                        AHRS.this.yaw_angle_tracker.init();                        
-                        System.out.printf("navX-Sensor Yaw angle auto-reset to 0.0.\n");
+                    poweron_init_completed = true;
+                    if ((cal_status & AHRSProtocol.NAVX_CAL_STATUS_IMU_CAL_STATE_MASK) != AHRSProtocol.NAVX_CAL_STATUS_IMU_CAL_COMPLETE) {
+                        System.out.printf("navX-Sensor startup initialization underway; startup calibration in progress.\n");
+                    } else {
+                        System.out.printf("navX-Sensor startup initialization and startup calibration complete.\n");
                     }
+                }
+            }
+
+            /* Detect/report reset of yaw angle tracker upon transition to startup calibration complete state. */
+            if (((AHRS.this.cal_status & AHRSProtocol.NAVX_CAL_STATUS_IMU_CAL_STATE_MASK) != AHRSProtocol.NAVX_CAL_STATUS_IMU_CAL_COMPLETE) &&
+                ((cal_status & AHRSProtocol.NAVX_CAL_STATUS_IMU_CAL_STATE_MASK) == AHRSProtocol.NAVX_CAL_STATUS_IMU_CAL_COMPLETE)) {
+                System.out.printf("navX-Sensor onboard startup calibration complete.\n");
+                /* Carefully, only reset the software yaw reset offset if calibration completion upon */
+                /* initial poweron or after board reset occurs. */
+                if (poweron_init_completed || AHRS.this.disconnect_startupcalibration_recovery_pending) {
+                    AHRS.this.disconnect_startupcalibration_recovery_pending = false;
+                    AHRS.this.yaw_angle_tracker.init();                        
+                    System.out.printf("navX-Sensor Yaw angle auto-reset to 0.0 due to startup calibration.\n");
                 }
             }
     
@@ -1635,7 +1648,24 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
             } else {
                 System.out.printf("navX-Sensor Software Yaw Reset completed.\n");            
             }            
-		}
+        }
+        
+        @Override
+        public void disconnectDetected() {
+            /* Board disconnect may be caused by intermittent communication loss, or by board reset. */
+            /* Default status to error */
+            AHRS.this.op_status = AHRSProtocol.NAVX_OP_STATUS_ERROR;    
+            AHRS.this.sensor_status = 0; /* Clear all sensor status flags */    
+            /* Flag the need to watch for a startup calibration completion event upon later reconnect. */
+            AHRS.this.disconnect_startupcalibration_recovery_pending = true;
+            System.out.printf("navX-Sensor DISCONNECTED!!!.\n");        
+        }
+    
+        @Override
+        public void connectDetected() {
+            System.out.printf("navX-Sensor Connected.\n");   
+        }
+    
     };
     
     /***********************************************************/
@@ -1645,7 +1675,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
     /**
      * Initializes smart dashboard communication.
      *
-     * @param build The SendableBuilder which will be registered with.
+     * @param builder The SendableBuilder which will be registered with.
      */     
 	@Override
 	public void initSendable(SendableBuilder builder) {
