@@ -239,16 +239,19 @@ class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
         ahrs->fw_ver_minor = board_id.fw_ver_minor;
     }
 
-    void SetBoardState(IIOCompleteNotification::BoardState& board_state) {
+    void SetBoardState(IIOCompleteNotification::BoardState& board_state, bool update_board_status) {
         ahrs->update_rate_hz = board_state.update_rate_hz;
         ahrs->accel_fsr_g = board_state.accel_fsr_g;
         ahrs->gyro_fsr_dps = board_state.gyro_fsr_dps;
         ahrs->capability_flags = board_state.capability_flags;
-        UpdateBoardStatus( board_state.op_status, board_state.sensor_status, board_state.cal_status, board_state.selftest_status );
+        if (update_board_status) {
+            UpdateBoardStatus( board_state.op_status, board_state.sensor_status, board_state.cal_status, board_state.selftest_status );
+        }
     }
 
     void UpdateBoardStatus( uint8_t op_status, int16_t sensor_status, uint8_t cal_status, uint8_t selftest_status) {
         /* Detect/Report Board operational status transitions */
+        bool poweron_init_completed = false;
         if (ahrs->op_status == NAVX_OP_STATUS_NORMAL) {
             if (op_status != NAVX_OP_STATUS_NORMAL) {
                 /* Board reset detected */
@@ -256,13 +259,25 @@ class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
             }
         } else {
             if (op_status == NAVX_OP_STATUS_NORMAL) {
-                printf("navX-Sensor poweron/reset initialization complete.\n");
-                /* Detect/report reset of yaw angle tracker */
-                if (((ahrs->cal_status & NAVX_CAL_STATUS_IMU_CAL_STATE_MASK) != NAVX_CAL_STATUS_IMU_CAL_COMPLETE) &&
-                    ((cal_status & NAVX_CAL_STATUS_IMU_CAL_STATE_MASK) == NAVX_CAL_STATUS_MAG_CAL_COMPLETE)) {
-                    ahrs->yaw_angle_tracker->Init();                        
-                    printf("navX-Sensor Yaw angle auto-reset to 0.0.\n");
+                poweron_init_completed = true;
+                if ((cal_status & NAVX_CAL_STATUS_IMU_CAL_STATE_MASK) != NAVX_CAL_STATUS_IMU_CAL_COMPLETE) {
+                    printf("navX-Sensor startup initialization underway; startup calibration in progress.\n");
+                } else {
+                    printf("navX-Sensor startup initialization and startup calibration complete.\n");                    
                 }
+            }
+        }
+
+        /* Detect/report reset of yaw angle tracker upon transition to startup calibration complete state. */
+        if (((ahrs->cal_status & NAVX_CAL_STATUS_IMU_CAL_STATE_MASK) != NAVX_CAL_STATUS_IMU_CAL_COMPLETE) &&
+            ((cal_status & NAVX_CAL_STATUS_IMU_CAL_STATE_MASK) == NAVX_CAL_STATUS_IMU_CAL_COMPLETE)) {
+            printf("navX-Sensor onboard startup calibration complete.\n");
+            /* Carefully, only reset the software yaw reset offset if calibration completion upon */
+            /* initial poweron or after board reset occurs. */
+            if (poweron_init_completed || ahrs->disconnect_startupcalibration_recovery_pending) {
+                ahrs->disconnect_startupcalibration_recovery_pending = false;
+                ahrs->yaw_angle_tracker->Init();                        
+                printf("navX-Sensor Yaw angle auto-reset to 0.0 due to startup calibration.\n");
             }
         }
 
@@ -280,6 +295,20 @@ class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
             printf("navX-Sensor Software Yaw Reset completed.\n");            
         }
 	}
+
+    void DisconnectDetected() {
+        /* Board disconnect may be caused by intermittent communication loss, or by board reset. */
+        /* Default status to error */
+        ahrs->op_status = NAVX_OP_STATUS_ERROR;    
+        ahrs->sensor_status = 0; /* Clear all sensor status flags */    
+        /* Flag the need to watch for a startup calibration completion event upon later reconnect. */
+        ahrs->disconnect_startupcalibration_recovery_pending = true;
+        printf("navX-Sensor DISCONNECTED!!!.\n");        
+    }
+
+    void ConnectDetected() {
+        printf("navX-Sensor Connected.\n");   
+    }
 
     /***********************************************************/
     /* IBoardCapabilities Interface Implementation        */
@@ -516,7 +545,7 @@ void AHRS::ZeroYaw() {
 
     successive_suppressed_yawreset_request_count = 0;
     if (IsCalibrating()) {
-        printf("navX-Sensor Yaw Reset ignored - board is currently calibrating.\n");
+        printf("navX-Sensor Yaw Reset request ignored - startup calibration is currently in progress.\n");
         return;
     }
 
@@ -563,12 +592,7 @@ bool AHRS::IsCalibrating() {
  * from the sensor.
  */
 bool AHRS::IsConnected() {
-    bool currently_connected = io->IsConnected();
-    if (currently_connected != previously_connected) {
-        printf("navX-Sensor is now %s.\n", currently_connected ? "Connected" : "DISCONNECTED!!!");
-    }
-    previously_connected = currently_connected;
-    return currently_connected;
+    return io->IsConnected();
 }
 
 /**
@@ -1014,18 +1038,21 @@ int16_t AHRS::GetAccelFullScaleRangeG() {
 #define NAVX_IO_THREAD_NAME "navXIOThread"
 
 void AHRS::SPIInit( SPI::Port spi_port_id, uint32_t bitrate, uint8_t update_rate_hz ) {
+    printf("Instantiating navX-Sensor on SPI Port %d.\n", spi_port_id);
     commonInit( update_rate_hz );
     io = new RegisterIO(new RegisterIO_SPI(new SPI(spi_port_id), bitrate), update_rate_hz, ahrs_internal, ahrs_internal);
     task = new std::thread(AHRS::ThreadFunc, io);
 }
 
 void AHRS::I2CInit( I2C::Port i2c_port_id, uint8_t update_rate_hz ) {
+    printf("Instantiating navX-Sensor on I2C Port %d.\n", i2c_port_id);
     commonInit(update_rate_hz);
     io = new RegisterIO(new RegisterIO_I2C(new I2C(i2c_port_id, NAVX_MXP_I2C_ADDRESS)), update_rate_hz, ahrs_internal, ahrs_internal);
     task = new std::thread(AHRS::ThreadFunc, io);
 }
 
 void AHRS::SerialInit(SerialPort::Port serial_port_id, AHRS::SerialDataType data_type, uint8_t update_rate_hz) {
+    printf("Instantiating navX-Sensor on Serial Port %d.\n", serial_port_id);    
     commonInit(update_rate_hz);
     bool processed_data = (data_type == SerialDataType::kProcessedData);
     io = new SerialIO(serial_port_id, update_rate_hz, processed_data, ahrs_internal, ahrs_internal);
@@ -1109,9 +1136,9 @@ void AHRS::commonInit( uint8_t update_rate_hz ) {
     }
 	
 	enable_boardlevel_yawreset = false;
-    previously_connected = false;
     last_yawreset_request_timestamp = 0;
     successive_suppressed_yawreset_request_count = 0;
+    disconnect_startupcalibration_recovery_pending = false;
 }
 
 /**

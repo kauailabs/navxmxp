@@ -44,11 +44,18 @@ SerialIO::SerialIO( SerialPort::Port port_id,
     byte_count = 0;
     update_count = 0;
     last_valid_packet_time = 0;
+    connect_reported = 
+        disconnect_reported = false;
 }
 
 SerialPort *SerialIO::ResetSerialPort()
 {
     if (serial_port != 0) {
+        if (connect_reported && !disconnect_reported && !IsConnected()) {
+            notify_sink->DisconnectDetected();
+            connect_reported = false;
+            disconnect_reported = true;
+        }
         try {
             delete serial_port;
         } catch (std::exception& ex) {
@@ -101,7 +108,7 @@ void SerialIO::DispatchStreamResponse(IMUProtocol::StreamResponse& response) {
     board_state.accel_fsr_g = response.accel_fsr_g;
     board_state.gyro_fsr_dps = response.gyro_fsr_dps;
     board_state.update_rate_hz = (uint8_t) response.update_rate_hz;
-    notify_sink->SetBoardState(board_state);
+    notify_sink->SetBoardState(board_state, true);
     /* If AHRSPOS_TS is update type is requested, but board doesn't support it, */
     /* retransmit the stream config, falling back to AHRSPos update mode, if    */
     /* the board supports it, otherwise fall all the way back to AHRS Update mode. */
@@ -304,6 +311,11 @@ void SerialIO::Run() {
                     if (packet_length > 0) {
                         packets_received++;
                         update_count++;
+                        if (!connect_reported) {
+                            notify_sink->ConnectDetected();
+                            connect_reported = true;
+                            disconnect_reported = false;
+                        }
                         last_valid_packet_time = Timer::GetFPGATimestamp();
                         updates_in_last_second++;
                         if ((last_valid_packet_time - last_second_start_time ) > 1.0 ) {
@@ -320,6 +332,11 @@ void SerialIO::Run() {
                         packet_length = IMUProtocol::decodeStreamResponse(received_data + i, bytes_remaining, response);
                         if (packet_length > 0) {
                             packets_received++;
+                            if (!connect_reported) {
+                                notify_sink->ConnectDetected();
+                                connect_reported = true;
+                                disconnect_reported = false;
+                            }                            
                             DispatchStreamResponse(response);
                             stream_response_received = true;
                             i += packet_length;

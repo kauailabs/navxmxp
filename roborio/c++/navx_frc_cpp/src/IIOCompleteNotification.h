@@ -31,8 +31,10 @@ public:
     virtual void SetAHRSPosData(AHRSProtocol::AHRSPosUpdate& ahrs_update, long sensor_timestamp) = 0;
     virtual void SetRawData(IMUProtocol::GyroUpdate& raw_data_update, long sensor_timestamp) = 0;
     virtual void SetBoardID(AHRSProtocol::BoardID& board_id) = 0;
-    virtual void SetBoardState( BoardState& board_state) = 0;
+    virtual void SetBoardState( BoardState& board_state, bool update_board_status) = 0;
     virtual void YawResetComplete() = 0;
+    virtual void DisconnectDetected() = 0;
+    virtual void ConnectDetected() = 0;    
 };
 
 #endif /* SRC_IIOCOMPLETENOTIFICATION_H_ */

@@ -130,9 +130,9 @@ private:
     void *callback_contexts[MAX_NUM_CALLBACKS];
 	
 	bool enable_boardlevel_yawreset;
-    bool previously_connected;
     double last_yawreset_request_timestamp;
     uint32_t successive_suppressed_yawreset_request_count;
+    bool disconnect_startupcalibration_recovery_pending;
 
 public:
     AHRS(SPI::Port spi_port_id);
