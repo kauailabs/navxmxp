@@ -46,6 +46,7 @@ SerialIO::SerialIO( SerialPort::Port port_id,
     last_valid_packet_time = 0;
     connect_reported = 
         disconnect_reported = false;
+    debug = false;
 }
 
 SerialPort *SerialIO::ResetSerialPort()
@@ -207,6 +208,7 @@ void SerialIO::Run() {
 
         	if( serial_port == NULL) {
                 delayMillis(1000/update_rate_hz);
+                if (debug) printf("Initiating reset of serial port, as serial_port reference is null.\n");
         		ResetSerialPort();
         		continue;
         	}
@@ -224,7 +226,13 @@ void SerialIO::Run() {
                 	/* Ugly Hack.  This is a workaround for ARTF5478:           */
                 	/* (USB Serial Port Write hang if receive buffer not empty. */
                 	if (is_usb) {
-                		serial_port->Reset();
+                        try {
+                		    serial_port->Reset();
+                        }  catch (std::exception& ex) {
+                            /* Sometimes an unclean status exception occurs during reset(). */
+                            ResetSerialPort();
+                            if (debug) printf("Exception during invocation of SerialPort::Reset:  %s\n", ex.what());
+                        }
                 	}
                     int num_written = serial_port->Write( integration_control_command, cmd_packet_length );
                     if ( num_written != cmd_packet_length ) {
@@ -496,17 +504,23 @@ void SerialIO::Run() {
                         (!stream_response_received && ((Timer::GetFPGATimestamp() - last_stream_command_sent_timestamp ) > 3.0 ) ) ) {
                     cmd_packet_length = IMUProtocol::encodeStreamCommand( stream_command, update_type, update_rate_hz );
                     try {
-                        ResetSerialPort();
-                        last_stream_command_sent_timestamp = Timer::GetFPGATimestamp();
+                        printf("Retransmitting stream configuration command to navX-MXP/Micro.\n");                        
                     	/* Ugly Hack.  This is a workaround for ARTF5478:           */
                     	/* (USB Serial Port Write hang if receive buffer not empty. */
                     	if (is_usb) {
-                    		serial_port->Reset();
+                            try {
+                                serial_port->Reset();
+                            }  catch (std::exception& ex) {
+                                /* Sometimes an unclean status exception occurs during reset(). */
+                                ResetSerialPort();
+                                if (debug) printf("Exception during invocation of SerialPort::Reset:  %s\n", ex.what());                            
+                            }
                     	}
                         serial_port->Write( stream_command, cmd_packet_length );
                         cmd_packet_length = AHRSProtocol::encodeDataGetRequest( stream_command,  AHRS_DATA_TYPE::BOARD_IDENTITY, AHRS_TUNING_VAR_ID::UNSPECIFIED );
                         serial_port->Write( stream_command, cmd_packet_length );
                         serial_port->Flush();
+                        last_stream_command_sent_timestamp = Timer::GetFPGATimestamp();                        
                     } catch (std::exception ex2) {
                         printf("SerialPort Run() Re-transmit Encode Stream Command Exception:  %s\n", ex2.what());
                     }
@@ -530,6 +544,7 @@ void SerialIO::Run() {
             } else {
                 /* No data received this time around */
                 if ( Timer::GetFPGATimestamp() - last_data_received_timestamp  > 1.0 ) {
+                    if (debug) printf("Initiating Serial Port Reset since no data was received in the last second.\n");
                     ResetSerialPort();
                 }
             }
@@ -541,6 +556,7 @@ void SerialIO::Run() {
                 SmartDashboard::PutNumber("navX Serial Port Timeout / Buffer Overrun", (double)timeout_count);
                 SmartDashboard::PutString("navX Last Exception", ex.what());
             #endif
+            if (debug) printf("Initiating Serial Port Reset due to exception during Run() loop.\n");
             ResetSerialPort();
         }
     }
@@ -578,4 +594,5 @@ void SerialIO::Stop() {
 }
 
 void SerialIO::EnableLogging(bool enable) {
+    debug = enable;
 }

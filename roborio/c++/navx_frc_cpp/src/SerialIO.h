@@ -45,6 +45,7 @@ class SerialIO : public IIOProvider {
     bool is_usb;
     bool connect_reported;
     bool disconnect_reported;
+    bool debug;
 
 public:
     SerialIO( SerialPort::Port port_id,

@@ -236,7 +236,8 @@ class SerialIO implements IIOProvider {
 
             	if( serial_port == null) {
                     double update_rate = 1.0/((double)((int)(this.update_rate_hz & 0xFF)));
-            		Timer.delay(update_rate);
+                    Timer.delay(update_rate);
+                    if (debug) System.out.println("Initiating reset of serial port, as serial_port reference is null.");
             		resetSerialPort();
             		continue;
             	}
@@ -252,7 +253,13 @@ class SerialIO implements IIOProvider {
                     	/* Ugly Hack.  This is a workaround for ARTF5478:           */
                     	/* (USB Serial Port Write hang if receive buffer not empty. */
                     	if (is_usb) {
-                    		serial_port.reset();
+                            try {
+                                serial_port.reset();
+                            } catch (RuntimeException ex2) {
+                                /* Sometimes an unclean status exception occurs during reset(). */
+                                ex2.printStackTrace();
+                                resetSerialPort();
+                            }  
                     	}
                         serial_port.write( integration_control_command, cmd_packet_length );
                     } catch (RuntimeException ex2) {
@@ -518,23 +525,28 @@ class SerialIO implements IIOProvider {
 
                     // If a stream configuration response has not been received within three seconds
                     // of operation, (re)send a stream configuration request
-
                     if ( retransmit_stream_config ||
                             (!stream_response_received && ((Timer.getFPGATimestamp() - last_stream_command_sent_timestamp ) > 3.0 ) ) ) {
                         cmd_packet_length = IMUProtocol.encodeStreamCommand( stream_command, update_type, update_rate_hz ); 
                         try {
-                        	System.out.println("Retransmitting stream configuration command to navX-MXP/Micro.");
-                            resetSerialPort();
-                            last_stream_command_sent_timestamp = Timer.getFPGATimestamp();
+                            System.out.println("Retransmitting stream configuration command to navX-MXP/Micro.");
                         	/* Ugly Hack.  This is a workaround for ARTF5478:           */
                         	/* (USB Serial Port Write hang if receive buffer not empty. */
-                        	if (is_usb) {
-                        		serial_port.reset();
-                        	}                            
+                            if (is_usb) {
+                                if (debug) System.out.println("Resetting serial port via reset().");
+                                try {
+                                    serial_port.reset();
+                                } catch (RuntimeException ex2) {
+                                    /* Sometimes an unclean status exception occurs during reset(). */
+                                    ex2.printStackTrace();
+                                    resetSerialPort();
+                                } 
+                            }                                                       
                             serial_port.write( stream_command, cmd_packet_length );
                             cmd_packet_length = AHRSProtocol.encodeDataGetRequest( stream_command,  AHRSProtocol.AHRS_DATA_TYPE.BOARD_IDENTITY, (byte)0 ); 
                             serial_port.write( stream_command, cmd_packet_length );
                             serial_port.flush();
+                            last_stream_command_sent_timestamp = Timer.getFPGATimestamp();                             
                         } catch (RuntimeException ex2) {
                             ex2.printStackTrace();
                         }                                                    
@@ -559,6 +571,7 @@ class SerialIO implements IIOProvider {
                 } else {
                     /* No data received this time around */
                     if ( Timer.getFPGATimestamp() - last_data_received_timestamp  > 1.0 ) {
+                        if (debug) System.out.println("Initiating Serial Port Reset since no data was received in the last second.");
                         resetSerialPort();
                     }                   
                 }
@@ -571,6 +584,7 @@ class SerialIO implements IIOProvider {
                     SmartDashboard.putString("navX Last Exception", ex.getMessage() + "; " + ex.toString());
                 }
                 ex.printStackTrace();
+                if (debug) System.out.println("Initiating Serial Port Reset due to exception during Run() loop.");                
                 resetSerialPort();
             }
         }
@@ -580,6 +594,7 @@ class SerialIO implements IIOProvider {
                 serial_port.close();
             } catch (Exception ex) {
                 // This has been seen to happen before....
+                ex.printStackTrace();                
             }
             serial_port = null;
         }    
