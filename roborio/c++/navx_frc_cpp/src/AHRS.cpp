@@ -548,6 +548,7 @@ void AHRS::ZeroYaw() {
             if (logging_enabled) printf("navX-Sensor Yaw Reset request ignored - startup calibration is currently in progress%s\n",
             ((successive_suppressed_yawreset_request_count < NUM_SUPPRESSED_SUCCESSIVE_YAWRESET_MESSAGES) 
                 ? "." : (" (repeated messages suppressed).")));  
+        }
         return;
     }
 
