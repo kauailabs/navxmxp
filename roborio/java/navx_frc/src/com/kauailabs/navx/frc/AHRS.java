@@ -420,11 +420,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
         }
     
         if (isCalibrating()) {
-            if ((successive_suppressed_yawreset_request_count % NUM_SUPPRESSED_SUCCESSIVE_YAWRESET_MESSAGES) == 1) {
-                if (logging_enabled) System.out.printf("navX-Sensor Yaw Reset request ignored - startup calibration is currently in progress%s\n",
-                ((successive_suppressed_yawreset_request_count < NUM_SUPPRESSED_SUCCESSIVE_YAWRESET_MESSAGES) 
-                    ? "." : (" (repeated messages suppressed).")));            
-            }
+            if (logging_enabled) System.out.printf("navX-Sensor Yaw Reset request ignored - startup calibration is currently in progress.\n");
             return;
         }
     
