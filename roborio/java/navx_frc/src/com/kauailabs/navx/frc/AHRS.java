@@ -423,7 +423,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
         if (isCalibrating()) {
             double delta_time_since_last_yawreset_while_calibrating_request =
                 curr_timestamp - last_yawreset_while_calibrating_request_timestamp;
-            if (logging_enabled && (delta_time_since_last_yawreset_while_calibrating_request < SUPPRESSED_SUCESSIVE_YAWRESET_PERIOD_SECONDS)) {
+            if (logging_enabled && (delta_time_since_last_yawreset_while_calibrating_request > SUPPRESSED_SUCESSIVE_YAWRESET_PERIOD_SECONDS)) {
                 System.out.printf("navX-Sensor Yaw Reset request ignored - startup calibration is currently in progress.\n");
             }
             last_yawreset_while_calibrating_request_timestamp = curr_timestamp;
