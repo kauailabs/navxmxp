@@ -544,7 +544,12 @@ void AHRS::ZeroYaw() {
     }
 
     if (IsCalibrating()) {
-        if (logging_enabled) printf("navX-Sensor Yaw Reset request ignored - startup calibration is currently in progress.\n");
+        double delta_time_since_last_yawreset_while_calibrating_request =
+            curr_timestamp - last_yawreset_while_calibrating_request_timestamp;
+        if (logging_enabled && delta_time_since_last_yawreset_while_calibrating_request < SUPPRESSED_SUCESSIVE_YAWRESET_PERIOD_SECONDS) {
+            printf("navX-Sensor Yaw Reset request ignored - startup calibration is currently in progress.\n");
+        }
+        last_yawreset_while_calibrating_request_timestamp = curr_timestamp;
         return;
     }
 
@@ -1138,6 +1143,7 @@ void AHRS::commonInit( uint8_t update_rate_hz ) {
 	
 	enable_boardlevel_yawreset = false;
     last_yawreset_request_timestamp = 0;
+    last_yawreset_while_calibrating_request_timestamp = 0;
     successive_suppressed_yawreset_request_count = 0;
     disconnect_startupcalibration_recovery_pending = false;
     logging_enabled = false;

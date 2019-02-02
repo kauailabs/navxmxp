@@ -131,6 +131,7 @@ private:
 	
 	bool enable_boardlevel_yawreset;
     double last_yawreset_request_timestamp;
+    double last_yawreset_while_calibrating_request_timestamp;
     uint32_t successive_suppressed_yawreset_request_count;
     bool disconnect_startupcalibration_recovery_pending;
     bool logging_enabled;

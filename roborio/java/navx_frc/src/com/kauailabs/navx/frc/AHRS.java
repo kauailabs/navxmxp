@@ -195,6 +195,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
 	
 	private boolean enable_boardlevel_yawreset;
     private double last_yawreset_request_timestamp;
+    private double last_yawreset_while_calibrating_request_timestamp;
     private int successive_suppressed_yawreset_request_count;
     private boolean disconnect_startupcalibration_recovery_pending;
     private boolean logging_enabled;
@@ -420,7 +421,12 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
         }
     
         if (isCalibrating()) {
-            if (logging_enabled) System.out.printf("navX-Sensor Yaw Reset request ignored - startup calibration is currently in progress.\n");
+            double delta_time_since_last_yawreset_while_calibrating_request =
+                curr_timestamp - last_yawreset_while_calibrating_request_timestamp;
+            if (logging_enabled && delta_time_since_last_yawreset_while_calibrating_request < SUPPRESSED_SUCESSIVE_YAWRESET_PERIOD_SECONDS) {
+                System.out.printf("navX-Sensor Yaw Reset request ignored - startup calibration is currently in progress.\n");
+            }
+            last_yawreset_while_calibrating_request_timestamp = curr_timestamp;
             return;
         }
     
@@ -967,6 +973,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
         this.callback_contexts = new Object[MAX_NUM_CALLBACKS];
         this.enable_boardlevel_yawreset = false;
         this.last_yawreset_request_timestamp = 0;
+        this.last_yawreset_while_calibrating_request_timestamp = 0;
         this.successive_suppressed_yawreset_request_count = 0;        
         this.disconnect_startupcalibration_recovery_pending = false;
         this.logging_enabled = false;
