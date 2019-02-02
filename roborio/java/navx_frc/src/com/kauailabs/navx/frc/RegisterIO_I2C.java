@@ -73,7 +73,8 @@ class RegisterIO_I2C implements IRegisterIO{
                         System.out.printf("navX-MXP I2C Read error %s.\n",
                             ((successive_error_count < NUM_IGNORED_SUCCESSIVE_ERRORS) ? "" : " (Repeated errors omitted)"));
                     }
-                }                
+                }
+                return false;                
             }
         }
         return (len == 0);

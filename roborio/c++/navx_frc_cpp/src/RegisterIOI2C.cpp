@@ -55,6 +55,7 @@ bool RegisterIO_I2C::Read(uint8_t first_address, uint8_t* buffer, uint8_t buffer
                 }
                 break;
             }
+            return false;
         }
     }
     return (len == 0);
