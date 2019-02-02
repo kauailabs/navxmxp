@@ -992,6 +992,7 @@ void AHRS::EnableLogging(bool enable) {
 	if ( this->io != NULL) {
 		io->EnableLogging(enable);
 	}
+    logging_enabled = enable;
 }
 
 /**
