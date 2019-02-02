@@ -57,6 +57,7 @@ SerialPort *SerialIO::ResetSerialPort()
             connect_reported = false;
             disconnect_reported = true;
         }
+   		printf("Closing %s serial port to communicate with navX-MXP/Micro.\n", (is_usb ? "USB " : "TTL UART "));
         try {
             delete serial_port;
         } catch (std::exception& ex) {
@@ -72,6 +73,7 @@ SerialPort *SerialIO::GetMaybeCreateSerialPort()
 {
     if (serial_port == 0) {
         try {
+        	printf("Opening %s serial port to communicate with navX-MXP/Micro.\n", (is_usb ? "USB " : "TTL UART "));            
             serial_port = new SerialPort(57600, serial_port_id);
             serial_port->SetReadBufferSize(256);
             serial_port->SetTimeout(1.0);
