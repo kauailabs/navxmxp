@@ -463,6 +463,32 @@ static int IOCX_gpio_interrupt_timer_reset_targets[IOCX_NUM_INTERRUPTS];
 static volatile uint16_t int_status = 0;  /* Todo:  Review Race Conditions */
 static volatile uint16_t last_int_edge = 0;
 static volatile uint16_t int_mask = 0; /* Todo:  Review Race Conditions */
+int gpio_suspended = 0;
+
+void HAL_IOCX_FlexDIO_Suspend(int suspend) {
+	uint32_t temp;
+	uint32_t position;
+	int i;
+
+	if (suspend == gpio_suspended) return;
+
+	for (i = 0; i < IOCX_NUM_GPIOS; i++) {
+		GPIO_TypeDef *p_gpio = gpio_channels[i].p_gpio;
+		uint16_t pin = gpio_channels[i].pin;
+
+		position = POSITION_VAL(pin);
+		temp = p_gpio->MODER;
+		temp &= ~(GPIO_MODER_MODER0 << (position * 2));
+		if (suspend) {
+			temp |= ((GPIO_MODE_INPUT) << (position * 2));
+		} else {
+			temp |= ((IOCX_gpio_pin_mode_configuration[POSITION_VAL(gpio_channels[i].pin)]) << (position * 2));
+		}
+		p_gpio->MODER = temp;
+	}
+
+	gpio_suspended = suspend;
+}
 
 static void HAL_IOCX_EXTI_ISR(uint8_t gpio_pin)
 {
@@ -499,12 +525,12 @@ void HAL_IOCX_Init()
 		if (gpio_channels[i].interrupt_type == INT_EXTI) {
 			IOCX_gpio_pin_to_interrupt_index_map[POSITION_VAL(gpio_channels[i].pin)] = gpio_channels[i].interrupt_index;
 			IOCX_gpio_pin_to_gpio_channel_index_map[POSITION_VAL(gpio_channels[i].pin)] = i;
-			IOCX_gpio_pin_mode_configuration[POSITION_VAL(gpio_channels[i].pin)] = 0;
+			IOCX_gpio_pin_mode_configuration[POSITION_VAL(gpio_channels[i].pin)] = GPIO_MODE_INPUT;
 			attachInterrupt(gpio_channels[i].pin, &HAL_IOCX_EXTI_ISR, FALLING);
 		} else if (gpio_channels[i].interrupt_type == INT_ALTPIN) {
 			IOCX_gpio_pin_to_interrupt_index_map[POSITION_VAL(altint_pin)] = gpio_channels[i].interrupt_index;
 			IOCX_gpio_pin_to_gpio_channel_index_map[POSITION_VAL(altint_pin)] = i;
-			IOCX_gpio_pin_mode_configuration[POSITION_VAL(altint_pin)] = 0;
+			IOCX_gpio_pin_mode_configuration[POSITION_VAL(altint_pin)] = GPIO_MODE_INPUT;
 			attachInterrupt(altint_pin, &HAL_IOCX_EXTI_ISR, FALLING);
 		}
 	}
@@ -922,7 +948,7 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 	if (gpio_channels[gpio_index].interrupt_type == INT_ALTPIN ) {
 		/* Deinit the altpin gpio */
 		HAL_GPIO_DeInit(p_altint_port, altint_pin);
-		IOCX_gpio_pin_mode_configuration[POSITION_VAL(altint_pin)] = 0;
+		IOCX_gpio_pin_mode_configuration[POSITION_VAL(altint_pin)] = GPIO_MODE_INPUT;
 	}
 
 	IOCX_GPIO_TYPE type = iocx_decode_gpio_type(&config);
@@ -1003,11 +1029,19 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 		return;
 	}
 	if (!altpin_int_enabled) {
-		HAL_GPIO_Init(gpio_channels[gpio_index].p_gpio, &GPIO_InitStruct);
 		IOCX_gpio_pin_mode_configuration[POSITION_VAL(gpio_channels[gpio_index].pin)] = GPIO_InitStruct.Mode;
+		if (gpio_suspended) {
+			/* Force Mode (while suspended) to INPUT */
+			GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+		}
+		HAL_GPIO_Init(gpio_channels[gpio_index].p_gpio, &GPIO_InitStruct);
 	} else {
-		HAL_GPIO_Init(p_altint_port, &GPIO_InitStructAltpin);
 		IOCX_gpio_pin_mode_configuration[POSITION_VAL(altint_pin)] = GPIO_InitStructAltpin.Mode;
+		if (gpio_suspended) {
+			/* Force Mode (while suspended) to INPUT */
+			GPIO_InitStructAltpin.Mode = GPIO_MODE_INPUT;
+		}
+		HAL_GPIO_Init(p_altint_port, &GPIO_InitStructAltpin);
 	}
 }
 

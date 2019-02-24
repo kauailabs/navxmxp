@@ -41,6 +41,29 @@ _EXTERN_ATTRIB void IOCX_init()
 	iocx_ex_regs.capability_flags.unused = 0;
 }
 
+static bool output_suspended = false;
+
+static void IOCX_OutputSuspend(bool suspend)
+{
+	if (suspend) {
+		if (!output_suspended) {
+			HAL_IOCX_FlexDIO_Suspend(1);
+			if (HAL_IOCX_RPI_GPIO_Output()) {
+				HAL_IOCX_RPI_GPIO_Driver_Enable(0);
+			}
+			HAL_IOCX_RPI_COMM_Driver_Enable(0);
+			output_suspended = true;
+		}
+	} else {
+		if (output_suspended) {
+			HAL_IOCX_FlexDIO_Suspend(0);
+			HAL_IOCX_RPI_GPIO_Driver_Enable(1);
+			HAL_IOCX_RPI_COMM_Driver_Enable(1);
+			output_suspended = false;
+		}
+	}
+}
+
 #define NUM_MS_BETWEEN_SUCCESSIVE_LOOPS 20
 
 _EXTERN_ATTRIB void IOCX_loop()

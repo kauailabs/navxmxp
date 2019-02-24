@@ -165,6 +165,7 @@ uint16_t HAL_IOCX_GetInterruptMask();
 uint16_t HAL_IOCX_GetInterruptStatus();
 uint16_t HAL_IOCX_GetLastInterruptEdges();
 void HAL_IOCX_SysTick_Handler();
+void HAL_IOCX_FlexDIO_Suspend(int suspend);
 #endif
 
 /* Timers (QuadEncoder/PWM) */
