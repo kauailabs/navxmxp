@@ -40,7 +40,8 @@ THE SOFTWARE.
 #define IOCX_EX_REGISTER_BANK 4
 
 typedef struct {
-	uint16_t unused				: 11;
+	uint16_t unused				: 10;
+	uint16_t io_watchdog_support: 1;  /* 1:  IO Watchdog supported. */
 	uint16_t tmrcntreset_support: 1;  /* 1:  Timer Counter can be reset by interrupt.   */
 	uint16_t countercfg_support : 1;  /* 1:  Adv Timer Counter configuration supported. */
 	uint16_t slvmd_cfg_support  : 1;  /* 1:  Timer Slave Mode configuration supported.  */
@@ -132,6 +133,28 @@ typedef enum _TIMER_INPUT_CAPTURE_STALL_ACTION {
 #define TIMER_INPUT_CH_STALL_TIMEOUT_MAX		127
 #define TIMER_INPUT_CH_SHALL_TIMEOUT_UNIT_MS	20
 
+typedef enum _IO_WATCHDOG_MODE {
+	IO_WATCHDOG_DISABLED = 0,
+	IO_WATCHDOG_ENABLED = 1,
+} IO_WATCHDOG_MODE;
+
+typedef enum _IO_WATCHDOG_STATE {
+	IO_WATCHDOG_STATE_NORMAL = 0,
+	IO_WATCHDOG_STATE_EXPIRED = 1,
+} IO_WATCHDOG_STATE;
+
+typedef struct {
+	uint8_t manage_commdio   : 1; /* 1:  COMMDIO Output Pins managed by watchdog.   */
+	uint8_t manage_hicurrdio : 1; /* 1:  HICURRDIO Output Pins managed by watchdog. */
+	uint8_t manage_flexdio   : 1; /* 1:  FLEXDIO Output Pins managed by watchdog.   */
+	uint8_t					 : 5; /* Reserved */
+} IO_WATCHDOG_OUTPUT_CONFIG;
+
+#define IO_WATCHDOG_TIMEOUT_DEFAULT_PERIOD_MS	250
+#define IO_WATCHDOG_CMD_FEED		 	0xA3 	// Write to "watchdog command" register to feed watchdog
+#define IO_WATCHDOG_CMD_EXPIRENOW		0xE5	// Write to "watchdog command" register to immediately expire watchdog
+#define IO_WATCHDOG_CMD_NONE			0x00
+
 struct __attribute__ ((__packed__)) IOCX_EX_REGS {
 	/****************/
 	/* Capabilities */
@@ -150,9 +173,16 @@ struct __attribute__ ((__packed__)) IOCX_EX_REGS {
 	/* TIMER_COUNTER_INTERRUPT_RESET, Interrupt Reset Source (4 bits)   */
 	/* Resource Source is Interrupt Index, 0 to (IOCX_NUM_INTERRUPTS-1) */
 	uint8_t timer_counter_reset_cfg[IOCX_NUM_TIMERS];
+	/* IO WATCHDOG */
+	uint8_t io_watchdog_status;
 	/*****************/
 	/* Configuration */
 	/*****************/
+	/* IO WATCHDOG */
+	uint8_t io_watchdog_mode;
+	IO_WATCHDOG_OUTPUT_CONFIG io_watchdog_output_cfg;
+	uint16_t io_watchdog_timeout_period_ms;
+	uint8_t io_watchdog_command;
 	uint8_t end_of_bank;
 };
 
@@ -169,6 +199,8 @@ static RegEncoding timer_ic_stall_action_reg = { offsetof(struct IOCX_EX_REGS, t
 static RegEncoding timer_counter_interrupt_reset_mode_reg = { offsetof(struct IOCX_EX_REGS, timer_counter_reset_cfg), 0, 0x01 };
 static RegEncoding timer_counter_level_reset_mode_reg = { offsetof(struct IOCX_EX_REGS, timer_counter_reset_cfg), 1, 0x03 };
 static RegEncoding timer_counter_reset_src_reg = { offsetof(struct IOCX_EX_REGS, timer_counter_reset_cfg), 4, 0x0F };
+static RegEncoding io_watchdog_mode_reg = { offsetof(struct IOCX_EX_REGS, io_watchdog_mode), 0, 0x01 };
+static RegEncoding io_watchdog_status_reg = { offsetof(struct IOCX_EX_REGS, io_watchdog_status), 0, 0x01 };
 
 inline void iocx_ex_timer_encode_counter_clk_src(uint8_t* reg, TIMER_COUNTER_CLK_SOURCE val) {
 	encode_reg(reg, (uint8_t)val, &timer_counter_clk_src_reg);
@@ -247,6 +279,18 @@ inline void iocx_ex_timer_encode_counter_reset_source(uint8_t* reg, uint8_t val)
 }
 inline uint8_t iocx_ex_timer_decode_counter_reset_source(uint8_t *reg) {
 	return decode_reg(reg, &timer_counter_reset_src_reg);
+}
+inline void iocx_ex_io_watchdog_encode_mode(uint8_t* reg, IO_WATCHDOG_MODE val) {
+	encode_reg(reg, val, &io_watchdog_mode_reg);
+}
+inline IO_WATCHDOG_MODE iocx_ex_io_watchdog_decode_mode(uint8_t *reg) {
+	return (IO_WATCHDOG_MODE)decode_reg(reg, &io_watchdog_mode_reg);
+}
+inline void iocx_ex_io_watchdog_encode_state(uint8_t* reg, IO_WATCHDOG_STATE val) {
+	encode_reg(reg, val, &io_watchdog_status_reg);
+}
+inline IO_WATCHDOG_STATE iocx_ex_io_watchdog_decode_state(uint8_t *reg) {
+	return (IO_WATCHDOG_STATE)decode_reg(reg, &io_watchdog_status_reg);
 }
 
 #endif /* IOCX_EX_REGISTERS_H_ */

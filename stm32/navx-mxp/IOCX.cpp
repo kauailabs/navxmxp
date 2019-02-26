@@ -10,6 +10,14 @@ static IOCX_REGS iocx_regs;
 static uint32_t last_loop_timestamp = 0;
 static IOCX_EX_REGS iocx_ex_regs;
 
+static uint32_t last_io_watchdog_fed_timestamp = 0;
+static IO_WATCHDOG_MODE shadow_io_watchdog_mode = IO_WATCHDOG_DISABLED;
+static uint8_t shadow_io_watchdog_command = IO_WATCHDOG_CMD_NONE;
+static bool io_watchdog_output_suspended = false;
+static bool io_watchdog_commdio_suspended = false;
+static bool io_watchdog_hicurrdio_suspended = false;
+static bool io_watchdog_flexdio_suspended = false;
+
 _EXTERN_ATTRIB void IOCX_init()
 {
 	HAL_IOCX_TIMER_Enable_Clocks(0,1);
@@ -38,28 +46,51 @@ _EXTERN_ATTRIB void IOCX_init()
 	iocx_ex_regs.capability_flags.stall_support = 1;
 	iocx_ex_regs.capability_flags.inputcap_support = 1;
 	iocx_ex_regs.capability_flags.tmrcntreset_support = 1;
+	iocx_ex_regs.capability_flags.io_watchdog_support = 1;
 	iocx_ex_regs.capability_flags.unused = 0;
-}
 
-static bool output_suspended = false;
+	/* Configure IO Watchdog defaults */
+	iocx_ex_io_watchdog_encode_mode(&iocx_ex_regs.io_watchdog_mode, shadow_io_watchdog_mode);
+	iocx_ex_io_watchdog_encode_state(&iocx_ex_regs.io_watchdog_status, IO_WATCHDOG_STATE_NORMAL);
+	iocx_ex_regs.io_watchdog_timeout_period_ms = IO_WATCHDOG_TIMEOUT_DEFAULT_PERIOD_MS;
+	iocx_ex_regs.io_watchdog_output_cfg.manage_commdio = 1;
+	iocx_ex_regs.io_watchdog_output_cfg.manage_hicurrdio = 1;
+	iocx_ex_regs.io_watchdog_output_cfg.manage_flexdio = 1;
+}
 
 static void IOCX_OutputSuspend(bool suspend)
 {
 	if (suspend) {
-		if (!output_suspended) {
-			HAL_IOCX_FlexDIO_Suspend(1);
-			if (HAL_IOCX_RPI_GPIO_Output()) {
-				HAL_IOCX_RPI_GPIO_Driver_Enable(0);
+		if (!io_watchdog_output_suspended) {
+			if (iocx_ex_regs.io_watchdog_output_cfg.manage_flexdio) {
+				HAL_IOCX_FlexDIO_Suspend(1);
+				io_watchdog_flexdio_suspended = true;
 			}
-			HAL_IOCX_RPI_COMM_Driver_Enable(0);
-			output_suspended = true;
+			if (HAL_IOCX_RPI_GPIO_Output() && iocx_ex_regs.io_watchdog_output_cfg.manage_hicurrdio) {
+				HAL_IOCX_RPI_GPIO_Driver_Enable(0);
+				io_watchdog_hicurrdio_suspended = true;
+			}
+			if (iocx_ex_regs.io_watchdog_output_cfg.manage_commdio) {
+				HAL_IOCX_RPI_COMM_Driver_Enable(0);
+				io_watchdog_commdio_suspended = true;
+			}
+			io_watchdog_output_suspended = true;
 		}
 	} else {
-		if (output_suspended) {
-			HAL_IOCX_FlexDIO_Suspend(0);
-			HAL_IOCX_RPI_GPIO_Driver_Enable(1);
-			HAL_IOCX_RPI_COMM_Driver_Enable(1);
-			output_suspended = false;
+		if (io_watchdog_output_suspended) {
+			if (io_watchdog_flexdio_suspended) {
+				HAL_IOCX_FlexDIO_Suspend(0);
+				io_watchdog_flexdio_suspended = false;
+			}
+			if (io_watchdog_hicurrdio_suspended) {
+				HAL_IOCX_RPI_GPIO_Driver_Enable(1);
+				io_watchdog_hicurrdio_suspended = false;
+			}
+			if (io_watchdog_commdio_suspended) {
+				HAL_IOCX_RPI_COMM_Driver_Enable(1);
+				io_watchdog_commdio_suspended = false;
+			}
+			io_watchdog_output_suspended = false;
 		}
 	}
 }
@@ -80,6 +111,38 @@ _EXTERN_ATTRIB void IOCX_loop()
 			iocx_regs.capability_flags.rpi_gpio_out = HAL_IOCX_RPI_GPIO_Output();
 		}
 	}
+	IO_WATCHDOG_MODE wd_mode = iocx_ex_io_watchdog_decode_mode(&iocx_ex_regs.io_watchdog_mode);
+	IO_WATCHDOG_STATE wd_state = iocx_ex_io_watchdog_decode_state(&iocx_ex_regs.io_watchdog_status);
+	if (wd_mode == IO_WATCHDOG_ENABLED) {
+		if (wd_state == IO_WATCHDOG_STATE_NORMAL) {
+			if ((shadow_io_watchdog_command == IO_WATCHDOG_CMD_FEED) ||
+				(shadow_io_watchdog_mode != IO_WATCHDOG_ENABLED)){
+				last_io_watchdog_fed_timestamp = curr_loop_timestamp;
+				shadow_io_watchdog_command = IO_WATCHDOG_CMD_NONE;
+			} else if (shadow_io_watchdog_command == IO_WATCHDOG_CMD_EXPIRENOW) {
+				last_io_watchdog_fed_timestamp = curr_loop_timestamp + iocx_ex_regs.io_watchdog_timeout_period_ms;
+				shadow_io_watchdog_command = IO_WATCHDOG_CMD_NONE;
+			}
+			uint32_t ms_since_last_watchdog_feeding = curr_loop_timestamp - last_io_watchdog_fed_timestamp;
+			if (ms_since_last_watchdog_feeding >= iocx_ex_regs.io_watchdog_timeout_period_ms) {
+				IOCX_OutputSuspend(true);
+				iocx_ex_io_watchdog_encode_state(&iocx_ex_regs.io_watchdog_status, IO_WATCHDOG_STATE_EXPIRED);
+			}
+		} else /* IO_WATCHDOG_STATE_EXPIRED */ {
+			if (shadow_io_watchdog_command == IO_WATCHDOG_CMD_FEED) {
+				last_io_watchdog_fed_timestamp = curr_loop_timestamp;
+				shadow_io_watchdog_command = IO_WATCHDOG_CMD_NONE;
+				IOCX_OutputSuspend(false);
+				iocx_ex_io_watchdog_encode_state(&iocx_ex_regs.io_watchdog_status, IO_WATCHDOG_STATE_NORMAL);
+			}
+		}
+	} else {
+		if (wd_state == IO_WATCHDOG_STATE_EXPIRED) {
+			IOCX_OutputSuspend(false);
+			iocx_ex_io_watchdog_encode_state(&iocx_ex_regs.io_watchdog_status, IO_WATCHDOG_STATE_NORMAL);
+		}
+	}
+	shadow_io_watchdog_mode = wd_mode;
 }
 
 _EXTERN_ATTRIB uint8_t *IOCX_get_reg_addr_and_max_size( uint8_t bank, uint8_t register_offset, uint8_t requested_count, uint16_t* size )
@@ -290,6 +353,23 @@ static void timer_counter_reset_cfg_modified(uint8_t first_offset, uint8_t count
 	reg_set_modified<uint8_t, HAL_IOCX_TIMER_INPUTCAP_Set_TimerCounterResetCfg>(first_offset, count, iocx_ex_regs.timer_counter_reset_cfg);
 }
 
+static void io_watchdog_mode_modified(uint8_t first_offset, uint8_t count) {
+	/* No-op (value is read directly from register shadow). */
+}
+
+static void io_watchdog_output_cfg_modified(uint8_t first_offset, uint8_t count) {
+	/* No-op (value is read directly from register shadow). */
+}
+
+static void io_watchdog_timeout_period_ms_modified(uint8_t first_offset, uint8_t count) {
+	/* No-op (value is read directly from register shadow). */
+}
+
+static void io_watchdog_command_modified(uint8_t first_offset, uint8_t count) {
+	shadow_io_watchdog_command = iocx_ex_regs.io_watchdog_command;
+	iocx_ex_regs.io_watchdog_command = IO_WATCHDOG_CMD_NONE;
+}
+
 WritableRegSet timer_inputcap_reg_sets[] =
 {
 	/* Contiguous registers, increasing order of offset  */
@@ -301,12 +381,25 @@ WritableRegSet timer_inputcap_reg_sets[] =
 	{ offsetof(struct IOCX_EX_REGS, timer_counter_reset_cfg), sizeof(IOCX_EX_REGS::timer_counter_reset_cfg),timer_counter_reset_cfg_modified },
 };
 
+WritableRegSet io_watchdog_reg_sets[] =
+{
+	/* Contiguous registers, increasing order of offset  */
+	{ offsetof(struct IOCX_EX_REGS, io_watchdog_mode), sizeof(IOCX_EX_REGS::io_watchdog_mode), io_watchdog_mode_modified },
+	{ offsetof(struct IOCX_EX_REGS, io_watchdog_output_cfg), sizeof(IOCX_EX_REGS::io_watchdog_output_cfg), io_watchdog_output_cfg_modified },
+	{ offsetof(struct IOCX_EX_REGS, io_watchdog_timeout_period_ms), sizeof(IOCX_EX_REGS::io_watchdog_timeout_period_ms), io_watchdog_timeout_period_ms_modified },
+	{ offsetof(struct IOCX_EX_REGS, io_watchdog_command), sizeof(IOCX_EX_REGS::io_watchdog_command), io_watchdog_command_modified },
+};
+
 WritableRegSetGroup iocx_ex_writable_reg_set_groups[] =
 {
 	{ timer_inputcap_reg_sets[0].start_offset,
 			timer_inputcap_reg_sets[SIZEOF_STRUCT(timer_inputcap_reg_sets)-1].start_offset + timer_inputcap_reg_sets[SIZEOF_STRUCT(timer_inputcap_reg_sets)-1].num_bytes,
 			timer_inputcap_reg_sets,
 		SIZEOF_STRUCT(timer_inputcap_reg_sets) },
+	{ io_watchdog_reg_sets[0].start_offset,
+			io_watchdog_reg_sets[SIZEOF_STRUCT(io_watchdog_reg_sets)-1].start_offset + io_watchdog_reg_sets[SIZEOF_STRUCT(io_watchdog_reg_sets)-1].num_bytes,
+			io_watchdog_reg_sets,
+		SIZEOF_STRUCT(io_watchdog_reg_sets) },
 };
 
 BankedWritableRegSetGroups iocx_banked_groups[] =
