@@ -174,15 +174,15 @@ struct __attribute__ ((__packed__)) IOCX_EX_REGS {
 	/* Resource Source is Interrupt Index, 0 to (IOCX_NUM_INTERRUPTS-1) */
 	uint8_t timer_counter_reset_cfg[IOCX_NUM_TIMERS];
 	/* IO WATCHDOG */
-	uint8_t io_watchdog_status;
+	uint8_t io_watchdog_status; // Read-only
 	/*****************/
 	/* Configuration */
 	/*****************/
 	/* IO WATCHDOG */
-	uint8_t io_watchdog_mode;
+	uint8_t io_watchdog_mode;		// IO_WATCHDOG_MODE
 	IO_WATCHDOG_OUTPUT_CONFIG io_watchdog_output_cfg;
 	uint16_t io_watchdog_timeout_period_ms;
-	uint8_t io_watchdog_command;
+	uint8_t io_watchdog_command;	// IO_WATCHDOG_CMD
 	uint8_t end_of_bank;
 };
 

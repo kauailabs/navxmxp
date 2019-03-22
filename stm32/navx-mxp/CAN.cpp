@@ -41,6 +41,7 @@ void disable_SPI_interrupts() {
 #define CAN_DEVICE_UPDATE_FILTER_5		0x00000800
 #define CAN_DEVICE_UPDATE_FLUSH_RXFIFO	0x00001000
 #define CAN_DEVICE_UPDATE_FLUSH_TXFIFO	0x00002000
+#define CAN_DEVICE_UPDATE_CLEAR_RXOVRF	0000004000
 
 static volatile uint32_t can_pending_updates = 0;
 
@@ -79,7 +80,7 @@ void CAN_ISR_Flag_Function(CAN_IFX_INT_FLAGS mask, CAN_IFX_INT_FLAGS flags)
 
 static void CAN_int_flags_modified(uint8_t first_offset, uint8_t count) {
 	if(can_regs.int_flags.hw_rx_overflow){
-		p_CAN->clear_rx_overflow();
+		can_pending_updates |= CAN_DEVICE_UPDATE_CLEAR_RXOVRF;
 		can_regs.int_flags.hw_rx_overflow = false;
 	}
 	can_regs.int_status = can_regs.int_flags;
@@ -202,6 +203,9 @@ static void CAN_process_pending_updates()
 				p_CAN->clear_error_interrupt_flags();
 			}
 		}
+		if (pending_updates & CAN_DEVICE_UPDATE_CLEAR_RXOVRF) {
+			p_CAN->clear_rx_overflow(true);
+		}
 		if (pending_updates & CAN_DEVICE_UPDATE_MODE_0) {
 			p_CAN->rx_config((MCP25625_RX_BUFFER_INDEX)0,
 					(MCP25625_RX_MODE)can_regs_pending.rx_filter_mode[0],
@@ -279,13 +283,22 @@ _EXTERN_ATTRIB void CAN_loop()
 			can_regs.bus_off_count = p_CAN->get_bus_off_count();
 			CAN_IFX_INT_FLAGS CAN_loop_int_mask, CAN_loop_int_flags = {0};
 			*(uint8_t *)&CAN_loop_int_mask = 0;
-			bool rx_overflow;
-			p_CAN->get_errors(rx_overflow, can_regs.bus_error_flags, can_regs.tx_err_count, can_regs.rx_err_count);
-			CAN_loop_int_mask.hw_rx_overflow = true;
-			CAN_loop_int_flags.hw_rx_overflow = rx_overflow;
-			CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
+			CAN_MODE current_mode = p_CAN->get_current_can_mode();
+			bool rx_overflow = false;
+			if ((current_mode == CAN_MODE_NORMAL) ||
+				(current_mode == CAN_MODE_LOOP) ||
+				(current_mode == CAN_MODE_LISTEN)) {
+				// Check if an overflow or error condition exists
+				if (p_CAN->get_errors(rx_overflow, can_regs.bus_error_flags, can_regs.tx_err_count, can_regs.rx_err_count)) {
+					CAN_loop_int_mask.hw_rx_overflow = true;
+					CAN_loop_int_flags.hw_rx_overflow = rx_overflow;
+					CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
+				}
+			}
+			// Update CAN LED state
 			bool CAN_led_on = false;
-			if (p_CAN->get_current_can_mode() == CAN_MODE_NORMAL) {
+			if ((current_mode == CAN_MODE_NORMAL) ||
+				(current_mode == CAN_MODE_LISTEN)) {
 				CAN_led_on = true;
 				if (rx_overflow ||
 				    can_regs.bus_error_flags.can_bus_err_pasv ||

@@ -24,7 +24,7 @@ typedef int CAN_INTERFACE_STATUS;
 #define MCP25625_RTS_ERR    	8
 #define MCP25625_RXP_ERR    	9
 
-#define RECEIVE_FIFO_DEPTH	64
+#define RECEIVE_FIFO_DEPTH	254
 #define TRANSMIT_FIFO_DEPTH 64
 
 typedef void (*CAN_interrupt_flag_func)(CAN_IFX_INT_FLAGS mask, CAN_IFX_INT_FLAGS flags);
@@ -145,7 +145,7 @@ public:
 			MCP25625_TXBUFF_CTL& txbuff_ctl);
 	CAN_INTERFACE_STATUS get_quick_status(MCP25625_CAN_QUICK_STATUS& status);
 
-	bool clear_rx_overflow();
+	bool clear_rx_overflow(bool disable_interrupts = false);
 
 	uint32_t get_bus_off_count() { return bus_off_count; }
 

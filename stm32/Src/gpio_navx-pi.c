@@ -58,26 +58,26 @@ void MX_CAN_Interrupt_Verify()
     int gpio_pin_masked_in = 0;
     int gpio_falling_edge_trigger = 0;
     int gpio_floating_input = 1;
-    uint32_t temp;
-    temp = SYSCFG->EXTICR[2];
-    if ( temp & 0x00000002 ) {
+    uint32_t temp1, temp2, temp3, temp4;
+    temp1 = SYSCFG->EXTICR[1];
+    if (( temp1 & 0x0000000F ) == 0x00000001) {
         /* EXTI is enabled for GPIOB Group */
         gpio_group_enabled = 1;
     }
-    temp = EXTI->IMR;
-    if ( temp & _CAN_INT_Pin ) {
+    temp2 = EXTI->IMR;
+    if ( temp2 & _CAN_INT_Pin ) {
         /* EXTI is masked in */
         gpio_pin_masked_in = 1;
     }
-    temp = EXTI->FTSR;
-    if ( temp & _CAN_INT_Pin ) {
+    temp3 = EXTI->FTSR;
+    if ( temp3 & _CAN_INT_Pin ) {
         /* Falling edge triggered */
         gpio_falling_edge_trigger = 1;
     }
-    temp = GPIOC->PUPDR;
-    temp >>= (POSITION_VAL(_CAN_INT_Pin) * 2); // 2 bits per pin
-    temp &= 0x00000003;
-    if ( temp != GPIO_NOPULL) {
+    temp4 = GPIOC->PUPDR;
+    temp4 >>= (POSITION_VAL(_CAN_INT_Pin) * 2); // 2 bits per pin
+    temp4 &= 0x00000003;
+    if ( temp4 != GPIO_NOPULL) {
         /* Floating input */
     	gpio_floating_input = 0;
     }

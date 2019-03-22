@@ -76,6 +76,7 @@ void CANInterface::interrupt_handler() {
 					}
 				} else {
 					rx_fifo_full = true;
+					rx_buff_full_count++;
 				}
 			}
 			if(ie_ctl_isr.rx1) {
@@ -91,35 +92,42 @@ void CANInterface::interrupt_handler() {
 					}
 				} else {
 					rx_fifo_full = true;
+					rx_buff_full_count++;
 				}
 			}
+
+			// Handle buffer overflow error BEFORE clearing other flags below
+			if (ie_ctl_isr.err) {
+				// One or more bits in the the Error flag register were just set
+				if(HAL_MCP25625_HW_Ctl_Get(&eflg_ctl_isr)==HAL_OK){
+					// RX0OVR and RX1OVR events must be cleared
+					// in order to continue receiving
+					if (eflg_ctl_isr.rx0ovr || eflg_ctl_isr.rx1ovr) {
+						/* HW Receive Overflow */
+						/* Clear the corresponding error flags */
+						eflg_ctl_isr.rx0ovr = false;
+						eflg_ctl_isr.rx1ovr = false;
+						eflg_ctl_isr.mask = (MCP25625_ERRORFLAG_CTL_MASK)(FLG_RX0OVR | FLG_RX1OVR);
+						HAL_MCP25625_HW_Ctl_Update(&eflg_ctl_isr);
+						hw_rx_overflow = true;
+					}
+					if (eflg_ctl_isr.txbo) {
+						if (!bus_off) {
+							bus_off = true;
+							bus_off_count++;
+						}
+					} else {
+						bus_off = false;
+					}
+				}
+				error_interrupt_count++;
+			}
+
+			// Handle remaining interrupt sources
 			uint8_t remaining_int_flags = *((uint8_t *)&ie_ctl_isr);
 			if (remaining_int_flags != 0){
 				if (ie_ctl_isr.merre) {
 					message_error_interrupt_count++;
-				}
-				if (ie_ctl_isr.err) {
-					if(HAL_MCP25625_HW_Ctl_Get(&eflg_ctl_isr)==HAL_OK){
-						if (eflg_ctl_isr.rx0ovr || eflg_ctl_isr.rx1ovr) {
-							/* HW Receive Overflow */
-							CAN_isr_flag_mask.hw_rx_overflow = true;
-							/* Clear the corresponding error flags */
-							eflg_ctl_isr.rx0ovr = false;
-							eflg_ctl_isr.rx1ovr = false;
-							eflg_ctl_isr.mask = (MCP25625_ERRORFLAG_CTL_MASK)(FLG_RX0OVR | FLG_RX1OVR);
-							HAL_MCP25625_HW_Ctl_Update(&eflg_ctl);
-							hw_rx_overflow = true;
-						}
-						if (eflg_ctl_isr.txbo) {
-							if (!bus_off) {
-								bus_off = true;
-								bus_off_count++;
-							}
-						} else {
-							bus_off = false;
-						}
-					}
-					error_interrupt_count++;
 				}
 				if (ie_ctl_isr.wak) {
 					wake_interrupt_count++;
@@ -136,12 +144,14 @@ void CANInterface::interrupt_handler() {
 				uint8_t clear_all = 0;
 				HAL_MCP25625_BitModify(ie_ctl_isr.reg, remaining_int_flags, &clear_all);
 			}
+
+			// If any additional interrupts have occurred
+			// since the ISR was entered, continue processing them.
 			if(HAL_MCP25625_HW_Ctl_Get(&ie_ctl_isr)==HAL_OK){
-				if ((*((uint8_t *)&ie_ctl_isr) == 0) ||
-					(rx_fifo_full)) {
-					if (rx_fifo_full) {
-						rx_buff_full_count++;
-					}
+				if ((*((uint8_t *)&ie_ctl_isr) == 0) /*|| (rx_fifo_full)*/) {
+					// No more events pending,
+					// or rx_fifo is full
+					// ISR processing is complete.
 					done = true;
 				} else {
 					more_interrupt_pending_count++;
@@ -166,27 +176,65 @@ void CANInterface::interrupt_handler() {
 	}
 }
 
-bool CANInterface::clear_rx_overflow() {
-	eflg_ctl.rx0ovr = false;
-	eflg_ctl.rx1ovr = false;
-	eflg_ctl.mask = (MCP25625_ERRORFLAG_CTL_MASK)(FLG_RX0OVR | FLG_RX1OVR);
-	uint8_t clear_all = 0;
-	uint8_t clear_rx_full_flags_mask = (uint8_t)QSTAT_RX0IF | (uint8_t)QSTAT_RX1IF | 0x20/* ERRIF*/;
-	disable_CAN_interrupts();
-	/* Clear RX Buffer Full & Error Interrupt Flags */
-	CAN_INTERFACE_STATUS s = HAL_MCP25625_BitModify(REG_INT_FLG, clear_rx_full_flags_mask, &clear_all);
-	/* Clear RX0/RX1 Overflow Error Flags */
-	s = HAL_MCP25625_HW_Ctl_Update(&eflg_ctl);
+bool CANInterface::clear_rx_overflow(bool disable_interrupts) {
 
-	/* Workaround; for some unknown reason, in certain cases the GPIO
-	 * configuration for the CAN Interrupt becomes disabled.  If this occurs,
-	 * the CAN Interrupt is no longer received and an observable result is
-	 * that a receive overflow occurs. In this case, restore the GPIO
-	 * configuration.
-	 */
-	HAL_Ensure_CAN_EXTI_Configuration();
+	if (disable_interrupts) disable_CAN_interrupts();
 
-	enable_CAN_interrupts();
+	CAN_INTERFACE_STATUS s = MCP25625_OK;
+
+	if(HAL_MCP25625_HW_Ctl_Get(&eflg_ctl)==HAL_OK){
+		if (eflg_ctl.rx0ovr || eflg_ctl.rx1ovr) {
+
+			/* A Receive Overflow event has occurred, and needs to be cleared */
+			/* in order to receive additional data; this may be due to an overflow interrupt */
+			/* which was not handled by the CAN interrupt service routine. */
+
+			/* Clear RX Buffer Full Interrupt Flags (at which point the buffers are again ready */
+			/* to receive data); also clear the error flag. */
+			uint8_t clear_all = 0;
+			uint8_t clear_rx_full_flags_mask = (uint8_t)QSTAT_RX0IF | (uint8_t)QSTAT_RX1IF | 0x20/* ERRIF*/;
+			CAN_INTERFACE_STATUS s = HAL_MCP25625_BitModify(REG_INT_FLG, clear_rx_full_flags_mask, &clear_all);
+
+			/* Clear RX0/RX1 Overflow Error Flags */
+			eflg_ctl.rx0ovr = false;
+			eflg_ctl.rx1ovr = false;
+			eflg_ctl.mask = (MCP25625_ERRORFLAG_CTL_MASK)(FLG_RX0OVR | FLG_RX1OVR);
+			s = HAL_MCP25625_HW_Ctl_Update(&eflg_ctl);
+
+			// Debug code:  Gather current state for diagnostic purposes
+			// Read Error Flags
+			HAL_MCP25625_HW_Ctl_Get(&eflg_ctl);
+			// Read Error Counts
+			uint8_t err_cnt[2] = {0, 0};
+			HAL_MCP25625_Read(REG_STAT_TEC, err_cnt, sizeof(err_cnt));
+			// Read Quick Status
+			MCP25625_CAN_QUICK_STATUS status;
+			HAL_MCP25625_Read_Status(&status);
+			// Read interrupt enables
+			HAL_MCP25625_HW_Ctl_Get((void*) &ie_ctl);
+			// Read status register
+			HAL_MCP25625_HW_Ctl_Get((void*) &status_reg);
+			can_stat = status_reg.value;
+			HAL_MCP25625_HW_Ctl_Get(&rx0_ctl);
+			HAL_MCP25625_HW_Ctl_Get(&rx1_ctl);
+			uint8_t BRP, SJW, PRSEG, PHSEG1, PHSEG2;
+			bool SAM, BTLMODE, WAKFIL, SOFR;
+			get_btl_config(BRP, SJW, PRSEG, PHSEG1, PHSEG2, SAM, BTLMODE, WAKFIL, SOFR);
+
+			/* Workaround; for some unknown reason, in certain cases the GPIO
+			 * configuration for the CAN Interrupt becomes disabled.  If this occurs,
+			 * the CAN Interrupt is no longer received and an observable result is
+			 * that a receive overflow occurs. In this case, restore the GPIO
+			 * configuration.
+			 *
+			 * NOTE:  This does not appear to be still necessary, and should
+			 * likely be removed.
+			 */
+			HAL_Ensure_CAN_EXTI_Configuration();
+
+		}
+	}
+	if (disable_interrupts) enable_CAN_interrupts();
 
 	return (s == MCP25625_OK);
 }
@@ -363,7 +411,7 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 
 	HAL_MCP25625_PinReset(); /* Upon reset, the opmode should be CONFIG */
 	HAL_MCP25625_PinWake();  /* Wake the Transceiver */
-
+	HAL_Delay(1);			 /* Wait a moment to ensure wakeup has completed. */
 	HAL_MCP25625_HWReset();	/* Just to be extra sure, send the SPI Reset command, too */
 	HAL_Delay(2);
 
@@ -450,7 +498,7 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 	HAL_MCP25625_HW_Ctl_Get(&rx0_ctl);
 	HAL_MCP25625_HW_Ctl_Get(&rx1_ctl);
 
-	clear_rx_overflow();
+	clear_rx_overflow(false);
 	clear_all_interrupt_flags();
 
 	// Configure CAN bus timing
@@ -563,6 +611,14 @@ CAN_INTERFACE_STATUS CANInterface::clear_all_interrupt_flags()
 	if (HAL_MCP25625_HW_Ctl_Set((void*) &ie_ctl)) {
 		enable_CAN_interrupts();
 		return MCP25625_CTL_ERR;
+	}
+
+	// If an ISR func is registered, clear all flags
+	if(p_isr_flag_func != NULL){
+		CAN_IFX_INT_FLAGS flags, mask;
+		*(uint8_t *)&mask = 0xFF;
+	    *(uint8_t *)&flags = 0x00;
+		p_isr_flag_func(mask, flags);
 	}
 
 	enable_CAN_interrupts();

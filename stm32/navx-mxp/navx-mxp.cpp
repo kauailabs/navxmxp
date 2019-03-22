@@ -1108,9 +1108,15 @@ _EXTERN_ATTRIB void nav10_main()
                 bool rising_edge_trigger = false;
                 bool falling_edge_trigger = false;
                 bool pull_up_direction = false;
-                temp = SYSCFG->EXTICR[2];
+                if (MPU9250_INT_GPIO_Port == GPIOC) {
+                	// MPU Interrupt is in Group C
+                	temp = SYSCFG->EXTICR[2];
+                } else {
+                	// MPU Interrupt is in Group D
+                	temp = SYSCFG->EXTICR[3];
+                }
                 if ( temp & 0x00000003 ) {
-                    /* EXTI8 is enabled for GPIOC Group */
+                    /* EXTI8 is enabled for GPIOC/GPIOD Group */
                     group_enabled = true;
                 }
                 temp = EXTI->IMR;
@@ -1145,7 +1151,7 @@ _EXTERN_ATTRIB void nav10_main()
                 GPIO_InitStruct.Pin = GPIO_PIN_8;
                 GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
                 GPIO_InitStruct.Pull = GPIO_NOPULL;
-                HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+                HAL_GPIO_Init(MPU9250_INT_GPIO_Port, &GPIO_InitStruct);
                 last_scan = timestamp;
                 i2c_interrupt_reset_count++;
 #ifdef DEBUG_I2C_COMM
