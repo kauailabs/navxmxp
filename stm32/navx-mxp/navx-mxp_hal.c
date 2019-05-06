@@ -1304,11 +1304,12 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 
 	case TIMER_MODE_QUAD_ENCODER:
 		{
-			// Prescaler must be already set before enabling.
+
 			TIM_Encoder_InitTypeDef sConfig;
 			TIM_MasterConfigTypeDef sMasterConfig;
 
 			TIM_HandleTypeDef * p_htim = timer_configs[timer_index].p_tim_handle;
+			p_htim->Init.Prescaler = 0; // Prescaler should ~always~ be 0 in Quad Encoder Mode
 			p_htim->Init.ClockDivision = timer_configs[timer_index].core_clock_divider;
 			p_htim->Init.CounterMode = TIM_COUNTERMODE_UP;
 			p_htim->Instance->ARR = timer_configs[timer_index].max_auto_reload_value;
