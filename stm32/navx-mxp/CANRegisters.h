@@ -17,8 +17,9 @@
 #define NUM_ACCEPT_FILTERS_RX1_BUFFER	 4
 
 typedef struct {
-	uint16_t can_2_0b		: 1; /* Support for Can Bus 2.0b standard */
-	uint16_t unused			: 15;
+	uint16_t can_2_0b		: 1;  /* Support for Can Bus 2.0b standard */
+	uint16_t set_bitrate    : 1;  /* Support for configurable bus bit-rate */
+	uint16_t unused			: 14;
 } CAN_CAPABILITY_FLAGS;
 
 typedef struct {
@@ -197,9 +198,11 @@ typedef struct __attribute__ ((__packed__)) {
  * address will not cause any change to the Transmit Fifo.
  */
 
-#define CAN_CMD_RESET 			0x5A
-#define CAN_CMD_FLUSH_RXFIFO	0x3D
-#define CAN_CMD_FLUSH_TXFIFO	0x75
+#define CAN_CMD_RESET 				0x5A	// Resets, enters 1Mbps bit-rate
+#define CAN_CMD_FLUSH_RXFIFO		0x3D
+#define CAN_CMD_FLUSH_TXFIFO		0x75
+#define CAN_CMD_SETBITRATE_500KBPS  0x5B	// Resets, enters 500Kbps bit-rate
+#define CAN_CMD_SETBITRATE_250KBPS	0x5C	// Resets, enters 250Kbps bit-rat
 
 struct __attribute__ ((__packed__)) CAN_REGS {
 	/****************************/

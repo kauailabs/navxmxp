@@ -27,6 +27,12 @@ typedef int CAN_INTERFACE_STATUS;
 #define RECEIVE_FIFO_DEPTH	254
 #define TRANSMIT_FIFO_DEPTH 64
 
+enum CAN_BITRATE {
+	Mbps_1,
+	Kbps_500,
+	Kbps_250
+};
+
 typedef void (*CAN_interrupt_flag_func)(CAN_IFX_INT_FLAGS mask, CAN_IFX_INT_FLAGS flags);
 
 typedef struct __attribute__ ((__packed__)) {
@@ -89,7 +95,7 @@ class CANInterface {
 
 public:
 	CANInterface(uint16_t stm32_gpio_pin = GPIO_PIN_4);
-	CAN_INTERFACE_STATUS init(CAN_MODE mode);
+	CAN_INTERFACE_STATUS init(CAN_MODE mode, CAN_BITRATE bitrate);
 	CAN_MODE get_current_can_mode() { return current_mode; }
 	CAN_INTERFACE_STATUS clear_all_interrupt_flags();
 	CAN_INTERFACE_STATUS clear_error_interrupt_flags();

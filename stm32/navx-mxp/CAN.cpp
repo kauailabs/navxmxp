@@ -41,7 +41,9 @@ void disable_SPI_interrupts() {
 #define CAN_DEVICE_UPDATE_FILTER_5		0x00000800
 #define CAN_DEVICE_UPDATE_FLUSH_RXFIFO	0x00001000
 #define CAN_DEVICE_UPDATE_FLUSH_TXFIFO	0x00002000
-#define CAN_DEVICE_UPDATE_CLEAR_RXOVRF	0000004000
+#define CAN_DEVICE_UPDATE_CLEAR_RXOVRF	0000004000 // TODO:  Rview this, it appears incorrect! (should be 0000004000)
+#define CAN_DEVICE_UPDATE_RESET_500KBPS	0x00008000 // TODO:  Needs to be tested
+#define CAN_DEVICE_UPDATE_RESET_250KBPS 0x00010000 // TODO:  Needs to be tested
 
 static volatile uint32_t can_pending_updates = 0;
 
@@ -97,7 +99,7 @@ _EXTERN_ATTRIB void CAN_init()
 	can_regs.capability_flags.unused = 0;
 	p_CAN = new CANInterface();
 	p_CAN->register_interrupt_flag_function(CAN_ISR_Flag_Function); /* Updated in ISR */
-	p_CAN->init(CAN_MODE_NORMAL);
+	p_CAN->init(CAN_MODE_NORMAL, Mbps_1); /* Default to 1Mbps bitrate. */
 	HAL_CAN_Status_LED_On(0);
 }
 
@@ -166,7 +168,15 @@ static void CAN_process_pending_updates()
 
 		/* After re-enabling SPI interrupts, process the new requests */
 		if (pending_updates & CAN_DEVICE_UPDATE_RESET) {
-			p_CAN->init(p_CAN->get_current_can_mode());
+			p_CAN->init(p_CAN->get_current_can_mode(), Mbps_1);
+			pending_updates |= CAN_DEVICE_UPDATE_FLUSH_RXFIFO;
+			pending_updates |= CAN_DEVICE_UPDATE_FLUSH_TXFIFO;
+		} else if (pending_updates & CAN_DEVICE_UPDATE_RESET_500KBPS) {
+			p_CAN->init(p_CAN->get_current_can_mode(), Kbps_500);
+			pending_updates |= CAN_DEVICE_UPDATE_FLUSH_RXFIFO;
+			pending_updates |= CAN_DEVICE_UPDATE_FLUSH_TXFIFO;
+		} else if (pending_updates & CAN_DEVICE_UPDATE_RESET_250KBPS) {
+			p_CAN->init(p_CAN->get_current_can_mode(), Kbps_250);
 			pending_updates |= CAN_DEVICE_UPDATE_FLUSH_RXFIFO;
 			pending_updates |= CAN_DEVICE_UPDATE_FLUSH_TXFIFO;
 		}
@@ -410,6 +420,12 @@ static void CAN_command_modified(uint8_t first_offset, uint8_t count) {
 	switch(can_regs.command){
 	case CAN_CMD_RESET:
 		can_pending_updates |= CAN_DEVICE_UPDATE_RESET;
+		break;
+	case CAN_CMD_SETBITRATE_500KBPS:
+		can_pending_updates |= CAN_DEVICE_UPDATE_RESET_500KBPS;
+		break;
+	case CAN_CMD_SETBITRATE_250KBPS:
+		can_pending_updates |= CAN_DEVICE_UPDATE_RESET_250KBPS;
 		break;
 	case CAN_CMD_FLUSH_RXFIFO:
 		can_pending_updates |= CAN_DEVICE_UPDATE_FLUSH_RXFIFO;

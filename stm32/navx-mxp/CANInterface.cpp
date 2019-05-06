@@ -368,7 +368,7 @@ void CANInterface::process_transmit_fifo() {
 	}
 }
 
-CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
+CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode, CAN_BITRATE bitrate) {
 
 	disable_CAN_interrupts();
 	message_error_interrupt_count =
@@ -506,7 +506,26 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode) {
 	bool SAM, BTLMODE, WAKFIL, SOFR;
 	get_btl_config(BRP, SJW, PRSEG, PHSEG1, PHSEG2, SAM, BTLMODE, WAKFIL, SOFR);
 
-	btl_config(0,2,7,2,2,1,1,0,0); /* 24Mhz Crystal 2TQ; 11-meter max bus len */
+	/* NOTE on bus speed configuration
+	 * BRP 0:  1Mbps
+	 * BRP 1:  .5Mbps
+	 * BRP 3:  .25Mbps
+	 */
+
+	switch (bitrate) {
+	case Kbps_250:
+		BRP = 3;
+		break;
+	case Kbps_500:
+		BRP = 1;
+		break;
+	case Mbps_1:
+	default:
+		BRP = 0;
+		break;
+	}
+
+	btl_config(BRP,2,7,2,2,1,1,0,0); /* 24Mhz Crystal 2TQ; 11-meter max bus len */
 	//btl_config(0,1,8,1,2,1,1,0,0); /* 24Mhz Crystal 1TQ; 19-meter max bus len */
 
 	get_btl_config(BRP, SJW, PRSEG, PHSEG1, PHSEG2, SAM, BTLMODE, WAKFIL, SOFR);
