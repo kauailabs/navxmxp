@@ -46,6 +46,9 @@ Source: "..\drivers\windows\dfu\*.*"; DestDir: "{app}\installers\dfu"; Flags: re
 Source: "..\c#\navXMagCalibrator\bin\Release\*.*"; DestDir: "{app}\navXMagCalibrator"; Flags: recursesubdirs
 Source: "..\c#\navXConfig\bin\Release\*.*"; DestDir: "{app}\navXConfig"; Flags: recursesubdirs
 Source: "..\c#\navXFirmwareUpdater\bin\Release\*.*"; DestDir: "{app}\navXFirmwareUpdater"; Flags: recursesubdirs
+; Include additional 32-bit Visual Studio 2013 Redistributable files (MFC120.dll; MSVCR120.dll; vcredist_x86
+; these files are referenced by the STMicroelectronics-provided STDUFiles.dll
+Source: "..\installers\visual_studio\*.*"; DestDir: "{app}\navXFirmwareUpdater"; Flags: recursesubdirs
 Source: "..\processing_output\*.*"; DestDir: "{app}\navXUI"; Flags: recursesubdirs
 Source: "weblinks\navx-micro-software.url"; DestDir: "{app}"
 
