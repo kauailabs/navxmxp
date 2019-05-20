@@ -191,6 +191,9 @@ int main(void)
 #define IOCX_EX_BANK_NUMBER 4
     /* The IOCX handlers process both the IOCX and the IOCX_EX Banks */
     HAL_IOCX_Init();
+#ifdef ENABLE_HIGHRESOLUTION_TIMESTAMP
+    HAL_IOCX_HIGHRESTIMER_Init();
+#endif
     IOCX_init();
     nav10_set_loop(IOCX_BANK_NUMBER, IOCX_loop);
     nav10_set_register_lookup_func(IOCX_BANK_NUMBER, IOCX_get_reg_addr_and_max_size);

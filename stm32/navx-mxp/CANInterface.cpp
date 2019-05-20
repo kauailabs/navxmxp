@@ -68,7 +68,7 @@ void CANInterface::interrupt_handler() {
 				TIMESTAMPED_CAN_TRANSFER_PADDED *p_rx = rx_fifo.enqueue_reserve();
 				if(p_rx) {
 					if(HAL_MCP25625_HW_Data_Get(RXB0, (CAN_TRANSFER_PADDED *)p_rx)==HAL_OK) {
-						p_rx->transfer.timestamp_ms = HAL_GetTick();
+						p_rx->transfer.timestamp_ms = HAL_IOCX_HIGHRESTIMER_Get();
 						rx_fifo.enqueue_commit(p_rx);
 						rx_fifo_nonempty = true;
 						ie_ctl_isr.rx0 = false;
@@ -84,7 +84,7 @@ void CANInterface::interrupt_handler() {
 				TIMESTAMPED_CAN_TRANSFER_PADDED *p_rx = rx_fifo.enqueue_reserve();
 				if(p_rx) {
 					if(HAL_MCP25625_HW_Data_Get(RXB1, (CAN_TRANSFER_PADDED *)p_rx)==HAL_OK) {
-						p_rx->transfer.timestamp_ms = HAL_GetTick();
+						p_rx->transfer.timestamp_ms = HAL_IOCX_HIGHRESTIMER_Get();
 						rx_fifo.enqueue_commit(p_rx);
 						rx_fifo_nonempty = true;
 						ie_ctl_isr.rx1 = false;

@@ -128,8 +128,9 @@ _EXTERN_ATTRIB void IOCX_loop()
 				IOCX_OutputSuspend(true);
 				iocx_ex_io_watchdog_encode_state(&iocx_ex_regs.io_watchdog_status, IO_WATCHDOG_STATE_EXPIRED);
 			}
-		} else /* IO_WATCHDOG_STATE_EXPIRED */ {
-			if (shadow_io_watchdog_command == IO_WATCHDOG_CMD_FEED) {
+		} else /* IO_WATCHDOG_STATE_EXPIRED, OR watchdog re-enabled after previously being expired */ {
+			if ((shadow_io_watchdog_command == IO_WATCHDOG_CMD_FEED) ||
+				 (shadow_io_watchdog_mode != wd_mode)){
 				last_io_watchdog_fed_timestamp = curr_loop_timestamp;
 				shadow_io_watchdog_command = IO_WATCHDOG_CMD_NONE;
 				IOCX_OutputSuspend(false);

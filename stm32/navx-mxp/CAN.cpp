@@ -41,7 +41,7 @@ void disable_SPI_interrupts() {
 #define CAN_DEVICE_UPDATE_FILTER_5		0x00000800
 #define CAN_DEVICE_UPDATE_FLUSH_RXFIFO	0x00001000
 #define CAN_DEVICE_UPDATE_FLUSH_TXFIFO	0x00002000
-#define CAN_DEVICE_UPDATE_CLEAR_RXOVRF	0000004000 // TODO:  Rview this, it appears incorrect! (should be 0000004000)
+#define CAN_DEVICE_UPDATE_CLEAR_RXOVRF	0x00004000 // TODO:  Rview this, it appears incorrect! (should be 0000004000)
 #define CAN_DEVICE_UPDATE_RESET_500KBPS	0x00008000 // TODO:  Needs to be tested
 #define CAN_DEVICE_UPDATE_RESET_250KBPS 0x00010000 // TODO:  Needs to be tested
 
@@ -61,6 +61,8 @@ static MCP25625_RX_FILTER_INDEX rxb1_filter_indices[NUM_ACCEPT_FILTERS_RX1_BUFFE
 	RXF_5
 };
 
+/* NOTE:  This function should not ever be invoked in such a way that it */
+/* can be re-entered.                                                    */
 void CAN_ISR_Flag_Function(CAN_IFX_INT_FLAGS mask, CAN_IFX_INT_FLAGS flags)
 {
 	can_regs.rx_fifo_entry_count = p_CAN->get_rx_fifo().get_count();
@@ -96,6 +98,8 @@ static void CAN_int_flags_modified(uint8_t first_offset, uint8_t count) {
 _EXTERN_ATTRIB void CAN_init()
 {
 	can_regs.capability_flags.can_2_0b = true;
+	can_regs.capability_flags.set_bitrate = true;
+	can_regs.capability_flags.us_timestamp = true;
 	can_regs.capability_flags.unused = 0;
 	p_CAN = new CANInterface();
 	p_CAN->register_interrupt_flag_function(CAN_ISR_Flag_Function); /* Updated in ISR */
@@ -192,7 +196,7 @@ static void CAN_process_pending_updates()
 			p_CAN->flush_tx_fifo();
 			can_regs.int_flags.tx_fifo_empty = 1;
 			CAN_int_flags_modified(0,0);
-			can_regs.rx_fifo_entry_count = p_CAN->get_tx_fifo().get_count();
+			can_regs.tx_fifo_entry_count = p_CAN->get_tx_fifo().get_count();
 		}
 		if (pending_updates & CAN_DEVICE_UPDATE_DEVICE_MODE) {
 			CAN_MODE new_mode = (CAN_MODE)can_regs_pending.opmode;
@@ -280,10 +284,14 @@ _EXTERN_ATTRIB void CAN_loop()
 
 			if(!CAN_loop_int_flags.tx_fifo_empty) {
 				p_CAN->process_transmit_fifo();
+				disable_SPI_interrupts();
 				can_regs.tx_fifo_entry_count = p_CAN->get_tx_fifo().get_count();
 				CAN_loop_int_flags.tx_fifo_empty = (can_regs.tx_fifo_entry_count == 0);
+				enable_SPI_interrupts();
 			}
+			p_CAN->disable_CAN_interrupts();
 			CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
+			p_CAN->enable_CAN_interrupts();
 		}
 
 		/* Retrieve current CAN bus TX/RX Error Counts. */
@@ -302,7 +310,9 @@ _EXTERN_ATTRIB void CAN_loop()
 				if (p_CAN->get_errors(rx_overflow, can_regs.bus_error_flags, can_regs.tx_err_count, can_regs.rx_err_count)) {
 					CAN_loop_int_mask.hw_rx_overflow = true;
 					CAN_loop_int_flags.hw_rx_overflow = rx_overflow;
+					p_CAN->disable_CAN_interrupts();
 					CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
+					p_CAN->enable_CAN_interrupts();
 				}
 			}
 			// Update CAN LED state
@@ -333,17 +343,22 @@ static uint8_t * CAN_rxfifo_read(uint8_t requested_byte_count, uint16_t* size) {
 			if(p_rx != NULL) {
 				memcpy(&read_buffer[i], &p_rx->transfer, sizeof(p_rx->transfer));
 				p_CAN->get_rx_fifo().dequeue_return(p_rx);
-				if (can_regs.int_flags.sw_rx_overflow) {
-					can_regs.int_flags.sw_rx_overflow = false;
-					CAN_int_flags_modified(0,0);
-				}
 				read_buffer[i].transfer.id.sidl.invalid = false;
-				can_regs.rx_fifo_entry_count = p_CAN->get_rx_fifo().get_count();
 				num_transfers_in_buffer++;
 			} else {
 				break; /* Fifo now empty */
 			}
 		}
+
+		/* Once packets are transferred from fifo, update status registers. */
+		if (num_transfers_in_buffer > 0) {
+			if (can_regs.int_flags.sw_rx_overflow) {
+				can_regs.int_flags.sw_rx_overflow = false;
+				CAN_int_flags_modified(0,0);
+			}
+			can_regs.rx_fifo_entry_count = p_CAN->get_rx_fifo().get_count();
+		}
+
 		if(p_CAN->get_rx_fifo().is_empty()) {
 			/* Clear the rx fifo nonempty status */
 			CAN_IFX_INT_FLAGS mask;

@@ -65,6 +65,7 @@ THE SOFTWARE.
 #	define IOCX_INTERRUPT
 #	define CAN_INTERRUPT
 #	define AHRS_INTERRUPT
+#   define ENABLE_HIGHRESOLUTION_TIMESTAMP
 #else
 #   define NAVX_HARDWARE_REV 33         /* v. 3.3 EXPIO, v3.4, v3.5 */
 //  !ENABLE_USB_VBUS
@@ -237,6 +238,10 @@ int HAL_RN4020_Get_MLDP_EV();
 int HAL_RN4020_Get_RTS();
 void HAL_RN4020_Set_CTS(int value);
 void HAL_RN4020_Set_CMD_MLDP(int value);
+
+/* High-resolution Timestamp */
+void HAL_IOCX_HIGHRESTIMER_Init();
+uint64_t HAL_IOCX_HIGHRESTIMER_Get();
 
 struct WritableRegSet
 {

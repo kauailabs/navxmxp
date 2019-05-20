@@ -173,10 +173,11 @@ _EXTERN_ATTRIB void MISC_loop()
 			last_analog_processing_timestamp = curr_loop_timestamp;
 
 			// HARDWARE BUG:  Starting at board revision 5.35, the ability to detect whether 3.3V or 5V
-			// is used for analog inputs no longer works.  This should be corrected in a later version
-			// For now, hard-code the analog input voltage to 3.3V (this is the default)/
+			// voltage range should be used for analog inputs no longer works.
+			// Starting in this board revision, the 2/3 voltage divider which is used for 5V inputs
+			// is always active.  Therefore, the analog input voltage is always treated as 5V-range.
 			//misc_regs.capability_flags.an_in_5V = HAL_IOCX_ADC_Voltage_5V();
-			misc_regs.capability_flags.an_in_5V = 0;
+			misc_regs.capability_flags.an_in_5V = 1;
 			misc_regs.ext_pwr_voltage_value = HAL_IOCX_Get_ExtPower_Voltage();
 
 			/* Process Analog Oversample & Average, Trigger and Accumulation */

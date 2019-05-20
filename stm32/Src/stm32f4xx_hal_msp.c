@@ -60,7 +60,7 @@ extern DMA_HandleTypeDef hdma_usart6_tx;
 /* 0 - Systick            */
 /* 1 - SPI                */
 /* 2 - I2C                */
-/* 3 - UART               */
+/* 3 - UART, HighResTimer */
 /* 4 - USB                */
 /* 5 - MPU                */
 /* 6 - ADC                */

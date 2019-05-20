@@ -1722,6 +1722,10 @@ int spi_rxne_error_count = 0;                   // During SPI Slave Receive, dat
 int spi_busy_error_count = 0;                   // SPI Busy after SPI Slave Transmit completed [caused by Silicon bug]
 int spi_rx_while_tx_error_count = 0;            // SPI Data Receive Callback invoked during SPI Slave Transmit ['impossible' condition]
 int spi_tx_complete_timeout_count = 0;          // SPI Slave Transmit completion timeout [protocol error]
+uint32_t last_spi_tx_complete_timeout_xfer_size = 0;
+uint32_t last_spi_tx_complete_timeout_xfer_count = 0;
+uint32_t last_spi_tx_complete_timeout_error_code = 0;
+uint32_t last_spi_tx_complete_timeout_SR = 0;
 
 void Reset_SPI_And_PrepareToReceive() {
     HAL_SPI_Comm_Ready_Deassert();
@@ -1741,11 +1745,18 @@ void Reset_SPI_And_PrepareToReceive() {
 // again to receive data.
 void SpiTxTimeoutCheck() {
     if (spi_transmitting) {
+    	unsigned long last_spi_txt_start = last_spi_tx_start_timestamp;
         unsigned long now = HAL_GetTick();
-        unsigned long transmit_period = now - last_spi_tx_start_timestamp;
-        if (transmit_period > SPI_TX_TIMEOUT_MS) {
-            Reset_SPI_And_PrepareToReceive();
-            spi_tx_complete_timeout_count++;
+        if (now > last_spi_txt_start) {
+        	unsigned long transmit_period = now - last_spi_txt_start;
+        	if (transmit_period > SPI_TX_TIMEOUT_MS) {
+        		last_spi_tx_complete_timeout_xfer_size = hspi1.TxXferSize;
+        		last_spi_tx_complete_timeout_xfer_count = hspi1.TxXferCount;
+        		last_spi_tx_complete_timeout_error_code = hspi1.ErrorCode;
+        		last_spi_tx_complete_timeout_SR = hspi1.Instance->SR;
+        		Reset_SPI_And_PrepareToReceive();
+        		spi_tx_complete_timeout_count++;
+        	}
         }
     }
 }

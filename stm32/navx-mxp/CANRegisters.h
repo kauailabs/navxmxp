@@ -19,7 +19,8 @@
 typedef struct {
 	uint16_t can_2_0b		: 1;  /* Support for Can Bus 2.0b standard */
 	uint16_t set_bitrate    : 1;  /* Support for configurable bus bit-rate */
-	uint16_t unused			: 14;
+	uint16_t us_timestamp   : 1;  /* Support for high-resolution (1us) timestamps */
+	uint16_t unused			: 13;
 } CAN_CAPABILITY_FLAGS;
 
 typedef struct {

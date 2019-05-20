@@ -40,6 +40,9 @@ THE SOFTWARE.
 extern RTC_HandleTypeDef hrtc;
 static uint8_t s_daylight_savings = 0; /* Default: no daylight savings adjust */
 #endif
+#ifdef ENABLE_HIGHRESOLUTION_TIMESTAMP
+#include "stm32f4xx_hal_tim.h"
+#endif
 
 void read_unique_id(struct unique_id *id)
 {
@@ -464,31 +467,6 @@ static volatile uint16_t int_status = 0;  /* Todo:  Review Race Conditions */
 static volatile uint16_t last_int_edge = 0;
 static volatile uint16_t int_mask = 0; /* Todo:  Review Race Conditions */
 int gpio_suspended = 0;
-
-void HAL_IOCX_FlexDIO_Suspend(int suspend) {
-	uint32_t temp;
-	uint32_t position;
-	int i;
-
-	if (suspend == gpio_suspended) return;
-
-	for (i = 0; i < IOCX_NUM_GPIOS; i++) {
-		GPIO_TypeDef *p_gpio = gpio_channels[i].p_gpio;
-		uint16_t pin = gpio_channels[i].pin;
-
-		position = POSITION_VAL(pin);
-		temp = p_gpio->MODER;
-		temp &= ~(GPIO_MODER_MODER0 << (position * 2));
-		if (suspend) {
-			temp |= ((GPIO_MODE_INPUT) << (position * 2));
-		} else {
-			temp |= ((IOCX_gpio_pin_mode_configuration[POSITION_VAL(gpio_channels[i].pin)]) << (position * 2));
-		}
-		p_gpio->MODER = temp;
-	}
-
-	gpio_suspended = suspend;
-}
 
 static void HAL_IOCX_EXTI_ISR(uint8_t gpio_pin)
 {
@@ -938,6 +916,51 @@ static Timer_InputCap_Channel_Config timer_input_ch_configs[IOCX_NUM_TIMERS][IOC
 	 {INPUT_CAPTURE_FROM_SIGNAL_B, INPUT_CAPTURE_CH_ACTIVE_RISING, INPUT_CAPTURE_PRESCALE_1x, INPUT_CAPTURE_CH_FILTER_16x }},
 };
 
+void HAL_IOCX_FlexDIO_Suspend(int suspend) {
+	uint32_t temp;
+	uint32_t position;
+	int i;
+
+	if (suspend == gpio_suspended) return;
+
+	for (i = 0; i < IOCX_NUM_GPIOS; i++) {
+		GPIO_TypeDef *p_gpio = gpio_channels[i].p_gpio;
+		uint16_t pin = gpio_channels[i].pin;
+		uint8_t timer_index = gpio_channels[i].timer_index;
+		uint8_t alt_function = gpio_channels[i].alt_function;
+
+		position = POSITION_VAL(pin);
+		temp = p_gpio->MODER;
+		temp &= ~(GPIO_MODER_MODER0 << (position * 2));
+		if (suspend) {
+			// Configure GPIO as Input, if configured as an output, or configured
+			// for an alternate function and associated timer is configured
+			// for PWM Output.
+			int output_active = 0;
+			if (temp == ((GPIO_MODE_AF_PP) << (position * 2))) {
+				uint8_t timer_config = curr_timer_cfg[timer_index];
+				IOCX_TIMER_MODE timer_mode = iocx_decode_timer_mode(&timer_config);
+				if (timer_mode == TIMER_MODE_PWM_OUT) {
+					output_active = 1;
+				}
+			} else if (temp == ((GPIO_MODE_OUTPUT_PP) << (position * 2))) {
+				output_active = 1;
+			}
+			if (output_active) {
+				temp |= ((GPIO_MODE_INPUT) << (position * 2));
+			}
+		} else {
+			// Restore the GPIO configuration to state requested during the GPIO pin's
+			// most-recent configuration request.
+			// NOTE:  Be sure to only set modes masked in by the GPIO_MODE mask.
+			temp |= (((IOCX_gpio_pin_mode_configuration[POSITION_VAL(gpio_channels[i].pin)]) & GPIO_MODER_MODER0) << (position * 2));
+		}
+		p_gpio->MODER = temp;
+	}
+
+	gpio_suspended = suspend;
+}
+
 void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 
 	if ( gpio_index > (IOCX_NUM_GPIOS-1) ) return;
@@ -963,6 +986,7 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 
 	GPIO_InitTypeDef GPIO_InitStructAltpin;
 	int altpin_int_enabled = 0;
+	int output_mode_requested = 0;
 
 	switch(type){
 	case GPIO_TYPE_INPUT:
@@ -1006,14 +1030,22 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 		break;
 	case GPIO_TYPE_OUTPUT_PUSHPULL:
 		GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+		output_mode_requested = 1;
 		break;
 	case GPIO_TYPE_OUTPUT_OPENDRAIN:
 		GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+		output_mode_requested = 1;
 		break;
 	case GPIO_TYPE_AF:
 		if ( gpio_channels[gpio_index].alt_function <= MAX_VALID_STM32_AF_VALUE ) {
 			GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
 			GPIO_InitStruct.Alternate = gpio_channels[gpio_index].alt_function;
+			uint8_t timer_index = gpio_channels[gpio_index].timer_index;
+			uint8_t timer_config = curr_timer_cfg[timer_index];
+			IOCX_TIMER_MODE timer_mode = iocx_decode_timer_mode(&timer_config);
+			if (timer_mode == TIMER_MODE_PWM_OUT) {
+				output_mode_requested = 1;
+			}
 		} else {
 			GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
 			GPIO_InitStruct.Pull = GPIO_PULLDOWN; // ???
@@ -1030,14 +1062,14 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 	}
 	if (!altpin_int_enabled) {
 		IOCX_gpio_pin_mode_configuration[POSITION_VAL(gpio_channels[gpio_index].pin)] = GPIO_InitStruct.Mode;
-		if (gpio_suspended) {
+		if (gpio_suspended && output_mode_requested) {
 			/* Force Mode (while suspended) to INPUT */
 			GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
 		}
 		HAL_GPIO_Init(gpio_channels[gpio_index].p_gpio, &GPIO_InitStruct);
 	} else {
 		IOCX_gpio_pin_mode_configuration[POSITION_VAL(altint_pin)] = GPIO_InitStructAltpin.Mode;
-		if (gpio_suspended) {
+		if (gpio_suspended && output_mode_requested) {
 			/* Force Mode (while suspended) to INPUT */
 			GPIO_InitStructAltpin.Mode = GPIO_MODE_INPUT;
 		}
@@ -1365,6 +1397,28 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 			HAL_TIM_PWM_ConfigChannel(p_htim, &sConfigOC, timer_configs[timer_index].first_channel_number);
 			sConfigOC.Pulse = timer_channel_ccr[timer_index][1];
 			HAL_TIM_PWM_ConfigChannel(p_htim, &sConfigOC, timer_configs[timer_index].second_channel_number);
+
+			// If outputs are suspended, reconfigure any GPIOs which are assigned to this
+			// timer, and which are in alternate function mode, as inputs
+			// When unsuspended, the gpio state will be restored to the
+			// last-requested IOCX_gpio_pin_mode_configuration value.
+			if (gpio_suspended) {
+				int i;
+				for (i = 0; i < IOCX_NUM_GPIOS; i++) {
+					GPIO_TypeDef *p_gpio = gpio_channels[i].p_gpio;
+					uint8_t gpio_timer_index = gpio_channels[i].timer_index;
+					if (gpio_timer_index == timer_index) {
+						uint16_t pin = gpio_channels[i].pin;
+						uint32_t position = POSITION_VAL(pin);
+						uint32_t temp = p_gpio->MODER;
+						temp &= ~(GPIO_MODER_MODER0 << (position * 2));
+						if (temp == ((GPIO_MODE_AF_PP) << (position * 2))) {
+							temp |= ((GPIO_MODE_INPUT) << (position * 2));
+							p_gpio->MODER = temp;
+						}
+					}
+				}
+			}
 
 			HAL_TIM_PWM_Start(p_htim, timer_configs[timer_index].first_channel_number);
 			HAL_TIM_PWM_Start(p_htim, timer_configs[timer_index].second_channel_number);
@@ -2349,4 +2403,101 @@ void HAL_IOCX_ADC_SetCurrentAnalogTriggerState(uint8_t analog_trigger_index, uin
 	if (curr_analog_trigger_state >= IOCX_ANALOG_TRIGGER_STATE_LAST) return;
 	analog_trigger_state[analog_trigger_index] = curr_analog_trigger_state;
 #endif
+}
+
+/**************************************************************************/
+/* High-resolution timer (64-bits, 1 microsecond resolution)              */
+/*                                                                        */
+/* This timer is implemented via TIM10, a 16-bit timer.  The timer is     */
+/* configured to increment every 1 microsecond, and to auto-reload after  */
+/* incrementing beyond it's maximum value (65535).  Upon auto-reload, the */
+/* Update Interrupt is generated; a high-priority interrupt is invoked    */
+/* which increments the upper 48-bit portion of the timestamp.            */
+/*                                                                        */
+/* The 64-bit timestamp has a maximum value of 584,942 years.             */
+/* The low 32-bits of the timestamp has maximum value of 71.58 minutes.   */
+/**************************************************************************/
+
+
+#ifdef ENABLE_HIGHRESOLUTION_TIMESTAMP
+TIM_HandleTypeDef htim10;
+static uint64_t highres_timestamp_high = 0;
+
+void TIM1_UP_TIM10_IRQHandler(void)
+{
+	/* TIM10 Update event */
+	if(__HAL_TIM_GET_FLAG(&htim10, TIM_FLAG_UPDATE) != RESET)
+	{
+		if(__HAL_TIM_GET_ITSTATUS(&htim10, TIM_IT_UPDATE) !=RESET)
+		{
+			__HAL_TIM_CLEAR_IT(&htim10, TIM_IT_UPDATE);
+			highres_timestamp_high++;
+		}
+	}
+}
+
+#endif
+
+void HAL_IOCX_HIGHRESTIMER_Init()
+{
+#ifdef ENABLE_HIGHRESOLUTION_TIMESTAMP
+    // Route clock to TIM10
+	__TIM10_CLK_ENABLE();
+
+	// TIM10 is clocked from APB1 (96MHZ0)
+	// Configure timer to tick at 1 us
+	htim10.Instance = TIM10;
+	htim10.Init.Prescaler = 96;
+	htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
+	htim10.Init.Period = 65535;
+	htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	HAL_TIM_Base_Init(&htim10);
+
+    // Configure TIM10 interrupts; these are highest
+	// priority, enabling the high-res timestamp to
+	// be accessed from interrupts running at all
+	// other priorities.
+    HAL_NVIC_SetPriority(TIM1_UP_TIM10_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(TIM1_UP_TIM10_IRQn);
+
+	// Clear any pending interrupt flags before enabling.
+	__HAL_TIM_CLEAR_IT(&htim10, TIM_IT_UPDATE);
+
+	// Reset counter
+	__HAL_TIM_SetCounter(&htim10, 0);
+
+    // Enable Update Interrupt
+    __HAL_TIM_ENABLE_IT(&htim10, TIM_IT_UPDATE);
+
+    /* Enable Timer */
+    __HAL_TIM_ENABLE(&htim10);
+
+#endif
+}
+
+uint64_t HAL_IOCX_HIGHRESTIMER_Get()
+{
+	uint64_t highres_timestamp;
+#ifdef ENABLE_HIGHRESOLUTION_TIMESTAMP
+
+#define MAX_TIM10_INTERRUPT_LATENCY_US 2000
+
+    HAL_NVIC_DisableIRQ(TIM1_UP_TIM10_IRQn);
+    uint16_t curr_count = __HAL_TIM_GetCounter(&htim10);
+    uint64_t ts_high = highres_timestamp_high;
+	if(__HAL_TIM_GET_ITSTATUS(&htim10, TIM_IT_UPDATE) !=RESET) {
+		// counter rollover occurred, but interrupt has not yet occurred.
+		// In this case, increment the high portion of the timestamp, as long
+		// as the count is low enough that this occurred due to interrupt latency
+		if (curr_count < MAX_TIM10_INTERRUPT_LATENCY_US) {
+			ts_high++;
+		}
+	}
+    HAL_NVIC_EnableIRQ(TIM1_UP_TIM10_IRQn);
+    highres_timestamp = (ts_high << 16) + curr_count;
+#else
+	highres_timestamp = HAL_GetTick();
+	highres_timestamp *= 1000;
+#endif
+	return highres_timestamp;
 }
