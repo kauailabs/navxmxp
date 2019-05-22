@@ -126,6 +126,7 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
     }
     else if(hi2c->Instance==I2C3)
     {
+#ifndef DISABLE_EXTERNAL_I2C_INTERFACE
         /* USER CODE BEGIN I2C3_MspInit 0 */
 
         /* USER CODE END I2C3_MspInit 0 */
@@ -180,6 +181,7 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
         /* USER CODE BEGIN I2C3_MspInit 1 */
 
         /* USER CODE END I2C3_MspInit 1 */
+#endif
     }
 }
 
@@ -205,6 +207,7 @@ void HAL_I2C_MspDeInit(I2C_HandleTypeDef* hi2c)
     }
     else if(hi2c->Instance==I2C3)
     {
+#ifndef DISABLE_EXTERNAL_I2C_INTERFACE
         /* USER CODE BEGIN I2C3_MspDeInit 0 */
 
         /* USER CODE END I2C3_MspDeInit 0 */
@@ -228,6 +231,7 @@ void HAL_I2C_MspDeInit(I2C_HandleTypeDef* hi2c)
         /* USER CODE BEGIN I2C3_MspDeInit 1 */
 
         /* USER CODE END I2C3_MspDeInit 1 */
+#endif
     }
 }
 

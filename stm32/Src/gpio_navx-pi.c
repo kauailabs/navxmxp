@@ -52,7 +52,7 @@ static void MX_CAN_Interrupt_Enable(void) {
 	HAL_GPIO_Init(_CAN_INT_GPIO_Port, &GPIO_InitStruct);
 }
 
-void MX_CAN_Interrupt_Verify()
+int MX_CAN_Interrupt_Verify(int fix)
 {
 	int gpio_group_enabled = 0;
     int gpio_pin_masked_in = 0;
@@ -83,8 +83,12 @@ void MX_CAN_Interrupt_Verify()
     }
     if ((!gpio_group_enabled) || (!gpio_pin_masked_in) ||
     	(!gpio_falling_edge_trigger) || (!gpio_floating_input)) {
-    	MX_CAN_Interrupt_Enable();
+    	if (fix) {
+    	  MX_CAN_Interrupt_Enable();
+    	}
+    	return 1;
     }
+    return 0;
 }
 
 /* USER CODE END 1 */

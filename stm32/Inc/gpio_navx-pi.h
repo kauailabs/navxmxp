@@ -53,7 +53,7 @@
 /* USER CODE END Private defines */
 
 void MX_GPIO_Init_NavX_PI(void);
-void MX_CAN_Interrupt_Verify();
+int MX_CAN_Interrupt_Verify(int fix);
 
 /* USER CODE BEGIN Prototypes */
 

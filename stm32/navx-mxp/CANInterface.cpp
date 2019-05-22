@@ -10,6 +10,7 @@
 #include <string.h>
 #include "ext_interrupts.h"
 #include "navx-mxp_hal.h"
+#include "gpio_navx-pi.h"
 
 /******************************************************************************
  * Private Function Definitions
@@ -295,6 +296,10 @@ void CANInterface::process_transmit_fifo() {
 		(current_mode != CAN_MODE_LOOP)) {
 		return;
 	}
+
+	// HACK:  Verify that the CAN EXTI configuration is correct.
+	MX_CAN_Interrupt_Verify(1);
+
 	MCP25625_CAN_QUICK_STATUS status;
 	MCP25625_TXBUFF_CTL txbuff_ctl[3];
 	disable_CAN_interrupts();

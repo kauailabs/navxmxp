@@ -293,7 +293,7 @@ void HAL_CAN_Int_Deassert()
 
 void HAL_Ensure_CAN_EXTI_Configuration()
 {
-	MX_CAN_Interrupt_Verify();
+	MX_CAN_Interrupt_Verify(1);
 }
 
 void HAL_AHRS_Int_Assert()

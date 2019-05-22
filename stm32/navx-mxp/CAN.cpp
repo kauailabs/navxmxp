@@ -197,6 +197,7 @@ static void CAN_process_pending_updates()
 			can_regs.int_flags.tx_fifo_empty = 1;
 			CAN_int_flags_modified(0,0);
 			can_regs.tx_fifo_entry_count = p_CAN->get_tx_fifo().get_count();
+			can_regs.tx_full_count = 0;
 		}
 		if (pending_updates & CAN_DEVICE_UPDATE_DEVICE_MODE) {
 			CAN_MODE new_mode = (CAN_MODE)can_regs_pending.opmode;
