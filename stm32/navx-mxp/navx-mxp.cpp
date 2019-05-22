@@ -1886,12 +1886,21 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                     /* SPI interface is still busy, reset the SPI interface. */
                     /* This condition can occurs sometimes after the         */
                     /* host computer is power-cycled.                        */
+#if 0
                     if ( ( (invalid_char_spi_receive_count % 5) == 0 ) &&
                          ( __HAL_SPI_GET_FLAG(&hspi1,SPI_FLAG_BSY) != RESET ) ) {
                         Reset_SPI_And_PrepareToReceive();
                    } else {
                        Reset_SPI_And_PrepareToReceive();
                        HAL_SPI_Comm_Ready_Assert(); /* This shouldn't be necessary - remove it! */
+                   }
+#endif
+                    if ( ( __HAL_SPI_GET_FLAG(&hspi1,SPI_FLAG_BSY) != RESET ) ) {
+                        Reset_SPI_And_PrepareToReceive();
+                   } else {
+                       __HAL_SPI_CLEAR_OVRFLAG(hspi);
+                       HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, SPI_RECV_LENGTH);
+                	   HAL_SPI_Comm_Ready_Assert();
                    }
                 }
             } else {

@@ -1315,6 +1315,11 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 	case TIMER_MODE_DISABLED:
 		HAL_IOCX_TIMER_Enable_Capture_Interrupt(timer_index,0);
 		__HAL_TIM_DISABLE(timer_configs[timer_index].p_tim_handle);
+		timer_channel_ccr[timer_index][0] =
+				timer_channel_ccr[timer_index][1] = 0;
+
+		HAL_IOCX_TIMER_PWM_Set_DutyCycle(timer_index, 0, 0);
+		HAL_IOCX_TIMER_PWM_Set_DutyCycle(timer_index, 1, 0);
 		switch (iocx_decode_timer_mode(&curr_timer_cfg[timer_index])) {
 		case TIMER_MODE_QUAD_ENCODER:
 			HAL_TIM_Encoder_Stop(timer_configs[timer_index].p_tim_handle, BOTH_ENCODER_TIMER_CHANNELS);
