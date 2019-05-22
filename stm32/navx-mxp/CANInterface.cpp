@@ -59,6 +59,7 @@ void CANInterface::interrupt_handler() {
 	CAN_isr_flag_mask.hw_rx_overflow = false;
 	CAN_isr_flag_mask.sw_rx_overflow = false;
 
+	uint64_t curr_hires_timestamp = HAL_IOCX_HIGHRESTIMER_Get();
 	if(HAL_MCP25625_HW_Ctl_Get(&ie_ctl_isr)==HAL_OK){
 		while (!done) {
 			rx_fifo_full = false;
@@ -69,7 +70,7 @@ void CANInterface::interrupt_handler() {
 				TIMESTAMPED_CAN_TRANSFER_PADDED *p_rx = rx_fifo.enqueue_reserve();
 				if(p_rx) {
 					if(HAL_MCP25625_HW_Data_Get(RXB0, (CAN_TRANSFER_PADDED *)p_rx)==HAL_OK) {
-						p_rx->transfer.timestamp_ms = HAL_IOCX_HIGHRESTIMER_Get();
+						p_rx->transfer.timestamp_ms = curr_hires_timestamp;
 						rx_fifo.enqueue_commit(p_rx);
 						rx_fifo_nonempty = true;
 						ie_ctl_isr.rx0 = false;
@@ -85,7 +86,7 @@ void CANInterface::interrupt_handler() {
 				TIMESTAMPED_CAN_TRANSFER_PADDED *p_rx = rx_fifo.enqueue_reserve();
 				if(p_rx) {
 					if(HAL_MCP25625_HW_Data_Get(RXB1, (CAN_TRANSFER_PADDED *)p_rx)==HAL_OK) {
-						p_rx->transfer.timestamp_ms = HAL_IOCX_HIGHRESTIMER_Get();
+						p_rx->transfer.timestamp_ms = curr_hires_timestamp;
 						rx_fifo.enqueue_commit(p_rx);
 						rx_fifo_nonempty = true;
 						ie_ctl_isr.rx1 = false;
@@ -155,6 +156,7 @@ void CANInterface::interrupt_handler() {
 					// ISR processing is complete.
 					done = true;
 				} else {
+					curr_hires_timestamp = HAL_IOCX_HIGHRESTIMER_Get(); // Update timestamp
 					more_interrupt_pending_count++;
 				}
 			} else {
