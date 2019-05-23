@@ -2426,18 +2426,15 @@ void HAL_IOCX_ADC_SetCurrentAnalogTriggerState(uint8_t analog_trigger_index, uin
 
 #ifdef ENABLE_HIGHRESOLUTION_TIMESTAMP
 TIM_HandleTypeDef htim10;
-static uint64_t highres_timestamp_high = 0;
+static volatile uint32_t highres_timestamp_high = 0;
 
 void TIM1_UP_TIM10_IRQHandler(void)
 {
 	/* TIM10 Update event */
 	if(__HAL_TIM_GET_FLAG(&htim10, TIM_FLAG_UPDATE) != RESET)
 	{
-		if(__HAL_TIM_GET_ITSTATUS(&htim10, TIM_IT_UPDATE) !=RESET)
-		{
-			__HAL_TIM_CLEAR_IT(&htim10, TIM_IT_UPDATE);
-			highres_timestamp_high++;
-		}
+		highres_timestamp_high++;
+		__HAL_TIM_CLEAR_IT(&htim10, TIM_IT_UPDATE);
 	}
 }
 
@@ -2484,22 +2481,48 @@ uint64_t HAL_IOCX_HIGHRESTIMER_Get()
 {
 	uint64_t highres_timestamp;
 #ifdef ENABLE_HIGHRESOLUTION_TIMESTAMP
-
-#define MAX_TIM10_INTERRUPT_LATENCY_US 2000
-
-    HAL_NVIC_DisableIRQ(TIM1_UP_TIM10_IRQn);
+#if 0
+ 	HAL_NVIC_DisableIRQ(TIM1_UP_TIM10_IRQn);
+    uint32_t ts_high = highres_timestamp_high;
     uint16_t curr_count = __HAL_TIM_GetCounter(&htim10);
-    uint64_t ts_high = highres_timestamp_high;
-	if(__HAL_TIM_GET_ITSTATUS(&htim10, TIM_IT_UPDATE) !=RESET) {
-		// counter rollover occurred, but interrupt has not yet occurred.
-		// In this case, increment the high portion of the timestamp, as long
-		// as the count is low enough that this occurred due to interrupt latency
-		if (curr_count < MAX_TIM10_INTERRUPT_LATENCY_US) {
-			ts_high++;
-		}
+	if(__HAL_TIM_GET_FLAG(&htim10, TIM_FLAG_UPDATE) != RESET) {
+		uint16_t curr_count2 = __HAL_TIM_GetCounter(&htim10);
+    	while (curr_count2 == curr_count) {
+    		curr_count2 = __HAL_TIM_GetCounter(&htim10);
+    	}
+    	if (curr_count2 < curr_count)
+    	{
+    		ts_high++;
+    		curr_count = curr_count2;
+    	}
 	}
+/*
+	if(__HAL_TIM_GET_FLAG(&htim10, TIM_IT_UPDATE) !=RESET) {
+	    uint16_t newer_count = __HAL_TIM_GetCounter(&htim10);
+	    if (newer_count < curr_count) {
+	    	// counter rollover occurred, but ISR has not yet been invoked.
+	    	// In this case, increment the high portion of the timestamp, as long
+	    	// as the count is low enough that this occurred due to interrupt latency
+	    	curr_count = newer_count;
+	    	ts_high++;
+	    }
+	}
+*/
     HAL_NVIC_EnableIRQ(TIM1_UP_TIM10_IRQn);
-    highres_timestamp = (ts_high << 16) + curr_count;
+#else
+    uint32_t ts_high = highres_timestamp_high;
+    uint16_t curr_count = __HAL_TIM_GetCounter(&htim10);
+	uint16_t curr_count2 = __HAL_TIM_GetCounter(&htim10);
+	while (curr_count2 == curr_count) {
+		curr_count2 = __HAL_TIM_GetCounter(&htim10);
+	}
+	if (curr_count2 < curr_count) {
+		//ts_high++;
+		ts_high = highres_timestamp_high;
+		curr_count = curr_count2;
+	}
+#endif
+    highres_timestamp = (((uint64_t)ts_high) << 16) + curr_count;
 #else
 	highres_timestamp = HAL_GetTick();
 	highres_timestamp *= 1000;
