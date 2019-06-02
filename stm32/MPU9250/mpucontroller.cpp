@@ -27,6 +27,7 @@ THE SOFTWARE.
 #include "usb_serial.h"
 #include <math.h>
 #include "helper_3dmath.h"
+#include "navx-mxp_hal.h"
 
 extern "C" {
 #include "mpl.h"
@@ -798,9 +799,11 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
     FloatVectorStruct gravity;
     short sensors;
     unsigned char more;
+    uint64_t hires_timestamp;
     if ( !hal.new_gyro ) return -1;
     if ( NULL == pdata ) return -1;
 
+    hires_timestamp = HAL_IOCX_HIGHRESTIMER_Get();
     get_ms(&sensor_timestamp);
     if (!dmp_read_fifo(gyro, accel_short, pdata->quaternion, &sensor_timestamp_dmp_fifo, &sensors, &more) ) {
 
@@ -1153,6 +1156,7 @@ _EXTERN_ATTRIB int get_dmp_data( struct mpu_data *pdata )
             pdata->raw_accel[2] = accel_short[2];
 
             pdata->timestamp = sensor_timestamp;
+            pdata->hires_timestamp = hires_timestamp;
         }
         return 0;
     } else {

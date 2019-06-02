@@ -168,8 +168,9 @@ struct __attribute__ ((__packed__)) nav10_protocol_registers {
     uint8_t                 cal_status;
     uint8_t                 selftest_status;
     uint16_t                capability_flags;
+    uint16_t                fw_revision;
     /* Reserved */
-    uint8_t                 reserved[3];
+    uint8_t                 reserved;
     /* Processed Data */
     uint16_t                sensor_status;
     uint32_t                timestamp;
@@ -189,10 +190,10 @@ struct __attribute__ ((__packed__)) nav10_protocol_registers {
     s_1616_float            barometric_pressure;
     s_short_hundred_float   pressure_sensor_temp_c;
     s_short_hundred_float   yaw_offset;
-    s_short_ratio_float     quat_offset[4];
+    uint64_t				hires_timestamp;
     /* Integrated Values */
     /* - Read/Write Registers */
-uint16_t                    integration_control;
+    uint16_t				integration_control;
     /* - Read-only Registers */
     s_1616_float            velocity[3];
     s_1616_float            displacement[3];
@@ -307,7 +308,9 @@ uint16_t get_capability_flags()
     capability_flags |= (NAVX_CAPABILITY_FLAG_OMNIMOUNT +
             NAVX_CAPABILITY_FLAG_VEL_AND_DISP +
             NAVX_CAPABILITY_FLAG_YAW_RESET +
-            NAVX_CAPABILITY_FLAG_AHRSPOS_TS);
+            NAVX_CAPABILITY_FLAG_AHRSPOS_TS +
+            NAVX_CAPABILITY_FLAG_FW_REVISION +
+            NAVX_CAPABILITY_FLAG_HIRES_TIMESTAMP);
     uint16_t yaw_axis_info =
             (((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis << 1) +
             ((((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up) ? 1 : 0);
@@ -343,6 +346,7 @@ _EXTERN_ATTRIB void nav10_init()
     registers.identifier	= NAVX_MODEL_NAVX_MXP;
     registers.fw_major		= NAVX_MXP_FIRMWARE_VERSION_MAJOR;
     registers.fw_minor		= NAVX_MXP_FIRMWARE_VERSION_MINOR;
+    registers.fw_revision	= NAVX_MXP_REVISION;
     read_unique_id(&chipid);
     update_capability_flags();
 
@@ -761,6 +765,7 @@ _EXTERN_ATTRIB void nav10_main()
                 registers.barometric_pressure = 0;			/* Todo:  update from pressure sensor */
                 registers.pressure_sensor_temp_c = 0;		/* Todo:  update from pressure sensor */
                 registers.timestamp = mpudata.timestamp;
+                registers.hires_timestamp = mpudata.hires_timestamp;
                 for ( int i = 0; i < 4; i++ ) {
                     registers.quat[i] = IMURegisters::encodeRatioFloat(
                             (float)(mpudata.quaternion[i] >> 16) / 16384.0f);

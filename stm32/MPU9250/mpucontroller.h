@@ -65,6 +65,7 @@ struct mpu_data {
 									// interpolating values between each compass update with
 									// deltas in yaw change.
 	unsigned long timestamp;		// When the mpu data was acquired
+	uint64_t hires_timestamp;		// When the mpu data was acquired (high-resolution)
 	float velocity[3];				// Meters/Sec
 	float displacement[3];			// Meters
 };
