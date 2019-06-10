@@ -35,7 +35,7 @@ REM Build navX-MXP and navX-Micro Firmware
 rm -r -f ./build_workspace_navx-mxp
 mkdir build_workspace_navx-mxp
 
-%ECLIPSEC_JUNO% -nosplash -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data ./build_workspace_navx-mxp -import ./stm32 -cleanBuild navx-mxp/navX-PI_Debug
+%ECLIPSEC_JUNO% -nosplash -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data ./build_workspace_navx-mxp -import ./stm32 -cleanBuild navx-mxp/navX-PI_Release
 
 rmdir /S /Q stm32\bin
 mkdir stm32\bin
