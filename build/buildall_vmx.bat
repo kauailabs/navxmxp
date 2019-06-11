@@ -48,7 +48,7 @@ set REVISION_STRING=%VER_MAJOR%.%VER_MINOR%.%VER_REVISION%
 REM Place version string into setup script 
 @echo on
 
-copy .\stm32\navX-PI_Debug\vmx-pi.hex .\stm32\bin\vmx-pi_%REVISION_STRING%.hex
+copy .\stm32\navX-PI_Release\vmx-pi.hex .\stm32\bin\vmx-pi_%REVISION_STRING%.hex
 
 REM Build CSharp Components
 
