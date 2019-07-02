@@ -198,7 +198,7 @@ model {
 				// create the signed artifacts
 				project.tasks.signArchives.signatureFiles.each {
 					artifact(it) {
-						def matcher = it.file =~ /-(sources|headers|linuxathena|linuxathenadebug|linuxathenastatic|linuxathenastaticdebug)\.zip\.asc$/
+						def matcher = it.file =~ /-(sources|headers|linuxathena|linuxathenadebug|linuxathenastatic|linuxathenastaticdebug|linuxraspbian|linuxraspbiandebug|linuxraspbianstatic|linuxraspbianstaticdebug)\.zip\.asc$/
 						if (matcher.find()) {
 							classifier = matcher.group(1)
 						} else {

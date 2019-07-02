@@ -84,7 +84,7 @@ pushd .\roborio\c++\navx_frc_cpp
 call gradlew clean
 REM the build build doesn't work correctly, due to some conflict w/the publishing steps
 REM therefore, for now, build the release static library
-call gradlew navx_frcAthenaReleaseStaticLibrary
+call gradlew navx_frcLinuxathenaReleaseSharedLibrary
 call gradlew navx_frcLinuxraspbianReleaseStaticLibrary
 REM For now, publish to a local maven repo, for access by setup builder and the maven_deploy script.
 REM The local maven repo is at %HOMEDRIVE%%HOMEPATH%\.m2\repository

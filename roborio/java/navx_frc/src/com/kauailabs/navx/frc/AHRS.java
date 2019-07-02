@@ -318,8 +318,6 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      * Constructs the AHRS class using SPI communication and the default update rate.  
      *<p>
      * This constructor should be used if communicating via SPI.
-     *<p>
-     * @param spi_port_id SPI port to use.
      */
     public AHRS() {
 	this(SPI.Port.kMXP);
