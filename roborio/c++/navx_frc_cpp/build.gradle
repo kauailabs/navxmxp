@@ -45,7 +45,7 @@ model {
           it.sources {
             raspberryCpp(CppSourceSet) {
               source {
-                srcDirs = ['raspberry']
+                srcDirs = ['src']
                 include '**/*.cpp'
               }
               exportedHeaders {

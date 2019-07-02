@@ -34,11 +34,11 @@ RegisterIOMau::RegisterIOMau(uint8_t update_rate_hz,
     this->last_update_time      = 0;
     this->stop                  = false;
 
-    raw_data_update = {0};
+    raw_data_update = {};
     ahrs_update     = {};
     ahrspos_update  = {};
-    board_state     = {0};
-    board_id        = {0};
+    board_state     = {};
+    board_id        = {};
 
     pfunc_Init = 0;
     pfunc_IsConnected = 0;
