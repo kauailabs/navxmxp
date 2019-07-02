@@ -61,6 +61,7 @@ SerialPort *SerialIO::ResetSerialPort()
         try {
             delete serial_port;
         } catch (std::exception& ex) {
+            (void)ex; // call it to remove unused variable error
             // This has been seen to happen before....
         }
         serial_port = 0;
@@ -80,6 +81,7 @@ SerialPort *SerialIO::GetMaybeCreateSerialPort()
             serial_port->EnableTermination('\n');
             serial_port->Reset();
         } catch (std::exception& ex) {
+            (void)ex; // call it to remove unused variable error
             /* Error opening serial port. Perhaps it doesn't exist... */
             serial_port = 0;
         }
