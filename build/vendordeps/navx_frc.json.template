@@ -26,7 +26,8 @@
             "libName": "navx_frc",
             "skipInvalidPlatforms": true,
             "binaryPlatforms": [
-                "linuxathena"
+                "linuxathena",
+				"linuxraspbian"
             ]
         }
     ]
