@@ -6,7 +6,8 @@ apply plugin: 'signing'
 // already specified on the command line
 if (!hasProperty('releaseType')) {
     WPILibVersion {
-        releaseType = 'dev'
+        // Change this back to 'dev' for for development builds during the fall.
+        releaseType = 'OFFICIAL'
     }
 }
 

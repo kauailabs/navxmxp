@@ -4,4 +4,3 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
-enableFeaturePreview('STABLE_PUBLISHING')

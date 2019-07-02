@@ -1,18 +1,11 @@
 plugins {
   id 'cpp'
   id 'edu.wpi.first.wpilib.versioning.WPILibVersioningPlugin' version '2.2'
-  id 'edu.wpi.first.NativeUtils' version '2.1.2'
-  id 'edu.wpi.first.GradleVsCode' version '0.7.1'
+  id 'edu.wpi.first.NativeUtils' version '2019.5.15'
+  id 'edu.wpi.first.GradleVsCode' version '0.9.0'
 }
 
 apply from: 'config.gradle'
-
-ext.chipObjectComponents = ['navx_frc']
-ext.netCommComponents = ['navx_frc']
-ext.sharedConfigs = [navx_frc: []]
-ext.staticGtestConfigs = [:]
-
-apply from: 'dependencies.gradle'
 
 task copyFirmwareHeaders(type: Copy) {
     into("${projectDir}/include")
@@ -24,35 +17,19 @@ task copyFirmwareHeaders(type: Copy) {
 
 build.dependsOn(copyFirmwareHeaders)
 
-model {
+nativeUtils {
   exportsConfigs {
-      navx_frc(ExportsConfig) {
-          x86ExcludeSymbols = ['_CT??_R0?AV_System_error', '_CT??_R0?AVexception', '_CT??_R0?AVfailure',
-                                '_CT??_R0?AVbad_cast',
-                                '_CT??_R0?AVruntime_error', '_CT??_R0?AVsystem_error', '_CTA5?AVfailure',
-                                '_TI5?AVfailure']
-          x64ExcludeSymbols = ['_CT??_R0?AV_System_error', '_CT??_R0?AVexception', '_CT??_R0?AVfailure',
-                                '_CT??_R0?AVbad_cast',
-                                '_CT??_R0?AVruntime_error', '_CT??_R0?AVsystem_error', '_CTA5?AVfailure',
-                                '_TI5?AVfailure']
+      navx_frc {
       }
   }
+}
+
+model {
   components {
     navx_frc(NativeLibrarySpec) {
-//      sources {
-//        cpp {
-//          source {
-//            srcDirs 'src'
-//            include '**/*.cpp'
-//          }
-//          exportedHeaders {
-//            srcDirs 'include'
-//          }
-//        }
-//      }
       appendDebugPathToBinaries(binaries)
       binaries.all {
-        if (it.targetPlatform.architecture.name == 'athena') {
+        if (it.targetPlatform.name == nativeUtils.wpi.platforms.roborio) {
           it.sources {
             athenaCpp(CppSourceSet) {
               source {
@@ -64,7 +41,7 @@ model {
               }
             }
           }
-        } else if (it.targetPlatform.architecture.name == 'raspberry') {
+        } else if (it.targetPlatform.name == nativeUtils.wpi.platforms.raspbian) {
           it.sources {
             raspberryCpp(CppSourceSet) {
               source {
@@ -90,6 +67,7 @@ model {
           }
         }
       }
+      nativeUtils.useRequiredLibrary(it, "wpilib_shared")
     }
   }
 }
@@ -97,5 +75,5 @@ model {
 apply from: 'publish.gradle'
 
 wrapper {
-  gradleVersion = '5.0'
+  gradleVersion = '5.4.1'
 }
