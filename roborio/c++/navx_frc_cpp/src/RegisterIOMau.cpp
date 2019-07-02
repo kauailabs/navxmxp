@@ -18,7 +18,6 @@
  */
 
 #include "RegisterIOMau.h"
-#include <AHRS_Mau.h>
 #include "IMURegisters.h"
 #include "delay.h"
 #include <dlfcn.h>
