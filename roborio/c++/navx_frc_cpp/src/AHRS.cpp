@@ -38,12 +38,13 @@ static bool IsRaspbian() {
 	if (os_release_file.fail()) return false;
 
 	std::string line;
-	while (!is_raspbian) {
-		os_release_file >> line;
+    while (getline(os_release_file, line)) {
 		if (line.find(raspbian_suffix) != std::string::npos) {
 			is_raspbian = true;
+			break;
 		}
-	}
+    }
+
 	os_release_file.close();
 	return is_raspbian;
 }
