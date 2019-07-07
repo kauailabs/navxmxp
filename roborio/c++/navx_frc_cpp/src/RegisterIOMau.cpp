@@ -52,8 +52,8 @@ RegisterIOMau::RegisterIOMau(uint8_t update_rate_hz,
 
     dlhandle = 0;
 
-    const char *p_sharedlibname_release = "libwpiHalMau.so";
-    const char *p_sharedlibname_debug = "libwpiHalMaud.so";
+    const char *p_sharedlibname_release = "libwpiHal.so";
+    const char *p_sharedlibname_debug = "libwpiHald.so";
 
     if (((dlhandle = dlopen(p_sharedlibname_debug, RTLD_LAZY)) != NULL) ||
         ((dlhandle = dlopen(p_sharedlibname_release, RTLD_LAZY)) != NULL)) {
