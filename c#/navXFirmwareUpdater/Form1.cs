@@ -408,6 +408,9 @@ namespace navXFirmwareUpdater
                                     {
                                         boardType.Text = "navX-Micro";
                                     }
+									else if ((hwrev >= 60) && (hwrev <= 69)) {
+										boardType.Text = "VMX-pi";
+									}									
                                 }
                                 else
                                 {
