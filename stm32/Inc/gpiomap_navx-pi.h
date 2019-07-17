@@ -135,6 +135,43 @@
 #define CAN_OK_LED_Pin GPIO_PIN_15
 #define CAN_OK_LED_GPIO_Port GPIOE
 
+/* VMX-pi Board Rev 5.38 added:
+ *
+ * PD 7, 6 and 5:  3 bits of board Revision, as follows:
+ * - 0x111:   Boards previous to v. 5.38 (e.g., 5.35 [Nov. 2017]
+ * - 0x110:   Revision 5.38 [Nov, 2018]
+ *
+ * NOTE:  PD7 is the most significant bit.
+ *
+ * NOTE:  These signals were disconnected in previous designs.  They can be
+ * tested on all designs by pulling them high at startup and reading their state.
+ */
+
+#define VMXPI_BOARDREV_BIT2_Pin GPIO_PIN_7
+#define VMXPI_BOARDREV_BIT1_Pin GPIO_PIN_6
+#define VMXPI_BOARDREV_BIT0_Pin GPIO_PIN_5
+#define VMXPI_BOARDREV_Port GPIOD
+
+#define VMXPI_BOARDREV_MAX  0x07
+#define VMXPI_BOARDREV_5_35	0x07  /* NOTE:  All pins disconnected on this revision. */
+#define VMXPI_BOARDREV_5_38 0x06  /* BIT2, BIT 1 Disconnected.  BIT 2 Pulled to Ground. */
+								  /* NOTE:  Bit 2 is not actually pulled to Ground.  So */
+								  /*        there is no known reliable method to detect */
+								  /*        this board version.  Fortunately, control of*/
+								  /*        the 5.38 functionality is backwards-        */
+								  /*        compatible.                                 */
+
+/* VMX-pi Board Rev 5.38 added:
+ * Output Enable Pin for output-direction CommDIO Signals:
+ * - UART: TX
+ * - SPI:  CLK CS MOSI
+ * This signal is active low.
+ * This signal was unconnected in previous designs.
+ */
+
+#define _COMM_OE1_Pin GPIO_PIN_3
+#define _COMM_OE1_GPIO_Port GPIOA
+
 /* USER CODE END Private defines	 */
 
 #define GPIO_INT(GPIO_INT_NUM) (1 << GPIO_INT_NUM)

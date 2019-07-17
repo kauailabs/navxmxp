@@ -100,7 +100,7 @@ int MX_CAN_Interrupt_Verify(int fix)
         * EVENT_OUT
         * EXTI
 */
-void MX_GPIO_Init_NavX_PI(void)
+int MX_GPIO_Init_NavX_PI(void)
 {
 
   GPIO_InitTypeDef GPIO_InitStruct;
@@ -237,6 +237,41 @@ void MX_GPIO_Init_NavX_PI(void)
   HAL_GPIO_WritePin(NAVX_2_RPI_INT3_GPIO_Port, NAVX_2_RPI_INT3_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(NAVX_2_RPI_INT4_GPIO_Port, NAVX_2_RPI_INT4_Pin, GPIO_PIN_SET);
 
+  /* Determine VMX-pi board revision by reading board rev pins after pulling them high */
+
+  GPIO_InitStruct.Pin = VMXPI_BOARDREV_BIT2_Pin |
+		  	  	  	    VMXPI_BOARDREV_BIT1_Pin |
+		  	  	  	    VMXPI_BOARDREV_BIT0_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(VMXPI_BOARDREV_Port, &GPIO_InitStruct);
+
+  HAL_Delay(2);  // Give inputs a moment to stabilize before reading
+  int bit0 = (HAL_GPIO_ReadPin(VMXPI_BOARDREV_Port,VMXPI_BOARDREV_BIT0_Pin) == GPIO_PIN_SET);
+  int bit1 = (HAL_GPIO_ReadPin(VMXPI_BOARDREV_Port,VMXPI_BOARDREV_BIT1_Pin) == GPIO_PIN_SET);
+  int bit2 = (HAL_GPIO_ReadPin(VMXPI_BOARDREV_Port,VMXPI_BOARDREV_BIT2_Pin) == GPIO_PIN_SET);
+
+  int boardrev = (bit2 ? 1 << 2 : 0) +
+		  	  	 (bit1 ? 1 << 1 : 0) +
+		  	  	 (bit0 ? 1 << 0 : 0);
+
+  // All board revisions later than 5.35 have UART/SPI output signal enable pin (active low)
+  // And control of the new enable feature will not cause any problems w5.35.  And board rev
+  // 5.38 cannot be reliability detected currently.
+  // Therefore, the 5.38 output enable code runs on all boards (5.35 and 5.38)
+  GPIO_InitStruct.Pin = _COMM_OE1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(_COMM_OE1_GPIO_Port, &GPIO_InitStruct);
+
+  // Disable outputs by default
+  HAL_GPIO_WritePin(_COMM_OE1_GPIO_Port, COMM_OE2_Pin, GPIO_PIN_SET);
+
+  // Disable board revision inputs now that revision check is complete
+  HAL_GPIO_DeInit(VMXPI_BOARDREV_Port, VMXPI_BOARDREV_BIT0_Pin);
+  HAL_GPIO_DeInit(VMXPI_BOARDREV_Port, VMXPI_BOARDREV_BIT1_Pin);
+  HAL_GPIO_DeInit(VMXPI_BOARDREV_Port, VMXPI_BOARDREV_BIT2_Pin);
+
   HAL_NVIC_EnableIRQ((IRQn_Type)EXTI0_IRQn);
   HAL_NVIC_SetPriority((IRQn_Type)EXTI0_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ((IRQn_Type)EXTI1_IRQn);
@@ -248,6 +283,8 @@ void MX_GPIO_Init_NavX_PI(void)
   /* CAN Interrupt Line */
   HAL_NVIC_EnableIRQ((IRQn_Type)EXTI4_IRQn);
   HAL_NVIC_SetPriority((IRQn_Type)EXTI4_IRQn, 2, 0);
+
+  return boardrev;
 }
 
 /* USER CODE BEGIN 2 */

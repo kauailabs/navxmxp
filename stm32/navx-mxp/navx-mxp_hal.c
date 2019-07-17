@@ -417,6 +417,8 @@ void HAL_RTC_Get_Date(uint8_t *weekday, uint8_t *date, uint8_t *month, uint8_t *
 
 #ifdef ENABLE_IOCX
 
+int vmxpi_board_rev = VMXPI_BOARDREV_5_35; // Default
+
 typedef enum  {
 	INT_EXTI,	/* STM32 External Interrupt Line */
 	INT_ALTPIN, /* This GPIO also connected to a secondary INT input pin. */
@@ -492,8 +494,9 @@ static void HAL_IOCX_EXTI_ISR(uint8_t gpio_pin)
 	}
 }
 
-void HAL_IOCX_Init()
+void HAL_IOCX_Init(int board_rev)
 {
+	vmxpi_board_rev = board_rev;
 	uint8_t i;
 	for (i = 0; i < IOCX_NUM_INTERRUPTS; i++) {
 		IOCX_gpio_pin_to_interrupt_index_map[i] = INVALID_INTERRUPT_INDEX;
@@ -533,6 +536,12 @@ void HAL_IOCX_RPI_COMM_Driver_Enable(int enable)
 {
 	  HAL_GPIO_WritePin(COMM_OE2_GPIO_Port, COMM_OE2_Pin,
 			  (enable ? GPIO_PIN_SET : GPIO_PIN_RESET));
+
+	  // Note that this enabling should have no effect on v5.35 hardware,
+	  // since the _COMM_OE1 signal is disconnected; on v. 5.35 hardware,
+	  // this output wss always enabled.
+	  HAL_GPIO_WritePin(_COMM_OE1_GPIO_Port, _COMM_OE1_Pin,
+				  (enable ? GPIO_PIN_RESET : GPIO_PIN_SET));
 }
 
 /* Returns 0 if pins are input, non-zero if output */
@@ -2528,4 +2537,13 @@ uint64_t HAL_IOCX_HIGHRESTIMER_Get()
 	highres_timestamp *= 1000;
 #endif
 	return highres_timestamp;
+}
+
+unsigned char HAL_GetBoardRev() {
+	unsigned char board_rev = NAVX_HARDWARE_REV; // Initialize to default
+#ifdef ENABLE_IOCX
+	unsigned char vmxpi_board_rev_count = VMXPI_BOARDREV_MAX - (unsigned char)vmxpi_board_rev;
+	board_rev += vmxpi_board_rev_count;
+#endif
+	return board_rev;
 }

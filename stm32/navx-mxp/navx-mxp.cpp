@@ -342,7 +342,7 @@ _EXTERN_ATTRIB void nav10_init()
     IMURegisters::buildCRCLookupTable(crc_lookup_table, sizeof(crc_lookup_table));
 
     registers.op_status		= NAVX_OP_STATUS_INITIALIZING;
-    registers.hw_rev		= NAVX_HARDWARE_REV;
+    registers.hw_rev		= HAL_GetBoardRev();
     registers.identifier	= NAVX_MODEL_NAVX_MXP;
     registers.fw_major		= NAVX_MXP_FIRMWARE_VERSION_MAJOR;
     registers.fw_minor		= NAVX_MXP_FIRMWARE_VERSION_MINOR;

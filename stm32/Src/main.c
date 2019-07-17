@@ -74,7 +74,7 @@ RTC_HandleTypeDef hrtc;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
+static int MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_I2C3_Init(void);
@@ -151,7 +151,7 @@ int main(void)
     HAL_Init();
     /* Configure the system clock */
     SystemClock_Config();
-    MX_GPIO_Init();
+    int board_rev = MX_GPIO_Init();
 
     USB_Soft_Disconnect();
 
@@ -185,12 +185,16 @@ int main(void)
     MX_RTC_Init();
 #endif
     /* USER CODE BEGIN 2 */
+#ifdef ENABLE_IOCX
+    HAL_IOCX_Init(board_rev);  // Ensure board_rev is registered BEFORE nav10_init() is invoked.
+#endif
     nav10_init();
 #ifdef ENABLE_IOCX
+
 #define IOCX_BANK_NUMBER 1
 #define IOCX_EX_BANK_NUMBER 4
     /* The IOCX handlers process both the IOCX and the IOCX_EX Banks */
-    HAL_IOCX_Init();
+
 #ifdef ENABLE_HIGHRESOLUTION_TIMESTAMP
     HAL_IOCX_HIGHRESTIMER_Init();
 #endif
@@ -368,10 +372,12 @@ void MX_USART6_UART_Init(void)
  * Free pins are configured automatically as Analog (this feature is enabled through
  * the Code Generation settings)
  */
-void MX_GPIO_Init(void)
+int MX_GPIO_Init(void)
 {
+	int board_rev = 7; // Board revisions are 3-bit values (0-7).  Default is 7.
+
 #ifdef GPIO_MAP_NAVX_PI
-    MX_GPIO_Init_NavX_PI();
+    board_rev = MX_GPIO_Init_NavX_PI();
 #else
 	GPIO_InitTypeDef GPIO_InitStruct;
 
@@ -441,6 +447,7 @@ void MX_GPIO_Init(void)
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 #endif
+    return board_rev;
 }
 
 /**

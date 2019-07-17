@@ -52,7 +52,7 @@
 
 /* USER CODE END Private defines */
 
-void MX_GPIO_Init_NavX_PI(void);
+int MX_GPIO_Init_NavX_PI(void); // returns board revision (0-7)
 int MX_CAN_Interrupt_Verify(int fix);
 
 /* USER CODE BEGIN Prototypes */

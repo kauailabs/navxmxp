@@ -125,6 +125,8 @@ void HAL_CAN_Status_LED_On(int on);
 
 void HAL_Ensure_CAN_EXTI_Configuration();
 
+uint8_t HAL_GetBoardRev();
+
 /**********************/
 /* RTC                */
 /**********************/
@@ -158,7 +160,7 @@ int HAL_IOCX_Ext_Power_Fault(); /* Returns 0 if no ext power fault has occurred,
 #ifdef ENABLE_IOCX
 void HAL_IOCX_RPI_GPIO_Driver_Enable(int enable);
 void HAL_IOCX_RPI_COMM_Driver_Enable(int enable);
-void HAL_IOCX_Init();
+void HAL_IOCX_Init(int board_rev);
 void HAL_IOCX_AssertInterrupt(uint16_t int_bits_to_set);
 void HAL_IOCX_DeassertInterrupt(uint16_t int_bits_to_clear);
 void HAL_IOCX_UpdateInterruptMask(uint16_t int_new_mask);
