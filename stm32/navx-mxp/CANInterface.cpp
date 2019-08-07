@@ -204,6 +204,9 @@ bool CANInterface::clear_rx_overflow(bool disable_interrupts) {
 			eflg_ctl.mask = (MCP25625_ERRORFLAG_CTL_MASK)(FLG_RX0OVR | FLG_RX1OVR);
 			s = HAL_MCP25625_HW_Ctl_Update(&eflg_ctl);
 
+			// invoke interrupt handler; this (for some reason?) clears additional problems.
+			interrupt_handler();
+#if 0
 			// Debug code:  Gather current state for diagnostic purposes
 			// Read Error Flags
 			HAL_MCP25625_HW_Ctl_Get(&eflg_ctl);
@@ -223,7 +226,7 @@ bool CANInterface::clear_rx_overflow(bool disable_interrupts) {
 			uint8_t BRP, SJW, PRSEG, PHSEG1, PHSEG2;
 			bool SAM, BTLMODE, WAKFIL, SOFR;
 			get_btl_config(BRP, SJW, PRSEG, PHSEG1, PHSEG2, SAM, BTLMODE, WAKFIL, SOFR);
-
+#endif
 			/* Workaround; for some unknown reason, in certain cases the GPIO
 			 * configuration for the CAN Interrupt becomes disabled.  If this occurs,
 			 * the CAN Interrupt is no longer received and an observable result is
@@ -234,7 +237,6 @@ bool CANInterface::clear_rx_overflow(bool disable_interrupts) {
 			 * likely be removed.
 			 */
 			HAL_Ensure_CAN_EXTI_Configuration();
-
 		}
 	}
 	if (disable_interrupts) enable_CAN_interrupts();

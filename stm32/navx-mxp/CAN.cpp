@@ -220,6 +220,7 @@ static void CAN_process_pending_updates()
 		}
 		if (pending_updates & CAN_DEVICE_UPDATE_CLEAR_RXOVRF) {
 			p_CAN->clear_rx_overflow(true);
+			can_regs.int_flags.hw_rx_overflow = false;
 		}
 		if (pending_updates & CAN_DEVICE_UPDATE_MODE_0) {
 			p_CAN->rx_config((MCP25625_RX_BUFFER_INDEX)0,
