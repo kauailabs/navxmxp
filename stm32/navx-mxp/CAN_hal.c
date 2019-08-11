@@ -120,6 +120,20 @@ HAL_StatusTypeDef HAL_MCP25625_Read(uint8_t reg, uint8_t *buffer, uint8_t count)
 	return spi_status;
 }
 
+static uint8_t int_flag_read_cmd[3] = {MCP25625_READ_CMD, REG_INT_FLG, 0};
+
+HAL_StatusTypeDef HAL_MCP25625_IntFlagRead(uint8_t* int_flag) {
+	HAL_GPIO_WritePin( CAN_CS_Port, CAN_CS_Pin, GPIO_PIN_RESET);
+	HAL_StatusTypeDef spi_status = HAL_SPI_TransmitReceive(&hspi2,
+			int_flag_read_cmd, mcp25625_read_buffer, 3,
+			MCP25625_SPI_TIMEOUT_MS);
+	HAL_GPIO_WritePin( CAN_CS_Port, CAN_CS_Pin, GPIO_PIN_SET);
+	if (spi_status == HAL_OK) {
+		*int_flag = mcp25625_read_buffer[2];
+	}
+	return spi_status;
+}
+
 HAL_StatusTypeDef HAL_MCP25625_Write(uint8_t start_reg, uint8_t *p_data,
 		uint8_t count) {
 	mcp25625_write_buffer[0] = MCP25625_WRITE_CMD;

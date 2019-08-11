@@ -296,6 +296,7 @@ void EXTI3_IRQHandler(void)
 */
 void EXTI4_IRQHandler(void)
 {
+  // CAN Interrupt on VMX-pi
   HAL_NVIC_ClearPendingIRQ(EXTI4_IRQn);
 #ifdef GPIO_MAP_NAVX_PI
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_4); /*  */

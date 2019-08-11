@@ -21,10 +21,12 @@ TIMESTAMPED_CAN_TRANSFER read_buffer[READ_BUFFER_TRANSFER_COUNT];
 
 void enable_SPI_interrupts() {
     HAL_NVIC_EnableIRQ(SPI1_IRQn);
+    HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
 }
 
 void disable_SPI_interrupts() {
     HAL_NVIC_DisableIRQ(SPI1_IRQn);
+    HAL_NVIC_DisableIRQ(DMA2_Stream0_IRQn);
 }
 
 #define CAN_DEVICE_UPDATE_RESET			0x00000001
@@ -85,7 +87,6 @@ void CAN_ISR_Flag_Function(CAN_IFX_INT_FLAGS mask, CAN_IFX_INT_FLAGS flags)
 static void CAN_int_flags_modified(uint8_t first_offset, uint8_t count) {
 	if(can_regs.int_flags.hw_rx_overflow){
 		can_pending_updates |= CAN_DEVICE_UPDATE_CLEAR_RXOVRF;
-		can_regs.int_flags.hw_rx_overflow = false;
 	}
 	can_regs.int_status = can_regs.int_flags;
 	uint8_t curr_flags = *(uint8_t *)&can_regs.int_flags;
@@ -109,7 +110,7 @@ _EXTERN_ATTRIB void CAN_init()
 
 static uint32_t last_loop_timestamp = 0;
 static uint32_t last_can_bus_error_check_timestamp = 0;
-#define NUM_MS_BETWEEN_SUCCESSIVE_LOOPS 1
+#define NUM_MS_BETWEEN_SUCCESSIVE_LOOPS 0
 #define NUM_MS_BETWEEN_SUCCESSIVE_CAN_BUS_ERROR_CHECKS 50
 
 static void CAN_process_pending_updates()
@@ -121,9 +122,11 @@ static void CAN_process_pending_updates()
 		 * This code needs to execute very quickly.
 		 */
 
+		uint32_t pending_updates;
 		CAN_REGS can_regs_pending;
 		disable_SPI_interrupts();
-		uint32_t pending_updates = can_pending_updates;
+		pending_updates = can_pending_updates;
+		can_pending_updates = 0;
 		if (pending_updates & CAN_DEVICE_UPDATE_DEVICE_MODE) {
 			can_regs_pending.opmode = can_regs.opmode;
 		}
@@ -167,7 +170,6 @@ static void CAN_process_pending_updates()
 			can_regs_pending.accept_filter_rxb1[3] =
 				can_regs.accept_filter_rxb1[3];
 		}
-		can_pending_updates = 0;
 		enable_SPI_interrupts();
 
 		/* After re-enabling SPI interrupts, process the new requests */
@@ -282,18 +284,20 @@ _EXTERN_ATTRIB void CAN_loop()
 
 			CAN_IFX_INT_FLAGS CAN_loop_int_mask, CAN_loop_int_flags = {0};
 			*(uint8_t *)&CAN_loop_int_mask = 0;
-			CAN_loop_int_mask.tx_fifo_empty = true;
 
-			if(!CAN_loop_int_flags.tx_fifo_empty) {
-				p_CAN->process_transmit_fifo();
-				disable_SPI_interrupts();
-				can_regs.tx_fifo_entry_count = p_CAN->get_tx_fifo().get_count();
-				CAN_loop_int_flags.tx_fifo_empty = (can_regs.tx_fifo_entry_count == 0);
-				enable_SPI_interrupts();
+			p_CAN->process_transmit_fifo();
+			uint8_t curr_tx_fifo_count = p_CAN->get_tx_fifo().get_count();
+
+			//disable_SPI_interrupts(); // Not necessary
+			can_regs.tx_fifo_entry_count = curr_tx_fifo_count;
+			//enable_SPI_interrupts(); // Not necessary
+			CAN_loop_int_flags.tx_fifo_empty = (curr_tx_fifo_count == 0);
+
+			if (can_regs.int_flags.tx_fifo_empty != CAN_loop_int_flags.tx_fifo_empty) {
+				p_CAN->disable_CAN_interrupts();
+				CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
+				p_CAN->enable_CAN_interrupts();
 			}
-			p_CAN->disable_CAN_interrupts();
-			CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
-			p_CAN->enable_CAN_interrupts();
 		}
 
 		/* Retrieve current CAN bus TX/RX Error Counts. */
@@ -310,11 +314,14 @@ _EXTERN_ATTRIB void CAN_loop()
 				(current_mode == CAN_MODE_LISTEN)) {
 				// Check if an overflow or error condition exists
 				if (p_CAN->get_errors(rx_overflow, can_regs.bus_error_flags, can_regs.tx_err_count, can_regs.rx_err_count)) {
-					CAN_loop_int_mask.hw_rx_overflow = true;
 					CAN_loop_int_flags.hw_rx_overflow = rx_overflow;
-					p_CAN->disable_CAN_interrupts();
-					CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
-					p_CAN->enable_CAN_interrupts();
+					// If newly-discovered overflow, set flag via ISR Flag Function
+					if (can_regs.int_flags.hw_rx_overflow != CAN_loop_int_flags.hw_rx_overflow) {
+						CAN_loop_int_mask.hw_rx_overflow = true;
+						p_CAN->disable_CAN_interrupts();
+						CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
+						p_CAN->enable_CAN_interrupts();
+					}
 				}
 			}
 			// Update CAN LED state
@@ -370,6 +377,8 @@ static uint8_t * CAN_rxfifo_read(uint8_t requested_byte_count, uint16_t* size) {
 			*(uint8_t *)&new_value = 0;
 			CAN_ISR_Flag_Function(mask, new_value);
 		}
+	} else {
+		remainder_bytes = requested_byte_count;
 	}
 	/* If more transfers were requested than were available, send empty */
 	/* (invalid) transfers, to ensure the requested number of bytes is  */

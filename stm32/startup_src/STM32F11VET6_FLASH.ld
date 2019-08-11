@@ -7,7 +7,7 @@
 ENTRY(Reset_Handler)
 
 _estack = 0x20020000; /* End of RAM.  Global needed for startup code */
-_minimum_heap_size  = 0x4000; /* 16K heap (e.g., for malloc()) */
+_minimum_heap_size  = 0x5000; /* 16K heap (e.g., for malloc()) */
 _minimum_stack_size = 0x2000; /* 8K bytes miniumum stack size */
 
 MEMORY

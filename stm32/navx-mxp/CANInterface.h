@@ -25,7 +25,7 @@ typedef int CAN_INTERFACE_STATUS;
 #define MCP25625_RXP_ERR    	9
 
 #define RECEIVE_FIFO_DEPTH	254
-#define TRANSMIT_FIFO_DEPTH 64
+#define TRANSMIT_FIFO_DEPTH 255
 
 enum CAN_BITRATE {
 	Mbps_1,
@@ -83,6 +83,12 @@ class CANInterface {
 	uint32_t tx0_err_count;
 	uint32_t tx1_err_count;
 	uint32_t tx2_err_count;
+	uint32_t rx0_overflow_isr_count;
+	uint32_t rx1_overflow_isr_count;
+	uint32_t rx_total_overflow_isr_count;
+	uint32_t rx0_overflow_fg_count;
+	uint32_t rx1_overflow_fg_count;
+	uint32_t rx_total_overflow_fg_count;
 
 	FIFO<TIMESTAMPED_CAN_TRANSFER_PADDED, RECEIVE_FIFO_DEPTH> rx_fifo;
 	FIFO<CAN_TRANSFER_PADDED, TRANSMIT_FIFO_DEPTH> tx_fifo;

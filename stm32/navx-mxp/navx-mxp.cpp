@@ -89,6 +89,8 @@ _EXTERN_ATTRIB void nav10_set_register_write_func(uint8_t bank, register_write_f
 #define     MAX_VALID_BANK  0
 #endif
 
+static bool ext_spi_init_complete = false;
+
 uint8_t clip_sample_rate(uint8_t update_rate_hz)
 {
     if ( update_rate_hz < MIN_SAMPLE_RATE_HZ ) {
@@ -386,6 +388,14 @@ _EXTERN_ATTRIB void nav10_init()
 
     FlashStorage.init(sizeof(flash_cal_data));
 
+    /* Initiate Data Reception on slave SPI Interface, if it is enabled. */
+    if ( HAL_SPI_Slave_Enabled() ) {
+        HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, SPI_RECV_LENGTH);
+        HAL_SPI_Comm_Ready_Assert();
+    }
+
+    ext_spi_init_complete = true;
+
     mpu_initialize(MPU9250_INT_Pin);
     enable_dmp();
 
@@ -489,12 +499,6 @@ _EXTERN_ATTRIB void nav10_init()
     if((MPU9250_INT_Pin > GPIO_PIN_9) ||(CAL_BTN_Pin > GPIO_PIN_9)) {
         HAL_NVIC_SetPriority((IRQn_Type)EXTI15_10_IRQn, 5, 0);
         HAL_NVIC_EnableIRQ((IRQn_Type)EXTI15_10_IRQn);
-    }
-
-    /* Initiate Data Reception on slave SPI Interface, if it is enabled. */
-    if ( HAL_SPI_Slave_Enabled() ) {
-        HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, SPI_RECV_LENGTH);
-        HAL_SPI_Comm_Ready_Assert();
     }
 
     /* Initiate Data Reception on slave I2C Interface */
@@ -1713,7 +1717,7 @@ uint8_t spi_last_write_req_reg_addr = 0;        // Starting register address of 
 uint8_t spi_last_write_req_bank = 0;            // Register Bank # of last WRITE_REQ
 uint32_t spi_SR_at_beginning_of_last_write = 0;
 unsigned long last_spi_tx_start_timestamp = 0;  // Timestamp when last SPI Slave Transmit was initiated
-#define SPI_TX_TIMEOUT_MS ((unsigned long)100)  // Max allowed duration of in-progress SPI Slave Transmit
+#define SPI_TX_TIMEOUT_MS ((unsigned long)10)   // Max allowed duration of in-progress SPI Slave Transmit
 
 /* SPI Error Counts */
 int wrong_size_spi_receive_count = 0;           // SPI Slave Receive w/invalid byte count
@@ -1775,7 +1779,9 @@ uint8_t spi_tx_buffer[255];
 
 void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
 {
-    uint8_t *reg_addr;
+	if (!ext_spi_init_complete) return;
+
+    uint8_t *reg_addr = 0;
     uint16_t max_size;
     uint8_t reg_address;
     uint8_t reg_count;
@@ -1812,7 +1818,7 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                         reg_address &= ~0x80;
                     }
 #ifdef ENABLE_BANKED_REGISTERS
-                    if (bank <= NUM_SPI_BANKS) {
+                    if (bank < NUM_SPI_BANKS) {
                     	if (bank == 0) {
                            	reg_addr = GetRegisterAddressAndMaximumSize(reg_address, max_size);
                     	} else if (p_reg_lookup_func[bank] != NULL) {
@@ -1820,6 +1826,8 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                     	}
                     } else if (bank == COMM_MODE_BANK) {
                     	reg_addr = &dummy; /* Special mode does not access reg_addr */
+                    } else if (bank >= NUM_SPI_BANKS) {
+                    	reg_addr = 0; /* Invalid Bank Requested */
                     }
                     else
 #endif
@@ -1903,7 +1911,12 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                     if ( ( __HAL_SPI_GET_FLAG(&hspi1,SPI_FLAG_BSY) != RESET ) ) {
                         Reset_SPI_And_PrepareToReceive();
                    } else {
-                       __HAL_SPI_CLEAR_OVRFLAG(hspi);
+#ifdef ENABLE_BANKED_REGISTERS
+						if(spi_rx_variable_message_len > 0) {
+							spi_rx_variable_message_len = 0;
+						}
+#endif
+						__HAL_SPI_CLEAR_OVRFLAG(hspi);
                        HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, SPI_RECV_LENGTH);
                 	   HAL_SPI_Comm_Ready_Assert();
                    }
@@ -1911,6 +1924,11 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
             } else {
                 spi_last_err_msg_type = SLAVE_RX_ERR;
                 wrong_size_spi_receive_count++;
+#ifdef ENABLE_BANKED_REGISTERS
+            	if(spi_rx_variable_message_len > 0) {
+            		spi_rx_variable_message_len = 0;
+            	}
+#endif
                 __HAL_SPI_CLEAR_OVRFLAG(hspi);
                 HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, SPI_RECV_LENGTH);
                 HAL_SPI_Comm_Ready_Assert();

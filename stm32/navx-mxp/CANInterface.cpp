@@ -60,7 +60,7 @@ void CANInterface::interrupt_handler() {
 	CAN_isr_flag_mask.sw_rx_overflow = false;
 
 	uint64_t curr_hires_timestamp = HAL_IOCX_HIGHRESTIMER_Get();
-	if(HAL_MCP25625_HW_Ctl_Get(&ie_ctl_isr)==HAL_OK){
+	if(HAL_MCP25625_IntFlagRead((uint8_t *)&ie_ctl_isr)==HAL_OK){
 		while (!done) {
 			rx_fifo_full = false;
 			rx_fifo_nonempty = false;
@@ -105,6 +105,13 @@ void CANInterface::interrupt_handler() {
 					// RX0OVR and RX1OVR events must be cleared
 					// in order to continue receiving
 					if (eflg_ctl_isr.rx0ovr || eflg_ctl_isr.rx1ovr) {
+						if (eflg_ctl_isr.rx0ovr) {
+							rx0_overflow_isr_count++;
+						}
+						if (eflg_ctl_isr.rx1ovr) {
+							rx1_overflow_isr_count++;
+						}
+						rx_total_overflow_isr_count++;
 						/* HW Receive Overflow */
 						/* Clear the corresponding error flags */
 						eflg_ctl_isr.rx0ovr = false;
@@ -149,7 +156,7 @@ void CANInterface::interrupt_handler() {
 
 			// If any additional interrupts have occurred
 			// since the ISR was entered, continue processing them.
-			if(HAL_MCP25625_HW_Ctl_Get(&ie_ctl_isr)==HAL_OK){
+			if(HAL_MCP25625_IntFlagRead((uint8_t *)&ie_ctl_isr)==HAL_OK){
 				if ((*((uint8_t *)&ie_ctl_isr) == 0) /*|| (rx_fifo_full)*/) {
 					// No more events pending,
 					// or rx_fifo is full
@@ -185,10 +192,10 @@ bool CANInterface::clear_rx_overflow(bool disable_interrupts) {
 
 	CAN_INTERFACE_STATUS s = MCP25625_OK;
 
-	if(HAL_MCP25625_HW_Ctl_Get(&eflg_ctl)==HAL_OK){
+	if(HAL_MCP25625_HW_Ctl_Get(&eflg_ctl)==MCP25625_OK){
 		if (eflg_ctl.rx0ovr || eflg_ctl.rx1ovr) {
 
-			/* A Receive Overflow event has occurred, and needs to be cleared */
+			/* A previously-reported Receive Overflow event has occurred, and needs to be cleared */
 			/* in order to receive additional data; this may be due to an overflow interrupt */
 			/* which was not handled by the CAN interrupt service routine. */
 
@@ -258,6 +265,17 @@ bool CANInterface::get_errors(bool& rx_overflow, CAN_ERROR_FLAGS& error_flags,
 	enable_CAN_interrupts();
 	if(s1 == MCP25625_OK){
 		rx_overflow = (eflg_ctl.rx0ovr || eflg_ctl.rx1ovr);
+
+		if (rx_overflow) {
+			rx_total_overflow_isr_count++;
+			if (eflg_ctl_isr.rx0ovr) {
+				rx0_overflow_fg_count++;
+			}
+			if (eflg_ctl_isr.rx1ovr) {
+				rx1_overflow_fg_count++;
+			}
+		}
+
 		error_flags.can_bus_warn = eflg_ctl.ewarn;
 		error_flags.can_bus_err_pasv = (eflg_ctl.rxerr || eflg_ctl.txerr);
 		error_flags.can_bus_tx_off = eflg_ctl.txbo;
@@ -304,39 +322,31 @@ void CANInterface::process_transmit_fifo() {
 	// HACK:  Verify that the CAN EXTI configuration is correct.
 	MX_CAN_Interrupt_Verify(1);
 
-	MCP25625_CAN_QUICK_STATUS status;
-	MCP25625_TXBUFF_CTL txbuff_ctl[3];
+	int count = tx_fifo.get_count();
+	if (count == 0) return;
+	if (uint32_t(count) > tx_fifo_highwatermark_count) {
+		tx_fifo_highwatermark_count = uint32_t(count);
+	}
+
+	/* If in error-passive mode, or txbo mode, don't attempt to transmit data. */
+
+	*((uint8_t *)&eflg_ctl) = 0;
+	eflg_ctl.reg = REG_CTL_EFLG;
 	disable_CAN_interrupts();
-	get_tx_control(TXB0, txbuff_ctl[0]);
-	get_tx_control(TXB1, txbuff_ctl[1]);
-	get_tx_control(TXB2, txbuff_ctl[2]);
+	CAN_INTERFACE_STATUS s1 = HAL_MCP25625_HW_Ctl_Get((void*)&eflg_ctl);
+	enable_CAN_interrupts();
+	if(s1 == MCP25625_OK){
+		if (eflg_ctl.rxerr || eflg_ctl.txerr || eflg_ctl.txbo) return;
+	}
+
+	/* Determine current transmit buffer state */
+	/* If any buffers available, enqueue for transmit */
+
+	MCP25625_CAN_QUICK_STATUS status;
+	disable_CAN_interrupts();
 	HAL_StatusTypeDef spi_status = HAL_MCP25625_Read_Status(&status);
 	enable_CAN_interrupts();
 	if(spi_status==HAL_OK){
-
-		/* If in error-passive mode, or txbo mode, don't transmit data. */
-		bool rx_overflow = false;
-		CAN_ERROR_FLAGS error_flags;
-		error_flags.can_bus_err_pasv = false;
-		error_flags.can_bus_tx_off = false;
-		error_flags.can_bus_warn = false;
-		uint8_t tx_err_count = 0;
-		uint8_t rx_err_count = 0;
-		CANInterface::get_errors(rx_overflow, error_flags, tx_err_count, rx_err_count);
-		if (error_flags.can_bus_err_pasv || error_flags.can_bus_tx_off) return;
-
-		int buff_err_count = 0;
-		for (int i = 0; i < 3; i++)
-		if ((txbuff_ctl[i].abtf) ||
-			(txbuff_ctl[i].mloa) ||
-			(txbuff_ctl[i].txerr)) {
-			buff_err_count++;
-		}
-
-		int count = tx_fifo.get_count();
-		if (uint32_t(count) > tx_fifo_highwatermark_count) {
-			tx_fifo_highwatermark_count = uint32_t(count);
-		}
 		while(!tx_fifo.is_empty()) {
 			MCP25625_TX_BUFFER_INDEX available_tx_index;
 			if(!(status & QSTAT_TX0REQ) &&
@@ -354,9 +364,8 @@ void CANInterface::process_transmit_fifo() {
 			CAN_TRANSFER_PADDED *p_data = tx_fifo.dequeue();
 			if(p_data) {
 				disable_CAN_interrupts();
-				CAN_INTERFACE_STATUS s = msg_load(available_tx_index, p_data);
-				if(s == MCP25625_OK){
-					if(this->msg_send(available_tx_index)==MCP25625_OK){
+				if(msg_load(available_tx_index, p_data) == MCP25625_OK){
+					if(this->msg_send(available_tx_index) == MCP25625_OK){
 						if(available_tx_index == TXB0) {
 							status = (MCP25625_CAN_QUICK_STATUS)(status | QSTAT_TX0REQ);
 							tx0_sent_count++;
@@ -397,7 +406,13 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode, CAN_BITRATE bitrate) {
 		tx1_err_count =
 		tx2_err_count =
 		tx_fifo_highwatermark_count =
-		bus_off_count = 0;
+		bus_off_count =
+		rx0_overflow_isr_count =
+		rx1_overflow_isr_count =
+		rx_total_overflow_isr_count =
+		rx0_overflow_fg_count =
+		rx1_overflow_fg_count =
+		rx_total_overflow_fg_count = 0;
 
 	bus_off = false;
 
