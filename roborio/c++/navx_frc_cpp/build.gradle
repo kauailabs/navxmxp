@@ -1,8 +1,17 @@
 plugins {
   id 'cpp'
-  id 'edu.wpi.first.wpilib.versioning.WPILibVersioningPlugin' version '2.2'
-  id 'edu.wpi.first.NativeUtils' version '2019.5.15'
-  id 'edu.wpi.first.GradleVsCode' version '0.9.0'
+  id 'edu.wpi.first.wpilib.repositories.WPILibRepositoriesPlugin' version '2020.1'
+  id 'edu.wpi.first.NativeUtils' version '2020.0.6'
+  id 'edu.wpi.first.GradleVsCode' version '0.9.4'
+}
+
+repositories {
+    mavenCentral()
+}
+if (project.hasProperty('releaseMode')) {
+    wpilibRepositories.addAllReleaseRepositories(project)
+} else {
+    wpilibRepositories.addAllDevelopmentRepositories(project)
 }
 
 apply from: 'config.gradle'

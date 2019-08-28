@@ -17,10 +17,14 @@
  *
  */
 
+// Can't build Mau on non linux platforms.
+#ifdef __linux__
+
 #include "RegisterIOMau.h"
 #include "IMURegisters.h"
 #include "delay.h"
 #include <dlfcn.h>
+#include "frc/Timer.h"
 
 using namespace frc;
 
@@ -63,7 +67,7 @@ RegisterIOMau::RegisterIOMau(uint8_t update_rate_hz,
 	pfunc_GetUpdateCount	= (double (*)())dlsym(dlhandle, "HAL_Mau_AHRS_GetUpdateCount");
 	pfunc_ZeroYaw		= (void (*)())dlsym(dlhandle, "HAL_Mau_AHRS_ZeroYaw");
 	pfunc_ResetDisplacement	= (void (*)())dlsym(dlhandle, "HAL_Mau_AHRS_ResetDisplacement");
-	pfunc_BlockOnNewCurrentRegisterData = 
+	pfunc_BlockOnNewCurrentRegisterData =
 				  (bool (*)(uint32_t, uint8_t *, uint8_t *, uint8_t, uint8_t *))dlsym(dlhandle, "HAL_Mau_AHRS_BlockOnNewCurrentRegisterData");
 	pfunc_ReadConfigurationData =
 				  (bool (*)(uint8_t, uint8_t *, uint8_t))dlsym(dlhandle, "HAL_Mau_AHRS_ReadConfigurationData");
@@ -121,7 +125,7 @@ void RegisterIOMau::Run() {
         if ( board_state.update_rate_hz != this->update_rate_hz ) {
             SetUpdateRateHz(this->update_rate_hz);
         }
-        if (!GetCurrentData()) {		
+        if (!GetCurrentData()) {
 	        delayMillis(update_rate_ms);
 	}
     }
@@ -185,7 +189,7 @@ bool RegisterIOMau::GetCurrentData() {
     uint8_t read_data_length;
     if ((*pfunc_BlockOnNewCurrentRegisterData)(
 	IO_TIMEOUT_MILLISECONDS,
-	&first_register_address, 
+	&first_register_address,
 	(uint8_t *)curr_data,
 	buffer_len,
 	&read_data_length)) {
@@ -270,3 +274,5 @@ bool RegisterIOMau::GetCurrentData() {
 
 void RegisterIOMau::EnableLogging(bool enable) {
 }
+
+#endif

@@ -2,13 +2,14 @@ import org.gradle.internal.os.OperatingSystem
 
 nativeUtils.addWpiNativeUtils()
 nativeUtils.withRaspbian()
+// nativeUtils.withBionic() // Uncomment this to enable aarch64 bionic builds
 nativeUtils {
   wpi {
     configureDependencies {
-      wpiVersion = "2019.4.1"
-      niLibVersion = "2019.12.1"
-      opencvVersion = "3.4.4-5"
-      googleTestVersion = "1.8.0.4-4e4df22"
+      wpiVersion = "2019.+"
+      niLibVersion = "2019.12.2"
+      opencvVersion = "3.4.7-1"
+      googleTestVersion = "1.9.0-3-437e100"
     }
   }
 }
@@ -17,25 +18,6 @@ nativeUtils.wpi.addWarnings()
 nativeUtils.wpi.addWarningsAsErrors()
 
 nativeUtils.setSinglePrintPerPlatform()
-
-toolchainsPlugin.crossCompilers.named(nativeUtils.wpi.platforms.roborio) {
-    optional.set(true)
-}
-
-nativeUtils.configurePlatform(nativeUtils.wpi.platforms.raspbian) {
-    // Bug in native utils 2020.0.3, will be fixed in the future
-  linker.args << '-latomic'
-}
-
-nativeUtils.configurePlatform(nativeUtils.wpi.platforms.windowsx86) {
-    // Bug with wpilib 2019.4.1, fixed for 2020
-    cppCompiler.args << '/wd4522'
-}
-
-nativeUtils.configurePlatform(nativeUtils.wpi.platforms.windowsx64) {
-    // Bug with wpilib 2019.4.1, fixed for 2020
-    cppCompiler.args << '/wd4522'
-}
 
 model {
     components {
