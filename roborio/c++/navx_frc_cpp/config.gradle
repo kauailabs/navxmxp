@@ -6,8 +6,8 @@ nativeUtils.withRaspbian()
 nativeUtils {
   wpi {
     configureDependencies {
-      wpiVersion = "2019.+"
-      niLibVersion = "2019.12.2"
+      wpiVersion = "2020.+"
+      niLibVersion = "2020.4.1"
       opencvVersion = "3.4.7-1"
       googleTestVersion = "1.9.0-3-437e100"
     }

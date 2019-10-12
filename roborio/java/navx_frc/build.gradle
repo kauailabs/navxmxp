@@ -24,12 +24,12 @@ task generateJavadocs(type: Javadoc) {
 }
 
 dependencies {
-    compile 'edu.wpi.first.cscore:cscore-java:2019.+'
-    compile 'edu.wpi.first.cameraserver:cameraserver-java:2019.+'
-    compile 'edu.wpi.first.ntcore:ntcore-java:2019.+'
-    compile 'edu.wpi.first.wpilibj:wpilibj-java:2019.+'
-    compile 'edu.wpi.first.wpiutil:wpiutil-java:2019.+'
-    compile 'edu.wpi.first.hal:hal-java:2019.+'
+    compile 'edu.wpi.first.cscore:cscore-java:2020.+'
+    compile 'edu.wpi.first.cameraserver:cameraserver-java:2020.+'
+    compile 'edu.wpi.first.ntcore:ntcore-java:2020.+'
+    compile 'edu.wpi.first.wpilibj:wpilibj-java:2020.+'
+    compile 'edu.wpi.first.wpiutil:wpiutil-java:2020.+'
+    compile 'edu.wpi.first.hal:hal-java:2020.+'
     compile 'edu.wpi.first.thirdparty.frc2020.opencv:opencv-java:3.4.7-1'
 }
 
