@@ -4,23 +4,12 @@ android {
     defaultConfig {
         minSdkVersion 19
         targetSdkVersion 26
-        versionCode 34
-        versionName "5.2"
     }
     compileSdkVersion 28
-    buildToolsVersion '28.0.3'
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            debuggable true
-        }
-    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_7
         targetCompatibility JavaVersion.VERSION_1_7
-    }	
-    productFlavors {
     }
 }
 
@@ -29,7 +18,6 @@ buildscript {
         google()
         jcenter()
     }
-
     dependencies {
         classpath 'com.android.tools.build:gradle:3.5.1'
 
@@ -41,13 +29,12 @@ buildscript {
 repositories {
     flatDir {
         dirs '..\\ftc_app\\libs'
-        dir "libs"
     }
 }
 
-
 allprojects {
     repositories {
+        google()
         jcenter()
         flatDir {
             dirs 'out'
@@ -56,7 +43,7 @@ allprojects {
 }
 
 dependencies {
-    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    //implementation fileTree(include: ['*.jar'], dir: 'libs')
     //implementation (name:'Inspection-release', ext: 'aar')
     //compile files('libs/android-support-v4.jar')
     implementation(name: 'RobotCore-release', ext: 'aar')
