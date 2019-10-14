@@ -3,12 +3,12 @@ apply plugin: 'com.android.library'
 android {
     defaultConfig {
         minSdkVersion 19
-        targetSdkVersion 19
-        versionCode 1
-        versionName "1.0"
+        targetSdkVersion 26
+        versionCode 34
+        versionName "5.2"
     }
-    compileSdkVersion 23
-    buildToolsVersion '23.0.2'
+    compileSdkVersion 28
+    buildToolsVersion '28.0.3'
     buildTypes {
         release {
             minifyEnabled false
@@ -16,16 +16,22 @@ android {
             debuggable true
         }
     }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_7
+        targetCompatibility JavaVersion.VERSION_1_7
+    }	
     productFlavors {
     }
 }
 
 buildscript {
     repositories {
+        google()
         jcenter()
     }
+
     dependencies {
-        classpath 'com.android.tools.build:gradle:2.1.2'
+        classpath 'com.android.tools.build:gradle:3.5.1'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -35,6 +41,7 @@ buildscript {
 repositories {
     flatDir {
         dirs '..\\ftc_app\\libs'
+        dir "libs"
     }
 }
 
@@ -49,10 +56,12 @@ allprojects {
 }
 
 dependencies {
-    compile fileTree(include: ['*.jar'], dir: 'libs')
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    //implementation (name:'Inspection-release', ext: 'aar')
     //compile files('libs/android-support-v4.jar')
-    compile(name: 'RobotCore-release', ext: 'aar')
+    implementation(name: 'RobotCore-release', ext: 'aar')
     //compile(name: 'ModernRobotics-release', ext: 'aar')
-    compile(name: 'Hardware-release', ext: 'aar')
+    implementation(name: 'Hardware-release', ext: 'aar')
     //compile(name: 'FtcCommon-release', ext: 'aar')
+    //implementation 'com.android.support:support-compat:28.0.0'
 }
