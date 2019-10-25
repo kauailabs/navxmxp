@@ -1,5 +1,6 @@
 import org.gradle.internal.os.OperatingSystem
 
+nativeUtils.withRoboRIO()
 nativeUtils.addWpiNativeUtils()
 nativeUtils.withRaspbian()
 // nativeUtils.withBionic() // Uncomment this to enable aarch64 bionic builds

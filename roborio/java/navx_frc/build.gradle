@@ -18,11 +18,11 @@ if (project.hasProperty('releaseMode')) {
 } else {
     wpilibRepositories.addAllDevelopmentRepositories(project)
 }
-
+/*
 task generateJavadocs(type: Javadoc) {
   source = sourceSets.main.allJava
 }
-
+*/
 dependencies {
     compile 'edu.wpi.first.cscore:cscore-java:2020.+'
     compile 'edu.wpi.first.cameraserver:cameraserver-java:2020.+'
@@ -41,7 +41,7 @@ sourceSets {
     }
 }
 
-build.dependsOn generateJavadocs
+//build.dependsOn generateJavadocs
 
 apply from: 'publish.gradle'
 

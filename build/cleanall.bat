@@ -5,8 +5,11 @@ REM Begin a command-line "clean" of the CRio java libraries
 REM
 
 pushd ..
-pushd .\crio\java\nav6
-call ant clean 
+pushd .\roborio\java\navx_frc
+call gradlew clean 
+popd
+pushd .\roborio\c++\navx_frc_cpp
+call gradlew clean
 popd
 
 REM

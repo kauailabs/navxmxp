@@ -6,7 +6,7 @@
     "mavenUrls": [
         "https://repo1.maven.org/maven2/"
     ],
-    "jsonUrl": "https://www.kauailabs.com/dist/frc/2019/navx_frc.json",
+    "jsonUrl": "https://www.kauailabs.com/dist/frc/2020/navx_frc.json",
     "javaDependencies": [
         {
             "groupId": "com.kauailabs.navx.frc",
