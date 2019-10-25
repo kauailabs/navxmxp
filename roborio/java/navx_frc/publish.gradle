@@ -2,14 +2,6 @@ apply plugin: 'java'
 apply plugin: 'maven-publish'
 apply plugin: 'signing'
 
-// Ensure that the WPILibVersioningPlugin is setup by setting the release type, if releaseType wasn't
-// already specified on the command line
-if (!hasProperty('releaseType')) {
-    WPILibVersion {
-        releaseType = 'dev'
-    }
-}
-
 ext.licenseFile = files("$rootDir/LICENSE.txt")
 
 // Retrieve version number from core navxmxp build version.txt file
@@ -62,7 +54,7 @@ def customizePom(pom) {
         root.dependencies.removeAll { dep ->
             dep.scope == "test"
         }
-		
+
         // add all items necessary for maven central publication
         root.children().last() + {
             resolveStrategy = Closure.DELEGATE_FIRST
@@ -129,7 +121,7 @@ model {
     }
     tasks.publishMavenJavaPublicationToMavenRepository {
         dependsOn project.tasks.signArchives
-    }	
+    }
 
     publishing {
         repositories {
@@ -145,14 +137,14 @@ model {
 
         publications {
             mavenJava(MavenPublication) {
-				customizePom(pom)			
+				customizePom(pom)
                 groupId artifactGroupId
-                version pubVersion		
+                version pubVersion
                 artifactId = baseArtifactId
 				from components.java
 				artifact sourcesJar
 				artifact javadocJar
-				
+
 				// create the sign pom artifact
 				pom.withXml {
 					def pomFile = file("${project.buildDir}/generated-pom.xml")
@@ -174,7 +166,7 @@ model {
 						}
 						extension = 'jar.asc'
 					}
-				}				
+				}
             }
         }
     }

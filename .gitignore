@@ -1,2 +1,3 @@
 
 build/maven_deploy.bat
+.gradle/

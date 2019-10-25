@@ -2,15 +2,6 @@ apply plugin: 'java'
 apply plugin: 'maven-publish'
 apply plugin: 'signing'
 
-// Ensure that the WPILibVersioningPlugin is setup by setting the release type, if releaseType wasn't
-// already specified on the command line
-if (!hasProperty('releaseType')) {
-    WPILibVersion {
-        // Change this back to 'dev' for for development builds during the fall.
-        releaseType = 'OFFICIAL'
-    }
-}
-
 ext.licenseFile = files("$rootDir/LICENSE.txt")
 
 // Retrieve version number from core navxmxp build version.txt file

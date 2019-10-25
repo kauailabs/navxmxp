@@ -15,7 +15,6 @@
 #include "AHRSProtocol.h"
 #include "IBoardCapabilities.h"
 #include "IIOCompleteNotification.h"
-#include "frc/WPILib.h"
 
 class RegisterIOMau : public IIOProvider {
 private:

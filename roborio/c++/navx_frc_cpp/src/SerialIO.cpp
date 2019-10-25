@@ -44,7 +44,7 @@ SerialIO::SerialIO( SerialPort::Port port_id,
     byte_count = 0;
     update_count = 0;
     last_valid_packet_time = 0;
-    connect_reported = 
+    connect_reported =
         disconnect_reported = false;
     debug = false;
 }
@@ -74,7 +74,7 @@ SerialPort *SerialIO::GetMaybeCreateSerialPort()
 {
     if (serial_port == 0) {
         try {
-        	printf("Opening %s serial port to communicate with navX-MXP/Micro.\n", (is_usb ? "USB " : "TTL UART "));            
+        	printf("Opening %s serial port to communicate with navX-MXP/Micro.\n", (is_usb ? "USB " : "TTL UART "));
             serial_port = new SerialPort(57600, serial_port_id);
             serial_port->SetReadBufferSize(256);
             serial_port->SetTimeout(1.0);
@@ -109,7 +109,7 @@ void SerialIO::DispatchStreamResponse(IMUProtocol::StreamResponse& response) {
                                     NAVX_SELFTEST_RESULT_GYRO_PASSED |
                                     NAVX_SELFTEST_RESULT_ACCEL_PASSED |
                                     NAVX_SELFTEST_RESULT_BARO_PASSED );
-    
+
     board_state.accel_fsr_g = response.accel_fsr_g;
     board_state.gyro_fsr_dps = response.gyro_fsr_dps;
     board_state.update_rate_hz = (uint8_t) response.update_rate_hz;
@@ -245,7 +245,7 @@ void SerialIO::Run() {
                     	printf("Checksum:  %X %X\n", integration_control_command[9], integration_control_command[10]);
                     }
                     serial_port->Flush();
-                } catch (std::exception ex) {
+                } catch (std::exception& ex) {
                     printf("SerialPort Run() IntegrationControl Send Exception during Serial Port Write:  %s\n", ex.what());
                 }
             }
@@ -348,7 +348,7 @@ void SerialIO::Run() {
                                 notify_sink->ConnectDetected();
                                 connect_reported = true;
                                 disconnect_reported = false;
-                            }                            
+                            }
                             DispatchStreamResponse(response);
                             stream_response_received = true;
                             i += packet_length;
@@ -508,7 +508,7 @@ void SerialIO::Run() {
                         (!stream_response_received && ((Timer::GetFPGATimestamp() - last_stream_command_sent_timestamp ) > 3.0 ) ) ) {
                     cmd_packet_length = IMUProtocol::encodeStreamCommand( stream_command, update_type, update_rate_hz );
                     try {
-                        printf("Retransmitting stream configuration command to navX-MXP/Micro.\n");                        
+                        printf("Retransmitting stream configuration command to navX-MXP/Micro.\n");
                     	/* Ugly Hack.  This is a workaround for ARTF5478:           */
                     	/* (USB Serial Port Write hang if receive buffer not empty. */
                     	if (is_usb) {
@@ -517,15 +517,15 @@ void SerialIO::Run() {
                             }  catch (std::exception& ex) {
                                 /* Sometimes an unclean status exception occurs during reset(). */
                                 ResetSerialPort();
-                                if (debug) printf("Exception during invocation of SerialPort::Reset:  %s\n", ex.what());                            
+                                if (debug) printf("Exception during invocation of SerialPort::Reset:  %s\n", ex.what());
                             }
                     	}
                         serial_port->Write( stream_command, cmd_packet_length );
                         cmd_packet_length = AHRSProtocol::encodeDataGetRequest( stream_command,  AHRS_DATA_TYPE::BOARD_IDENTITY, AHRS_TUNING_VAR_ID::UNSPECIFIED );
                         serial_port->Write( stream_command, cmd_packet_length );
                         serial_port->Flush();
-                        last_stream_command_sent_timestamp = Timer::GetFPGATimestamp();                        
-                    } catch (std::exception ex2) {
+                        last_stream_command_sent_timestamp = Timer::GetFPGATimestamp();
+                    } catch (std::exception& ex2) {
                         printf("SerialPort Run() Re-transmit Encode Stream Command Exception:  %s\n", ex2.what());
                     }
                 }

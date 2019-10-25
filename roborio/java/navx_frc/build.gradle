@@ -7,23 +7,30 @@
 
 plugins {
     id "java-library"
-    id "edu.wpi.first.GradleRIO" version "2019.1.1"	
-    id 'edu.wpi.first.wpilib.versioning.WPILibVersioningPlugin' version '2.2'
+    id 'edu.wpi.first.wpilib.repositories.WPILibRepositoriesPlugin' version '2020.1'
+}
+
+repositories {
+    mavenCentral()
+}
+if (project.hasProperty('releaseMode')) {
+    wpilibRepositories.addAllReleaseRepositories(project)
+} else {
+    wpilibRepositories.addAllDevelopmentRepositories(project)
 }
 
 task generateJavadocs(type: Javadoc) {
   source = sourceSets.main.allJava
 }
 
-// Maven central needed for JUnit
-repositories {
-    mavenCentral()
-}
-
-// Defining my dependencies. In this case, WPILib.
 dependencies {
-//	  compile wpilib()
-    compile wpi.deps.wpilib()
+    compile 'edu.wpi.first.cscore:cscore-java:2020.+'
+    compile 'edu.wpi.first.cameraserver:cameraserver-java:2020.+'
+    compile 'edu.wpi.first.ntcore:ntcore-java:2020.+'
+    compile 'edu.wpi.first.wpilibj:wpilibj-java:2020.+'
+    compile 'edu.wpi.first.wpiutil:wpiutil-java:2020.+'
+    compile 'edu.wpi.first.hal:hal-java:2020.+'
+    compile 'edu.wpi.first.thirdparty.frc2020.opencv:opencv-java:3.4.7-1'
 }
 
 sourceSets {
@@ -39,5 +46,5 @@ build.dependsOn generateJavadocs
 apply from: 'publish.gradle'
 
 wrapper {
-  gradleVersion = '5.0'
+  gradleVersion = '5.4.1'
 }
