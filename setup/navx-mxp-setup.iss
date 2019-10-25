@@ -57,10 +57,10 @@ Source: "..\roborio\java\navx_frc\src\com\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\j
 Source: "..\roborio\java\navx_frc\src\docs\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\java\docs"; Flags: recursesubdirs
 Source: "..\roborio\java\navx_frc\jar\navx_frc.jar"; DestDir: "{%HOMEPATH}\navx-mxp\java\lib"
 Source: "..\roborio\java\navx_frc\jar\navx_frc.jar"; DestDir: "{%HOMEPATH}\wpilib\user\java\lib"
-; Install maven rep contents to %PUBLIC%\frc2019\maven, following new convention for FRC 2019 Season (VSCode Support)
-Source: "..\..\..\..\.m2\repository\com\kauailabs\navx\*.*"; DestDir:  "{%PUBLIC}\frc2019\maven\com\kauailabs\navx"; Flags:recursesubdirs
-; Install vendordeps JSON file to %PUBLIC\frc2019\vendordeps
-Source: "..\build\vendordeps\*.json"; DestDir:  "{%PUBLIC}\frc2019\vendordeps"
+; Install maven rep contents to %PUBLIC%\wpilib\2020\maven, following new convention for FRC 2020 Season
+Source: "..\..\..\..\.m2\repository\com\kauailabs\navx\*.*"; DestDir:  "{%PUBLIC}\wpilib\2020\maven\com\kauailabs\navx"; Flags:recursesubdirs
+; Install vendordeps JSON file to %PUBLIC\wpilib\2020\vendordeps
+Source: "..\build\vendordeps\*.json"; DestDir:  "{%PUBLIC}\wpilib\2020\vendordeps"
 Source: "..\roborio\java\navXMXP_Java_DataMonitor\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\DataMonitor"; Flags: createallsubdirs recursesubdirs
 Source: "..\roborio\java\navXMXP_Java_FieldCentricDrive\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\FieldCentricDrive"; Flags: createallsubdirs recursesubdirs
 Source: "..\roborio\java\navXMXP_Java_RotateToAngle\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\java\examples\RotateToAngle"; Flags: createallsubdirs recursesubdirs
