@@ -55,6 +55,12 @@ def customizePom(pom) {
             dep.scope == "test"
         }
 
+        root.dependencies.dependency.each {
+            if (it.groupId.first().value().first().startsWith('edu.wpi.first')) {
+                assert it.parent().remove(it)
+            }
+        }		
+		
         // add all items necessary for maven central publication
         root.children().last() + {
             resolveStrategy = Closure.DELEGATE_FIRST
