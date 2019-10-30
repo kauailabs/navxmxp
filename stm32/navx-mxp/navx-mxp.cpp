@@ -1729,12 +1729,7 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                     /* SPI interface is still busy, reset the SPI interface. */
                     /* This condition occurs sometimes after the RoboRIO     */
                     /* host computer is power-cycled.                        */
-                    if ( ( (invalid_char_spi_receive_count % 5) == 0 ) &&
-                         ( __HAL_SPI_GET_FLAG(&hspi1,SPI_FLAG_BSY) != RESET ) ) {
-                        Reset_SPI();
-                   } else {
-                        HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer,3);
-                   }
+                    Reset_SPI();
                 }
             } else {
                 wrong_size_spi_receive_count++;
