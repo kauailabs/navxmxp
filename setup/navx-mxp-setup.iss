@@ -100,8 +100,8 @@ Filename: "{app}\installers\vcp\Win8\dpinst_amd64.exe"; Parameters: "/SW"; Flags
 Filename: "{app}\installers\vcp\Win8\dpinst_x86.exe"; Parameters: "/SW"; Flags: 32bit; MinVersion: 0,6.2; Check: not IsWin64
 Filename: "{app}\installers\dfu\dpinst_amd64.exe"; Parameters: "/SW"; Flags: 64bit; Check: IsWin64
 Filename: "{app}\installers\dfu\dpinst_x86.exe"; Parameters: "/SW"; Flags: 32bit; Check: not IsWin64
-Filename: "{app}\VMXFirmwareUpdater\vcredist_x86.exe"; Parameters: "/install /passive /norestart"; Flags:
-Filename: "{app}\VMXFirmwareUpdater\vcredist_x86_vs2005SP1_redist_KB2538242.exe"; Parameters: "/q:a"; Flags:
+Filename: "{app}\navXFirmwareUpdater\vcredist_x86.exe"; Parameters: "/install /passive /norestart"; Flags:
+Filename: "{app}\navXFirmwareUpdater\vcredist_x86_vs2005SP1_redist_KB2538242.exe"; Parameters: "/q:a"; Flags:
 
 [Dirs]
 Name: "{app}\navXFirmwareUpdater"; Flags: uninsalwaysuninstall
