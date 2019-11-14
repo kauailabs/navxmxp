@@ -76,7 +76,7 @@ Source: "..\roborio\c++\navx_frc_cpp\include\*.*"; DestDir: "{%HOMEPATH}\wpilib\
 Source: "..\roborio\c++\navx_frc_cpp\src\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\src"; Flags: createallsubdirs recursesubdirs
 Source: "..\roborio\c++\doxygen\html\*.*"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\docs"; Flags: createallsubdirs recursesubdirs
 Source: "..\roborio\c++\VSCodeExamples\navXMXP_CPP_DataMonitor\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\vscode\DataMonitor"; Flags: createallsubdirs recursesubdirs
-Source: "..\roborio\c++\VSCodeExamples\navXMXP_CPP_FieldCentricDrive\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\vscode\vscode\FieldCentricDrive"; Flags: createallsubdirs recursesubdirs
+Source: "..\roborio\c++\VSCodeExamples\navXMXP_CPP_FieldCentricDrive\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\vscode\FieldCentricDrive"; Flags: createallsubdirs recursesubdirs
 Source: "..\roborio\c++\VSCodeExamples\navXMXP_CPP_RotateToAngle\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\vscode\RotateToAngle"; Flags: createallsubdirs recursesubdirs
 Source: "..\roborio\c++\VSCodeExamples\navXMXP_CPP_AutoBalance\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\vscode\AutoBalance"; Flags: createallsubdirs recursesubdirs
 Source: "..\roborio\c++\VSCodeExamples\navXMXP_CPP_CollisionDetection\*.*"; Excludes: "build,dist,bin"; DestDir: "{%HOMEPATH}\navx-mxp\cpp\examples\vscode\CollisionDetection"; Flags: createallsubdirs recursesubdirs
