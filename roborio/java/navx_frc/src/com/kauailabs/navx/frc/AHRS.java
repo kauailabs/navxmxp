@@ -24,7 +24,8 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.SendableBase;
 import edu.wpi.first.wpilibj.Sendable;
 import edu.wpi.first.wpilibj.smartdashboard.SendableBuilder;
-
+import edu.wpi.first.hal.FRCNetComm.tResourceType;
+import edu.wpi.first.hal.HAL;
 import edu.wpi.first.wpiutil.RuntimeDetector;
 
 /**
@@ -986,6 +987,7 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
     /***********************************************************/
 
     private void commonInit( byte update_rate_hz ) {
+		HAL.report(tResourceType.kResourceType_NavX, 0);
         this.board_capabilities = new BoardCapabilities();
         this.io_complete_sink = new IOCompleteNotification();
         this.io_thread = new IOThread();

@@ -21,6 +21,7 @@
 #include "RegisterIOI2C.h"
 #include "RegisterIOMau.h"
 #include "SerialIO.h"
+#include <hal/HAL.h>
 
 static const uint8_t    NAVX_DEFAULT_UPDATE_RATE_HZ         = 60;
 static const int        YAW_HISTORY_LENGTH                  = 10;
@@ -1115,6 +1116,7 @@ void AHRS::SerialInit(SerialPort::Port serial_port_id, AHRS::SerialDataType data
 
 void AHRS::commonInit( uint8_t update_rate_hz ) {
 
+	HAL_Report(HALUsageReporting::kResourceType_NavX, 0);
     ahrs_internal = new AHRSInternal(this);
     this->update_rate_hz = update_rate_hz;
 
