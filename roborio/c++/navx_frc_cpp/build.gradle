@@ -1,8 +1,8 @@
 plugins {
   id 'cpp'
-  id 'edu.wpi.first.wpilib.repositories.WPILibRepositoriesPlugin' version '2020.1'
-  id 'edu.wpi.first.NativeUtils' version '2020.1.5'
-  id 'edu.wpi.first.GradleVsCode' version '0.9.4'
+  id 'edu.wpi.first.wpilib.repositories.WPILibRepositoriesPlugin' version '2020.2'
+  id 'edu.wpi.first.NativeUtils' version '2020.5.2'
+  id 'edu.wpi.first.GradleVsCode' version '0.10.0'
 }
 
 repositories {
@@ -76,7 +76,7 @@ model {
           }
         }
       }
-      nativeUtils.useRequiredLibrary(it, "wpilib_shared")
+      nativeUtils.useRequiredLibrary(it, "wpilibc_shared", "ntcore_shared", "hal_shared", "wpiutil_shared")
     }
   }
 }
@@ -84,5 +84,5 @@ model {
 apply from: 'publish.gradle'
 
 wrapper {
-  gradleVersion = '5.4.1'
+  gradleVersion = '6.0'
 }

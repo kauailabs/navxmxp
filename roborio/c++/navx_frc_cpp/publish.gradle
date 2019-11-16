@@ -93,8 +93,8 @@ def customizePom(pom) {
 }
 
 task cppHeadersZip(type: Zip) {
-    destinationDir = outputsFolder
-    baseName = zipBaseName
+    destinationDirectory = outputsFolder
+    archiveBaseName = zipBaseName
     classifier = "headers"
 
     from(licenseFile) {
@@ -107,8 +107,8 @@ task cppHeadersZip(type: Zip) {
 }
 
 task cppSourcesZip(type: Zip) {
-    destinationDir = outputsFolder
-    baseName = zipBaseName
+    destinationDirectory = outputsFolder
+    archiveBaseName = zipBaseName
     classifier = "sources"
 
     from(licenseFile) {
