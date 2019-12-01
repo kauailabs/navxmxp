@@ -160,6 +160,13 @@ model {
 						classifier = null
 						extension = 'pom.asc'
 					}
+					def moduleFile = file("${project.buildDir}/publications/mavenJava/module.json")
+					writeTo(moduleFile)
+					def moduleAscFile = signing.sign(moduleFile).signatureFiles[0]
+					artifact(moduleAscFile) {
+						classifier = null
+						extension = 'module.asc'
+					}
 				}
 				// create the signed artifacts
 				project.tasks.signArchives.signatureFiles.each {
