@@ -114,7 +114,7 @@ artifacts {
 }
 
 signing {
-    sign configurations.archives
+    sign publishing.publications
 }
 
 model {
@@ -122,13 +122,14 @@ model {
     tasks.generatePomFileForMavenJavaPublication {
         destination = file("$buildDir/generated-pom.xml")
     }
+	/*
     tasks.publishMavenJavaPublicationToMavenLocal {
         dependsOn project.tasks.signArchives
     }
     tasks.publishMavenJavaPublicationToMavenRepository {
         dependsOn project.tasks.signArchives
     }
-
+	*/
     publishing {
         repositories {
             maven {
@@ -150,7 +151,7 @@ model {
 				from components.java
 				artifact sourcesJar
 				artifact javadocJar
-
+/*
 				// create the sign pom artifact
 				pom.withXml {
 					def pomFile = file("${project.buildDir}/generated-pom.xml")
@@ -161,6 +162,9 @@ model {
 						extension = 'pom.asc'
 					}
 				}			
+				components.java.each {
+					print it.getName()
+				}
 				// create the signed artifacts
 				project.tasks.signArchives.signatureFiles.each {
 					artifact(it) {
@@ -172,7 +176,8 @@ model {
 						}
 						extension = 'jar.asc'
 					}
-				}			
+				}
+*/				
             }
         }
     }
