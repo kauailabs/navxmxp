@@ -1,8 +1,8 @@
 plugins {
   id 'cpp'
   id 'edu.wpi.first.wpilib.repositories.WPILibRepositoriesPlugin' version '2020.2'
-  id 'edu.wpi.first.NativeUtils' version '2020.5.2'
-  id 'edu.wpi.first.GradleVsCode' version '0.10.0'
+  id 'edu.wpi.first.NativeUtils' version '2020.7.2'
+  id 'edu.wpi.first.GradleVsCode' version '0.12.0'
 }
 
 repositories {
