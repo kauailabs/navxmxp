@@ -28,6 +28,8 @@ import edu.wpi.first.hal.FRCNetComm.tResourceType;
 import edu.wpi.first.hal.HAL;
 import edu.wpi.first.wpiutil.RuntimeDetector;
 
+import edu.wpi.first.hal.SimDevice;
+
 /**
  * The AHRS class provides an interface to AHRS capabilities
  * of the KauaiLabs navX Robotics Navigation Sensor via SPI, I2C and
@@ -200,6 +202,9 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
     private boolean disconnect_startupcalibration_recovery_pending;
     private boolean logging_enabled;
 
+    /* SimDevice Variables */
+    private SimDevice m_simDevice;     
+
     /***********************************************************/
     /* Public Interface Implementation                         */
     /***********************************************************/
@@ -219,11 +224,15 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      */
     public AHRS(SPI.Port spi_port_id, byte update_rate_hz) {
         commonInit(update_rate_hz);
-	if (RuntimeDetector.isRaspbian() && spi_port_id == SPI.Port.kMXP) {
-		io = new RegisterIOMau(update_rate_hz, io_complete_sink, board_capabilities);
-	} else {
-	        io = new RegisterIO(new RegisterIO_SPI(new SPI(spi_port_id)), update_rate_hz, io_complete_sink, board_capabilities);
-	}
+        if (m_simDevice != null) {
+            io = new SimIO(update_rate_hz, io_complete_sink, m_simDevice);
+        } else {
+            if (RuntimeDetector.isRaspbian() && spi_port_id == SPI.Port.kMXP) {
+                io = new RegisterIOMau(update_rate_hz, io_complete_sink, board_capabilities);
+            } else {
+                io = new RegisterIO(new RegisterIO_SPI(new SPI(spi_port_id)), update_rate_hz, io_complete_sink, board_capabilities);
+            }
+        }
         io_thread.start();
     }
 
@@ -253,11 +262,15 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
     public AHRS(SPI.Port spi_port_id, int spi_bitrate, byte update_rate_hz) {
         System.out.printf("Instantiating navX-Sensor on SPI Port %s.\n", spi_port_id.toString());        
         commonInit(update_rate_hz);
-	if (RuntimeDetector.isRaspbian() && spi_port_id == SPI.Port.kMXP) {
-		io = new RegisterIOMau(update_rate_hz, io_complete_sink, board_capabilities);
-	} else {
-	        io = new RegisterIO(new RegisterIO_SPI(new SPI(spi_port_id), spi_bitrate), update_rate_hz, io_complete_sink, board_capabilities);
-	}
+        if (m_simDevice != null) {
+            io = new SimIO(update_rate_hz, io_complete_sink, m_simDevice);
+        } else {        
+            if (RuntimeDetector.isRaspbian() && spi_port_id == SPI.Port.kMXP) {
+                io = new RegisterIOMau(update_rate_hz, io_complete_sink, board_capabilities);
+            } else {
+                io = new RegisterIO(new RegisterIO_SPI(new SPI(spi_port_id), spi_bitrate), update_rate_hz, io_complete_sink, board_capabilities);
+            }
+        }
         io_thread.start();
     }/**
      * Constructs the AHRS class using I2C communication, overriding the 
@@ -275,11 +288,15 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
     public AHRS(I2C.Port i2c_port_id, byte update_rate_hz) {
         System.out.printf("Instantiating navX-Sensor on I2C Port %s.\n", i2c_port_id.toString());              
         commonInit(update_rate_hz);
-	if (RuntimeDetector.isRaspbian() && i2c_port_id == I2C.Port.kMXP) {
-		io = new RegisterIOMau(update_rate_hz, io_complete_sink, board_capabilities);
-	} else {
-	        io = new RegisterIO(new RegisterIO_I2C(new I2C(i2c_port_id, 0x32)), update_rate_hz, io_complete_sink, board_capabilities);
-	}
+        if (m_simDevice != null) {
+            io = new SimIO(update_rate_hz, io_complete_sink, m_simDevice);
+        } else {        
+            if (RuntimeDetector.isRaspbian() && i2c_port_id == I2C.Port.kMXP) {
+                io = new RegisterIOMau(update_rate_hz, io_complete_sink, board_capabilities);
+            } else {
+                io = new RegisterIO(new RegisterIO_I2C(new I2C(i2c_port_id, 0x32)), update_rate_hz, io_complete_sink, board_capabilities);
+            }
+        }
         io_thread.start();
     }
 
@@ -306,12 +323,16 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
     public AHRS(SerialPort.Port serial_port_id, SerialDataType data_type, byte update_rate_hz) {
         System.out.printf("Instantiating navX-Sensor on Serial Port %s.\n", serial_port_id.toString());        
         commonInit(update_rate_hz);
-	if (RuntimeDetector.isRaspbian() && serial_port_id == SerialPort.Port.kMXP) {
-		io = new RegisterIOMau(NAVX_DEFAULT_UPDATE_RATE_HZ, io_complete_sink, board_capabilities);
-	} else {
-	        boolean processed_data = (data_type == SerialDataType.kProcessedData);
-        	io = new SerialIO(serial_port_id, update_rate_hz, processed_data, io_complete_sink, board_capabilities);
-	}
+        if (m_simDevice != null) {
+            io = new SimIO(update_rate_hz, io_complete_sink, m_simDevice);
+        } else {        
+            if (RuntimeDetector.isRaspbian() && serial_port_id == SerialPort.Port.kMXP) {
+                io = new RegisterIOMau(NAVX_DEFAULT_UPDATE_RATE_HZ, io_complete_sink, board_capabilities);
+            } else {
+                boolean processed_data = (data_type == SerialDataType.kProcessedData);
+                io = new SerialIO(serial_port_id, update_rate_hz, processed_data, io_complete_sink, board_capabilities);
+            }
+        }
         io_thread.start();
     }
 
@@ -1003,7 +1024,10 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
         this.successive_suppressed_yawreset_request_count = 0;        
         this.disconnect_startupcalibration_recovery_pending = false;
         this.logging_enabled = false;
-    	setName("navX-Sensor");
+        setName("navX-Sensor");
+
+        // Construct SimDevice (only succeeds in simulation environments)
+        m_simDevice = SimDevice.create("navX-Sensor", 0);     
     }
 
     /***********************************************************/
@@ -1062,7 +1086,16 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
      */
 
     public double getRate() {
-        return yaw_angle_tracker.getRate();
+        if (m_simDevice != null) {
+            SimIO simio = (SimIO)io;
+            if (simio != null) {
+                return simio.getRate();
+            } else {
+                return 0;
+            }
+        } else {
+            return yaw_angle_tracker.getRate();
+        }
     }
 
     /**

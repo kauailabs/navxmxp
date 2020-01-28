@@ -19,17 +19,17 @@
 #include "networktables/NetworkTableEntry.h"
 #include <thread>
 
+#include <hal/SimDevice.h>
+
 class IIOProvider;
 class ContinuousAngleTracker;
 class InertialDataIntegrator;
 class OffsetTracker;
 class AHRSInternal;
 
-using namespace frc;
-
-class AHRS : public SendableBase,
-             public ErrorBase,
-             public PIDSource  {
+class AHRS : public frc::SendableBase,
+             public frc::ErrorBase,
+             public frc::PIDSource  {
 public:
 
     enum BoardAxis {
@@ -125,6 +125,9 @@ private:
 
     std::thread *           task;
 
+    // Simulation
+    hal::SimDevice m_simDevice;
+
 #define MAX_NUM_CALLBACKS 3
     ITimestampedDataSubscriber *callbacks[MAX_NUM_CALLBACKS];
     void *callback_contexts[MAX_NUM_CALLBACKS];
@@ -137,16 +140,16 @@ private:
     bool logging_enabled;
 
 public:
-    AHRS(SPI::Port spi_port_id);
-    AHRS(I2C::Port i2c_port_id);
-    AHRS(SerialPort::Port serial_port_id);
+    AHRS(frc::SPI::Port spi_port_id);
+    AHRS(frc::I2C::Port i2c_port_id);
+    AHRS(frc::SerialPort::Port serial_port_id);
 
-    AHRS(SPI::Port spi_port_id, uint8_t update_rate_hz);
-    AHRS(SPI::Port spi_port_id, uint32_t spi_bitrate, uint8_t update_rate_hz);
+    AHRS(frc::SPI::Port spi_port_id, uint8_t update_rate_hz);
+    AHRS(frc::SPI::Port spi_port_id, uint32_t spi_bitrate, uint8_t update_rate_hz);
 
-    AHRS(I2C::Port i2c_port_id, uint8_t update_rate_hz);
+    AHRS(frc::I2C::Port i2c_port_id, uint8_t update_rate_hz);
 
-    AHRS(SerialPort::Port serial_port_id, AHRS::SerialDataType data_type, uint8_t update_rate_hz);
+    AHRS(frc::SerialPort::Port serial_port_id, AHRS::SerialDataType data_type, uint8_t update_rate_hz);
 
     float  GetPitch();
     float  GetRoll();
@@ -215,14 +218,14 @@ public:
     int16_t GetAccelFullScaleRangeG();
 
 private:
-    void SPIInit( SPI::Port spi_port_id, uint32_t bitrate, uint8_t update_rate_hz );
-    void I2CInit( I2C::Port i2c_port_id, uint8_t update_rate_hz );
-    void SerialInit(SerialPort::Port serial_port_id, AHRS::SerialDataType data_type, uint8_t update_rate_hz);
+    void SPIInit( frc::SPI::Port spi_port_id, uint32_t bitrate, uint8_t update_rate_hz );
+    void I2CInit( frc::I2C::Port i2c_port_id, uint8_t update_rate_hz );
+    void SerialInit(frc::SerialPort::Port serial_port_id, AHRS::SerialDataType data_type, uint8_t update_rate_hz);
     void commonInit( uint8_t update_rate_hz );
     static int ThreadFunc(IIOProvider *io_provider);
 
     /* SendableBase implementation */
-    void InitSendable(SendableBuilder& builder) override;
+    void InitSendable(frc::SendableBuilder& builder) override;
 
     /* PIDSource implementation */
     double PIDGet();

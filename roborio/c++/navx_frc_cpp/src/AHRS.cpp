@@ -22,6 +22,9 @@
 #include "RegisterIOMau.h"
 #include "SerialIO.h"
 #include <hal/HAL.h>
+#include "SimIO.h"
+
+using namespace frc;
 
 static const uint8_t    NAVX_DEFAULT_UPDATE_RATE_HZ         = 60;
 static const int        YAW_HISTORY_LENGTH                  = 10;
@@ -375,7 +378,8 @@ class AHRSInternal : public IIOCompleteNotification, public IBoardCapabilities {
  * @author Scott
  */
 
-AHRS::AHRS(SPI::Port spi_port_id, uint8_t update_rate_hz) {
+AHRS::AHRS(SPI::Port spi_port_id, uint8_t update_rate_hz) :
+            m_simDevice("navX-Sensor", spi_port_id) {
     SPIInit(spi_port_id, DEFAULT_SPI_BITRATE, update_rate_hz);
 }
 
@@ -400,7 +404,8 @@ AHRS::AHRS(SPI::Port spi_port_id, uint8_t update_rate_hz) {
  * @author Scott
  */
 
-AHRS::AHRS(SPI::Port spi_port_id, uint32_t spi_bitrate, uint8_t update_rate_hz) {
+AHRS::AHRS(SPI::Port spi_port_id, uint32_t spi_bitrate, uint8_t update_rate_hz) :
+            m_simDevice("navX-Sensor", spi_port_id) {
     SPIInit(spi_port_id, spi_bitrate, update_rate_hz);
 }
 
@@ -417,7 +422,8 @@ AHRS::AHRS(SPI::Port spi_port_id, uint32_t spi_bitrate, uint8_t update_rate_hz) 
  * @param i2c_port_id I2C Port to use
  * @param update_rate_hz Custom Update Rate (Hz)
  */
-AHRS::AHRS(I2C::Port i2c_port_id, uint8_t update_rate_hz) {
+AHRS::AHRS(I2C::Port i2c_port_id, uint8_t update_rate_hz) :
+            m_simDevice("navX-Sensor", i2c_port_id) {
     I2CInit(i2c_port_id, update_rate_hz);
 }
 
@@ -441,7 +447,8 @@ AHRS::AHRS(I2C::Port i2c_port_id, uint8_t update_rate_hz) {
      * @param data_type either kProcessedData or kRawData
      * @param update_rate_hz Custom Update Rate (Hz)
      */
-AHRS::AHRS(SerialPort::Port serial_port_id, AHRS::SerialDataType data_type, uint8_t update_rate_hz) {
+AHRS::AHRS(SerialPort::Port serial_port_id, AHRS::SerialDataType data_type, uint8_t update_rate_hz) :
+            m_simDevice("navX-Sensor", serial_port_id) {
     SerialInit(serial_port_id, data_type, update_rate_hz);
 }
 
@@ -452,7 +459,8 @@ AHRS::AHRS(SerialPort::Port serial_port_id, AHRS::SerialDataType data_type, uint
  *<p>
  * @param spi_port_id SPI port to use.
  */
-AHRS::AHRS(SPI::Port spi_port_id) {
+AHRS::AHRS(SPI::Port spi_port_id) :
+            m_simDevice("navX-Sensor", spi_port_id) {
     SPIInit(spi_port_id, DEFAULT_SPI_BITRATE, NAVX_DEFAULT_UPDATE_RATE_HZ);
 }
 
@@ -464,7 +472,8 @@ AHRS::AHRS(SPI::Port spi_port_id) {
  *<p>
  * @param i2c_port_id I2C port to use
  */
-AHRS::AHRS(I2C::Port i2c_port_id) {
+AHRS::AHRS(I2C::Port i2c_port_id) :
+            m_simDevice("navX-Sensor", i2c_port_id) {
     I2CInit(i2c_port_id, NAVX_DEFAULT_UPDATE_RATE_HZ);
 }
 
@@ -478,7 +487,8 @@ AHRS::AHRS(I2C::Port i2c_port_id) {
  *<p>
  * @param serial_port_id SerialPort to use
  */
-AHRS::AHRS(SerialPort::Port serial_port_id) {
+AHRS::AHRS(SerialPort::Port serial_port_id) :
+            m_simDevice("navX-Sensor", serial_port_id) {
     SerialInit(serial_port_id, SerialDataType::kProcessedData, NAVX_DEFAULT_UPDATE_RATE_HZ);
 }
 
@@ -1070,47 +1080,59 @@ int16_t AHRS::GetAccelFullScaleRangeG() {
 void AHRS::SPIInit( SPI::Port spi_port_id, uint32_t bitrate, uint8_t update_rate_hz ) {
     printf("Instantiating navX-Sensor on SPI Port %d.\n", spi_port_id);
     commonInit( update_rate_hz );
-    #ifdef __linux__
-    if (IsRaspbian() && (spi_port_id == SPI::Port::kMXP)) {
-        io = new RegisterIOMau(update_rate_hz, ahrs_internal, ahrs_internal);
+    if (m_simDevice) {
+        io = new SimIO(update_rate_hz, ahrs_internal, &m_simDevice);
     } else {
-    	io = new RegisterIO(new RegisterIO_SPI(new SPI(spi_port_id), bitrate), update_rate_hz, ahrs_internal, ahrs_internal);
+        #ifdef __linux__
+        if (IsRaspbian() && (spi_port_id == SPI::Port::kMXP)) {
+            io = new RegisterIOMau(update_rate_hz, ahrs_internal, ahrs_internal);
+        } else {
+            io = new RegisterIO(new RegisterIO_SPI(new SPI(spi_port_id), bitrate), update_rate_hz, ahrs_internal, ahrs_internal);
+        }
+        #else
+        io = new RegisterIO(new RegisterIO_SPI(new SPI(spi_port_id), bitrate), update_rate_hz, ahrs_internal, ahrs_internal);
+        #endif
     }
-    #else
-    io = new RegisterIO(new RegisterIO_SPI(new SPI(spi_port_id), bitrate), update_rate_hz, ahrs_internal, ahrs_internal);
-    #endif
     task = new std::thread(AHRS::ThreadFunc, io);
 }
 
 void AHRS::I2CInit( I2C::Port i2c_port_id, uint8_t update_rate_hz ) {
     printf("Instantiating navX-Sensor on I2C Port %d.\n", i2c_port_id);
     commonInit(update_rate_hz);
-    #ifdef __linux__
-    if (IsRaspbian() && (i2c_port_id == I2C::Port::kMXP)) {
-        io = new RegisterIOMau(update_rate_hz, ahrs_internal, ahrs_internal);
-    } else {
+    if (m_simDevice) {
+        io = new SimIO(update_rate_hz, ahrs_internal, &m_simDevice);
+    } else {    
+        #ifdef __linux__
+        if (IsRaspbian() && (i2c_port_id == I2C::Port::kMXP)) {
+            io = new RegisterIOMau(update_rate_hz, ahrs_internal, ahrs_internal);
+        } else {
+            io = new RegisterIO(new RegisterIO_I2C(new I2C(i2c_port_id, NAVX_MXP_I2C_ADDRESS)), update_rate_hz, ahrs_internal, ahrs_internal);
+        }
+        #else
         io = new RegisterIO(new RegisterIO_I2C(new I2C(i2c_port_id, NAVX_MXP_I2C_ADDRESS)), update_rate_hz, ahrs_internal, ahrs_internal);
+        #endif
     }
-    #else
-    io = new RegisterIO(new RegisterIO_I2C(new I2C(i2c_port_id, NAVX_MXP_I2C_ADDRESS)), update_rate_hz, ahrs_internal, ahrs_internal);
-    #endif
     task = new std::thread(AHRS::ThreadFunc, io);
 }
 
 void AHRS::SerialInit(SerialPort::Port serial_port_id, AHRS::SerialDataType data_type, uint8_t update_rate_hz) {
     printf("Instantiating navX-Sensor on Serial Port %d.\n", serial_port_id);
     commonInit(update_rate_hz);
-    #ifdef __linux__
-    if (IsRaspbian() && (serial_port_id == SerialPort::Port::kMXP)) {
-        io = new RegisterIOMau(update_rate_hz, ahrs_internal, ahrs_internal);
-    } else {
-    	bool processed_data = (data_type == SerialDataType::kProcessedData);
-    	io = new SerialIO(serial_port_id, update_rate_hz, processed_data, ahrs_internal, ahrs_internal);
+    if (m_simDevice) {
+        io = new SimIO(update_rate_hz, ahrs_internal, &m_simDevice);
+    } else {    
+        #ifdef __linux__
+        if (IsRaspbian() && (serial_port_id == SerialPort::Port::kMXP)) {
+            io = new RegisterIOMau(update_rate_hz, ahrs_internal, ahrs_internal);
+        } else {
+            bool processed_data = (data_type == SerialDataType::kProcessedData);
+            io = new SerialIO(serial_port_id, update_rate_hz, processed_data, ahrs_internal, ahrs_internal);
+        }
+        #else
+        bool processed_data = (data_type == SerialDataType::kProcessedData);
+        io = new SerialIO(serial_port_id, update_rate_hz, processed_data, ahrs_internal, ahrs_internal);
+        #endif
     }
-    #else
-    bool processed_data = (data_type == SerialDataType::kProcessedData);
-    io = new SerialIO(serial_port_id, update_rate_hz, processed_data, ahrs_internal, ahrs_internal);
-    #endif
     task = new std::thread(AHRS::ThreadFunc, io);
 }
 
