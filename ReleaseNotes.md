@@ -1,5 +1,9 @@
 <b>Release Notes</b> 
 <p>
+Version 3.0.403
+
+This version adds WPI "SimDevice" simulation support for C++ and Java.
+<p>
 Version 3.0.316
 
 Kauai Labs has been working with FIRST and National Instruments on an issue discovered when using USB Serial devices on the RoboRIO.
