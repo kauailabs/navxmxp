@@ -27,7 +27,8 @@
             "skipInvalidPlatforms": true,
             "binaryPlatforms": [
                 "linuxathena",
-				"linuxraspbian"
+		"linuxraspbian",
+                "windowsx86-x64"
             ]
         }
     ]
