@@ -15,6 +15,7 @@
 #include "frc/SerialPort.h"
 #include "frc/PIDSource.h"
 #include "frc/Timer.h"
+#include "frc/interfaces/Gyro.h"
 #include "ITimestampedDataSubscriber.h"
 #include "networktables/NetworkTableEntry.h"
 #include <thread>
@@ -29,7 +30,8 @@ class AHRSInternal;
 
 class AHRS : public frc::SendableBase,
              public frc::ErrorBase,
-             public frc::PIDSource  {
+             public frc::PIDSource,
+             public frc::Gyro  {
 public:
 
     enum BoardAxis {
@@ -216,6 +218,9 @@ public:
 
     int16_t GetGyroFullScaleRangeDPS();
     int16_t GetAccelFullScaleRangeG();
+
+    // Gyro interface implementation
+    void Calibrate();
 
 private:
     void SPIInit( frc::SPI::Port spi_port_id, uint32_t bitrate, uint8_t update_rate_hz );

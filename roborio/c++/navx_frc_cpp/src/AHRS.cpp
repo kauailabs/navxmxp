@@ -1614,4 +1614,7 @@ int AHRS::GetRequestedUpdateRate() {
     return (int)update_rate_hz;
 }
 
+// Gyro interface implementation
+void AHRS::Calibrate() {
 
+}

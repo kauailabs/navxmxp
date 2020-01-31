@@ -4,7 +4,7 @@
 /* Created in support of Team 2465 (Kauaibots).  Go Purple Wave!              */
 /*                                                                            */
 /* Open Source Software - may be modified and shared by FRC teams. Any        */
-/* modifications to this code must be accompanied by the \License.txt file    */ 
+/* modifications to this code must be accompanied by the \License.txt file    */
 /* in the root directory of the project.                                      */
 /*----------------------------------------------------------------------------*/
 
@@ -21,6 +21,7 @@ import edu.wpi.first.wpilibj.PIDSourceType;
 import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.SerialPort;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.interfaces.Gyro;
 import edu.wpi.first.wpilibj.SendableBase;
 import edu.wpi.first.wpilibj.Sendable;
 import edu.wpi.first.wpilibj.smartdashboard.SendableBuilder;
@@ -48,7 +49,7 @@ import edu.wpi.first.hal.SimDevice;
  * @author Scott
  */
 
-public class AHRS extends SendableBase implements PIDSource, Sendable {
+public class AHRS extends SendableBase implements PIDSource, Sendable, Gyro {
 
     /**
      * Identifies one of the three sensing axes on the navX sensor board.  Note that these axes are
@@ -1752,5 +1753,12 @@ public class AHRS extends SendableBase implements PIDSource, Sendable {
 	public void initSendable(SendableBuilder builder) {
 		builder.setSmartDashboardType("Gyro");
 		builder.addDoubleProperty("Value", this::getYaw, null);
-	}
+    }
+
+    /************************************************************/
+    /* Gyro interface Implementation                            */
+    /************************************************************/
+    @Override
+    public void calibrate() {        
+    }    
 }
