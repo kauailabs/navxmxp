@@ -187,8 +187,8 @@ public:
     float  GetDisplacementX();
     float  GetDisplacementY();
     float  GetDisplacementZ();
-    double GetAngle();
-    double GetRate();
+    double GetAngle() const;
+    double GetRate() const;
     void   SetAngleAdjustment(double angle);
     double GetAngleAdjustment();
     void   Reset();

@@ -1239,7 +1239,7 @@ void AHRS::commonInit( uint8_t update_rate_hz ) {
  * from the Z-axis (yaw) gyro.
  */
 
-double AHRS::GetAngle() {
+double AHRS::GetAngle() const {
     return yaw_angle_tracker->GetAngle();
 }
 
@@ -1251,7 +1251,7 @@ double AHRS::GetAngle() {
  * @return The current rate of change in yaw angle (in degrees per second)
  */
 
-double AHRS::GetRate() {
+double AHRS::GetRate() const {
     return yaw_angle_tracker->GetRate();
 }
 
