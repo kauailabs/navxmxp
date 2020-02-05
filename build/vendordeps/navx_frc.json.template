@@ -28,7 +28,7 @@
             "binaryPlatforms": [
                 "linuxathena",
 		"linuxraspbian",
-                "windowsx86-x64"
+                "windowsx86-64"
             ]
         }
     ]
