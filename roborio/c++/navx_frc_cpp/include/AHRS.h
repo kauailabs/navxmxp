@@ -187,11 +187,11 @@ public:
     float  GetDisplacementX();
     float  GetDisplacementY();
     float  GetDisplacementZ();
-    double GetAngle() const;
-    double GetRate() const;
+    double GetAngle() const override;
+    double GetRate() const override;
     void   SetAngleAdjustment(double angle);
     double GetAngleAdjustment();
-    void   Reset();
+    void   Reset() override;
     float  GetRawGyroX();
     float  GetRawGyroY();
     float  GetRawGyroZ();
@@ -220,7 +220,7 @@ public:
     int16_t GetAccelFullScaleRangeG();
 
     // Gyro interface implementation
-    void Calibrate();
+    void Calibrate() override;
 
 private:
     void SPIInit( frc::SPI::Port spi_port_id, uint32_t bitrate, uint8_t update_rate_hz );
