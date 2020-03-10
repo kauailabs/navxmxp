@@ -151,7 +151,7 @@ class RegisterIOMau implements IIOProvider {
             last_sensor_timestamp = sensor_timestamp;
             ahrspos_update.op_status    = curr_data[IMURegisters.NAVX_REG_OP_STATUS - first_address];
             ahrspos_update.selftest_status = curr_data[IMURegisters.NAVX_REG_SELFTEST_STATUS - first_address];
-            ahrspos_update.cal_status      = curr_data[IMURegisters.NAVX_REG_CAL_STATUS];
+            ahrspos_update.cal_status      = curr_data[IMURegisters.NAVX_REG_CAL_STATUS - first_address];
             ahrspos_update.sensor_status   = curr_data[IMURegisters.NAVX_REG_SENSOR_STATUS_L - first_address];
             ahrspos_update.yaw             = AHRSProtocol.decodeProtocolSignedHundredthsFloat(curr_data, IMURegisters.NAVX_REG_YAW_L-first_address);
             ahrspos_update.pitch           = AHRSProtocol.decodeProtocolSignedHundredthsFloat(curr_data, IMURegisters.NAVX_REG_PITCH_L-first_address);
@@ -200,8 +200,8 @@ class RegisterIOMau implements IIOProvider {
             board_state.selftest_status = curr_data[IMURegisters.NAVX_REG_SELFTEST_STATUS-first_address];
             board_state.sensor_status   = AHRSProtocol.decodeBinaryUint16(curr_data,IMURegisters.NAVX_REG_SENSOR_STATUS_L-first_address);
             board_state.update_rate_hz  = curr_data[IMURegisters.NAVX_REG_UPDATE_RATE_HZ-first_address];
-            board_state.gyro_fsr_dps    = AHRSProtocol.decodeBinaryUint16(curr_data,IMURegisters.NAVX_REG_GYRO_FSR_DPS_L);
-            board_state.accel_fsr_g     = (short)curr_data[IMURegisters.NAVX_REG_ACCEL_FSR_G];
+            board_state.gyro_fsr_dps    = AHRSProtocol.decodeBinaryUint16(curr_data,IMURegisters.NAVX_REG_GYRO_FSR_DPS_L - first_address);
+            board_state.accel_fsr_g     = (short)curr_data[IMURegisters.NAVX_REG_ACCEL_FSR_G - first_address];
             board_state.capability_flags= AHRSProtocol.decodeBinaryUint16(curr_data,IMURegisters.NAVX_REG_CAPABILITY_FLAGS_L-first_address);
             boolean update_board_status = false;
             notify_sink.setBoardState(board_state, update_board_status);
@@ -247,6 +247,7 @@ class RegisterIOMau implements IIOProvider {
     @Override
     public void zeroYaw() {
         com.kauailabs.vmx.AHRSJNI.ZeroYaw();       
+		notify_sink.yawResetComplete();   
     }
 
     @Override

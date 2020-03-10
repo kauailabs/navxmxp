@@ -107,7 +107,10 @@ void RegisterIOMau::SetUpdateRateHz(uint8_t update_rate) {
 
 void RegisterIOMau::ZeroYaw() {
     if (!pfunc_ZeroYaw) return;
-    return (*pfunc_ZeroYaw)();
+    (*pfunc_ZeroYaw)();
+	if (notify_sink) {
+		notify_sink->YawResetComplete();
+	}
 }
 
 void RegisterIOMau::ZeroDisplacement() {
@@ -200,7 +203,7 @@ bool RegisterIOMau::GetCurrentData() {
         last_sensor_timestamp = sensor_timestamp;
         ahrspos_update.op_status       = curr_data[NAVX_REG_OP_STATUS - first_address];
         ahrspos_update.selftest_status = curr_data[NAVX_REG_SELFTEST_STATUS - first_address];
-        ahrspos_update.cal_status      = curr_data[NAVX_REG_CAL_STATUS];
+        ahrspos_update.cal_status      = curr_data[NAVX_REG_CAL_STATUS - first_address];
         ahrspos_update.sensor_status   = curr_data[NAVX_REG_SENSOR_STATUS_L - first_address];
         ahrspos_update.yaw             = IMURegisters::decodeProtocolSignedHundredthsFloat(curr_data + NAVX_REG_YAW_L-first_address);
         ahrspos_update.pitch           = IMURegisters::decodeProtocolSignedHundredthsFloat(curr_data + NAVX_REG_PITCH_L-first_address);
@@ -249,8 +252,8 @@ bool RegisterIOMau::GetCurrentData() {
         board_state.selftest_status = curr_data[NAVX_REG_SELFTEST_STATUS-first_address];
         board_state.sensor_status   = IMURegisters::decodeProtocolUint16(curr_data + NAVX_REG_SENSOR_STATUS_L-first_address);
         board_state.update_rate_hz  = curr_data[NAVX_REG_UPDATE_RATE_HZ-first_address];
-        board_state.gyro_fsr_dps    = IMURegisters::decodeProtocolUint16(curr_data + NAVX_REG_GYRO_FSR_DPS_L);
-        board_state.accel_fsr_g     = (int16_t)curr_data[NAVX_REG_ACCEL_FSR_G];
+        board_state.gyro_fsr_dps    = IMURegisters::decodeProtocolUint16(curr_data + NAVX_REG_GYRO_FSR_DPS_L - first_address);
+        board_state.accel_fsr_g     = (int16_t)curr_data[NAVX_REG_ACCEL_FSR_G - first_address];
         board_state.capability_flags= IMURegisters::decodeProtocolUint16(curr_data + NAVX_REG_CAPABILITY_FLAGS_L-first_address);
 	bool update_board_status = false;
         notify_sink->SetBoardState(board_state, update_board_status);
