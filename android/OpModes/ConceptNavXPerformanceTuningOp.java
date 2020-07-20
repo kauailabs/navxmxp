@@ -33,6 +33,7 @@ package org.firstinspires.ftc.teamcode;
 
 import android.os.SystemClock;
 
+import com.qualcomm.hardware.kauailabs.NavxMicroNavigationSensor;
 import com.kauailabs.navx.ftc.AHRS;
 import com.kauailabs.navx.ftc.navXPerformanceMonitor;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -68,11 +69,6 @@ import java.text.DecimalFormat;
 // @Disabled Comment this in to remove this from the Driver Station OpMode List
 public class ConceptNavXPerformanceTuningOp extends OpMode {
 
-  /* This is the port on the Core Device Interface Module */
-  /* in which the navX-Micro is connected.  Modify this  */
-  /* depending upon which I2C port you are using.        */
-  private final int NAVX_DIM_I2C_PORT = 0;
-
   private AHRS navx_device;
   private navXPerformanceMonitor navx_perfmon;
   private byte sensor_update_rate_hz = 40;
@@ -81,8 +77,7 @@ public class ConceptNavXPerformanceTuningOp extends OpMode {
   @Override
   public void init() {
     AHRS.setLogging(true);
-    navx_device = AHRS.getInstance(hardwareMap.deviceInterfaceModule.get("dim"),
-            NAVX_DIM_I2C_PORT,
+    navx_device = AHRS.getInstance(hardwareMap.get(NavxMicroNavigationSensor.class, "navx"),
             AHRS.DeviceDataType.kProcessedData,
             sensor_update_rate_hz);
     navx_perfmon = new navXPerformanceMonitor(navx_device);

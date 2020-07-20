@@ -23,10 +23,6 @@
  */
 package com.kauailabs.navx.ftc;
 
-import android.util.Log;
-
-import java.security.Timestamp;
-
 /**
  * The navXPIDController implements a timestamped PID controller (designed to deal
  * with the jitter which is typically present in a networked control system scenario).

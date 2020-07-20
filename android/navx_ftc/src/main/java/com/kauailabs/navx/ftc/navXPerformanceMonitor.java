@@ -1,12 +1,10 @@
 package com.kauailabs.navx.ftc;
 
-import android.os.SystemClock;
-
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 /**
  * The navXPerformanceMonitor class is designed to provide performance
- * data to help tune the navx_ftc library's AHRS class to retrieve
+ * data to help tune the navx_ftc library's AHRS_OLD class to retrieve
  * navX-Model device data using tuning parameters appropriate for a
  * particular FTC robotic controller configuration.
  *

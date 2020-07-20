@@ -31,6 +31,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
 
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.hardware.kauailabs.NavxMicroNavigationSensor;
 import com.kauailabs.navx.ftc.AHRS;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
@@ -49,19 +50,13 @@ import java.text.DecimalFormat;
 // @Disabled Comment this in to remove this from the Driver Station OpMode List
 public class ConceptNavXMotionDetectionOp extends OpMode {
 
-  /* This is the port on the Core Device Interace Module */
-  /* in which the navX-Micro is connected.  Modify this  */
-  /* depending upon which I2C port you are using.        */
-  private final int NAVX_DIM_I2C_PORT = 0;
-
   private String startDate;
   private ElapsedTime runtime = new ElapsedTime();
   private AHRS navx_device;
 
   @Override
   public void init() {
-    navx_device = AHRS.getInstance(hardwareMap.deviceInterfaceModule.get("dim"),
-            NAVX_DIM_I2C_PORT,
+    navx_device = AHRS.getInstance(hardwareMap.get(NavxMicroNavigationSensor.class, "navx"),
             AHRS.DeviceDataType.kProcessedData);
   }
 
