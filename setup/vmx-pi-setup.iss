@@ -90,7 +90,29 @@ begin
    regRoot := HKLM64
   end;
  end;
+
  if (RegGetSubkeyNames(regRoot, 'SOFTWARE\JavaSoft\Java Runtime Environment', Versions)) or (RegGetSubkeyNames(regRoot, 'SOFTWARE\JavaSoft\Java Development Kit', Versions)) then
+ begin
+  for I := 0 to GetArrayLength(Versions)-1 do
+   if JavaInstalled = true then
+   begin
+    //do nothing
+   end else
+   begin
+    if ( Versions[I][2]='.' ) and ( ( StrToInt(Versions[I][1]) > 1 ) or ( ( StrToInt(Versions[I][1]) = 1 ) and ( StrToInt(Versions[I][3]) >= 7 ) ) ) then
+    begin
+     JavaInstalled := true;
+    end else
+    begin
+     JavaInstalled := false;
+    end;
+   end;
+ end else
+ begin
+  JavaInstalled := false;
+ end;
+ 
+ if (RegGetSubkeyNames(regRoot, 'SOFTWARE\WOW6432Node\JavaSoft\Java Runtime Environment', Versions)) or (RegGetSubkeyNames(regRoot, 'SOFTWARE\WOW6432Node\JavaSoft\Java Development Kit', Versions)) then
  begin
   for I := 0 to GetArrayLength(Versions)-1 do
    if JavaInstalled = true then

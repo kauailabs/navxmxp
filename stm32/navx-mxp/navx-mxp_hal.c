@@ -926,7 +926,8 @@ static Timer_InputCap_Channel_Config timer_input_ch_configs[IOCX_NUM_TIMERS][IOC
 };
 
 void HAL_IOCX_FlexDIO_Suspend(int suspend) {
-	uint32_t temp;
+	uint32_t mode_reg_val;
+	uint32_t curr_gpio_mode_bits;
 	uint32_t position;
 	int i;
 
@@ -939,32 +940,34 @@ void HAL_IOCX_FlexDIO_Suspend(int suspend) {
 		uint8_t alt_function = gpio_channels[i].alt_function;
 
 		position = POSITION_VAL(pin);
-		temp = p_gpio->MODER;
-		temp &= ~(GPIO_MODER_MODER0 << (position * 2));
+		mode_reg_val = p_gpio->MODER;
+		curr_gpio_mode_bits = (mode_reg_val >> (position *2)) & GPIO_MODER_MODER0;
 		if (suspend) {
 			// Configure GPIO as Input, if configured as an output, or configured
 			// for an alternate function and associated timer is configured
 			// for PWM Output.
 			int output_active = 0;
-			if (temp == ((GPIO_MODE_AF_PP) << (position * 2))) {
+			if (curr_gpio_mode_bits == GPIO_MODE_AF_PP) {
 				uint8_t timer_config = curr_timer_cfg[timer_index];
 				IOCX_TIMER_MODE timer_mode = iocx_decode_timer_mode(&timer_config);
 				if (timer_mode == TIMER_MODE_PWM_OUT) {
 					output_active = 1;
 				}
-			} else if (temp == ((GPIO_MODE_OUTPUT_PP) << (position * 2))) {
+			} else if (curr_gpio_mode_bits == GPIO_MODE_OUTPUT_PP) {
 				output_active = 1;
 			}
 			if (output_active) {
-				temp |= ((GPIO_MODE_INPUT) << (position * 2));
+				// Clear all GPIO bits; this sets the GPIO to be the default - an input
+				mode_reg_val &= ~((GPIO_MODER_MODER0) << (position * 2));
+				p_gpio->MODER = mode_reg_val;
 			}
 		} else {
 			// Restore the GPIO configuration to state requested during the GPIO pin's
 			// most-recent configuration request.
 			// NOTE:  Be sure to only set modes masked in by the GPIO_MODE mask.
-			temp |= (((IOCX_gpio_pin_mode_configuration[POSITION_VAL(gpio_channels[i].pin)]) & GPIO_MODER_MODER0) << (position * 2));
+			mode_reg_val |= (((IOCX_gpio_pin_mode_configuration[POSITION_VAL(gpio_channels[i].pin)]) & GPIO_MODER_MODER0) << (position * 2));
+			p_gpio->MODER = mode_reg_val;
 		}
-		p_gpio->MODER = temp;
 	}
 
 	gpio_suspended = suspend;
@@ -1042,7 +1045,7 @@ void HAL_IOCX_GPIO_Set_Config(uint8_t gpio_index, uint8_t config) {
 		output_mode_requested = 1;
 		break;
 	case GPIO_TYPE_OUTPUT_OPENDRAIN:
-		GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+		GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
 		output_mode_requested = 1;
 		break;
 	case GPIO_TYPE_AF:
@@ -1346,15 +1349,41 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 		default:
 			break;
 		}
+
+		/* Reset timer registers to power-on defaults; some configuration cases (below)
+		 * assume certain power-on defaut states.
+		 */
+
+		timer_configs[timer_index].p_tim_handle->Instance->CR1 = 0;
+		timer_configs[timer_index].p_tim_handle->Instance->CR2 = 0;
+		timer_configs[timer_index].p_tim_handle->Instance->CCMR1 = 0;
+		timer_configs[timer_index].p_tim_handle->Instance->CCMR2 = 0;
+		timer_configs[timer_index].p_tim_handle->Instance->CCER = 0;
+		timer_configs[timer_index].p_tim_handle->Instance->SMCR  = 0;
+		timer_configs[timer_index].p_tim_handle->Instance->DIER = 0;
+		timer_configs[timer_index].p_tim_handle->Instance->EGR  = 0;
+		timer_configs[timer_index].p_tim_handle->Instance->DCR  = 0;
 		break;
 
 	case TIMER_MODE_QUAD_ENCODER:
 		{
+			// Inputcap filter must already be already set before enabling.
+			// Prescaler must be already set before enabling.
 
 			TIM_Encoder_InitTypeDef sConfig;
 			TIM_MasterConfigTypeDef sMasterConfig;
+			TIM_IC_InitTypeDef sConfigIC;
 
 			TIM_HandleTypeDef * p_htim = timer_configs[timer_index].p_tim_handle;
+
+			/* Configure Timer Input Channel 1 */
+			HAL_IOCX_TIMER_ConfigureInputCaptureChannel(timer_index, 0, &sConfigIC);
+			HAL_TIM_IC_ConfigChannel(p_htim, &sConfigIC, TIM_CHANNEL_1);
+
+			/* Configure Timer Input Channel 2 */
+			HAL_IOCX_TIMER_ConfigureInputCaptureChannel(timer_index, 1, &sConfigIC);
+			HAL_TIM_IC_ConfigChannel(p_htim, &sConfigIC, TIM_CHANNEL_2);
+
 			p_htim->Init.Prescaler = 0; // Prescaler should ~always~ be 0 in Quad Encoder Mode
 			p_htim->Init.ClockDivision = timer_configs[timer_index].core_clock_divider;
 			p_htim->Init.CounterMode = TIM_COUNTERMODE_UP;
@@ -1396,12 +1425,17 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 	case TIMER_MODE_PWM_OUT:
 		{
 			TIM_OC_InitTypeDef sConfigOC;
+			TIM_ClockConfigTypeDef sClockSourceConfig;
 			TIM_HandleTypeDef * p_htim = timer_configs[timer_index].p_tim_handle;
 
 			// Prescaler and Period must be already set before enabling.
 			p_htim->Init.CounterMode = TIM_COUNTERMODE_UP;
 			p_htim->Init.ClockDivision = timer_configs[timer_index].core_clock_divider;
 			HAL_TIM_PWM_Init(p_htim);
+
+			// Configure Internal Clock as the Timer Clock Source (disabling slave mode)
+			sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+			HAL_TIM_ConfigClockSource(p_htim, &sClockSourceConfig);
 
 			// Periods (CCR) for both channels must be already set before enabling.
 			sConfigOC.OCMode = TIM_OCMODE_PWM1;
