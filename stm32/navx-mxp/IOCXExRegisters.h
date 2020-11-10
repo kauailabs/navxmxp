@@ -40,7 +40,8 @@ THE SOFTWARE.
 #define IOCX_EX_REGISTER_BANK 4
 
 typedef struct {
-	uint16_t unused				: 10;
+	uint16_t unused				: 9;
+	uint16_t virt_cntr_support  : 1;  /* 1:  Input Capture Virtual Counter supported. */
 	uint16_t io_watchdog_support: 1;  /* 1:  IO Watchdog supported. */
 	uint16_t tmrcntreset_support: 1;  /* 1:  Timer Counter can be reset by interrupt.   */
 	uint16_t countercfg_support : 1;  /* 1:  Adv Timer Counter configuration supported. */
@@ -155,6 +156,23 @@ typedef struct {
 #define IO_WATCHDOG_CMD_EXPIRENOW		0xE5	// Write to "watchdog command" register to immediately expire watchdog
 #define IO_WATCHDOG_CMD_NONE			0x00
 
+typedef enum _INPUT_CAPTURE_VIRTUAL_COUNTER_MODE {
+	INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_DISABLED = 0, // Default
+	INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_DUAL_INPUT_UPDOWN_COUNTER = 1,   // Timer CH2 Decrements Virtual Count from Ch Count in CCI; Read Virtual Counter returns HW Count + Virtual Count
+	INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_PWMCAPTURE_ROLLOVER_ENCODER = 2, // Timer CH1:  Frequency; CH2:  DutyCyle; VC Dir Threshold:  % (128=50%); Dir Change Updates Virtual Count in CCI
+	INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_DUTYCYCLE_THRESHOLD_ENCODER = 3, // NOT IMPLEMENTED (typically used for Hall-Effect Rotary Encoders [e.g., for Geartooth sensors])
+} INPUT_CAPTURE_VIRTUAL_COUNTER_MODE;
+
+/* The Virtual Counter Timer Source Channel is used to condition the virtual counter.
+ * - For PWMCAPTURE_ROLLOVER_ENCODER mode, this timer channel contains the PWM "Duty Cycle" measurement
+ * - For DUAL_INPUT_UPDOWN_COUNTER, this timer channel contains the "down counting" source
+ */
+
+typedef enum _VIRTUAL_COUNTER_TIMER_SOURCE_CHANNEL {
+	VIRTUAL_COUNTER_TIMER_SOURCE_CHANNEL_CH2 = 0, // Default
+	VIRTUAL_COUNTER_TIMER_SOURCE_CHANNEL_CH1 = 1,
+} VIRTUAL_COUNTER_TIMER_SOURCE_CHANNEL;
+
 struct __attribute__ ((__packed__)) IOCX_EX_REGS {
 	/****************/
 	/* Capabilities */
@@ -183,6 +201,10 @@ struct __attribute__ ((__packed__)) IOCX_EX_REGS {
 	IO_WATCHDOG_OUTPUT_CONFIG io_watchdog_output_cfg;
 	uint16_t io_watchdog_timeout_period_ms;
 	uint8_t io_watchdog_command;	// IO_WATCHDOG_CMD
+	/* Input Capture Virtual Counter */
+	uint8_t virtual_counter_cfg[IOCX_NUM_TIMERS]; // Only valid if IOCXRegisters timer_cfg IOCX_TIMER_MODE == TIMER_MODE_INPUT_CAPTURE
+	uint16_t virtual_counter_parameter1[IOCX_NUM_TIMERS];  // PWMCAPTURE_ROLLOVER_ENCODER: Duty Cycle Low Watermark Ticks
+	uint16_t virtual_counter_parameter2[IOCX_NUM_TIMERS];  // PWMCAPTURE_ROLLOVER_ENCODER: Duty Cycle High Watermark Ticks
 	uint8_t end_of_bank;
 };
 
@@ -201,6 +223,8 @@ static RegEncoding timer_counter_level_reset_mode_reg = { offsetof(struct IOCX_E
 static RegEncoding timer_counter_reset_src_reg = { offsetof(struct IOCX_EX_REGS, timer_counter_reset_cfg), 4, 0x0F };
 static RegEncoding io_watchdog_mode_reg = { offsetof(struct IOCX_EX_REGS, io_watchdog_mode), 0, 0x01 };
 static RegEncoding io_watchdog_status_reg = { offsetof(struct IOCX_EX_REGS, io_watchdog_status), 0, 0x01 };
+static RegEncoding virtual_counter_cfg_reg = { offsetof(struct IOCX_EX_REGS, virtual_counter_cfg), 0, 0x03 };
+static RegEncoding virtual_counter_source_channel_reg = { offsetof(struct IOCX_EX_REGS, virtual_counter_cfg), 4, 0x03 };
 
 inline void iocx_ex_timer_encode_counter_clk_src(uint8_t* reg, TIMER_COUNTER_CLK_SOURCE val) {
 	encode_reg(reg, (uint8_t)val, &timer_counter_clk_src_reg);
@@ -292,5 +316,16 @@ inline void iocx_ex_io_watchdog_encode_state(uint8_t* reg, IO_WATCHDOG_STATE val
 inline IO_WATCHDOG_STATE iocx_ex_io_watchdog_decode_state(uint8_t *reg) {
 	return (IO_WATCHDOG_STATE)decode_reg(reg, &io_watchdog_status_reg);
 }
-
+inline void iocx_ex_timer_ic_virtual_counter_encode_mode(uint8_t* reg, INPUT_CAPTURE_VIRTUAL_COUNTER_MODE val) {
+	encode_reg(reg, val, &virtual_counter_cfg_reg);
+}
+inline INPUT_CAPTURE_VIRTUAL_COUNTER_MODE iocx_ex_timer_ic_virtual_counter_decode_mode(uint8_t *reg) {
+	return (INPUT_CAPTURE_VIRTUAL_COUNTER_MODE)decode_reg(reg, &virtual_counter_cfg_reg);
+}
+inline void iocx_ex_timer_ic_virtual_counter_encode_source_channel(uint8_t* reg, VIRTUAL_COUNTER_TIMER_SOURCE_CHANNEL val) {
+	encode_reg(reg, val, &virtual_counter_source_channel_reg);
+}
+inline VIRTUAL_COUNTER_TIMER_SOURCE_CHANNEL iocx_ex_timer_ic_virtual_counter_decode_source_channel(uint8_t *reg) {
+	return (VIRTUAL_COUNTER_TIMER_SOURCE_CHANNEL)decode_reg(reg, &virtual_counter_source_channel_reg);
+}
 #endif /* IOCX_EX_REGISTERS_H_ */
