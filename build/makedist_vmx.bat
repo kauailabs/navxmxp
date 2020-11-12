@@ -5,9 +5,11 @@ pushd ..
 md dist
 pushd dist
 
-mkdir enclosure
+mkdir enclosure_rpi3
+mkdir enclosure_rpi4
 
-cp -r ../enclosure/vmx-pi/* ./enclosure
+cp -r ../enclosure/vmx-pi/* ./enclosure_rpi3
+cp -r ../enclosure/vmx-pi-RPI4/* ./enclosure_rpi4
 
 cp ../setup/Output_vmx-pi/* .
 cp ../setup/target/vmx-pi/readme.txt ./

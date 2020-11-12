@@ -604,7 +604,7 @@ void HAL_IOCX_AssertInterrupt(uint16_t int_status_bit)
 		if (gpio_index < IOCX_NUM_INTERRUPTS) {
 			uint8_t timer_index = IOCX_gpio_interrupt_timer_reset_targets[gpio_index];
 			if (timer_index != TIMER_RESET_DISABLED) {
-				uint8_t reset_control;
+				uint8_t reset_control = 0;
 				iocx_encode_timer_counter_reset(&reset_control, RESET_REQUEST);
 				HAL_IOCX_TIMER_Set_Control(timer_index, &reset_control);
 			}
@@ -695,6 +695,22 @@ volatile uint16_t qe_count_index = 0; // Range 0 - (NUM_QE_COUNT_DELTAS-1)
 volatile int16_t qe_count_deltas[NUM_IOCX_QUAD_ENCODERS][NUM_QE_COUNT_DELTAS];
 volatile uint32_t qe_last_delta_timestamp[NUM_IOCX_QUAD_ENCODERS];
 
+int input_capture_virtual_counter_mode[IOCX_NUM_TIMERS] = {
+		INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_DISABLED,
+		INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_DISABLED,
+		INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_DISABLED,
+		INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_DISABLED,
+		INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_DISABLED,
+		INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_DISABLED
+};
+volatile int32_t input_capture_virtual_counter[IOCX_NUM_TIMERS] = {0,0,0,0,0,0};
+
+uint32_t input_capture_virtual_counter_last_duty_cycle_ticks[IOCX_NUM_TIMERS] = {0,0,0,0,0,0};
+
+int input_capture_virtual_counter_last_duty_cycle_ticks_valid[IOCX_NUM_TIMERS] = {0,0,0,0,0,0};
+
+HAL_TIM_ActiveChannel input_capture_virtual_counter_capture_interrupt_active_channel[IOCX_NUM_TIMERS] = {0,0,0,0,0,0};
+
 typedef enum  {
 	LEVEL_RESET_NONE,
 	LEVEL_RESET_HIGH,
@@ -722,7 +738,7 @@ static uint32_t GetTotalQECountDelta(uint8_t qe_index) {
 	if (qe_index >= NUM_IOCX_QUAD_ENCODERS) return 0;
 
     uint32_t total_qe_count_delta = 0;
-	NVIC_DisableIRQ(SysTick_IRQn);
+	HAL_NVIC_DisableIRQ(SysTick_IRQn);
 	volatile int16_t *p_count_deltas = &qe_count_deltas[qe_index][qe_count_index];
     int i;
 	for (i = qe_count_index; i < NUM_QE_COUNT_DELTAS; i++) {
@@ -734,7 +750,7 @@ static uint32_t GetTotalQECountDelta(uint8_t qe_index) {
     	total_qe_count_delta += abs(*p_count_deltas);
     	p_count_deltas++;
     }
-    NVIC_EnableIRQ(SysTick_IRQn);
+    HAL_NVIC_EnableIRQ(SysTick_IRQn);
     return total_qe_count_delta;
 }
 
@@ -771,7 +787,7 @@ static int QEIntegratorEnabled(uint8_t qe_index) {
 
 static void ResetQEIntegrator(uint8_t qe_index, int enabled) {
 	if (qe_index < NUM_IOCX_QUAD_ENCODERS) {
-        NVIC_DisableIRQ(SysTick_IRQn);
+        HAL_NVIC_DisableIRQ(SysTick_IRQn);
 		qe_enabled[qe_index] = enabled;
 		qe_total_count[qe_index] = 0;
 		switch (qe_index) {
@@ -782,7 +798,7 @@ static void ResetQEIntegrator(uint8_t qe_index, int enabled) {
 		case 4:  qe4_last_count = 0; break;
 		default: break;
 		}
-        NVIC_EnableIRQ(SysTick_IRQn);
+        HAL_NVIC_EnableIRQ(SysTick_IRQn);
 	}
 }
 
@@ -873,6 +889,10 @@ static Timer_Config timer_configs[IOCX_NUM_TIMERS] =
 
 uint8_t curr_timer_cfg[IOCX_NUM_TIMERS]; /* All defaults have 0 value (disabled) */
 
+uint8_t virtual_counter_cfg_register_shadow[IOCX_NUM_TIMERS]; /* All default have 0 value (disabled) */
+uint16_t virtual_counter_parameter1_register_shadow[IOCX_NUM_TIMERS];
+uint16_t virtual_counter_parameter2_register_shadow[IOCX_NUM_TIMERS];
+
 uint16_t timer_channel_ccr[IOCX_NUM_TIMERS][IOCX_NUM_CHANNELS_PER_TIMER];
 
 uint32_t timer_last_capture_interrupt_timestamp_ms[IOCX_NUM_TIMERS];
@@ -937,7 +957,6 @@ void HAL_IOCX_FlexDIO_Suspend(int suspend) {
 		GPIO_TypeDef *p_gpio = gpio_channels[i].p_gpio;
 		uint16_t pin = gpio_channels[i].pin;
 		uint8_t timer_index = gpio_channels[i].timer_index;
-		uint8_t alt_function = gpio_channels[i].alt_function;
 
 		position = POSITION_VAL(pin);
 		mode_reg_val = p_gpio->MODER;
@@ -1175,6 +1194,60 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *p_htim) {
 	for ( i = 0; i < IOCX_NUM_TIMERS; i++ ) {
 		if (p_htim == timer_configs[i].p_tim_handle) {
 			timer_last_capture_interrupt_timestamp_ms[i] = HAL_GetTick();
+
+			if (input_capture_virtual_counter_mode[i] != INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_DISABLED) {
+
+				// On certain timers, this interrupt can be invoked for non-capture interrupts
+				// Proceed with treating this as a capture interrupt only if one of the capture interrupt flags are set.
+
+				uint32_t tim_status_reg_val = p_htim->Instance->SR;
+				HAL_TIM_ActiveChannel active_channel = p_htim->Channel;
+				if (active_channel == input_capture_virtual_counter_capture_interrupt_active_channel[i]) {
+
+					if (1 /*tim_status_reg_val & 0x0000001E*/ /*(active_channel << 1)*/) {
+
+						if (input_capture_virtual_counter_mode[i] == INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_PWMCAPTURE_ROLLOVER_ENCODER) {
+							VIRTUAL_COUNTER_TIMER_SOURCE_CHANNEL virtual_counter_source_channel;
+							uint32_t curr_duty_cycle_ticks;
+							uint32_t low_watermark_ticks;
+							uint32_t high_watermark_ticks;
+
+							virtual_counter_source_channel = iocx_ex_timer_ic_virtual_counter_decode_source_channel(&virtual_counter_cfg_register_shadow[i]);
+							switch (virtual_counter_source_channel) {
+							case VIRTUAL_COUNTER_TIMER_SOURCE_CHANNEL_CH1:
+								curr_duty_cycle_ticks = p_htim->Instance->CCR1;
+								break;
+							default:
+							case VIRTUAL_COUNTER_TIMER_SOURCE_CHANNEL_CH2:
+								curr_duty_cycle_ticks = p_htim->Instance->CCR2;
+								break;
+							}
+
+							low_watermark_ticks = virtual_counter_parameter1_register_shadow[i];
+							high_watermark_ticks = virtual_counter_parameter2_register_shadow[i];
+
+							if (input_capture_virtual_counter_last_duty_cycle_ticks_valid[i] != 0)  {
+								if ((input_capture_virtual_counter_last_duty_cycle_ticks[i] >= high_watermark_ticks) &&
+									(curr_duty_cycle_ticks <= low_watermark_ticks)) {
+									// Rolled over (forwards direction)
+									input_capture_virtual_counter[i]++;
+								} else if ((input_capture_virtual_counter_last_duty_cycle_ticks[i] <= low_watermark_ticks) &&
+										   (curr_duty_cycle_ticks >= high_watermark_ticks)) {
+									// Rolled over (reverse direction)
+									input_capture_virtual_counter[i]--;
+								}
+							}
+
+							input_capture_virtual_counter_last_duty_cycle_ticks[i] = curr_duty_cycle_ticks;
+							input_capture_virtual_counter_last_duty_cycle_ticks_valid[i] = 1;
+
+						} else if (input_capture_virtual_counter_mode[i] == INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_DUAL_INPUT_UPDOWN_COUNTER) {
+							// Decrement virtual counter (which is a "down pulse counter)
+							input_capture_virtual_counter[i]--;
+						}
+					}
+				}
+			}
 			break;
 		}
 	}
@@ -1312,6 +1385,27 @@ void HAL_IOCX_TIMER_INPUTCAP_Set_TimerCounterResetCfg(uint8_t timer_index, uint8
 	}
 }
 
+void HAL_IOCX_TIMER_Set_VirtualCounterConfig(uint8_t timer_index, uint8_t config)
+{
+	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
+
+	virtual_counter_cfg_register_shadow[timer_index] = config;
+}
+
+void HAL_IOCX_TIMER_Set_VirtualCounterParameter1(uint8_t timer_index, uint16_t parameter)
+{
+	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
+
+	virtual_counter_parameter1_register_shadow[timer_index] = parameter;
+}
+
+void HAL_IOCX_TIMER_Set_VirtualCounterParameter2(uint8_t timer_index, uint16_t parameter)
+{
+	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
+
+	virtual_counter_parameter2_register_shadow[timer_index] = parameter;
+}
+
 void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 {
 	if ( timer_index > (IOCX_NUM_TIMERS-1) ) return;
@@ -1319,7 +1413,7 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 	IOCX_TIMER_MODE mode = iocx_decode_timer_mode(&config);
 	IOCX_QUAD_ENCODER_MODE qe_mode = iocx_decode_quad_encoder_mode(&config);
 
-	if (mode != TIMER_MODE_QUAD_ENCODER) {
+	if (QEIntegratorEnabled(timer_index)) {
 		ResetQEIntegrator(timer_index, 0 /* Disable */ );
 	}
 
@@ -1329,6 +1423,11 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 		__HAL_TIM_DISABLE(timer_configs[timer_index].p_tim_handle);
 		timer_channel_ccr[timer_index][0] =
 				timer_channel_ccr[timer_index][1] = 0;
+		input_capture_virtual_counter[timer_index] = 0;
+		input_capture_virtual_counter_last_duty_cycle_ticks[timer_index] = 0;
+		input_capture_virtual_counter_last_duty_cycle_ticks_valid[timer_index] = 0;
+		input_capture_virtual_counter_mode[timer_index] = INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_DISABLED;
+		input_capture_virtual_counter_capture_interrupt_active_channel[timer_index] = 0;
 
 		HAL_IOCX_TIMER_PWM_Set_DutyCycle(timer_index, 0, 0);
 		HAL_IOCX_TIMER_PWM_Set_DutyCycle(timer_index, 1, 0);
@@ -1342,8 +1441,11 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 			break;
 		case TIMER_MODE_INPUT_CAPTURE:
 		{
+			// Although Capture Interrupts are enabled on only one of the two timer input channels,
+			// the Interrupting channel number is variable; therefore, stop interrupts on both.  This also
+			// ensures both timer inputs are disabled.
 			HAL_TIM_IC_Stop_IT(timer_configs[timer_index].p_tim_handle, timer_configs[timer_index].first_channel_number);
-			HAL_TIM_IC_Stop(timer_configs[timer_index].p_tim_handle, timer_configs[timer_index].second_channel_number);
+			HAL_TIM_IC_Stop_IT(timer_configs[timer_index].p_tim_handle, timer_configs[timer_index].second_channel_number);
 			break;
 		}
 		default:
@@ -1481,6 +1583,13 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 			TIM_SlaveConfigTypeDef sSlaveConfig;
 			TIM_IC_InitTypeDef sConfigIC;
 			TIM_MasterConfigTypeDef sMasterConfig;
+			INPUT_CAPTURE_VIRTUAL_COUNTER_MODE virtual_counter_mode;
+			VIRTUAL_COUNTER_TIMER_SOURCE_CHANNEL virtual_counter_source_channel;
+			uint32_t interrupting_timer_channel;
+			uint32_t noninterrupting_timer_channel;
+
+			virtual_counter_mode = iocx_ex_timer_ic_virtual_counter_decode_mode(&virtual_counter_cfg_register_shadow[timer_index]);
+			virtual_counter_source_channel = iocx_ex_timer_ic_virtual_counter_decode_source_channel(&virtual_counter_cfg_register_shadow[timer_index]);
 
 			TIM_HandleTypeDef * p_htim = timer_configs[timer_index].p_tim_handle;
 
@@ -1541,6 +1650,9 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 			case TIMER_SLAVE_MODE_TRIGGER:
 				sSlaveConfig.SlaveMode = TIM_SLAVEMODE_TRIGGER;
 				break;
+			case TIMER_SLAVE_MODE_EXTERNAL1:
+				sSlaveConfig.SlaveMode = TIM_SLAVEMODE_EXTERNAL1;
+				break;
 			case TIMER_SLAVE_MODE_DISABLED:
 			default:
 				sSlaveConfig.SlaveMode = TIM_SLAVEMODE_DISABLE;
@@ -1565,9 +1677,43 @@ void HAL_IOCX_TIMER_Set_Config(uint8_t timer_index, uint8_t config)
 			sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
 			HAL_TIMEx_MasterConfigSynchronization(p_htim, &sMasterConfig);
 
-			/* Start channels; first channel should generate capture interrupts */
-			HAL_TIM_IC_Start_IT(p_htim, timer_configs[timer_index].first_channel_number);
-			HAL_TIM_IC_Start(p_htim, timer_configs[timer_index].second_channel_number);
+			interrupting_timer_channel = timer_configs[timer_index].first_channel_number;
+			noninterrupting_timer_channel = timer_configs[timer_index].second_channel_number;
+
+			if (virtual_counter_mode != INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_DISABLED) {
+				uint32_t virtual_counter_channel;
+				HAL_TIM_ActiveChannel active_interrupt_channel;
+				switch(virtual_counter_source_channel) {
+				case VIRTUAL_COUNTER_TIMER_SOURCE_CHANNEL_CH1:
+					virtual_counter_channel = TIM_CHANNEL_1;
+					active_interrupt_channel = HAL_TIM_ACTIVE_CHANNEL_1;
+					break;
+				default:
+				case VIRTUAL_COUNTER_TIMER_SOURCE_CHANNEL_CH2:
+					virtual_counter_channel = TIM_CHANNEL_2;
+					active_interrupt_channel = HAL_TIM_ACTIVE_CHANNEL_2;
+					break;
+				}
+				/* Ensure capture interrupts are generated for the requested virtual counter source channel */
+				if (virtual_counter_channel != interrupting_timer_channel) {
+					noninterrupting_timer_channel = interrupting_timer_channel;
+					interrupting_timer_channel = virtual_counter_channel;
+				}
+				input_capture_virtual_counter_mode[timer_index] = virtual_counter_mode;
+				input_capture_virtual_counter_capture_interrupt_active_channel[timer_index] = active_interrupt_channel;
+
+				if (virtual_counter_mode == INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_DUAL_INPUT_UPDOWN_COUNTER) {
+					// Dual-input Updown Counter uses Timer CNT Register;
+					// Therefore, enable QEIntegration, which enables 32-bit Count values on all timer channels
+					ResetQEIntegrator(timer_index, 1 /* Enable */);
+				}
+			} else {
+				input_capture_virtual_counter_mode[timer_index] = INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_DISABLED;
+			}
+
+			/* Start channels; request capture interrupts from one of the two channel*/
+			HAL_TIM_IC_Start_IT(p_htim, interrupting_timer_channel);
+			HAL_TIM_IC_Start(p_htim, noninterrupting_timer_channel);
 
 			HAL_IOCX_TIMER_Enable_Capture_Interrupt(timer_index,1);
 		}
@@ -1590,6 +1736,9 @@ void HAL_IOCX_TIMER_Set_Control(uint8_t timer_index, uint8_t* control)
 		if (QEIntegratorEnabled(timer_index)) {
 			ResetQEIntegrator(timer_index, 1 /* Enable */ );
 		}
+		input_capture_virtual_counter[timer_index] = 0;
+		input_capture_virtual_counter_last_duty_cycle_ticks[timer_index] = 0;
+		input_capture_virtual_counter_last_duty_cycle_ticks_valid[timer_index] = 0;
 	}
 }
 
@@ -1651,6 +1800,7 @@ void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, int32_t *val
 		uint8_t value;
 		uint8_t gpio_index = timer_level_set_configs[i].gpio_index;
 		uint8_t antrig_index;
+
 		if (gpio_index >= IOCX_NUM_GPIOS) {
 			antrig_index = gpio_index - IOCX_NUM_GPIOS;
 			gpio_index = INVALID_GPIO_AND_ANALOGTRIGGER_INDEX;
@@ -1697,14 +1847,30 @@ void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, int32_t *val
 			break;
 		}
 		if (!level_reset) {
-			if (QEIntegratorEnabled(i)) {
+			uint8_t timer_config = curr_timer_cfg[i];
+			IOCX_TIMER_MODE timer_mode = iocx_decode_timer_mode(&timer_config);
+			if ((timer_mode == TIMER_MODE_QUAD_ENCODER) && QEIntegratorEnabled(i)) {
 				if (qe_curr_mode[i] == QUAD_ENCODER_MODE_1x) {
 					*values++ = qe_total_count[i] >> 1; /* Divide by 2 */
 				} else {
 					*values++ = qe_total_count[i];
 				}
 			} else {
-				*values++ = (int32_t)timer_configs[i].p_tim_handle->Instance->CNT;
+				switch (input_capture_virtual_counter_mode[i]) {
+				default:
+				case INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_DISABLED:
+					// No virtual counter used; counter value taken directly from Timer CNT register
+					*values++ = (int32_t)timer_configs[i].p_tim_handle->Instance->CNT;
+					break;
+				case INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_PWMCAPTURE_ROLLOVER_ENCODER:
+					// Virtual Counter contains "rollover" count, updated in Duty Cycle Capture Interrupt
+					*values++ = input_capture_virtual_counter[i];
+					break;
+				case INPUT_CAPTURE_VIRTUAL_COUNTER_MODE_DUAL_INPUT_UPDOWN_COUNTER:
+					// Virtual Counter contains "down" count; Up Count is stored in 32-bit "QEIntegrated" timer count (timer is clocked by "Up" Source Edges)
+					*values++ = qe_total_count[i] + input_capture_virtual_counter[i];
+					break;
+				}
 			}
 		} else {
 			*values++ = 0;
@@ -2250,7 +2416,7 @@ void HAL_IOCX_ADC_Get_Samples( int start_channel, int n_channels, uint16_t* p_sa
 #ifdef ENABLE_ADC
 	/* Range-check inputs */
 	if ( n_samples_to_average > (sizeof(adc_samples)/sizeof(adc_samples[0]))) {
-		n_samples_to_average = (sizeof(adc_samples)/sizeof(adc_samples[0]));
+		n_samples_to_average = (uint8_t)(sizeof(adc_samples)/sizeof(adc_samples[0]));
 	}
 	if (start_channel > (ADC_NUM_CHANNELS-1)) {
 		return;
@@ -2259,7 +2425,7 @@ void HAL_IOCX_ADC_Get_Samples( int start_channel, int n_channels, uint16_t* p_sa
 		n_channels = ADC_NUM_CHANNELS - start_channel;
 	}
 	if (n_samples_to_average > MAX_NUM_ADC_SAMPLES ) {
-		n_samples_to_average = MAX_NUM_ADC_SAMPLES;
+		n_samples_to_average = (uint8_t)MAX_NUM_ADC_SAMPLES;
 	}
 	/* Zero Accumulator */
 	uint32_t accum[ADC_NUM_CHANNELS];

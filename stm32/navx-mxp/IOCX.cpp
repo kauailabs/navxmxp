@@ -47,6 +47,7 @@ _EXTERN_ATTRIB void IOCX_init()
 	iocx_ex_regs.capability_flags.inputcap_support = 1;
 	iocx_ex_regs.capability_flags.tmrcntreset_support = 1;
 	iocx_ex_regs.capability_flags.io_watchdog_support = 1;
+	iocx_ex_regs.capability_flags.virt_cntr_support = 1;
 	iocx_ex_regs.capability_flags.unused = 0;
 
 	/* Configure IO Watchdog defaults */
@@ -371,6 +372,18 @@ static void io_watchdog_command_modified(uint8_t first_offset, uint8_t count) {
 	iocx_ex_regs.io_watchdog_command = IO_WATCHDOG_CMD_NONE;
 }
 
+static void virtual_counter_cfg_modified(uint8_t first_offset, uint8_t count) {
+	reg_set_modified<uint8_t, HAL_IOCX_TIMER_Set_VirtualCounterConfig>(first_offset, count, iocx_ex_regs.virtual_counter_cfg);
+}
+
+static void virtual_counter_parameter1_modified(uint8_t first_offset, uint8_t count) {
+	reg_set_modified<uint16_t, HAL_IOCX_TIMER_Set_VirtualCounterParameter1>(first_offset, count, iocx_ex_regs.virtual_counter_parameter1);
+}
+
+static void virtual_counter_parameter2_modified(uint8_t first_offset, uint8_t count) {
+	reg_set_modified<uint16_t, HAL_IOCX_TIMER_Set_VirtualCounterParameter2>(first_offset, count, iocx_ex_regs.virtual_counter_parameter2);
+}
+
 WritableRegSet timer_inputcap_reg_sets[] =
 {
 	/* Contiguous registers, increasing order of offset  */
@@ -391,6 +404,14 @@ WritableRegSet io_watchdog_reg_sets[] =
 	{ offsetof(struct IOCX_EX_REGS, io_watchdog_command), sizeof(IOCX_EX_REGS::io_watchdog_command), io_watchdog_command_modified },
 };
 
+WritableRegSet virtual_counter_reg_sets[] =
+{
+		/* Contiguous registers, increasing order of offset */
+		{ offsetof(struct IOCX_EX_REGS, virtual_counter_cfg), sizeof(IOCX_EX_REGS::virtual_counter_cfg), virtual_counter_cfg_modified },
+		{ offsetof(struct IOCX_EX_REGS, virtual_counter_parameter1), sizeof(IOCX_EX_REGS::virtual_counter_parameter1), virtual_counter_parameter1_modified },
+		{ offsetof(struct IOCX_EX_REGS, virtual_counter_parameter2), sizeof(IOCX_EX_REGS::virtual_counter_parameter2), virtual_counter_parameter2_modified },
+};
+
 WritableRegSetGroup iocx_ex_writable_reg_set_groups[] =
 {
 	{ timer_inputcap_reg_sets[0].start_offset,
@@ -401,6 +422,10 @@ WritableRegSetGroup iocx_ex_writable_reg_set_groups[] =
 			io_watchdog_reg_sets[SIZEOF_STRUCT(io_watchdog_reg_sets)-1].start_offset + io_watchdog_reg_sets[SIZEOF_STRUCT(io_watchdog_reg_sets)-1].num_bytes,
 			io_watchdog_reg_sets,
 		SIZEOF_STRUCT(io_watchdog_reg_sets) },
+	{ virtual_counter_reg_sets[0].start_offset,
+			virtual_counter_reg_sets[SIZEOF_STRUCT(virtual_counter_reg_sets)-1].start_offset + virtual_counter_reg_sets[SIZEOF_STRUCT(virtual_counter_reg_sets)-1].num_bytes,
+			virtual_counter_reg_sets,
+		SIZEOF_STRUCT(virtual_counter_reg_sets) },
 };
 
 BankedWritableRegSetGroups iocx_banked_groups[] =

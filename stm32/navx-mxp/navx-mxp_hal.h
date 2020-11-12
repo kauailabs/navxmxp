@@ -181,6 +181,10 @@ void HAL_IOCX_TIMER_Get_Prescaler(uint8_t first_timer_index, int count, uint16_t
 void HAL_IOCX_TIMER_ConfigureInterruptPriorities(uint8_t timer_index);
 void HAL_IOCX_TIMER_Get_Normalized_Prescaler(uint8_t timer_index, uint16_t *prescaler_normalized);
 void HAL_IOCX_TIMER_Get_Status(uint8_t first_timer_index, int count, uint8_t *values);
+// Virtual Counter Access
+void HAL_IOCX_TIMER_Set_VirtualCounterConfig(uint8_t timer_index, uint8_t config);
+void HAL_IOCX_TIMER_Set_VirtualCounterParameter1(uint8_t timer_index, uint16_t parameter);
+void HAL_IOCX_TIMER_Set_VirtualCounterParameter2(uint8_t timer_index, uint16_t parameter);
 
 /* Quad Encoder Data */
 void HAL_IOCX_TIMER_Get_Count(uint8_t first_timer_index, int count, int32_t *values);
