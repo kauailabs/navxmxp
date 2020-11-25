@@ -563,7 +563,7 @@ _EXTERN_ATTRIB int sense_current_mpu_yaw_orientation( uint8_t *mpu_yaw_axis, boo
     /* Find the axis, if any, which has a value close to +/- 1g */
     for ( int i = 0; i < 3; i++) {
         accel_data_g[i] = (((float)raw_accel_data[i]) / (32768.0 / accel_fsr));
-        if ( ( fabs(accel_data_g[i]) > .8 ) && ( fabs(accel_data_g[i]) < 1.2 ) ) {
+        if ( ( fabs(accel_data_g[i]) > .65 ) && ( fabs(accel_data_g[i]) < 1.35 ) ) {
             if ( valid_yaw_axis == INVALID_AXIS ) {
                 valid_yaw_axis = i;
                 valid_axis_up = (accel_data_g[i] > 0);
