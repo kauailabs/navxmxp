@@ -41,8 +41,8 @@ rmdir /S /Q stm32\bin
 mkdir stm32\bin
 
 @echo off
-for /f %%i in ('grep NAVX_MXP_FIRMWARE_VERSION_MAJOR stm32/navx-mxp/version.h ^| sed 's/#define NAVX_MXP_FIRMWARE_VERSION_MAJOR/ /' ^| sed 's/^[ \t]*//'') do set VER_MAJOR=%%i
-for /f %%i in ('grep NAVX_MXP_FIRMWARE_VERSION_MINOR stm32/navx-mxp/version.h ^| sed 's/#define NAVX_MXP_FIRMWARE_VERSION_MINOR/ /' ^| sed 's/^[ \t]*//'') do set VER_MINOR=%%i
+for /f %%i in ('grep NAVX_MXP_FIRMWARE_VERSION_MAJOR stm32/navx-mxp/version.h ^| sed "s/#define NAVX_MXP_FIRMWARE_VERSION_MAJOR/ /" ^| sed "s/^[ \t]*//"') do set VER_MAJOR=%%i
+for /f %%i in ('grep NAVX_MXP_FIRMWARE_VERSION_MINOR stm32/navx-mxp/version.h ^| sed "s/#define NAVX_MXP_FIRMWARE_VERSION_MINOR/ /" ^| sed "s/^[ \t]*//"') do set VER_MINOR=%%i
 for /f %%i in ('git rev-list --count --first-parent HEAD') do set VER_REVISION=%%i
 set REVISION_STRING=%VER_MAJOR%.%VER_MINOR%.%VER_REVISION%
 REM Place version string into setup script 

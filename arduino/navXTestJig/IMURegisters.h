@@ -65,7 +65,7 @@ typedef int32_t     s_1616_float;
 /**********************************************/
 
 /* Read-write */
-#define NAVX_REG_UPDATE_RATE_HZ     0x04 /* Range:  4 - 50 [unsigned byte] */
+#define NAVX_REG_UPDATE_RATE_HZ     0x04 /* Range:  4 - 200 [unsigned byte] */
 /* Read-only */
 /* Accelerometer Full-Scale Range:  in units of G [unsigned byte] */
 #define NAVX_REG_ACCEL_FSR_G        0x05
@@ -77,6 +77,9 @@ typedef int32_t     s_1616_float;
 #define NAVX_REG_SELFTEST_STATUS    0x0A /* NAVX_SELFTEST_STATUS_XXX */
 #define NAVX_REG_CAPABILITY_FLAGS_L 0x0B
 #define NAVX_REG_CAPABILITY_FLAGS_H 0x0C
+#define NAVX_REG_FW_REVISION_L		0x0D
+#define NAVX_REG_FW_REVISION_H		0x0E
+#define NAVX_REG_FW_PAD_UNUSED2		0x0F
 
 /**********************************************/
 /* Processed Data Registers                   */
@@ -186,16 +189,16 @@ typedef int32_t     s_1616_float;
 #define NAVX_REG_YAW_OFFSET_L       0x4C /* Lower 8 bits of Yaw Offset */
 #define NAVX_REG_YAW_OFFSET_H       0x4D /* Upper 8 bits of Yaw Offset */
 
-/* Quaternion Offset:  Range: -1 to 1 [signed short ratio]  */
+/* Hires timestamp:  Range: 0 to 2^64-1 [uint64_t]  */
 
-#define NAVX_REG_QUAT_OFFSET_W_L    0x4E /* Lower 8 bits of Quaternion W */
-#define NAVX_REG_QUAT_OFFSET_W_H    0x4F /* Upper 8 bits of Quaternion W */
-#define NAVX_REG_QUAT_OFFSET_X_L    0x50 /* Lower 8 bits of Quaternion X */
-#define NAVX_REG_QUAT_OFFSET_X_H    0x51 /* Upper 8 bits of Quaternion X */
-#define NAVX_REG_QUAT_OFFSET_Y_L    0x52 /* Lower 8 bits of Quaternion Y */
-#define NAVX_REG_QUAT_OFFSET_Y_H    0x53 /* Upper 8 bits of Quaternion Y */
-#define NAVX_REG_QUAT_OFFSET_Z_L    0x54 /* Lower 8 bits of Quaternion Z */
-#define NAVX_REG_QUAT_OFFSET_Z_H    0x55 /* Upper 8 bits of Quaternion Z */
+#define NAVX_REG_HIRES_TIMESTAMP_L_L_L	0x4E /* Lowest 8 bits of Hi-res Timestamp */
+#define NAVX_REG_HIRES_TIMESTAMP_L_L_H  0x4F /* 2nd Lowest 8 bits of Hi-res Timestamp */
+#define NAVX_REG_HIRES_TIMESTAMP_L_H_L	0x50 /* 3rd Lowest 8 bits of Hi-res Timestamp */
+#define NAVX_REG_HIRES_TIMESTAMP_L_H_H	0x51 /* 4th Lowest 8 bits of Hi-res Timestamp */
+#define NAVX_REG_HIRES_TIMESTAMP_H_L_L	0x52 /* 5th Lowest 8 bits of Hi-res Timestamp */
+#define NAVX_REG_HIRES_TIMESTAMP_H_L_H	0x53 /* 6th Lowest 8 bits of Hi-res Timestamp */
+#define NAVX_REG_HIRES_TIMESTAMP_H_H_L	0x54 /* 7th Lowest 8 bits of Hi-res Timestamp */
+#define NAVX_REG_HIRES_TIMESTAMP_H_H_H	0x55 /* Upper 8 bits of Hi-res Timestamp */
 
 /**********************************************/
 /* Integrated Data Registers                  */
@@ -284,6 +287,8 @@ typedef int32_t     s_1616_float;
 #define NAVX_CAPABILITY_FLAG_VEL_AND_DISP           0x0040
 #define NAVX_CAPABILITY_FLAG_YAW_RESET              0x0080
 #define NAVX_CAPABILITY_FLAG_AHRSPOS_TS				0x0100
+#define NAVX_CAPABILITY_FLAG_FW_REVISION			0x0200
+#define NAVX_CAPABILITY_FLAG_HIRES_TIMESTAMP		0x0400
 
 /* NAVX_OMNIMOUNT_CONFIG */
 

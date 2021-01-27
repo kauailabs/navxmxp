@@ -793,7 +793,7 @@ public:
         return DATA_SET_RESPONSE_MESSAGE_LENGTH;
     }
 
-    static int decodeDataSetResponse( char *buffer, int length, AHRS_DATA_TYPE type, AHRS_TUNING_VAR_ID subtype, uint8_t& status )
+    static int decodeDataSetResponse( char *buffer, int length, AHRS_DATA_TYPE& type, AHRS_TUNING_VAR_ID& subtype, uint8_t& status )
     {
         if ( length < DATA_SET_RESPONSE_MESSAGE_LENGTH ) return 0;
         if ( ( buffer[0] == PACKET_START_CHAR ) &&
