@@ -58,10 +58,11 @@
     <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup>
-    <ManifestCertificateThumbprint>1F2872AAF7F165373986F7ED9D2CC9200FBE5DEB</ManifestCertificateThumbprint>
+    <ManifestCertificateThumbprint>DDBF826CC5E33EE157533761C9A7F574CAB80D72</ManifestCertificateThumbprint>
   </PropertyGroup>
   <PropertyGroup>
-    <ManifestKeyFile>compass_calibrator_TemporaryKey.pfx</ManifestKeyFile>
+    <ManifestKeyFile>
+    </ManifestKeyFile>
   </PropertyGroup>
   <PropertyGroup>
     <GenerateManifests>true</GenerateManifests>
