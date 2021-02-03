@@ -450,12 +450,33 @@ static void rtc_date_set_modified(uint8_t first_offset, uint8_t count) {
 }
 
 static void analog_trigger_cfg_modified(uint8_t first_offset, uint8_t count) {
+	uint8_t first_analog_trigger_modified = first_offset / sizeof(misc_regs.analog_trigger_cfg[0]);
+	uint8_t last_analog_trigger__modified = ((first_offset + count)-1) / sizeof(misc_regs.analog_trigger_cfg[0]);
+	for ( uint8_t analog_trigger_index = first_analog_trigger_modified; analog_trigger_index <= last_analog_trigger__modified; analog_trigger_index++ ) {
+		if (analog_trigger_index < MISC_NUM_ANALOG_TRIGGERS) {
+			analog_trigger[analog_trigger_index].mode = (ANALOG_TRIGGER_MODE)misc_regs.analog_trigger_cfg[analog_trigger_index];
+		}
+	}
 }
 
 static void analog_trigger_threshold_low_modified(uint8_t first_offset, uint8_t count) {
+	uint8_t first_analog_trigger_modified = first_offset / sizeof(misc_regs.analog_trigger_threshold_low[0]);
+	uint8_t last_analog_trigger__modified = ((first_offset + count)-1) / sizeof(misc_regs.analog_trigger_threshold_low[0]);
+	for ( uint8_t analog_trigger_index = first_analog_trigger_modified; analog_trigger_index <= last_analog_trigger__modified; analog_trigger_index++ ) {
+		if (analog_trigger_index < MISC_NUM_ANALOG_TRIGGERS) {
+			analog_trigger[analog_trigger_index].low_threshold = misc_regs.analog_trigger_threshold_low[analog_trigger_index];
+		}
+	}
 }
 
 static void analog_trigger_threshold_high_modified(uint8_t first_offset, uint8_t count) {
+	uint8_t first_analog_trigger_modified = first_offset / sizeof(misc_regs.analog_trigger_threshold_high[0]);
+	uint8_t last_analog_trigger__modified = ((first_offset + count)-1) / sizeof(misc_regs.analog_trigger_threshold_high[0]);
+	for ( uint8_t analog_trigger_index = first_analog_trigger_modified; analog_trigger_index <= last_analog_trigger__modified; analog_trigger_index++ ) {
+		if (analog_trigger_index < MISC_NUM_ANALOG_TRIGGERS) {
+			analog_trigger[analog_trigger_index].high_threshold = misc_regs.analog_trigger_threshold_high[analog_trigger_index];
+		}
+	}
 }
 
 static void analog_input_oversample_bits_modified(uint8_t first_offset, uint8_t count) {
