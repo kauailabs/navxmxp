@@ -15,13 +15,12 @@
 #include <frc/Joystick.h.>
 #include <frc/Spark.h>
 #include <frc/DriverStation.h>
-#include <frc/PIDOutput.h>
-#include <frc/PIDController.h>
+#include <frc/controller/PIDController.h>
 #include "AHRS.h"
 
 using namespace frc;
 
-class Robot : public TimedRobot, public PIDOutput {
+class Robot : public TimedRobot {
  public:
   void RobotInit() override;
   void RobotPeriodic() override;
@@ -30,8 +29,6 @@ class Robot : public TimedRobot, public PIDOutput {
   void TeleopInit() override;
   void TeleopPeriodic() override;
   void TestPeriodic() override;
-
-  void PIDWrite(double output) override;
 
  private:
     // Channels for the wheels
@@ -50,6 +47,6 @@ class Robot : public TimedRobot, public PIDOutput {
     MecanumDrive *robotDrive; // robot drive system
     Joystick *stick;          // only joystick
     AHRS *ahrs;
-    PIDController *turnController;      // PID Controller
+    frc2::PIDController *turnController;      // PID Controller
     double rotateToAngleRate;           // Current rotation rate
 };

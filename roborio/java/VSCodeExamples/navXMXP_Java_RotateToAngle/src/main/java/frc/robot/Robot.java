@@ -11,12 +11,12 @@ import edu.wpi.first.wpilibj.TimedRobot;
 import com.kauailabs.navx.frc.AHRS;
 
 import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.PIDController;
-import edu.wpi.first.wpilibj.PIDOutput;
+import edu.wpi.first.wpilibj.controller.PIDController;
 import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.Spark;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.drive.MecanumDrive;
+import edu.wpi.first.wpiutil.math.MathUtil;
 
 /**
  * This is a demo program showing the use of the navX MXP to implement a "rotate
@@ -38,7 +38,7 @@ import edu.wpi.first.wpilibj.drive.MecanumDrive;
  * for your drive system.
  */
 
-public class Robot extends TimedRobot implements PIDOutput {
+public class Robot extends TimedRobot {
   AHRS ahrs;
   MecanumDrive myRobot;
   Joystick stick;
@@ -99,11 +99,8 @@ public class Robot extends TimedRobot implements PIDOutput {
     } catch (RuntimeException ex) {
       DriverStation.reportError("Error instantiating navX MXP:  " + ex.getMessage(), true);
     }
-    turnController = new PIDController(kP, kI, kD, kF, ahrs, this);
-    turnController.setInputRange(-180.0f, 180.0f);
-    turnController.setOutputRange(-1.0, 1.0);
-    turnController.setAbsoluteTolerance(kToleranceDegrees);
-    turnController.setContinuous(true);
+    turnController = new PIDController(kP, kI, kD);
+    turnController.enableContinuousInput(-180.0f, 180.0f);
 
     /* Note that the PIDController GUI should be added automatically to */
     /* the Test-mode dashboard, allowing manual tuning of the Turn */
@@ -171,10 +168,8 @@ public class Robot extends TimedRobot implements PIDOutput {
     }
     double currentRotationRate;
     if (rotateToAngle) {
-      turnController.enable();
-      currentRotationRate = rotateToAngleRate;
+      currentRotationRate = MathUtil.clamp(turnController.calculate(ahrs.getAngle()), -1.0, 1.0);
     } else {
-      turnController.disable();
       currentRotationRate = stick.getTwist();
     }
     try {
@@ -193,12 +188,5 @@ public class Robot extends TimedRobot implements PIDOutput {
    */
   @Override
   public void testPeriodic() {
-  }
-
-  @Override
-  /* This function is invoked periodically by the PID Controller, */
-  /* based upon navX MXP yaw angle input and PID Coefficients. */
-  public void pidWrite(double output) {
-    rotateToAngleRate = output;
   }
 }
