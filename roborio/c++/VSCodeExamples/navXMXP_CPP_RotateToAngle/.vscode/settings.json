@@ -8,9 +8,11 @@
     "**/CVS": true,
     "**/.DS_Store": true,
     "bin/": true,
-    ".classpath": true,
-    ".project": true
+    "**/.classpath": true,
+    "**/.project": true,
+    "**/.settings": true,
+    "**/.factorypath": true,
+    "**/*~": true
   },
-  "C_Cpp.default.configurationProvider": "vscode-wpilib",
-  "wpilib.online": true
+  "C_Cpp.default.configurationProvider": "vscode-wpilib"
 }
