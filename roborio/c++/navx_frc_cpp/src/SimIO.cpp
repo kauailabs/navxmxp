@@ -19,6 +19,7 @@ SimIO::SimIO( uint8_t update_rate_hz,
     this->stop                  = false;
     this->start_seconds         = 0.0;
     this->is_connected          = false;
+    this->sim_device            = sim_device;
 
     raw_data_update = {};
     ahrs_update     = {};
