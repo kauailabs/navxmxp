@@ -14,9 +14,9 @@ import edu.wpi.first.wpilibj.Spark;
 import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Joystick;
-import edu.wpi.first.wpilibj.PIDController;
-import edu.wpi.first.wpilibj.PIDOutput;
+import edu.wpi.first.wpilibj.controller.PIDController;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
+import edu.wpi.first.wpiutil.math.MathUtil;
 
 /**
  * This is a demo program showing the use of the navX MXP to implement the
@@ -42,7 +42,7 @@ import edu.wpi.first.wpilibj.drive.DifferentialDrive;
  * for your drive system.
  */
 
-public class Robot extends TimedRobot implements PIDOutput {
+public class Robot extends TimedRobot {
   DifferentialDrive myRobot; // class that handles basic drive operations
   Joystick leftStick; // set to ID 1 in DriverStation
   Joystick rightStick; // set to ID 2 in DriverStation
@@ -50,6 +50,7 @@ public class Robot extends TimedRobot implements PIDOutput {
 
   PIDController turnController;
   double rotateToAngleRate;
+  boolean turnControllerEnabled = false;
 
   /* The following PID Controller coefficients will need to be tuned */
   /* to match the dynamics of your drive system. Note that the */
@@ -99,12 +100,8 @@ public class Robot extends TimedRobot implements PIDOutput {
     } catch (RuntimeException ex) {
       DriverStation.reportError("Error instantiating navX MXP:  " + ex.getMessage(), true);
     }
-    turnController = new PIDController(kP, kI, kD, kF, ahrs, this);
-    turnController.setInputRange(-180.0f, 180.0f);
-    turnController.setOutputRange(-1.0, 1.0);
-    turnController.setAbsoluteTolerance(kToleranceDegrees);
-    turnController.setContinuous(true);
-    turnController.disable();
+    turnController = new PIDController(kP, kI, kD);
+    turnController.enableContinuousInput(-180.0f, 180.0f);
 
     /* Note that the PID Controller is automatically added to the */
     /* Test-mode dashboard, allowing manual  tuning of the Turn */
@@ -166,11 +163,12 @@ public class Robot extends TimedRobot implements PIDOutput {
        * system cannot move forward simultaneously while rotating, all joystick input
        * is ignored until this button is released.
        */
-      if (!turnController.isEnabled()) {
+      if (!turnControllerEnabled) {
         turnController.setSetpoint(kTargetAngleDegrees);
-        rotateToAngleRate = 0; // This value will be updated in the pidWrite() method.
-        turnController.enable();
+        rotateToAngleRate = 0; // This value will be updated by the PID Controller
+        turnControllerEnabled = true;
       }
+      rotateToAngleRate = MathUtil.clamp(turnController.calculate(ahrs.getAngle()), -1.0, 1.0);
       double leftStickValue = rotateToAngleRate;
       double rightStickValue = rotateToAngleRate;
       myRobot.tankDrive(leftStickValue, rightStickValue);
@@ -187,30 +185,24 @@ public class Robot extends TimedRobot implements PIDOutput {
        * entered will be maintained. The average speed of both joysticks is the
        * magnitude of motion.
        */
-      if (!turnController.isEnabled()) {
+      if (!turnControllerEnabled) {
         // Acquire current yaw angle, using this as the target angle.
         turnController.setSetpoint(ahrs.getYaw());
-        rotateToAngleRate = 0; // This value will be updated in the pidWrite() method.
-        turnController.enable();
+        rotateToAngleRate = 0; // This value will be updated by the PID Controller
+        turnControllerEnabled = true;
       }
+      rotateToAngleRate = MathUtil.clamp(turnController.calculate(ahrs.getAngle()), -1.0, 1.0);
       double magnitude = (leftStick.getY() + rightStick.getY()) / 2;
       double leftStickValue = magnitude + rotateToAngleRate;
       double rightStickValue = magnitude - rotateToAngleRate;
       myRobot.tankDrive(leftStickValue, rightStickValue);
     } else {
       /* If the turn controller had been enabled, disable it now. */
-      if (turnController.isEnabled()) {
-        turnController.disable();
+      if (turnControllerEnabled) {
+        turnControllerEnabled = false;
       }
       /* Standard tank drive, no driver assistance. */
       myRobot.tankDrive(leftStick.getY(), rightStick.getY());
     }
-  }
-
-  @Override
-  /* This function is invoked periodically by the PID Controller, */
-  /* based upon navX MXP yaw angle input and PID Coefficients. */
-  public void pidWrite(double output) {
-    rotateToAngleRate = output;
   }
 }

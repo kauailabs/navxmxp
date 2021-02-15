@@ -11,6 +11,8 @@
 
 #include <frc/smartdashboard/SmartDashboard.h>
 
+#define PI 3.14159265358979323846
+
 /**
  * This is a demo program showing the use of the navX MXP to implement
  * an automatic balance feature, which can be used to help avoid
@@ -151,12 +153,12 @@ void Robot::TeleopPeriodic()
 
   if (autoBalanceXMode)
   {
-    double pitchAngleRadians = pitchAngleDegrees * (M_PI / 180.0);
+    double pitchAngleRadians = pitchAngleDegrees * (PI / 180.0);
     xAxisRate = sin(pitchAngleRadians) * -1;
   }
   if (autoBalanceYMode)
   {
-    double rollAngleRadians = rollAngleDegrees * (M_PI / 180.0);
+    double rollAngleRadians = rollAngleDegrees * (PI / 180.0);
     yAxisRate = sin(rollAngleRadians) * -1;
   }
 

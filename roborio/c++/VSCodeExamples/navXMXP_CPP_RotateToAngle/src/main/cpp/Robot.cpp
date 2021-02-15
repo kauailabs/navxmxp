@@ -7,6 +7,7 @@
 
 #include "Robot.h"
 
+#include <algorithm>
 #include <iostream>
 
 #include <frc/smartdashboard/SmartDashboard.h>
@@ -88,19 +89,9 @@ void Robot::RobotInit() {
     const char *p_err_msg = err_msg.c_str();
     DriverStation::ReportError(p_err_msg);
   }
-  turnController = new PIDController(kP, kI, kD, kF, ahrs, this);
-  turnController->SetInputRange(-180.0f,  180.0f);
-  turnController->SetOutputRange(-1.0, 1.0);
-  turnController->SetAbsoluteTolerance(kToleranceDegrees);
-  turnController->SetContinuous(true);
+  turnController = new frc2::PIDController(kP, kI, kD);
+  turnController->EnableContinuousInput(-180.0f,  180.0f);
 }
-
-  /* This function is invoked periodically by the PID Controller, */
-  /* based upon navX MXP yaw angle input and PID Coefficients.    */
-  void Robot::PIDWrite(double output) {
-      this->rotateToAngleRate = output;
-  }
-
 
 /**
  * This function is called every robot packet, no matter the mode. Use
@@ -152,10 +143,8 @@ void Robot::TeleopPeriodic() {
   }
   double currentRotationRate;
   if ( rotateToAngle ) {
-      turnController->Enable();
-      currentRotationRate = rotateToAngleRate;
+      currentRotationRate = std::clamp(turnController->Calculate(ahrs->GetAngle()),-1.0, 1.0);
   } else {
-      turnController->Disable();
       currentRotationRate = stick->GetTwist();
   }
   try {
