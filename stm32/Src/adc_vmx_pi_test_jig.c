@@ -33,9 +33,9 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
-#include "adc_navx-pi.h"
+#include "adc_vmx_pi_test_jig.h"
 
-#include "gpio_navx-pi.h"
+#include "gpio_vmx_pi_test_jig.h"
 
 /* USER CODE BEGIN 0 */
 

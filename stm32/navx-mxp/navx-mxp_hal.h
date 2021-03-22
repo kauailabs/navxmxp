@@ -66,6 +66,20 @@ THE SOFTWARE.
 #	define CAN_INTERRUPT
 #	define AHRS_INTERRUPT
 #   define ENABLE_HIGHRESOLUTION_TIMESTAMP
+#elif defined(NAVX_BOARDTYPE_VMX_PI_TEST_JIG_1_0)
+#	define NAVX_HARDWARE_REV 70
+#	define GPIO_MAP_VMX_PI_TEST_JIG
+#	define ENABLE_USB_VBUS
+#   define DISABLE_COMM_DIP_SWITCHES
+#   define ENABLE_EXTERNAL_I2C_INTERFACE // Same as navX-MXP, but with different Peripheral IO Pin Mapping
+#   define ENABLE_VMX_PI_TEST_JIG_EXTERNAL_I2C_INTERFACE_ALTERNATE
+#   define ENABLE_EXTERNAL_UART_INTERFACE // Identical to navX-MXP
+#	define ENABLE_CAN_TRANSCEIVER
+#	define DISABLE_QUAD_DECODERS
+#	define DISABLE_PWM_GENERATION
+#	define GPIO_MAP_VMX_PI_TEST_JIG
+#   define DISABLE_LSE
+#   define ENABLE_HIGHRESOLUTION_TIMESTAMP
 #else
 #   define NAVX_HARDWARE_REV 33         /* v. 3.3 EXPIO, v3.4, v3.5 */
 //  !ENABLE_USB_VBUS
@@ -82,7 +96,11 @@ THE SOFTWARE.
 #ifdef GPIO_MAP_NAVX_PI
 #include "gpiomap_navx-pi.h"
 #else
+#ifdef GPIO_MAP_VMX_PI_TEST_JIG
+#include "gpiomap_vmx_pi_test_jig.h"
+#else
 #include "gpiomap_navx-mxp.h"
+#endif
 #endif
 
 struct unique_id
@@ -126,6 +144,12 @@ void HAL_CAN_Status_LED_On(int on);
 void HAL_Ensure_CAN_EXTI_Configuration();
 
 uint8_t HAL_GetBoardRev();
+
+void HAL_CommDIOPins_ConfigForCommunication();
+void HAL_CommDIOPins_ConfigForInput();
+void HAL_CommDIOPins_ConfigForOutput();
+void HAL_CommDIOPins_Get(uint8_t* p_value);
+void HAL_CommDIOPins_Set(uint8_t value);
 
 /**********************/
 /* RTC                */

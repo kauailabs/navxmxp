@@ -63,6 +63,7 @@ public:
     virtual ~HardwareSerial(){}
 
     bool PossiblyStartNextTransmitUnsafe();
+    void ResetUart();
 
     uint8_t rx_buffer[UART_RX_BUFFER_SIZE];
     int  rx_buffer_index;

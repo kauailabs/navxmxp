@@ -52,12 +52,14 @@ extern DMA_HandleTypeDef hdma_spi1_tx;
 extern DMA_HandleTypeDef hdma_spi1_rx;
 extern DMA_HandleTypeDef hdma_adc1;
 extern ADC_HandleTypeDef hadc1;
+#ifdef GPIO_MAP_NAVX_PI
 extern TIM_HandleTypeDef htim1;
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim3;
 extern TIM_HandleTypeDef htim4;
 extern TIM_HandleTypeDef htim5;
 extern TIM_HandleTypeDef htim9;
+#endif
 
 /******************************************************************************/
 /*            Cortex-M4 Processor Interruption and Exception Handlers         */ 
@@ -298,7 +300,7 @@ void EXTI4_IRQHandler(void)
 {
   // CAN Interrupt on VMX-pi
   HAL_NVIC_ClearPendingIRQ(EXTI4_IRQn);
-#ifdef GPIO_MAP_NAVX_PI
+#if defined GPIO_MAP_NAVX_PI || defined GPIO_MAP_VMX_PI_TEST_JIG
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_4); /*  */
 #endif
 }
@@ -364,6 +366,7 @@ void HardFault_Handler(void)
 /**
 * @brief This function handles TIM1 break interrupt and TIM9 global interrupt.
 */
+#ifdef GPIO_MAP_NAVX_PI
 void TIM1_BRK_TIM9_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM1_BRK_TIM9_IRQn 0 */
@@ -445,6 +448,7 @@ void TIM5_IRQHandler(void)
 
   /* USER CODE END TIM5_IRQn 1 */
 }
+#endif
 
 /* USER CODE END 1 */
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

@@ -9,6 +9,7 @@
 #define CANREGISTERS_H_
 
 #include <stddef.h>
+#include <stdint.h>
 
 #define CAN_REGISTER_BANK 2
 
@@ -270,14 +271,14 @@ struct __attribute__ ((__packed__)) CAN_REGS {
 	uint8_t end_of_bank;
 };
 
-inline void CAN_unpack_standard_id(CAN_ID *id, uint32_t *STANDARD_ID) {
+static inline void CAN_unpack_standard_id(CAN_ID *id, uint32_t *STANDARD_ID) {
 	*STANDARD_ID = 0;
 	*STANDARD_ID |= id->sidh;
 	*STANDARD_ID <<= 3;
 	*STANDARD_ID |= id->sidl.sidl;
 }
 
-inline void CAN_unpack_extended_id(CAN_ID *id, uint32_t *EXTENDED_ID) {
+static inline void CAN_unpack_extended_id(CAN_ID *id, uint32_t *EXTENDED_ID) {
 	*EXTENDED_ID = 0;
 	*EXTENDED_ID |= id->sidh;
 	*EXTENDED_ID <<= 3;
@@ -290,14 +291,14 @@ inline void CAN_unpack_extended_id(CAN_ID *id, uint32_t *EXTENDED_ID) {
 	*EXTENDED_ID |= id->eidl;
 }
 
-inline void CAN_pack_standard_id(uint32_t SID, CAN_ID *id) {
+static inline void CAN_pack_standard_id(uint32_t SID, CAN_ID *id) {
 	id->sidl.sidl = (SID & 0x0007);
 	SID >>= 3;
 	id->sidh =      (SID & 0x00FF);
 	id->sidl.ide = 0;
 }
 
-inline void CAN_pack_extended_id(uint32_t EID, CAN_ID *id) {
+static inline void CAN_pack_extended_id(uint32_t EID, CAN_ID *id) {
 	id->eidl = (EID & 0x000000FF);
 	EID >>= 8;
 	id->eidh = (EID & 0x000000FF);

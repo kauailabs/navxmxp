@@ -10,7 +10,11 @@
 #include <string.h>
 #include "ext_interrupts.h"
 #include "navx-mxp_hal.h"
+#ifdef GPIO_MAP_VMX_PI_TEST_JIG
+#include "gpio_vmx_pi_test_jig.h"
+#else
 #include "gpio_navx-pi.h"
+#endif
 
 /******************************************************************************
  * Private Function Definitions

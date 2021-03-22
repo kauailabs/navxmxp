@@ -25,7 +25,6 @@ extern "C" {
 #include "navx-mxp_hal.h"
 #include "usb_device.h"
 #include "usbd_cdc_if.h"
-#include "mpucontroller.h"
 #include "stm32f4xx_hal.h"
 #include "stm32f4xx_hal_spi.h"
 }
@@ -33,22 +32,24 @@ extern "C" {
 #include "navx-mxp.h"
 #include "version.h"
 #include "revision.h"
-#include <math.h>
-#include "AHRSProtocol.h"
-#include "IMURegisters.h"
 #include "usb_serial.h"
 #include "HardwareSerial.h"
-#include "FlashStorage.h"
 #include "ext_interrupts.h"
 
+#include "VMXPiTestJigProtocol.h"
+#include "VMXPiTestJigRegisters.h"
+
+#include "CANInterface.h"
+#include "CAN.h"
+
 extern I2C_HandleTypeDef hi2c3; /* External I2C Interface */
-extern I2C_HandleTypeDef hi2c2; /* Internal I2C Interface (to MPU, etc.) */
 extern SPI_HandleTypeDef hspi1; /* External SPI Interface */
 
 TIM_HandleTypeDef TimHandle; /* Internal Timer */
-FlashStorageClass FlashStorage; /* Class managing persistent configuration data */
 
 void SpiTxTimeoutCheck();
+void Reset_SPI_And_PrepareToReceive();
+void i2c_hard_reset();
 
 int prepare_i2c_receive_timeout_count = 0;
 unsigned long prepare_i2c_receive_last_attempt_timestamp = 0;
@@ -71,83 +72,21 @@ _EXTERN_ATTRIB void nav10_set_loop(uint8_t bank, loop_func p) { p_loop_func[bank
 _EXTERN_ATTRIB void nav10_set_register_lookup_func(uint8_t bank, register_lookup_func p) { p_reg_lookup_func[bank] = p; }
 _EXTERN_ATTRIB void nav10_set_register_write_func(uint8_t bank, register_write_func p) { p_reg_write_func[bank] = p; }
 
-#define MIN_SAMPLE_RATE_HZ 4
-#define MAX_SAMPLE_RATE_HZ 200
-
 #define UART_RX_PACKET_TIMEOUT_MS 	30 /* Max wait after start of packet */
-#define MIN_UART_MESSAGE_LENGTH		STREAM_CMD_MESSAGE_LENGTH
+#define MIN_UART_MESSAGE_LENGTH		TEST_JIG_CONFIG_MESSAGE_LENGTH
 
-#ifdef ENABLE_BANKED_REGISTERS
-#include "SPICommCtrl.h"
-#define		SPI_RECV_LENGTH STD_SPI_MSG_LEN
-			/* SPI Requests:  Write:  [Bank] [0x80 | RegAddr] [Count (1-4)] [4 bytes of write data] [CRC] */
-			/*                *If bank = 0, 1-byte write is used, and count is the byte to be written.    */
-			/*                Read:   [Bank] [RegAddr] [Count] [CRC] [4 bytes are ignored]                */
-#define		MAX_VALID_BANK  NUM_SPI_BANKS
-#else
 #define		SPI_RECV_LENGTH 3	/* SPI Requests:  [0x80 | RegAddr] [Count (Readd) or Data (Write)] [CRC] (Bank 0 is implicitly used) */
 #define     MAX_VALID_BANK  0
-#endif
 
 static bool ext_spi_init_complete = false;
+bool spi_transmitting = false;                  // TRUE:  SPI Slave Transmit in progress (awaiting Master to complete Read)
 
-uint8_t clip_sample_rate(uint8_t update_rate_hz)
-{
-    if ( update_rate_hz < MIN_SAMPLE_RATE_HZ ) {
-        update_rate_hz = MIN_SAMPLE_RATE_HZ;
-    }
-    if ( update_rate_hz > MAX_SAMPLE_RATE_HZ ) {
-        update_rate_hz = MAX_SAMPLE_RATE_HZ;
-    }
-    return update_rate_hz;
-}
+#define NUM_STREAMING_INTERFACES 1
 
-#define MAX_SAMPLE_PERIOD (1000 / MIN_SAMPLE_RATE_HZ)
-#define MIN_SAMPLE_PERIOD (1000 / MAX_SAMPLE_RATE_HZ)
-
-#define NUM_STREAMING_INTERFACES 2
-
-char update_type[NUM_STREAMING_INTERFACES] = { MSGID_YPR_UPDATE, MSGID_YPR_UPDATE };
-char update_buffer[NUM_STREAMING_INTERFACES][AHRS_PROTOCOL_MAX_MESSAGE_LENGTH * 3];	/* Buffer for outbound serial update messages. */
-char inbound_data[AHRS_PROTOCOL_MAX_MESSAGE_LENGTH];			/* Buffer for inbound serial messages.  */
-char response_buffer[NUM_STREAMING_INTERFACES][AHRS_PROTOCOL_MAX_MESSAGE_LENGTH * 2];  /* Buffer for building serial response. */
-
-struct fusion_settings {
-    float motion_detect_thresh_g;
-    float yaw_change_detect_thresh_deg;
-    float sealevel_pressure_millibars;
-};
-
-struct board_orientation_settings {
-    uint8_t yaw_axis;
-    bool yaw_axis_up;
-};
-
-/* nav10_cal_data is persisted to flash */
-struct flash_cal_data {
-    uint8_t                                 selfteststatus;
-    struct mpu_selftest_calibration_data    mpucaldata;
-    struct mpu_dmp_calibration_data         dmpcaldata;
-    bool                                    dmpcaldatavalid;
-    struct mag_calibration_data             magcaldata;
-    struct fusion_settings                  fusiondata;
-    struct board_orientation_settings       orientationdata;
-};
-
-const float default_motion_detect_thresh_g = 0.02f;
-const float default_yaw_change_detect_thresh_deg = 0.05f;
-const float default_sealevel_pressure_millibars = 1013.25f;
-
-void init_fusion_settings(struct fusion_settings *settings) {
-    settings->motion_detect_thresh_g = default_motion_detect_thresh_g;
-    settings->yaw_change_detect_thresh_deg = default_yaw_change_detect_thresh_deg;
-    settings->sealevel_pressure_millibars = default_sealevel_pressure_millibars;
-}
-
-struct mpu_dmp_calibration_interpolation_coefficients {
-    float gyro_m[3];
-    float gyro_b[3];
-};
+char update_type[NUM_STREAMING_INTERFACES] = { MSGID_TEST_JIG_UPDATE };
+char update_buffer[NUM_STREAMING_INTERFACES][TEST_JIG_PROTOCOL_MAX_MESSAGE_LENGTH * 3];	/* Buffer for outbound serial update messages. */
+char inbound_data[TEST_JIG_PROTOCOL_MAX_MESSAGE_LENGTH];			/* Buffer for inbound serial messages.  */
+char response_buffer[NUM_STREAMING_INTERFACES][TEST_JIG_PROTOCOL_MAX_MESSAGE_LENGTH * 2];  /* Buffer for building serial response. */
 
 unique_id chipid;
 
@@ -161,98 +100,21 @@ struct __attribute__ ((__packed__)) nav10_protocol_registers {
     uint8_t                 hw_rev;
     uint8_t                 fw_major;
     uint8_t                 fw_minor;
-    /* Read/Write registers */
-    uint8_t                 update_rate_hz;
-    /* Read-only Registers */
-    uint8_t                 accel_fsr_g;
-    uint16_t                gyro_fsr_dps;
-    uint8_t                 op_status;
-    uint8_t                 cal_status;
-    uint8_t                 selftest_status;
-    uint16_t                capability_flags;
-    uint16_t                fw_revision;
-    /* Reserved */
-    uint8_t                 reserved;
-    /* Processed Data */
-    uint16_t                sensor_status;
-    uint32_t                timestamp;
-    s_short_hundred_float   yaw;
-    s_short_hundred_float   roll;
-    s_short_hundred_float   pitch;
-    u_short_hundred_float   heading;
-    u_short_hundred_float   fused_heading;
-    s_1616_float            altitude;
-    s_short_thousand_float  world_linear_accel[3];
-    s_short_ratio_float     quat[4];
-    /* Raw Data */
-    s_short_hundred_float   mpu_temp_c;
-    int16_t                 gyro_raw[3];
-    int16_t                 accel_raw[3];
-    int16_t                 mag_raw[3];
-    s_1616_float            barometric_pressure;
-    s_short_hundred_float   pressure_sensor_temp_c;
-    s_short_hundred_float   yaw_offset;
-    uint64_t				hires_timestamp;
-    /* Integrated Values */
-    /* - Read/Write Registers */
-    uint16_t				integration_control;
-    /* - Read-only Registers */
-    s_1616_float            velocity[3];
-    s_1616_float            displacement[3];
+    uint8_t					commdio_op_mode;		// CommDIOInput, CommDIOOutput, CommDIOEcho
+    uint8_t					commdio_input_values;
+    uint8_t					commdio_output_values;
 } registers, shadow_registers;
 
-/* Statistical Averages */
-
-#define YAW_HISTORY_PERIOD_MS                       2000
-#define WORLD_ACCEL_NORM_HISTORY_PERIOD_MS          250
-#define WORLD_ACCEL_NORM_HISTORY_SIZE               WORLD_ACCEL_NORM_HISTORY_PERIOD_MS / MIN_SAMPLE_PERIOD
-#define YAW_HISTORY_SIZE                            YAW_HISTORY_PERIOD_MS / MIN_SAMPLE_PERIOD
-
-float world_accel_norm_history[WORLD_ACCEL_NORM_HISTORY_SIZE];
-float yaw_history[YAW_HISTORY_SIZE];
-int world_acceleration_history_index = 0;
-int yaw_history_index = 0;
-float world_acceleration_norm_current_avg = 0.0f;
-float yaw_current_average = 0.0f;
-
-#define DEFAULT_MPU_SAMPLE_PERIOD_MS                (1000 / DEFAULT_MPU_HZ)
-
-int current_yaw_history_size = YAW_HISTORY_PERIOD_MS
-        / DEFAULT_MPU_SAMPLE_PERIOD_MS;
-int current_world_accel_norm_history_size = WORLD_ACCEL_NORM_HISTORY_PERIOD_MS
-        / DEFAULT_MPU_SAMPLE_PERIOD_MS;
-
-void calculate_current_history_sizes()
-{
-    int sample_period_ms = 1000 / registers.update_rate_hz;
-    current_yaw_history_size = YAW_HISTORY_PERIOD_MS / sample_period_ms;
-    current_world_accel_norm_history_size = WORLD_ACCEL_NORM_HISTORY_PERIOD_MS / sample_period_ms;
-}
-
-/******************* TUNING VARIBLES ********************/
-
-void init_history()
-{
-    for (int i = 0; i < WORLD_ACCEL_NORM_HISTORY_SIZE; i++) {
-        world_accel_norm_history[i] = world_acceleration_norm_current_avg;
-    }
-    for (int i = 0; i < YAW_HISTORY_SIZE; i++) {
-        yaw_history[i] = yaw_current_average;
-    }
-    calculate_current_history_sizes();
-}
 
 uint8_t *flashdata = 0;
 
-static const uint8_t flash_fast = 0b10101010; /* Self-test Fail */
-static const uint8_t flash_slow = 0b11111110; /* IMU Cal */
-static const uint8_t flash_on   = 0b11111111; /* Startup, Mag Cal */
+static const uint8_t flash_fast = 0b10101010;
+static const uint8_t flash_slow = 0b11111110;
+static const uint8_t flash_on   = 0b11111111;
 static const uint8_t flash_off  = 0b00000000;
 
 volatile int8_t cal_led_cycle_index = 7;
 volatile uint8_t cal_led_cycle = flash_on;
-float last_gyro_bias_load_temperature = 0.0;
-
 bool led_update_override = false;
 uint8_t old_cal_led_cycle = flash_off;
 
@@ -278,79 +140,69 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     }
 }
 
-void calc_linear_temp_correction_coefficients( struct mpu_dmp_calibration_data *first,
-        struct mpu_dmp_calibration_data *second,
-        struct mpu_dmp_calibration_interpolation_coefficients *result )
-{
-    float delta_temp = fabs(first->mpu_temp_c - second->mpu_temp_c);
-    float offset_first, offset_second, delta_offset;
-    for ( int i = 0; i < 3; i++ ) {
-        offset_first = ((float)first->gyro_bias_q16[i]) / 65536.0f;
-        offset_second = ((float)second->gyro_bias_q16[i]) / 65536.0f;
-        delta_offset = fabs(offset_second - offset_first);
-        result->gyro_m[i] = delta_offset / delta_temp;
-        result->gyro_b[i] = offset_first - (first->mpu_temp_c * result->gyro_m[i]);
-    }
-}
-
-void interpolate_temp_correction_offsets( struct mpu_dmp_calibration_interpolation_coefficients *input,
-        float temp_c,
-        struct mpu_dmp_calibration_data *output )
-{
-    output->mpu_temp_c = temp_c;
-    for ( int i = 0; i < 3; i++ ) {
-        float gyro_output_float 	= (temp_c * input->gyro_m[i]) + input->gyro_b[i];
-        output->gyro_bias_q16[i] 	= (long)(gyro_output_float * 65536.0f);
-    }
-}
-
-uint16_t get_capability_flags()
-{
-    uint16_t capability_flags = 0;
-    capability_flags |= (NAVX_CAPABILITY_FLAG_OMNIMOUNT +
-            NAVX_CAPABILITY_FLAG_VEL_AND_DISP +
-            NAVX_CAPABILITY_FLAG_YAW_RESET +
-            NAVX_CAPABILITY_FLAG_AHRSPOS_TS +
-            NAVX_CAPABILITY_FLAG_FW_REVISION +
-            NAVX_CAPABILITY_FLAG_HIRES_TIMESTAMP);
-    uint16_t yaw_axis_info =
-            (((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis << 1) +
-            ((((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up) ? 1 : 0);
-    yaw_axis_info <<= 3;
-    capability_flags |= yaw_axis_info;
-    return capability_flags;
-}
-
-void update_capability_flags()
-{
-    registers.capability_flags = get_capability_flags();
-}
-
-int sense_current_yaw_orientation() {
-    uint8_t mpu_yaw_axis;
-    bool yaw_axis_up;
-    if ( !sense_current_mpu_yaw_orientation( &mpu_yaw_axis, &yaw_axis_up) ) {
-        ((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis = mpu_yaw_axis;
-        ((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up = yaw_axis_up;
-        return 0;
-    }
-    return -1;
-}
-
 uint8_t crc_lookup_table[256];
+
+// Uppermost 3 bits are flags  [31-29]
+#define CAN_MSG_DEVICE_TYPE_ID			10 // Miscellaneous (Next 5 bits [28-24])
+#define CAN_MSG_DEVICE_MFR_ID    		9  // Kauai Labs (Next 8 bits) [23-16]
+#define CAN_MSG_VMX_PI_TEST_JIG_API		0  // VMX-pi Test Jig API Index (Next 6 bits) [15-10]
+#define CAN_MSG_VMX_PI_TEST_JIG_CONFIG	0  // "Config" message (Next 4 bits) [9-6]
+#define CAN_MSG_VMX_PI_TEST_JIG_UPDATE	1  // "Update" message
+#define CAN_MSG_DEVICE_NUMBER			0  // Currently only one VMX-pi Test Jig/bus is supported [5-0]
+
+uint32_t CAN_VMX_PI_TEST_JIG_MSG_FILTER = 	(CAN_MSG_DEVICE_TYPE_ID << 24) |
+											(CAN_MSG_DEVICE_MFR_ID << 16) |
+											(CAN_MSG_VMX_PI_TEST_JIG_API << 10);
+
+uint32_t CAN_VMX_PI_TEST_JIG_MSG_MASK   =	(0x1F << 24) |
+											(0xFF << 16) |
+											(0x3F << 10);
+
+uint32_t CAN_VMX_PI_TEST_JIG_CONFIG_MSG	=	(CAN_MSG_DEVICE_TYPE_ID << 24) |
+											(CAN_MSG_DEVICE_MFR_ID << 16) |
+											(CAN_MSG_VMX_PI_TEST_JIG_API << 10) |
+											(CAN_MSG_VMX_PI_TEST_JIG_CONFIG << 6) |
+											(CAN_MSG_DEVICE_NUMBER << 0);
+
+uint32_t CAN_VMX_PI_TEST_JIG_UPDATE_MSG	=	(CAN_MSG_DEVICE_TYPE_ID << 24) |
+											(CAN_MSG_DEVICE_MFR_ID << 16) |
+											(CAN_MSG_VMX_PI_TEST_JIG_API << 10) |
+											(CAN_MSG_VMX_PI_TEST_JIG_UPDATE << 6) |
+											(CAN_MSG_DEVICE_NUMBER << 0);
+
+static void reset_can_prepare_to_receive() {
+    CAN_command(CAN_CMD_RESET);
+    CAN_loop(); // TODO:  Can this be removed?
+
+    CAN_ID rx_vmx_pi_test_jig_msg_filter;
+    CAN_ID rx_vmx_pi_test_jig_msg_msg;
+    CAN_pack_extended_id(CAN_VMX_PI_TEST_JIG_MSG_FILTER, &rx_vmx_pi_test_jig_msg_filter);
+    CAN_pack_extended_id(CAN_VMX_PI_TEST_JIG_MSG_MASK, &rx_vmx_pi_test_jig_msg_msg);
+    uint8_t rx_buffer_index = 0;
+    uint8_t rx_filter_index = 0;
+    CAN_set_buffer_filter_mode(rx_buffer_index, CAN_RX_FILTER_EID_ONLY);
+    CAN_set_filter(rx_buffer_index, rx_filter_index, rx_vmx_pi_test_jig_msg_filter);
+    CAN_set_mask(rx_buffer_index, rx_vmx_pi_test_jig_msg_msg);
+    CAN_loop(); // TODO:  Can this be removed?
+
+    CAN_command(CAN_CMD_FLUSH_RXFIFO);
+    CAN_command(CAN_CMD_FLUSH_TXFIFO);
+    CAN_loop(); // TODO:  Can this be removed?
+
+    CAN_set_opmode(CAN_MODE_NORMAL);
+    CAN_loop();
+}
+
 
 _EXTERN_ATTRIB void nav10_init()
 {
-    IMURegisters::buildCRCLookupTable(crc_lookup_table, sizeof(crc_lookup_table));
+    VMXPiTestJigRegisters::buildCRCLookupTable(crc_lookup_table, sizeof(crc_lookup_table));
 
-    registers.op_status		= NAVX_OP_STATUS_INITIALIZING;
     registers.hw_rev		= HAL_GetBoardRev();
     registers.identifier	= NAVX_MODEL_NAVX_MXP;
     registers.fw_major		= NAVX_MXP_FIRMWARE_VERSION_MAJOR;
     registers.fw_minor		= NAVX_MXP_FIRMWARE_VERSION_MINOR;
-    registers.fw_revision	= NAVX_MXP_REVISION;
     read_unique_id(&chipid);
-    update_capability_flags();
 
     __TIM11_CLK_ENABLE();
     /* Set Interrupt Group Priority; this is a low-priority interrupt */
@@ -370,118 +222,19 @@ _EXTERN_ATTRIB void nav10_init()
     HAL_TIM_Base_Start_IT(&TimHandle); /* Enable timer interrupt */
 
     HAL_LED_Init();
-    HAL_LED1_On(1);
-    HAL_LED2_On(1);
-    HAL_I2C_Power_Init();
-
-    /* Ensure I2C is powered off, to handle case of a "soft" reset */
-    HAL_I2C_Power_Off();
-    HAL_Delay(50);
-
-    if ( HAL_UART_Slave_Enabled() ) {
-        Serial6.begin(57600);
-    }
-
-    /* Power on the on-board I2C devices */
-    HAL_I2C_Power_On();
-    HAL_Delay(1000);
-
-    FlashStorage.init(sizeof(flash_cal_data));
-
-    /* Initiate Data Reception on slave SPI Interface, if it is enabled. */
-    if ( HAL_SPI_Slave_Enabled() ) {
-        HAL_SPI_Receive_DMA(&hspi1, (uint8_t *)spi1_RxBuffer, SPI_RECV_LENGTH);
-        HAL_SPI_Comm_Ready_Assert();
-    }
-
-    ext_spi_init_complete = true;
-
-    mpu_initialize(MPU9250_INT_Pin);
-    enable_dmp();
 
     HAL_LED1_On(0);
     HAL_LED2_On(0);
-    uint16_t flashdatasize;
-    bool flashdatavalid;
-    bool mpu_cal_complete = false;
-    bool mag_cal_complete = false;
-    registers.cal_status = NAVX_CAL_STATUS_IMU_CAL_INPROGRESS;
-    registers.selftest_status = 0;
-    flashdata = FlashStorage.get_mem(flashdatavalid,flashdatasize);
-    if ( ( flashdatavalid ) &&
-            ( flashdatasize == sizeof(struct flash_cal_data) ) ) {
-        if ( ((struct flash_cal_data *)flashdata)->dmpcaldatavalid ) {
-            mpu_apply_calibration_data( &((struct flash_cal_data *)flashdata)->mpucaldata );
-            mpu_apply_dmp_gyro_biases(&((struct flash_cal_data *)flashdata)->dmpcaldata);
-            set_current_mpu_to_board_xform(((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis,
-                    ((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up);
-            update_capability_flags();
-            last_gyro_bias_load_temperature = ((struct flash_cal_data *)flashdata)->dmpcaldata.mpu_temp_c;
-            cal_led_cycle = flash_off;
-            registers.op_status = NAVX_OP_STATUS_NORMAL;
-            registers.cal_status |= NAVX_CAL_STATUS_IMU_CAL_ACCUMULATE;
-            mpu_cal_complete = true;
-        }
-        if ( !is_mag_cal_data_default(&((struct flash_cal_data *)flashdata)->magcaldata) ) {
-            mpu_apply_mag_cal_data(&((struct flash_cal_data *)flashdata)->magcaldata);
-            registers.cal_status |= NAVX_CAL_STATUS_MAG_CAL_COMPLETE;
-            mag_cal_complete = true;
-        }
-        registers.selftest_status = ((struct flash_cal_data *)flashdata)->selfteststatus | NAVX_SELFTEST_STATUS_COMPLETE;
-    }
 
-    /* If no MPU calibration data exists, detect yaw orientation, and run self tests which */
-    /* will acquire MPU calibration data.  Note that the self-tests require correct yaw    */
-    /* orientation in order to return correct results.                                     */
+    /* Set default register state */
+    registers.commdio_op_mode = TEST_JIG_OPMODE_INPUT;
+    registers.commdio_input_values = 0;
 
-    if ( !mpu_cal_complete ) {
-        cal_led_cycle = flash_slow;
-        registers.op_status = NAVX_OP_STATUS_SELFTEST_IN_PROGRESS;
-        uint8_t selftest_status = 0;
-        while ( selftest_status != 7 ) {
-            if ( !sense_current_yaw_orientation() ) {
-                set_current_mpu_to_board_xform(((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis,
-                        ((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up);
-                selftest_status = run_mpu_self_test(&((struct flash_cal_data *)flashdata)->mpucaldata,
-                        ((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis,
-                        ((struct flash_cal_data *)flashdata)->orientationdata.yaw_axis_up);
-                if ( selftest_status == 7 ) {
-                    /* Self-test passed */
-                    update_capability_flags();
-                    mpu_apply_calibration_data(&((struct flash_cal_data *)flashdata)->mpucaldata);
-                    /* Retrieve default magnetometer calibration data */
-                    mpu_get_mag_cal_data(&((struct flash_cal_data *)flashdata)->magcaldata);
-                    init_fusion_settings(&((struct flash_cal_data *)flashdata)->fusiondata);
-                    ((struct flash_cal_data *)flashdata)->selfteststatus = selftest_status;
-                    registers.selftest_status = selftest_status | NAVX_SELFTEST_STATUS_COMPLETE;
-                    registers.op_status = NAVX_OP_STATUS_IMU_AUTOCAL_IN_PROGRESS;
-                    registers.cal_status |= NAVX_CAL_STATUS_IMU_CAL_INPROGRESS;
-                    cal_led_cycle = flash_slow;
-                } else {
-                    /* Self-test failed, and we have no calibration data. */
-                    /* Indicate error, and continue retrying.             */
-                    cal_led_cycle = flash_fast;
-                    registers.op_status = NAVX_OP_STATUS_ERROR;
-                    registers.selftest_status = selftest_status;
-                    /* Re-detect MPU on I2C bus */
-                    HAL_LED2_On( mpu_detect() ? 1 : 0);
-                }
-            } else {
-                /* Couldn't sense yaw orientation axis.  The board needs to be held still and */
-                /* with one of the axes perpendicular to the earth.  Continue retrying...     */
-            }
-        }
-    }
+    HAL_CommDIOPins_ConfigForInput();
 
     /* Configure device and external communication interrupts */
 
     GPIO_InitTypeDef GPIO_InitStruct;
-
-    /*Configure GPIO pin : PC8 (MPU) for rising-edge interrupts */
-    GPIO_InitStruct.Pin = MPU9250_INT_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(MPU9250_INT_GPIO_Port, &GPIO_InitStruct);
 
     /* Configure GPIO pin : PC9 (CAL Button) for dual-edge interrupts */
     GPIO_InitStruct.Pin = CAL_BTN_Pin;
@@ -490,921 +243,265 @@ _EXTERN_ATTRIB void nav10_init()
     HAL_GPIO_Init(CAL_BTN_GPIO_Port, &GPIO_InitStruct);
 
     /* EXTI interrupt initialization */
-    /* TODO:  Review this priority post-integration of navX-PI HAL. */
+    /* This set of interrupts includes the CAN interrupt */
     HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4/*NVIC_PRIORITYGROUP_0*/);
     HAL_NVIC_SetPriority((IRQn_Type)EXTI9_5_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ((IRQn_Type)EXTI9_5_IRQn);
 
-    /* NavX-PI:  Enable EXTI on pins 10-15 */
-    if((MPU9250_INT_Pin > GPIO_PIN_9) ||(CAL_BTN_Pin > GPIO_PIN_9)) {
+    /* Enable EXTI on pins 10-15, if necessary */
+    if(CAL_BTN_Pin > GPIO_PIN_9) {
         HAL_NVIC_SetPriority((IRQn_Type)EXTI15_10_IRQn, 5, 0);
         HAL_NVIC_EnableIRQ((IRQn_Type)EXTI15_10_IRQn);
     }
 
-    /* Initiate Data Reception on slave I2C Interface */
-#ifndef DISABLE_EXTERNAL_I2C_INTERFACE
-    prepare_next_i2c_receive();
-#endif
+    HAL_IOCX_HIGHRESTIMER_Init();  // Enable hi-res timer, which is used by the CAN interface.
+
+    /* Initialize the CAN interface */
+    CAN_init();
+
+    reset_can_prepare_to_receive();
 }
 
-struct mpu_data mpudata;
-struct mpu_config mpuconfig;
 unsigned long last_scan = 0;
 bool calibration_active = false;
 unsigned long cal_button_pressed_timestamp = 0;
 unsigned long reset_imu_cal_buttonpress_period_ms = 2000;
 
-bool schedule_caldata_clear = false;    /* Request by user to clear cal data */
-int caldata_clear_count = 0;            /* Protection against flash wear */
-
 #define BUTTON_DEBOUNCE_SAMPLES 10
 
 static void cal_button_isr(uint8_t gpio_pin)
 {
-    /* If CAL button held down for sufficient duration, clear accel/gyro cal data */
-    bool button_pressed = false;
-
-    /* De-bounce the CAL button */
-
-    int button_pressed_count = 0;
-    for ( int i = 0; i < BUTTON_DEBOUNCE_SAMPLES; i++) {
-        if ( HAL_CAL_Button_Pressed() ) {
-            button_pressed_count++;
-        }
-    }
-    if ( button_pressed_count > (BUTTON_DEBOUNCE_SAMPLES/2) ) {
-        button_pressed = true;
-    }
-
-    if ( button_pressed ) {
-        cal_button_pressed_timestamp = HAL_GetTick();
-    } else {
-        if ( (HAL_GetTick() - cal_button_pressed_timestamp) >= reset_imu_cal_buttonpress_period_ms) {
-            if ( registers.op_status == NAVX_OP_STATUS_NORMAL ) {
-                schedule_caldata_clear = true;
-            }
-        }
-    }
-}
-
-int set_tuning_var( AHRS_DATA_ACTION action, AHRS_TUNING_VAR_ID tuning_var_id, float tuning_value, bool write )
-{
-    int status;
-    if ( action == DATA_SET_TO_DEFAULT ) {
-        if ( tuning_var_id == UNSPECIFIED ) {
-            for ( int i = MIN_TUNING_VAR_ID; i <= MAX_TUNING_VAR_ID; i++ ) {
-                status = set_tuning_var( action, (AHRS_TUNING_VAR_ID)i, 0.0f, false);
-            }
-        } else {
-            struct fusion_settings default_fusion_settings;
-            struct mag_calibration_data default_magcaldata;
-            init_fusion_settings(&default_fusion_settings);
-
-            switch ( tuning_var_id ) {
-            case MOTION_THRESHOLD:
-                status = set_tuning_var( DATA_SET, MOTION_THRESHOLD, default_fusion_settings.motion_detect_thresh_g, false);
-                break;
-            case YAW_STABLE_THRESHOLD:
-                status = set_tuning_var( DATA_SET, YAW_STABLE_THRESHOLD, default_fusion_settings.yaw_change_detect_thresh_deg, false);
-                break;
-            case SEA_LEVEL_PRESSURE:
-                status = set_tuning_var( DATA_SET, SEA_LEVEL_PRESSURE, default_fusion_settings.sealevel_pressure_millibars, false);
-                break;
-            case MAG_DISTURBANCE_THRESHOLD:
-                get_default_mag_cal_data(&default_magcaldata);
-                status = set_tuning_var( DATA_SET, MAG_DISTURBANCE_THRESHOLD, default_magcaldata.mag_disturbance_ratio, false);
-                break;
-            case UNSPECIFIED:
-            default:
-                status = DATA_GETSET_ERROR;
-                break;
-            }
-        }
-    } else if ( action == DATA_SET ) {
-        switch ( tuning_var_id ) {
-        case MOTION_THRESHOLD:
-            (((struct flash_cal_data *)flashdata)->fusiondata).motion_detect_thresh_g = tuning_value;
-            status = DATA_GETSET_SUCCESS;
-            break;
-        case YAW_STABLE_THRESHOLD:
-            (((struct flash_cal_data *)flashdata)->fusiondata).yaw_change_detect_thresh_deg = tuning_value;
-            status = DATA_GETSET_SUCCESS;
-            break;
-        case SEA_LEVEL_PRESSURE:
-            (((struct flash_cal_data *)flashdata)->fusiondata).sealevel_pressure_millibars = tuning_value;
-            status = DATA_GETSET_SUCCESS;
-            break;
-        case MAG_DISTURBANCE_THRESHOLD:
-            (((struct flash_cal_data *)flashdata)->magcaldata).mag_disturbance_ratio = tuning_value;
-            mpu_apply_mag_cal_data(&((struct flash_cal_data *)flashdata)->magcaldata);
-            status = DATA_GETSET_SUCCESS;
-            break;
-        default:
-            status = DATA_GETSET_ERROR;
-            break;
-        }
-    } else {
-        status = DATA_GETSET_ERROR; /* Get Response (not implemented on navX MXP) */
-    }
-    if ( write && ( status == DATA_GETSET_SUCCESS ) ) {
-        status = (FlashStorage.commit() == HAL_OK) ? 0 : 1;
-    }
-    return status;
+	// TODO:  Determine what (if anything) should be done when the CAL buton is pressed
 }
 
 unsigned long start_timestamp = 0;	/* The time the "main" started. */
-/* The time period (after the start timestamp) after which the yaw  */
-/* offset calculation process will timeout.                         */
-unsigned long yaw_offset_startup_timeout_ms = 20000;
 
-/*****************************************
- * MPU Calibration
- *****************************************/
+bool new_opmode_request = false;
+char new_opmode_request_value = 0;
+bool new_output_request = false;
+uint8_t new_output_request_value = 0;
 
-int yaw_offset_accumulator_count = 0;
-float yaw_accumulator = 0.0;
-float calibrated_yaw_offset = 0.0;
-int imu_cal_bias_change_count = 0;
-bool yaw_offset_calibration_complete = false;
-unsigned long last_temp_compensation_check_timestamp = 0;
-
-void update_config() {
-    get_mpu_config(&mpuconfig);
-    registers.accel_fsr_g = mpuconfig.accel_fsr;
-    registers.gyro_fsr_dps = mpuconfig.gyro_fsr;
-    registers.update_rate_hz = (uint8_t)mpuconfig.mpu_update_rate;
-}
-
-struct mpu_dmp_calibration_data curr_dmpcaldata;
-struct mpu_dmp_calibration_data test_dmpcaldata;
-struct mpu_dmp_calibration_interpolation_coefficients temp_correction_coefficients;
-bool temp_correction_coefficients_valid = false;
-
-PrintSerialReceiver* serial_interfaces[NUM_STREAMING_INTERFACES] = {&SerialUSB,&Serial6};
-uint32_t last_packet_start_rx_timestamp[NUM_STREAMING_INTERFACES] = {0,0};
+PrintSerialReceiver* serial_interfaces[NUM_STREAMING_INTERFACES] = {&SerialUSB};
+uint32_t last_packet_start_rx_timestamp[NUM_STREAMING_INTERFACES] = {0};
 int num_serial_interfaces = 1;
-/* Signal that sample rate has been updated by remote user */
-bool sample_rate_update = true;
-uint8_t new_sample_rate = 0;
-/* Signal that integration control has been updated by remote user */
-bool integration_control_update = true;
-volatile uint8_t new_integration_control = 0;
 uint32_t i2c_bus_reset_count = 0;
 uint32_t i2c_interrupt_reset_count = 0;
 
+uint8_t curr_opmode = TEST_JIG_OPMODE_INPUT;
+uint8_t curr_output = 0;
+
 _EXTERN_ATTRIB void nav10_main()
 {
-    unsigned long timestamp;
-    int uart_slave_enabled = HAL_UART_Slave_Enabled();
-    if (uart_slave_enabled) {
-        num_serial_interfaces++;
-    }
-
     attachInterrupt(CAL_BTN_Pin,&cal_button_isr,CHANGE);
 
     if ( start_timestamp == 0 ) {
         start_timestamp = HAL_GetTick();
     }
 
+    CAN_TRANSFER test_jig_update_msg;
+
     while (1)
     {
-        bool send_stream_response[2] = { false, false };
-        bool send_mag_cal_response[2] = { false, false };
-        bool send_tuning_var_set_response[2] = { false, false };
-        bool send_data_retrieval_response[2] = {false, false};
-        bool send_integration_control_response[2] = {false,false};
-        uint8_t tuning_var_status = 0;
-        AHRS_TUNING_VAR_ID tuning_var_id = UNSPECIFIED, retrieved_var_id = UNSPECIFIED;
-        AHRS_DATA_TYPE retrieved_data_type = BOARD_IDENTITY;
-        AHRS_DATA_ACTION data_action = DATA_GET;
-        uint8_t integration_control_action = 0;
-        int32_t integration_control_parameter = 0;
-        int num_update_bytes[2] = { 0, 0 };
-        int num_resp_bytes[2] = { 0, 0 };
-
-        periodic_compass_update();
+        //bool send_stream_response[1] = { false };
+        int num_update_bytes[1] = { 0 };
 
         SpiTxTimeoutCheck();
 
-        if ( sample_rate_update ) {
-            if ( new_sample_rate != 0 ) {
-                mpu_set_new_sample_rate(new_sample_rate);
-                new_sample_rate = 0;
-            }
-            update_config();
-            init_history();
-            sample_rate_update = false;
-            send_stream_response[0] = true;
-            send_stream_response[1] = true;
+        if (CAN_get_tx_fifo_entry_count() == 255) {
+        	reset_can_prepare_to_receive();
         }
 
-        if ( integration_control_update ) {
-
-        	/* Read/Modify/Write integration control register */
-			NVIC_DisableIRQ((IRQn_Type)I2C3_EV_IRQn);
-			NVIC_DisableIRQ((IRQn_Type)SPI1_IRQn);
-	        NVIC_DisableIRQ((IRQn_Type)DMA2_Stream0_IRQn);
-			integration_control_update = false;
-			uint8_t curr_vel_disp_int_control = new_integration_control & NAVX_INTEGRATION_CTL_VEL_AND_DISP_MASK;
-			uint8_t curr_yaw_int_control = new_integration_control & NAVX_INTEGRATION_CTL_RESET_YAW;
-			new_integration_control &= ~(curr_vel_disp_int_control | curr_yaw_int_control);
-	        NVIC_EnableIRQ((IRQn_Type)DMA2_Stream0_IRQn);
-			NVIC_EnableIRQ((IRQn_Type)SPI1_IRQn);
-			NVIC_EnableIRQ((IRQn_Type)I2C3_EV_IRQn);
-
-        	if ( curr_vel_disp_int_control != 0 ) {
-        		reset_velocity_and_dispacement_integrator(&mpudata,curr_vel_disp_int_control);
+        // Process all recently received CAN messages
+        if (CAN_get_rx_fifo_entry_count() > 0) {
+        	TIMESTAMPED_CAN_TRANSFER rx_transfer;
+        	while(!CAN_get_next_rx_transfer(&rx_transfer)) {
+        		uint32_t received_eid;
+        		CAN_unpack_extended_id(&rx_transfer.transfer.id, &received_eid);
+        		// TODO:  Do any bits (top 3, lowest 6) need to be masked off here?
+        		if (received_eid == CAN_VMX_PI_TEST_JIG_CONFIG_MSG) {
+        			if (rx_transfer.transfer.payload.dlc.len >= 2) {
+						new_opmode_request_value = (char)rx_transfer.transfer.payload.buff[0];
+						new_opmode_request = true;
+						new_output_request_value = rx_transfer.transfer.payload.buff[1];
+						new_output_request = true;
+        			}
+        		}
         	}
-
-            if ( curr_yaw_int_control != 0 ) {
-                if ( yaw_offset_calibration_complete ) {
-                    /* Current yaw angle now becomes zero degrees */
-                    float curr_yaw_offset;
-                    /* Disable MPU interrupts around the following
-                     * pair of calls to get_yaw_offset() and set_yaw_offset(),
-                     * while changing the yaw offset (which is used in the
-                     * interrupt handler).
-                     */
-                    HAL_NVIC_DisableIRQ((IRQn_Type)EXTI9_5_IRQn);
-                    get_yaw_offset(&curr_yaw_offset);
-                    calibrated_yaw_offset = mpudata.yaw + curr_yaw_offset;
-                    registers.yaw_offset = IMURegisters::encodeSignedHundredthsFloat(calibrated_yaw_offset);
-                    /* Note:  protect against a race condition in which multiple
-                     * Zero Yaw commands are received before the next MPU
-                     * interrupt occurs.  In this condition, the mpudata.yaw value
-                     * will not have been updated by the MPU interrupt.  Therefore,
-                     * set the mpudata.yaw value to 0 immediately here. */
-                    mpudata.yaw = 0.0f;
-                    set_yaw_offset(calibrated_yaw_offset);
-                    HAL_NVIC_EnableIRQ((IRQn_Type)EXTI9_5_IRQn);
-                }
-            }
         }
 
-        if ( schedule_caldata_clear && ( caldata_clear_count < 3 ) ) {
-            /* Ensure that the CAL LED is lit for one second */
-            HAL_CAL_LED_On(1);
-            override_current_led_cycle( flash_on );
-            /* clear the "valid calibration" flag and self-test results, write to flash */
-            ((struct flash_cal_data *)flashdata)->dmpcaldatavalid = false;
-            ((struct flash_cal_data *)flashdata)->selfteststatus = 0;
-            FlashStorage.commit();
-            schedule_caldata_clear = false;
-            caldata_clear_count++;
+		// Process inbound USB requests
+		for ( int ifx = 0; ifx < num_serial_interfaces; ifx++ ) {
+			/* Scan for start of message, discarding any bytes that precede it. */
+			bool found_start_of_message = false;
+			while ( serial_interfaces[ifx]->available() > 0 ) {
+				char rcv_byte = serial_interfaces[ifx]->peek();
+				if ( rcv_byte != PACKET_START_CHAR ) {
+					serial_interfaces[ifx]->read();
+				}
+				else {
+					if ( last_packet_start_rx_timestamp[ifx] == 0 ) {
+						last_packet_start_rx_timestamp[ifx] = HAL_GetTick();
+					}
+					found_start_of_message = true;
+					break;
+				}
+			}
+
+			/* If packet start recently found, but insufficient bytes have been */
+			/* received after waiting the maximum packet rx time, flush the     */
+			/* packet start Indicator.                                          */
+			if ( found_start_of_message &&
+					serial_interfaces[ifx]->available() < MIN_UART_MESSAGE_LENGTH &&
+					HAL_GetTick() - last_packet_start_rx_timestamp[ifx] > (uint32_t)UART_RX_PACKET_TIMEOUT_MS ) {
+				/* Flush the start of message indicator. */
+				serial_interfaces[ifx]->read();
+				last_packet_start_rx_timestamp[ifx] = 0;
+				break;
+			}
+
+			/* If sufficient bytes have been received, process the data and */
+			/* if a valid message is received, handle it.                   */
+
+			if( found_start_of_message && ( serial_interfaces[ifx]->available() >= MIN_UART_MESSAGE_LENGTH ) ) {
+				size_t bytes_read = 0;
+				last_packet_start_rx_timestamp[ifx] = 0;
+				while ( serial_interfaces[ifx]->available() ) {
+					if ( bytes_read >= sizeof(inbound_data) ) {
+						break;
+					}
+					inbound_data[bytes_read++] = serial_interfaces[ifx]->read();
+				}
+
+				/* If this is a binary message, the packet length is encoded. */
+				/* In this case, wait for additional bytes to arrive, with a  */
+				/* timeout in case of error.                                  */
+
+				if ( inbound_data[1] == BINARY_PACKET_INDICATOR_CHAR ) {
+					char expected_len = inbound_data[2] + 2;
+					if ( bytes_read < expected_len ) {
+						uint32_t start_wait_timestamp = HAL_GetTick();
+						while ( bytes_read < expected_len ) {
+							if ( serial_interfaces[ifx]->available() ) {
+								inbound_data[bytes_read++] = serial_interfaces[ifx]->read();
+							} else {
+								if ( HAL_GetTick() - start_wait_timestamp > (uint32_t)UART_RX_PACKET_TIMEOUT_MS ) {
+									break;
+								}
+							}
+						}
+					}
+				}
+
+				size_t i = 0;
+				/* Scan the buffer looking for valid packets */
+				while ( i < bytes_read )
+				{
+					int bytes_remaining = bytes_read - i;
+					int packet_length = 0;
+					char requested_opmode;
+					uint8_t requested_output;
+					if ( (packet_length = VMXPiTestJigProtocol::decodeTestJigConfig(
+							&inbound_data[i], bytes_remaining,
+							requested_opmode, requested_output ) )  )
+					{
+						if ((requested_opmode == TEST_JIG_OPMODE_INPUT) ||
+							(requested_opmode == TEST_JIG_OPMODE_OUTPUT) ||
+							(requested_opmode == TEST_JIG_OPMODE_ECHO)) {
+							new_opmode_request = true;
+							new_opmode_request_value = requested_opmode;
+						}
+
+				        new_output_request = true;
+				        new_output_request_value = requested_output;
+					}
+					if ( packet_length > 0 ) {
+						i += packet_length;
+					} else {
+						i++;
+					}
+				}
+			}
+		}
+
+        // Process any new configuration requests
+        if (new_opmode_request) {
+        	if (new_opmode_request_value != curr_opmode) {
+    		    i2c_rx_in_progress = false;
+    		    spi_transmitting = false;
+        		if (new_opmode_request_value == TEST_JIG_OPMODE_INPUT) {
+        		    ext_spi_init_complete = false;
+        	        Serial6.end();
+        			HAL_CommDIOPins_ConfigForInput();
+                	curr_output = 0;
+        		} else if (new_opmode_request_value == TEST_JIG_OPMODE_OUTPUT) {
+        		    ext_spi_init_complete = false;
+        	        Serial6.end();
+        			HAL_CommDIOPins_ConfigForOutput();
+        		} else if (new_opmode_request_value == TEST_JIG_OPMODE_ECHO) {
+        			//HAL_CommDIOPins_ConfigForCommunication();
+        			// Prepare to receive I2C/SPI interrupt-driven data
+        			i2c_hard_reset();
+        			prepare_next_i2c_receive();
+        		    ext_spi_init_complete = true;
+        		    Reset_SPI_And_PrepareToReceive();
+        		    Serial6.ResetUart();
+         	        Serial6.begin(57600);
+                	curr_output = 0;
+        		}
+        		curr_opmode = new_opmode_request_value;
+        	}
+        	new_opmode_request = false;
         }
 
-        if ( dmp_data_ready() ) {
-            HAL_LED1_On(1);
-            if ( get_dmp_data(&mpudata) == 0 ) {
-                last_scan = HAL_GetTick();
-                HAL_LED2_On(1);
+        uint8_t curr_input = 0;
 
-                registers.yaw 		= IMURegisters::encodeSignedHundredthsFloat(mpudata.yaw);
-                registers.pitch 	= IMURegisters::encodeSignedHundredthsFloat(mpudata.pitch);
-                registers.roll 		= IMURegisters::encodeSignedHundredthsFloat(mpudata.roll);
-                registers.heading	= IMURegisters::encodeUnsignedHundredthsFloat(mpudata.heading);
-                registers.fused_heading = IMURegisters::encodeUnsignedHundredthsFloat(mpudata.fused_heading);
-                registers.mpu_temp_c = IMURegisters::encodeSignedHundredthsFloat(mpudata.temp_c);
-                registers.altitude = 0; 					/* Todo:  update from pressure sensor */
-                registers.barometric_pressure = 0;			/* Todo:  update from pressure sensor */
-                registers.pressure_sensor_temp_c = 0;		/* Todo:  update from pressure sensor */
-                registers.timestamp = mpudata.timestamp;
-                registers.hires_timestamp = mpudata.hires_timestamp;
-                for ( int i = 0; i < 4; i++ ) {
-                    registers.quat[i] = IMURegisters::encodeRatioFloat(
-                            (float)(mpudata.quaternion[i] >> 16) / 16384.0f);
-                }
-                for ( int i = 0; i < 3; i++ ) {
-                    registers.world_linear_accel[i] = IMURegisters::encodeSignedThousandthsFloat(
-                            mpudata.world_linear_accel[i]);
-                    registers.mag_raw[i]			= mpudata.calibrated_compass[i];
-                    registers.accel_raw[i]			= mpudata.raw_accel[i];
-                    registers.gyro_raw[i]			= mpudata.raw_gyro[i];
-                    IMURegisters::encodeProtocol1616Float( mpudata.velocity[i], (char *)&registers.velocity[i]);
-                    IMURegisters::encodeProtocol1616Float( mpudata.displacement[i], (char *)&registers.displacement[i]);
-                }
-
-                /* Peform motion detection, a deviation from the norm of world linear accel (X and Y axes) */
-                float world_linear_accel_norm = fabs( sqrt( fabs (mpudata.world_linear_accel[0]*mpudata.world_linear_accel[0]) +
-                        fabs (mpudata.world_linear_accel[1]*mpudata.world_linear_accel[1]) ) );
-                world_accel_norm_history[world_acceleration_history_index] = world_linear_accel_norm;
-                world_acceleration_history_index = (world_acceleration_history_index + 1) % current_world_accel_norm_history_size;
-                float world_acceleration_history_sum = 0;
-                for ( int i = 0; i < current_world_accel_norm_history_size; i++ ) {
-                    world_acceleration_history_sum += world_accel_norm_history[i];
-                }
-                world_acceleration_norm_current_avg = world_acceleration_history_sum / current_world_accel_norm_history_size;
-                if ( world_acceleration_norm_current_avg > (((struct flash_cal_data *)flashdata)->fusiondata).motion_detect_thresh_g ) {
-                    registers.sensor_status |= NAVX_SENSOR_STATUS_MOVING;
-                } else {
-                    registers.sensor_status &= ~NAVX_SENSOR_STATUS_MOVING;
-                }
-                if ( mpudata.fused_heading_valid ) {
-                    registers.sensor_status |= NAVX_SENSOR_STATUS_FUSED_HEADING_VALID;
-                } else {
-                    registers.sensor_status &= ~NAVX_SENSOR_STATUS_FUSED_HEADING_VALID;
-                }
-
-                /* Accumulate Yaw History */
-                yaw_history[yaw_history_index] = mpudata.yaw;
-                yaw_history_index = (yaw_history_index + 1) % current_yaw_history_size;
-                float yaw_history_sum = 0;
-                float yaw_history_min = 9999.0;
-                float yaw_history_max = -9999.0;
-                float yaw_delta;
-                float curr_yaw;
-                for ( int i = 0; i < current_yaw_history_size; i++ ) {
-                    curr_yaw = yaw_history[i];
-                    yaw_history_sum += curr_yaw;
-                    if ( curr_yaw < yaw_history_min ) yaw_history_min = curr_yaw;
-                    if ( curr_yaw > yaw_history_max ) yaw_history_max = curr_yaw;
-                }
-                yaw_delta = fabs( yaw_history_max - yaw_history_min );
-                bool yaw_stable = ( yaw_delta < (((struct flash_cal_data *)flashdata)->fusiondata).yaw_change_detect_thresh_deg );
-                if ( yaw_stable ) {
-                    registers.sensor_status |= NAVX_SENSOR_STATUS_YAW_STABLE;
-                } else {
-                    registers.sensor_status &= ~NAVX_SENSOR_STATUS_YAW_STABLE;
-                }
-                if ( mpudata.magnetic_anomaly_detected ) {
-                    registers.sensor_status |= NAVX_SENSOR_STATUS_MAG_DISTURBANCE;
-#ifdef DEBUG_MAG_ANOMALY
-                    SerialUSB.println("MAG ANOMALY!\r\n");
-#endif
-                } else {
-                    registers.sensor_status &= ~NAVX_SENSOR_STATUS_MAG_DISTURBANCE;
-                }
-
-#ifdef DEBUG_MOTION_DETECTION
-                char motion_string_buffer[40];
-                sprintf(motion_string_buffer,"%s, Yaw:  %s\r\n",registers.motion_detected ? "Moving" : "Still", yaw_stable ? "Stable" : "Unstable");
-                SerialUSB.write(motion_string_buffer);
-#endif
-
-                /* Send Streaming Updates */
-
-                for ( int ifx = 0; ifx < num_serial_interfaces; ifx++ ) {
-
-                    if ( update_type[ifx] == MSGID_AHRSPOS_TS_UPDATE ) {
-
-                        num_update_bytes[ifx] = AHRSProtocol::encodeAHRSPosTSUpdate( update_buffer[ifx],
-                                mpudata.yaw,
-                                mpudata.pitch,
-                                mpudata.roll,
-                                mpudata.heading,
-                                0.0, 							/* TODO:  Calc altitude    */
-                                mpudata.fused_heading,
-                                mpudata.world_linear_accel[0],
-                                mpudata.world_linear_accel[1],
-                                mpudata.world_linear_accel[2],
-                                mpudata.temp_c,
-                                (((float)mpudata.quaternion[0])/65536), /* Cvt 16:16 -> Float */
-                                (((float)mpudata.quaternion[1])/65536), /* Cvt 16:16 -> Float */
-                                (((float)mpudata.quaternion[2])/65536), /* Cvt 16:16 -> Float */
-                                (((float)mpudata.quaternion[3])/65536), /* Cvt 16:16 -> Float */
-                                mpudata.velocity[0],
-                                mpudata.velocity[1],
-                                mpudata.velocity[2],
-                                mpudata.displacement[0],
-                                mpudata.displacement[1],
-                                mpudata.displacement[2],
-                                registers.op_status,
-                                registers.sensor_status,
-                                registers.cal_status,
-                                registers.selftest_status,
-                                registers.timestamp);
-                    }
-                    else if ( update_type[ifx] == MSGID_AHRSPOS_UPDATE ) {
-
-                        num_update_bytes[ifx] = AHRSProtocol::encodeAHRSPosUpdate( update_buffer[ifx],
-                                mpudata.yaw,
-                                mpudata.pitch,
-                                mpudata.roll,
-                                mpudata.heading,
-                                0.0, 							/* TODO:  Calc altitude    */
-                                mpudata.fused_heading,
-                                mpudata.world_linear_accel[0],
-                                mpudata.world_linear_accel[1],
-                                mpudata.world_linear_accel[2],
-                                mpudata.temp_c,
-                                mpudata.quaternion[0] >> 16,
-                                mpudata.quaternion[1] >> 16,
-                                mpudata.quaternion[2] >> 16,
-                                mpudata.quaternion[3] >> 16,
-                                mpudata.velocity[0],
-                                mpudata.velocity[1],
-                                mpudata.velocity[2],
-                                mpudata.displacement[0],
-                                mpudata.displacement[1],
-                                mpudata.displacement[2],
-                                registers.op_status,
-                                registers.sensor_status,
-                                registers.cal_status,
-                                registers.selftest_status);
-                    }
-                    else if ( update_type[ifx] == MSGID_AHRS_UPDATE ) {
-
-                        num_update_bytes[ifx] = AHRSProtocol::encodeAHRSUpdate( update_buffer[ifx],
-                                mpudata.yaw,
-                                mpudata.pitch,
-                                mpudata.roll,
-                                mpudata.heading,
-                                0.0, 							/* TODO:  Calc altitude    */
-                                mpudata.fused_heading,
-                                mpudata.world_linear_accel[0],
-                                mpudata.world_linear_accel[1],
-                                mpudata.world_linear_accel[2],
-                                mpudata.temp_c,
-                                mpudata.raw_compass[0],
-                                mpudata.raw_compass[1],
-                                mpudata.raw_compass[2],
-                                mpudata.calibrated_compass[0],
-                                mpudata.calibrated_compass[1],
-                                mpudata.calibrated_compass[2],
-                                mpudata.ratio_of_mag_field_norm,
-                                mpudata.mag_norm_scalar,
-                                mpudata.quaternion[0] >> 16,
-                                mpudata.quaternion[1] >> 16,
-                                mpudata.quaternion[2] >> 16,
-                                mpudata.quaternion[3] >> 16,
-                                0.0f, 							/* TODO: Calc Baro pressure */
-                                0.0f, 							/* TODO: Acquire Baro Temp  */
-                                registers.op_status,
-                                registers.sensor_status,
-                                registers.cal_status,
-                                registers.selftest_status);
-
-                    }
-                    else if ( update_type[ifx] == MSGID_QUATERNION_UPDATE ) {
-
-                        num_update_bytes[ifx] = IMUProtocol::encodeQuaternionUpdate( update_buffer[ifx],
-                                mpudata.quaternion[0] >> 16,
-                                mpudata.quaternion[1] >> 16,
-                                mpudata.quaternion[2] >> 16,
-                                mpudata.quaternion[3] >> 16,
-                                mpudata.raw_accel[0],
-                                mpudata.raw_accel[1],
-                                mpudata.raw_accel[2],
-                                mpudata.calibrated_compass[0],
-                                mpudata.calibrated_compass[1],
-                                mpudata.calibrated_compass[2],
-                                mpudata.temp_c );
-
-                    } else if ( update_type[ifx] == MSGID_GYRO_UPDATE ) {
-
-                        num_update_bytes[ifx] = IMUProtocol::encodeGyroUpdate( update_buffer[ifx],
-                                mpudata.raw_gyro[0],
-                                mpudata.raw_gyro[1],
-                                mpudata.raw_gyro[2],
-                                mpudata.raw_accel[0],
-                                mpudata.raw_accel[1],
-                                mpudata.raw_accel[2],
-                                mpudata.calibrated_compass[0],
-                                mpudata.calibrated_compass[1],
-                                mpudata.calibrated_compass[2],
-                                mpudata.temp_c );
-
-                    } else {
-
-                        num_update_bytes[ifx] = IMUProtocol::encodeYPRUpdate( update_buffer[ifx],
-                                mpudata.yaw,
-                                mpudata.pitch,
-                                mpudata.roll,
-                                mpudata.heading);
-                    }
-                }
-
-                if ( registers.op_status == NAVX_OP_STATUS_IMU_AUTOCAL_IN_PROGRESS ) {
-
-                    if ( mpu_did_dmp_gyro_biases_change(&((struct flash_cal_data *)flashdata)->dmpcaldata) ) {
-                        imu_cal_bias_change_count++;
-                    }
-
-                    if ( ( ( registers.sensor_status & NAVX_SENSOR_STATUS_MOVING ) == 0 ) &&
-                            ( ( registers.sensor_status & NAVX_SENSOR_STATUS_YAW_STABLE ) ) &&
-                            ( imu_cal_bias_change_count > 2 ) ) {
-
-                        /* Sensor is still, and DMP calibration constants have been accumulated */
-                        /* Store to flash memory and begin accumulating yaw offsets.            */
-
-                        registers.cal_status &= ~NAVX_CAL_STATUS_IMU_CAL_STATE_MASK;
-                        registers.cal_status |= NAVX_CAL_STATUS_IMU_CAL_ACCUMULATE;
-                        cal_led_cycle = flash_off;
-                        ((struct flash_cal_data *)flashdata)->dmpcaldatavalid = true;
-                        FlashStorage.commit();
-                        registers.op_status = NAVX_OP_STATUS_NORMAL;
-                        start_timestamp = HAL_GetTick();
-                        /* Reset integration of velocity/displacement on all axes */
-                        reset_velocity_and_dispacement_integrator(&mpudata,0x3F);
-                    }
-                }
-
-                if ( registers.op_status == NAVX_OP_STATUS_NORMAL ) {
-
-                    /* Accumulate yaw offset if not yet completely acquired. */
-
-                    if ( !yaw_offset_calibration_complete ) {
-                        if ( ( ( registers.sensor_status & NAVX_SENSOR_STATUS_MOVING ) == 0 ) &&
-                                ( registers.sensor_status & NAVX_SENSOR_STATUS_YAW_STABLE ) ) {
-
-                            yaw_accumulator += mpudata.yaw;
-                            yaw_offset_accumulator_count++;
-
-                            if ( yaw_offset_accumulator_count >= current_yaw_history_size ) {
-
-                                registers.cal_status &= ~NAVX_CAL_STATUS_IMU_CAL_STATE_MASK;
-                                registers.cal_status |= NAVX_CAL_STATUS_IMU_CAL_COMPLETE;
-
-                                calibrated_yaw_offset = yaw_accumulator / yaw_offset_accumulator_count;
-                                registers.yaw_offset = IMURegisters::encodeSignedHundredthsFloat(calibrated_yaw_offset);
-                                set_yaw_offset(calibrated_yaw_offset);
-                                yaw_offset_calibration_complete = true;
-                                send_stream_response[0] = true;
-                                send_stream_response[1] = true;
-                                last_temp_compensation_check_timestamp = HAL_GetTick();
-                                /* Reset integration of velocity/displacement on all axes */
-                                reset_velocity_and_dispacement_integrator(&mpudata,0x3F);
-                            }
-                        } else {
-
-                            if ( ( last_scan - start_timestamp ) > yaw_offset_startup_timeout_ms ) {
-
-                                /* Timed out waiting for inital yaw offset accumulation.  This case */
-                                /* can occur if the sensor is not still during the startup timeout  */
-                                /* period.  In this case, set yaw/quat offsets to 0.                */
-
-                                registers.cal_status &= ~NAVX_CAL_STATUS_IMU_CAL_STATE_MASK;
-                                registers.cal_status |= NAVX_CAL_STATUS_IMU_CAL_COMPLETE;
-                                calibrated_yaw_offset = 0.0f;
-                                registers.yaw_offset = IMURegisters::encodeSignedHundredthsFloat(calibrated_yaw_offset);
-                                set_yaw_offset(calibrated_yaw_offset);
-                                yaw_offset_calibration_complete = true;
-                                send_stream_response[0] = true;
-                                send_stream_response[1] = true;
-                                last_temp_compensation_check_timestamp = HAL_GetTick();
-                                /* Reset integration of velocity/displacement on all axes */
-                                reset_velocity_and_dispacement_integrator(&mpudata,0x3F);
-
-                            } else {
-                                yaw_offset_accumulator_count = 0;
-                                yaw_accumulator = 0.0;
-                            }
-                        }
-                    }
-
-                    /* Periodically check for new dmp gyro biases if the temperature has changed. */
-
-                    if ( ( last_scan - last_temp_compensation_check_timestamp ) > 1000 ) {
-                        last_temp_compensation_check_timestamp = last_scan;
-                        if ( ( ( registers.sensor_status & NAVX_SENSOR_STATUS_MOVING ) == 0 ) &&
-                                ( registers.sensor_status & NAVX_SENSOR_STATUS_YAW_STABLE ) ) {
-                            if ( mpu_did_dmp_gyro_biases_change(&curr_dmpcaldata) ) {
-                                if ( fabs( curr_dmpcaldata.mpu_temp_c -
-                                        ((struct flash_cal_data *)flashdata)->dmpcaldata.mpu_temp_c) >= 2.0 ) {
-                                    calc_linear_temp_correction_coefficients( 	&(((struct flash_cal_data *)flashdata)->dmpcaldata),
-                                            &curr_dmpcaldata,
-                                            &temp_correction_coefficients);
-                                    temp_correction_coefficients_valid = true;
-                                }
-                            }
-                        }
-
-                        /* Periodically re-calculate dmp gyro biases based upon current temperature */
-                        if ( temp_correction_coefficients_valid ) {
-                            interpolate_temp_correction_offsets( 	&temp_correction_coefficients,
-                                    mpudata.temp_c,
-                                    &test_dmpcaldata );
-                            /* If temperature compensation slope is active */
-                            /* read temp and apply new biases if temperature shift is detected */
-                            if ( fabs( last_gyro_bias_load_temperature - mpudata.temp_c ) > .25 ) {
-                                //mpu_apply_dmp_biases(&test_dmpcaldata); NOT WORKING VERY WELL YET
-                                //last_gyro_bias_load_temperature = mpudata.temp_c;
-                            }
-                        }
-                    }
-                }
-            } else {
-                /* Error retrieving dmp data - possible I2C error. */
-                bool mpu_present = mpu_detect();
-                HAL_LED2_On( mpu_present ? 1 : 0);
-                if ( !mpu_present ) {
-                    timestamp = HAL_GetTick();
-                    uint32_t max_wait_ms = 3 * (1000 / registers.update_rate_hz);
-                    if ( ( last_scan > 0 ) && ( timestamp - last_scan > max_wait_ms ) ) {
-                        bool bus_error = (__HAL_I2C_GET_FLAG(&hi2c2, I2C_FLAG_BERR) == SET);
-                        bool bus_busy = (__HAL_I2C_GET_FLAG(&hi2c2, I2C_FLAG_BUSY) == SET);
-                        if( bus_error || bus_busy ) {
-                            /* Bus Busy, or Bus Error.  Reset the I2C Interface, in an attempt */
-                            /* to resolve this condition.                                      */
-                            HAL_I2C_Reset(&hi2c2);
-                            i2c_bus_reset_count++;
-                            //HAL_I2C_Reset(&hi2c2);
-                            last_scan = HAL_GetTick();
-                        }
-                    }
-                }
-            }
-        } else {
-            /* No Data Ready Interrupt received */
-            timestamp = HAL_GetTick();
-            uint32_t max_wait_ms = 6 * (1000 / registers.update_rate_hz);
-            if ( ( last_scan > 0 ) && ( timestamp - last_scan > max_wait_ms ) ) {
-                HAL_LED1_On(0);
-                HAL_LED2_On(0);
-                uint32_t temp;
-                bool group_enabled = false;
-                bool pin_masked_in = false;
-                bool rising_edge_trigger = false;
-                bool falling_edge_trigger = false;
-                bool pull_up_direction = false;
-                if (MPU9250_INT_GPIO_Port == GPIOC) {
-                	// MPU Interrupt is in Group C
-                	temp = SYSCFG->EXTICR[2];
-                } else {
-                	// MPU Interrupt is in Group D
-                	temp = SYSCFG->EXTICR[3];
-                }
-                if ( temp & 0x00000003 ) {
-                    /* EXTI8 is enabled for GPIOC/GPIOD Group */
-                    group_enabled = true;
-                }
-                temp = EXTI->IMR;
-                if ( temp & 0x00000100 ) {
-                    /* GPIO 8 is masked in */
-                    pin_masked_in = true;
-                }
-                temp = EXTI->RTSR;
-                if ( temp & 0x00000100 ) {
-                    /* GPIO 8 is rising edge triggered */
-                    rising_edge_trigger = true;
-                }
-                temp = EXTI->FTSR;
-                if ( temp & 0x00000100 ) {
-                    /* GPIO 8 is falling edge triggered */
-                    falling_edge_trigger = true;
-                }
-                temp = GPIOC->PUPDR;
-                if ( temp & 0x0001000 ) {
-                    /* GPIO 8 is pull-up direction */
-                    pull_up_direction = true;
-                }
-
-                /* HACK:  For some reason, in certain error cases (e.g., when  */
-                /* power to I2C/SPI/UART is removed and then re-applied), the  */
-                /* PC8 Interrupt Mask is disabled.  For the navX-MXP, this     */
-                /* condition causes further MPU interrupts to be missed.       */
-                /* Therefore, whenever this condition is detected, re-         */
-                /* configure GPIO pin : PC8 (MPU) for rising-edge interrupts   */
-                GPIO_InitTypeDef GPIO_InitStruct;
-
-                GPIO_InitStruct.Pin = GPIO_PIN_8;
-                GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-                GPIO_InitStruct.Pull = GPIO_NOPULL;
-                HAL_GPIO_Init(MPU9250_INT_GPIO_Port, &GPIO_InitStruct);
-                last_scan = timestamp;
-                i2c_interrupt_reset_count++;
-#ifdef DEBUG_I2C_COMM
-                for ( int ifx = 0; ifx < num_serial_interfaces; ifx++ ) {
-                    serial_interfaces[ifx]->println("Scanning");
-                }
-#endif
-            }
+        // Update outputs, if in OUTPUT mode
+        if (new_output_request) {
+        	if (curr_opmode == TEST_JIG_OPMODE_OUTPUT) {
+        		HAL_CommDIOPins_Set(new_output_request_value);
+        		curr_output = new_output_request_value;
+        	}
+        	new_output_request = false;
         }
 
-        /* Process inbound configuration requests */
-        for ( int ifx = 0; ifx < num_serial_interfaces; ifx++ ) {
-            /* Scan for start of message, discarding any bytes that precede it. */
-            bool found_start_of_message = false;
-            while ( serial_interfaces[ifx]->available() > 0 ) {
-                char rcv_byte = serial_interfaces[ifx]->peek();
-                if ( rcv_byte != PACKET_START_CHAR ) {
-                    serial_interfaces[ifx]->read();
-                }
-                else {
-                    if ( last_packet_start_rx_timestamp[ifx] == 0 ) {
-                        last_packet_start_rx_timestamp[ifx] = HAL_GetTick();
-                    }
-                    found_start_of_message = true;
-                    break;
-                }
-            }
-
-            /* If packet start recently found, but insufficient bytes have been */
-            /* received after waiting the maximum packet rx time, flush the     */
-            /* packet start Indicator.                                          */
-            if ( found_start_of_message &&
-                    serial_interfaces[ifx]->available() < MIN_UART_MESSAGE_LENGTH &&
-                    HAL_GetTick() - last_packet_start_rx_timestamp[ifx] > (uint32_t)UART_RX_PACKET_TIMEOUT_MS ) {
-                /* Flush the start of message indicator. */
-                serial_interfaces[ifx]->read();
-                last_packet_start_rx_timestamp[ifx] = 0;
-                break;
-            }
-
-            /* If sufficient bytes have been received, process the data and */
-            /* if a valid message is received, handle it.                   */
-
-            if( found_start_of_message && ( serial_interfaces[ifx]->available() >= MIN_UART_MESSAGE_LENGTH ) ) {
-                size_t bytes_read = 0;
-                last_packet_start_rx_timestamp[ifx] = 0;
-                while ( serial_interfaces[ifx]->available() ) {
-                    if ( bytes_read >= sizeof(inbound_data) ) {
-                        break;
-                    }
-                    inbound_data[bytes_read++] = serial_interfaces[ifx]->read();
-                }
-
-                /* If this is a binary message, the packet length is encoded. */
-                /* In this case, wait for additional bytes to arrive, with a  */
-                /* timeout in case of error.                                  */
-
-                if ( inbound_data[1] == BINARY_PACKET_INDICATOR_CHAR ) {
-                    char expected_len = inbound_data[2] + 2;
-                    if ( bytes_read < expected_len ) {
-                        uint32_t start_wait_timestamp = HAL_GetTick();
-                        while ( bytes_read < expected_len ) {
-                            if ( serial_interfaces[ifx]->available() ) {
-                                inbound_data[bytes_read++] = serial_interfaces[ifx]->read();
-                            } else {
-                                if ( HAL_GetTick() - start_wait_timestamp > (uint32_t)UART_RX_PACKET_TIMEOUT_MS ) {
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                size_t i = 0;
-                /* Scan the buffer looking for valid packets */
-                while ( i < bytes_read )
-                {
-                    int bytes_remaining = bytes_read - i;
-                    unsigned char update_rate_hz;
-                    int packet_length = 0;
-                    struct mag_calibration_data newcal;
-                    AHRS_DATA_ACTION action;
-                    float tuning_value;
-                    char new_stream_type;
-                    if ( (packet_length = IMUProtocol::decodeStreamCommand(
-                            &inbound_data[i], bytes_remaining,
-                            new_stream_type, update_rate_hz ) )  )
-                    {
-                        update_rate_hz = clip_sample_rate(update_rate_hz);
-                        if ( update_rate_hz != mpuconfig.mpu_update_rate ) {
-                            /* If update rate changed, send stream responses on all interfaces. */
-                            sample_rate_update = true;
-                            new_sample_rate = update_rate_hz;
-                            mpuconfig.mpu_update_rate = new_sample_rate;
-                            send_stream_response[0] = true;
-                            send_stream_response[1] = true;
-                        } else {
-                            /* No update rate change.  Send stream response only on this interface. */
-                            send_stream_response[ifx] = true;
-                        }
-                        if ( ( new_stream_type == MSGID_YPR_UPDATE) ||
-                                ( new_stream_type == MSGID_QUATERNION_UPDATE ) ||
-                                ( new_stream_type == MSGID_GYRO_UPDATE ) ||
-                                ( new_stream_type == MSGID_AHRS_UPDATE ) ||
-                                ( new_stream_type == MSGID_AHRSPOS_UPDATE ) ||
-                                ( new_stream_type == MSGID_AHRSPOS_TS_UPDATE )) {
-                            update_type[ifx] = new_stream_type;
-                        }
-                    }
-                    else if ( ( packet_length = AHRSProtocol::decodeMagCalCommand(
-                            &inbound_data[i], bytes_remaining,
-                            data_action,
-                            &(newcal.bias[0]), &(newcal.xform[0][0]),
-                            newcal.earth_mag_field_norm ) ) ) {
-                        if ( data_action == DATA_SET ) {
-                            if ( newcal.earth_mag_field_norm == 0.0f ) {
-                                /* Disallow 0 value, to avoid divide by . */
-                                newcal.earth_mag_field_norm = 0.001f;
-                            }
-                            float previous_mag_disturbance_ratio = ((struct flash_cal_data *)flashdata)->magcaldata.mag_disturbance_ratio;
-                            memcpy(&((struct flash_cal_data *)flashdata)->magcaldata,&newcal,sizeof(newcal));
-                            ((struct flash_cal_data *)flashdata)->magcaldata.mag_disturbance_ratio = previous_mag_disturbance_ratio;
-                            mpu_apply_mag_cal_data(&(((struct flash_cal_data *)flashdata)->magcaldata));
-                            registers.cal_status |= NAVX_CAL_STATUS_MAG_CAL_COMPLETE;
-                            FlashStorage.commit();
-                        }
-                        send_mag_cal_response[ifx] = true;
-                    }
-                    else if ( ( packet_length = AHRSProtocol::decodeTuningVariableCmd(
-                            &inbound_data[i], bytes_remaining,
-                            action, tuning_var_id, tuning_value ) ) ) {
-                        tuning_var_status = set_tuning_var( action, tuning_var_id, tuning_value, true );
-                        send_tuning_var_set_response[ifx] = true;
-                    }
-                    else if ( ( packet_length = AHRSProtocol::decodeDataGetRequest(
-                            &inbound_data[i], bytes_remaining,
-                            retrieved_data_type, retrieved_var_id ) ) ) {
-                        send_data_retrieval_response[ifx] = true;
-                    }
-                    else if ( ( packet_length = AHRSProtocol::decodeIntegrationControlCmd(
-                            &inbound_data[i], bytes_remaining,
-                            integration_control_action, integration_control_parameter ) ) ) {
-                        send_integration_control_response[ifx] = true;
-                        new_integration_control |= integration_control_action;
-                        integration_control_update = true;
-                    }
-                    if ( packet_length > 0 ) {
-                        i += packet_length;
-                    } else {
-                        i++;
-                    }
-                }
-            }
-
-            /* Transmit responses, if necessary.  Only transmit responses */
-            /* on the same interface on which they were received.         */
-
-            if ( send_stream_response[ifx] ) {
-                uint16_t flags = (registers.op_status == NAVX_OP_STATUS_IMU_AUTOCAL_IN_PROGRESS) ?
-                        NAV6_CALIBRATION_STATE_WAIT : (yaw_offset_calibration_complete ?
-                                NAV6_CALIBRATION_STATE_COMPLETE : NAV6_CALIBRATION_STATE_ACCUMULATE );
-                flags |= get_capability_flags();
-                num_resp_bytes[ifx] += IMUProtocol::encodeStreamResponse(  response_buffer[ifx] + num_resp_bytes[ifx], update_type[ifx],
-                        mpuconfig.gyro_fsr, mpuconfig.accel_fsr, mpuconfig.mpu_update_rate, calibrated_yaw_offset,
-                        0,
-                        0,
-                        0,
-                        0,
-                        flags );
-            }
-            if ( send_mag_cal_response[ifx] ) {
-                num_resp_bytes[ifx] += AHRSProtocol::encodeDataSetResponse(response_buffer[ifx] + num_resp_bytes[ifx], MAG_CALIBRATION, UNSPECIFIED, DATA_GETSET_SUCCESS);
-            }
-            if ( send_tuning_var_set_response[ifx] ) {
-                num_resp_bytes[ifx] += AHRSProtocol::encodeDataSetResponse(response_buffer[ifx] + num_resp_bytes[ifx], TUNING_VARIABLE, tuning_var_id, tuning_var_status);
-            }
-            if ( send_data_retrieval_response[ifx] ) {
-                float value;
-                if ( retrieved_data_type == TUNING_VARIABLE ) {
-                    switch ( retrieved_var_id ) {
-                    case MOTION_THRESHOLD:
-                        value = (((struct flash_cal_data *)flashdata)->fusiondata).motion_detect_thresh_g;
-                        tuning_var_status = DATA_GETSET_SUCCESS;
-                        break;
-                    case YAW_STABLE_THRESHOLD:
-                        value = (((struct flash_cal_data *)flashdata)->fusiondata).yaw_change_detect_thresh_deg;
-                        tuning_var_status = DATA_GETSET_SUCCESS;
-                        break;
-                    case SEA_LEVEL_PRESSURE:
-                        value = (((struct flash_cal_data *)flashdata)->fusiondata).sealevel_pressure_millibars;
-                        tuning_var_status = DATA_GETSET_SUCCESS;
-                        break;
-                    case MAG_DISTURBANCE_THRESHOLD:
-                        value = (((struct flash_cal_data *)flashdata)->magcaldata).mag_disturbance_ratio;
-                        tuning_var_status = DATA_GETSET_SUCCESS;
-                        break;
-                    default:
-                        /* Invalid case - return error */
-                        value = 0;
-                        tuning_var_status = DATA_GETSET_ERROR;
-                        break;
-                    }
-                    num_resp_bytes[ifx] += AHRSProtocol::encodeTuningVariableCmd(response_buffer[ifx] + num_resp_bytes[ifx], DATA_GET, retrieved_var_id, value );
-                } else if ( retrieved_data_type == MAG_CALIBRATION ) {
-                    num_resp_bytes[ifx] += AHRSProtocol::encodeMagCalCommand(response_buffer[ifx] + num_resp_bytes[ifx], DATA_GET,
-                            (int16_t *)&((struct flash_cal_data *)flashdata)->magcaldata.bias,
-                            (float *)&((struct flash_cal_data *)flashdata)->magcaldata.xform,
-                            ((struct flash_cal_data *)flashdata)->magcaldata.earth_mag_field_norm);
-                } else if ( retrieved_data_type == BOARD_IDENTITY ) {
-                    num_resp_bytes[ifx] += AHRSProtocol::encodeBoardIdentityResponse(response_buffer[ifx] + num_resp_bytes[ifx],
-                            registers.identifier,
-                            registers.hw_rev,
-                            registers.fw_major,
-                            registers.fw_minor,
-                            NAVX_MXP_REVISION,
-                            (uint8_t *)&chipid );
-                }
-            }
-            if ( send_integration_control_response[ifx] ) {
-                num_resp_bytes[ifx] += AHRSProtocol::encodeIntegrationControlResponse(response_buffer[ifx] + num_resp_bytes[ifx],
-                        integration_control_action,
-                        integration_control_parameter );
-            }
+        // Read inputs, if in INPUT mode
+        if (curr_opmode == TEST_JIG_OPMODE_INPUT) {
+        	// update curr_input with current values
+        	HAL_CommDIOPins_Get(&curr_input);
         }
 
-        /* Transmit Updates over available serial interface(s)                  */
-        /* Transmit responses (if any) over the appropriate serial interface    */
-        for ( int ifx = 0; ifx < num_serial_interfaces; ifx++ ) {
-            if ( num_resp_bytes[ifx] > 0 ) {
-                memcpy(update_buffer[ifx] + num_update_bytes[ifx], response_buffer[ifx], num_resp_bytes[ifx]);
-            }
-            if ( ( num_update_bytes[ifx] + num_resp_bytes[ifx] ) > 0 ) {
-                serial_interfaces[ifx]->write(update_buffer[ifx],num_update_bytes[ifx] + num_resp_bytes[ifx]);
-            }
+        // Send CAN update
+        memset(&test_jig_update_msg, 0, sizeof(CAN_TRANSFER));
+        CAN_pack_extended_id(CAN_VMX_PI_TEST_JIG_UPDATE_MSG, &test_jig_update_msg.id);
+        test_jig_update_msg.payload.dlc.len = 3;
+        test_jig_update_msg.payload.buff[0] = curr_opmode;
+        test_jig_update_msg.payload.buff[1] = curr_input;
+        test_jig_update_msg.payload.buff[2] = curr_output;
+        CAN_add_tx_transfer(&test_jig_update_msg);
+        CAN_loop(); // Trigger transmission to CAN bus of any queued messages.
+
+        // Update registers with latest state
+        bool register_update = false;
+
+        if (registers.commdio_op_mode != (uint8_t)curr_opmode) {
+        	registers.commdio_op_mode = (uint8_t)curr_opmode;
+        	register_update = true;
+        }
+        if (registers.commdio_input_values != curr_input) {
+        	registers.commdio_input_values = curr_input;
+        	register_update = true;
+        }
+        if (registers.commdio_output_values != curr_output) {
+        	registers.commdio_output_values = curr_output;
+        	register_update = true;
         }
 
-        /* Shadow the calibration status into the upper 8-bits of the sensor status. */
-        registers.sensor_status &= 0x00FF;
-        registers.sensor_status |= ((uint16_t)registers.cal_status << 8);
         /* Update shadow registers; disable i2c/spi interrupts around this access. */
-        if ( num_update_bytes[0] > 0 ) {
+        if ( register_update ) {
             NVIC_DisableIRQ((IRQn_Type)I2C3_EV_IRQn);
             NVIC_DisableIRQ((IRQn_Type)SPI1_IRQn);
             NVIC_DisableIRQ((IRQn_Type)DMA2_Stream0_IRQn);
+            // TODO:  Should UART interrupt be disabled as well?
             memcpy(&shadow_registers, &registers, sizeof(registers));
             NVIC_EnableIRQ((IRQn_Type)DMA2_Stream0_IRQn);
             NVIC_EnableIRQ((IRQn_Type)SPI1_IRQn);
@@ -1419,7 +516,35 @@ _EXTERN_ATTRIB void nav10_main()
            	HAL_AHRS_Int_Assert();
         }
 
-        /* Peform I2C Glitch Detection/Correction */
+		if (curr_opmode == TEST_JIG_OPMODE_INPUT) {
+		    HAL_LED1_On(0);
+		    HAL_LED2_On(1);
+		} else if (curr_opmode == TEST_JIG_OPMODE_OUTPUT) {
+		    HAL_LED1_On(1);
+		    HAL_LED2_On(0);
+		} else if (curr_opmode == TEST_JIG_OPMODE_ECHO) {
+		    HAL_LED1_On(1);
+		    HAL_LED2_On(1);
+		}
+
+        last_scan = HAL_GetTick();
+
+		/* Send Streaming Updates */
+
+		for ( int ifx = 0; ifx < num_serial_interfaces; ifx++ ) {
+
+			if ( update_type[ifx] == MSGID_TEST_JIG_UPDATE ) {
+
+				num_update_bytes[ifx] = VMXPiTestJigProtocol::encodeTestJigUpdate( update_buffer[ifx],
+						curr_opmode,
+						curr_input);
+			}
+            if ( num_update_bytes[ifx] > 0 ) {
+                serial_interfaces[ifx]->write(update_buffer[ifx],num_update_bytes[ifx]);
+            }
+		}
+
+        /* Perform External I2C Interace Glitch Detection/Correction */
         if ( i2c_rx_in_progress ) {
             if ( HAL_GetTick() - last_i2c_rx_start_timestamp > (uint32_t)40 ) {
                 if ( ( hi2c3.XferCount != 0 ) &&
@@ -1432,10 +557,22 @@ _EXTERN_ATTRIB void nav10_main()
             }
         }
 
-        for ( int i = 0; i < NUM_SPI_BANKS; i++) {
-        	if ( p_loop_func[i] != NULL ) {
-        		p_loop_func[i]();
-        	}
+        const uint8_t num_ms_to_delay = 20;
+        if (curr_opmode == TEST_JIG_OPMODE_ECHO) {
+			for (uint8_t i = 0; i < num_ms_to_delay; i++) {
+				// echo bytes received on UART back to sender
+				while (Serial6.available() > 0) {
+					uint8_t rcv_buffer[1024];
+				    uint32_t num_bytes_read = Serial6.read(rcv_buffer, 512);
+				    if (num_bytes_read > 0) {
+				    	Serial6.write(rcv_buffer, num_bytes_read);
+				    }
+				}
+				HAL_Delay(1);
+			}
+
+        } else {
+        	HAL_Delay(num_ms_to_delay);
         }
     }
 }
@@ -1515,16 +652,19 @@ HAL_StatusTypeDef prepare_next_i2c_receive()
 
 void process_writable_register_update( uint8_t requested_address, uint8_t *reg_addr, uint8_t value )
 {
-    if ( requested_address == NAVX_REG_UPDATE_RATE_HZ ) {
-        *reg_addr = clip_sample_rate(value);
-        new_sample_rate = *reg_addr;
-        sample_rate_update = true;
-    } else if ( requested_address == NAVX_REG_INTEGRATION_CTL) {
-        /* This is a write-only register                        */
-    	/* Thus, only setting of bits is allowed here (clearing */
-    	/* of bits is performed in the foreground).             */
-        new_integration_control |= value;
-        integration_control_update = true;
+    if ( requested_address == VMX_PI_TEST_JIG_COMMDIO_OPMODE ) {
+        char requested_opmode = (char)value;
+        if ((requested_opmode == TEST_JIG_OPMODE_INPUT) ||
+        	(requested_opmode == TEST_JIG_OPMODE_OUTPUT) ||
+        	(requested_opmode == TEST_JIG_OPMODE_ECHO)) {
+        	*reg_addr = value;
+        	new_opmode_request = true;
+        	new_opmode_request_value = requested_opmode;
+        }
+    } else if ( requested_address == VMX_PI_TEST_JIG_COMMDIO_OUTPUT) {
+    	*reg_addr = value;
+        new_output_request = true;
+        new_output_request_value = value;
     }
 }
 
@@ -1706,7 +846,6 @@ typedef enum  {
     SLAVE_TX_ERR  /* Error occurred during SPI Slave transmit [NOTE:  not an error if BUSY error occurs. */
 } SPI_MSG_TYPE;
 
-bool spi_transmitting = false;                  // TRUE:  SPI Slave Transmit in progress (awaiting Master to complete Read)
 SPI_MSG_TYPE spi_last_valid_msg_type = NONE;    // Previous valid spi transaction type
 SPI_MSG_TYPE spi_last_err_msg_type = NONE;      // Previous invalid spi transaction type
 uint8_t spi_last_read_req_len = 0;              // # Bytes to be transmitted in curr/previous SPI Slave Transmit
@@ -1811,7 +950,7 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                 reg_count = spi1_RxBuffer[1];
 #endif
                 received_crc = spi1_RxBuffer[num_bytes_received-1];
-                calculated_crc = IMURegisters::getCRCWithTable(crc_lookup_table,spi1_RxBuffer,num_bytes_received-1);
+                calculated_crc = VMXPiTestJigRegisters::getCRCWithTable(crc_lookup_table,spi1_RxBuffer,num_bytes_received-1);
                 if ( ( reg_address != 0xFF ) && (reg_count > 0 ) && ( received_crc == calculated_crc ) ) {
                     if ( reg_address & 0x80 ) {
                         write = true;
@@ -1875,7 +1014,7 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                             spi_last_read_req_bank = bank;
                             memcpy(spi_tx_buffer,reg_addr,spi_last_read_req_len);
                             spi_tx_buffer[spi_last_read_req_len] =
-                                    IMURegisters::getCRCWithTable(crc_lookup_table, spi_tx_buffer,
+                                    VMXPiTestJigRegisters::getCRCWithTable(crc_lookup_table, spi_tx_buffer,
                                                                   (uint8_t)spi_last_read_req_len);
                             spi_last_valid_msg_type = READ_REQ;
                             spi_SR_at_beginning_of_last_write = hspi->Instance->SR;

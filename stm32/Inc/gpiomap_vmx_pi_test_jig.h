@@ -59,7 +59,7 @@
 #define _CAN_RESET_Pin GPIO_PIN_10
 #define _CAN_RESET_GPIO_Port GPIOC
 
-
+#if 0
 
 // Note:  UNUSED EXTI INTERRUPT CHANNELS:  4, 8, 10, 14
 
@@ -93,9 +93,29 @@
 #define NAVX_2_RPI_INT3_Pin GPIO_PIN_1
 #define NAVX_2_RPI_INT3_GPIO_Port GPIOD
 
+#endif
+
 #define CAN_OK_LED_Pin GPIO_PIN_15
 #define CAN_OK_LED_GPIO_Port GPIOE
 
+// CommDIO Pins (configurable as Inputs, Outputs, or for Digital Comms)
+// NOTE:  The pins are semantically named from the perspective of the VMX-pi board, not the test jig!  This impacts the UART pins.
+#define COMMDIO_I2C_SDA_Pin	GPIO_PIN_9
+#define COMMDIO_I2C_SDA_GPIO_Port GPIOC
+#define COMMDIO_I2C_SCL_Pin	GPIO_PIN_8
+#define COMMDIO_I2C_SCL_GPIO_Port GPIOA
+#define COMMDIO_UART_TX_Pin	GPIO_PIN_7
+#define COMMDIO_UART_TX_GPIO_Port GPIOC
+#define COMMDIO_UART_RX_Pin	GPIO_PIN_6
+#define COMMDIO_UART_RX_GPIO_Port GPIOC
+#define COMMDIO_SPI_SCK_Pin	GPIO_PIN_5
+#define COMMDIO_SPI_SCK_GPIO_Port GPIOA
+#define COMMDIO_SPI_MOSI_Pin	GPIO_PIN_7
+#define COMMDIO_SPI_MOSI_GPIO_Port GPIOA
+#define COMMDIO_SPI_MISO_Pin	GPIO_PIN_6
+#define COMMDIO_SPI_MISO_GPIO_Port GPIOA
+#define COMMDIO_SPI_CS_Pin	GPIO_PIN_4
+#define COMMDIO_SPI_CS_GPIO_Port GPIOA
 
 /* USER CODE END Private defines	 */
 

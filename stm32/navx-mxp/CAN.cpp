@@ -592,3 +592,94 @@ _EXTERN_ATTRIB void CAN_banked_writable_reg_update_func(uint8_t bank, uint8_t re
 	}
 }
 
+// Local Access Functions
+
+_EXTERN_ATTRIB uint8_t CAN_get_rx_fifo_entry_count()
+{
+	return can_regs.rx_fifo_entry_count;
+}
+
+_EXTERN_ATTRIB uint8_t CAN_get_tx_fifo_entry_count()
+{
+	return can_regs.tx_fifo_entry_count;
+}
+
+// Returns 0 if p_rx_transfer contains new data
+_EXTERN_ATTRIB int CAN_get_next_rx_transfer(TIMESTAMPED_CAN_TRANSFER *p_rx_transfer)
+{
+	uint16_t read_size;
+	TIMESTAMPED_CAN_TRANSFER *p_data = (TIMESTAMPED_CAN_TRANSFER *)CAN_rxfifo_read(sizeof(TIMESTAMPED_CAN_TRANSFER), &read_size);
+	if (p_data && (read_size == sizeof(TIMESTAMPED_CAN_TRANSFER))) {
+		if (p_data->transfer.id.sidl.invalid) {
+			return -1;
+		}
+		memcpy(p_rx_transfer, p_data, sizeof(TIMESTAMPED_CAN_TRANSFER));
+		return 0;
+	}
+	return -1;
+}
+
+// Returns 0 if successful
+_EXTERN_ATTRIB int CAN_add_tx_transfer(CAN_TRANSFER *transfer_to_transmit)
+{
+	CAN_txfifo_write((uint8_t *)transfer_to_transmit, sizeof(CAN_TRANSFER));
+	return 0;
+}
+
+_EXTERN_ATTRIB void CAN_set_opmode(CAN_MODE mode)
+{
+	can_regs.opmode = mode;
+	CAN_opmode_modified(0, sizeof(uint8_t));
+}
+
+_EXTERN_ATTRIB void CAN_command(uint8_t command)
+{
+	can_regs.command = command;
+	CAN_command_modified(0, sizeof(uint8_t));
+}
+
+// Valid Indices 0-1
+_EXTERN_ATTRIB void CAN_set_buffer_filter_mode(uint8_t rx_buffer_index, CAN_RX_FILTER_MODE filter_mode)
+{
+	if (rx_buffer_index < NUM_RX_BUFFERS) {
+		can_regs.rx_filter_mode[rx_buffer_index] = (uint8_t)filter_mode;
+		if (rx_buffer_index == 0) {
+			CAN_rx_filter_mode_modified(0, sizeof(CAN_RX_FILTER_MODE));
+		} else {
+			CAN_rx_filter_mode_modified(0 + sizeof(CAN_RX_FILTER_MODE), sizeof(CAN_RX_FILTER_MODE));
+		}
+	}
+}
+
+// Valid Indices 0.0;0.1;1.0;1.1;1.2;1.3
+_EXTERN_ATTRIB void CAN_set_filter(uint8_t rx_buffer_index, uint8_t rx_filter_index, CAN_ID filter)
+{
+	if (((rx_buffer_index == 0) && (rx_filter_index < NUM_ACCEPT_FILTERS_RX0_BUFFER)) ||
+		((rx_buffer_index == 1) && (rx_filter_index < NUM_ACCEPT_FILTERS_RX1_BUFFER))) {
+
+		CAN_ID* p_filter_to_modify = (rx_buffer_index == 0) ? &can_regs.accept_filter_rxb0[0] : &can_regs.accept_filter_rxb1[0];
+		p_filter_to_modify += rx_filter_index;
+		*p_filter_to_modify = filter;
+		uint8_t offset = (uint8_t)((char *)p_filter_to_modify - (char *)&can_regs);
+		if (rx_buffer_index == 0) {
+			CAN_accept_filter_rxb0_modified(0, sizeof(CAN_ID));
+		} else {
+			CAN_accept_filter_rxb1_modified(0 + sizeof(CAN_ID), sizeof(CAN_ID));
+		}
+	}
+}
+
+// Valid Indices 0-1
+_EXTERN_ATTRIB void CAN_set_mask(uint8_t rx_buffer_index, CAN_ID mask)
+{
+	if (rx_buffer_index < NUM_RX_BUFFERS) {
+		if (rx_buffer_index == 0) {
+			can_regs.accept_mask_rxb0 = mask;
+			CAN_accept_mask_rxb0_modified(0, sizeof(CAN_ID));
+		} else {
+			can_regs.accept_mask_rxb1 = mask;
+			CAN_accept_mask_rxb1_modified(0 + sizeof(CAN_ID), sizeof(CAN_ID));
+		}
+	}
+}
+

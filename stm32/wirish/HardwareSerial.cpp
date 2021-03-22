@@ -37,6 +37,8 @@ HardwareSerial Serial6;
 
 #define BUFFERED_WRITE /* Define this symbol to enable buffer writing */
 
+//#define LOOPBACK 1
+
 HardwareSerial::HardwareSerial() {
     this->rx_buffer_bytes_available = 0;
     this->rx_buffer_index = 0;
@@ -106,9 +108,13 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
         if ( ( uart_status_reg & 0x20 ) != 0 ) {
             uint32_t rx_data_reg = UartHandle->Instance->DR;
             uint8_t rx_data = (uint8_t)rx_data_reg & 0x000000FF;
+#ifdef LOOPBACK
+            Serial6.write(&rx_data, 1);
+#else
             Serial6.rx_buffer[Serial6.rx_buffer_index] = rx_data;
             Serial6.rx_buffer_index++;
             Serial6.rx_buffer_bytes_available++;
+#endif
         }
     }
 
@@ -150,7 +156,7 @@ uint32_t noise_error_count = 0;
 uint32_t framing_error_count = 0;
 uint32_t dma_transfer_error_count = 0;
 
-static void ResetUart()
+void HardwareSerial::ResetUart()
 {
     /* Reset the UART.  The begin() method only takes effect if */
     /* the baud rate changes, so force a change here.           */
@@ -180,6 +186,8 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *UartHandle)
         dma_transfer_error_count++;
     }
 
+    //Serial6.ResetUart();
+
     // Since whenever the error callback is invoked, the
     // uart state is set to ready, this means any transfers
     // in progress were aborted.  The packet that was
@@ -199,7 +207,6 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *UartHandle)
             Serial6.receive_request_pending = true;
         }
     }
-    //ResetUart();
 }
 
 

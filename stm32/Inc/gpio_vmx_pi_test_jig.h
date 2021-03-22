@@ -44,7 +44,7 @@
 
 /* USER CODE BEGIN Includes */
 
-#include "gpiomap_navx-pi.h"
+#include "gpiomap_vmx_pi_test_jig.h"
 
 /* USER CODE END Includes */
 
@@ -52,7 +52,7 @@
 
 /* USER CODE END Private defines */
 
-int MX_GPIO_Init_NavX_PI(void); // returns board revision (0-7)
+void MX_GPIO_Init_VMX_PI_Test_Jig(void); // returns board revision (0-7)
 int MX_CAN_Interrupt_Verify(int fix);
 
 /* USER CODE BEGIN Prototypes */

@@ -43,7 +43,7 @@ extern DMA_HandleTypeDef hdma_spi1_rx;
 
 extern DMA_HandleTypeDef hdma_usart6_tx;
 
-#ifdef GPIO_MAP_NAVX_PI
+#if defined(GPIO_MAP_NAVX_PI) || defined(GPIO_MAP_VMX_PI_TEST_JIG)
 #	define I2C2_SDA_GPIO_PIN GPIO_PIN_9
 #	define SPI1_NSS_GPIO_PIN GPIO_PIN_4
 #else
@@ -89,6 +89,18 @@ void HAL_MspInit(void)
 
 #define GPIO_AF9_I2C2          ((uint8_t)0x09)  /* I2C2 Alternate Function mapping  */
 #define GPIO_AF9_I2C3          ((uint8_t)0x09)  /* I2C2 Alternate Function mapping  */
+
+// I2C3 SCA Pin Alternate GPIO Mapping
+
+#ifdef GPIO_MAP_VMX_PI_TEST_JIG
+#define GPIO_PIN_I2C3_SDA	GPIO_PIN_9
+#define GPIO_PORT_I2C3_SDA	GPIOC
+#define ALT_FUNC_I2C3_SDA	GPIO_AF4_I2C3
+#else
+#define GPIO_PIN_I2C3_SDA	GPIO_PIN_4
+#define GPIO_PORT_I2C3_SDA	GPIOB
+#define ALT_FUNC_I2C3_SDA	GPIO_AF9_I2C3
+#endif
 
 void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
 {
@@ -146,12 +158,12 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
         GPIO_InitStruct.Alternate = GPIO_AF4_I2C3;
         HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-        GPIO_InitStruct.Pin = GPIO_PIN_4;
+        GPIO_InitStruct.Pin = GPIO_PIN_I2C3_SDA;
         GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
         GPIO_InitStruct.Pull = GPIO_NOPULL;
         GPIO_InitStruct.Speed = GPIO_SPEED_HIGH; // GPIO_SPEED_LOW;
-        GPIO_InitStruct.Alternate = GPIO_AF9_I2C3;
-        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+        GPIO_InitStruct.Alternate = ALT_FUNC_I2C3_SDA;
+        HAL_GPIO_Init(GPIO_PORT_I2C3_SDA, &GPIO_InitStruct);
 
         /* Peripheral DMA init*/
 
@@ -178,6 +190,7 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
         HAL_NVIC_EnableIRQ(I2C3_EV_IRQn);
         HAL_NVIC_SetPriority(I2C3_ER_IRQn, 2, 0);
         HAL_NVIC_EnableIRQ(I2C3_ER_IRQn);
+
         /* USER CODE BEGIN I2C3_MspInit 1 */
 
         /* USER CODE END I2C3_MspInit 1 */
@@ -220,7 +233,7 @@ void HAL_I2C_MspDeInit(I2C_HandleTypeDef* hi2c)
          */
         HAL_GPIO_DeInit(GPIOA, GPIO_PIN_8);
 
-        HAL_GPIO_DeInit(GPIOB, GPIO_PIN_4);
+        HAL_GPIO_DeInit(GPIO_PORT_I2C3_SDA, GPIO_PIN_I2C3_SDA);
 
         /* Peripheral DMA DeInit*/
         HAL_DMA_DeInit(hi2c->hdmatx);

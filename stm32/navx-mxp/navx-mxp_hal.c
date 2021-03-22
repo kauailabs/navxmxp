@@ -36,6 +36,14 @@ THE SOFTWARE.
 #include "ext_interrupts.h"
 #include "DWTDelay.h"
 #endif
+#ifdef GPIO_MAP_VMX_PI_TEST_JIG
+#include "gpiomap_vmx_pi_test_jig.h"
+#include "adc_vmx_pi_test_jig.h"
+#include "MISCRegisters.h"
+extern I2C_HandleTypeDef hi2c3;
+extern SPI_HandleTypeDef hspi1;
+extern UART_HandleTypeDef huart6;
+#endif
 #ifdef ENABLE_RTC
 extern RTC_HandleTypeDef hrtc;
 static uint8_t s_daylight_savings = 0; /* Default: no daylight savings adjust */
@@ -69,12 +77,14 @@ void HAL_LED_Init()
 
 void HAL_I2C_Power_Init()
 {
+#ifndef NAVX_BOARDTYPE_VMX_PI_TEST_JIG_1_0
 	GPIO_InitTypeDef I2C_Power_InitStruct;
 	I2C_Power_InitStruct.Pin = _I2C_DEV_ON_Pin;
 	I2C_Power_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
 	I2C_Power_InitStruct.Pull = GPIO_NOPULL;
 	I2C_Power_InitStruct.Speed = GPIO_SPEED_LOW;
 	HAL_GPIO_Init(_I2C_DEV_ON_GPIO_Port, &I2C_Power_InitStruct);
+#endif
 }
 
 void HAL_CAL_Button_Init()
@@ -145,7 +155,7 @@ int HAL_SPI_Slave_Enabled()
 #ifdef DISABLE_EXTERNAL_SPI_INTERFACE
     return 0;
 #else
-#ifdef GPIO_MAP_NAVX_PI
+#if defined GPIO_MAP_NAVX_PI || defined GPIO_MAP_VMX_PI_TEST_JIG
     return 1;
 #else
 	return (HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_14) != GPIO_PIN_SET);
@@ -157,6 +167,10 @@ int HAL_UART_Slave_Enabled()
 {
 #ifdef DISABLE_EXTERNAL_UART_INTERFACE
 	return 0;
+#else
+#ifdef GPIO_MAP_VMX_PI_TEST_JIG
+    return 1;
+#endif
 #endif
 	return (HAL_GPIO_ReadPin(GPIOB,GPIO_PIN_15) != GPIO_PIN_SET);
 }
@@ -165,14 +179,18 @@ int HAL_UART_Slave_Enabled()
 
 void HAL_I2C_Power_On()
 {
+#ifndef NAVX_BOARDTYPE_VMX_PI_TEST_JIG_1_0
 	HAL_I2C_Power_Off();
 	HAL_GPIO_WritePin(_I2C_DEV_ON_GPIO_Port, _I2C_DEV_ON_Pin, GPIO_PIN_RESET);
 	HAL_Delay(50); /* Give devices time to power up */
+#endif
 }
 
 void HAL_I2C_Power_Off()
 {
+#ifndef NAVX_BOARDTYPE_VMX_PI_TEST_JIG_1_0
 	HAL_GPIO_WritePin(_I2C_DEV_ON_GPIO_Port, _I2C_DEV_ON_Pin, GPIO_PIN_SET);
+#endif
 }
 
 
@@ -1925,7 +1943,6 @@ static const uint8_t c_num_adc_samples_per_channel_per_transfer = (sizeof(adc_sa
 static const uint16_t c_num_adc_samples_per_channel = sizeof(adc_samples) / sizeof(adc_samples[0]);
 // The oldest quarter of all adc samples are not accessed, because they may be modified by active DMA transfer.
 static const uint16_t c_num_reserved_adc_samples_per_channel = sizeof(adc_samples) / sizeof(adc_samples[0]) / 4;
-#endif
 
 // Returns the total number of samples acquired (one for each ADC channel) since startup, and also
 // a count of the number of full dma transfer cycles and the number of samples currently acquired
@@ -2012,6 +2029,7 @@ uint64_t HAL_IOCX_ADC_GetAverageSetFinalSamplePosition(uint64_t complete_sample_
 	// This count now represents last sample in the most recent "average" sample set.
 	return final_average_sample_position;
 }
+#endif
 
 /* Note:  ADC DMA is configured for 16-bit words.  The "Length" Parameter to HAL_ADC_Start_DMA */
 /* below is the number of 16-bit words transferred - NOT the number of bytes.                  */
@@ -2035,6 +2053,7 @@ void HAL_IOCX_ADC_Enable(int enable)
 #endif
 }
 
+#ifdef ENABLE_ADC
 void HAL_IOCX_ADC_Get_OversampledAveraged_Request_Samples(int channel, uint16_t latest_pos, uint32_t *p_latest_oversample, uint8_t oversample_bits, uint32_t *p_avg, uint8_t avg_bits, uint16_t *prev_sample_average_set_pos)
 {
 	// Range check requested position, to ensure the max # of power bits is not exceeded
@@ -2134,7 +2153,7 @@ void HAL_IOCX_ADC_Get_OversampledAveraged_Request_Samples(int channel, uint16_t 
 	*p_latest_oversample = ovsData;
 	*p_avg = avgData;
 }
-
+#endif
 
 void HAL_IOCX_ADC_Get_Latest_Samples(int start_channel, int n_channels, uint32_t *p_oversamples, uint8_t oversample_bits, uint32_t *p_avgsamples, uint8_t avg_bits)
 {
@@ -2546,4 +2565,180 @@ unsigned char HAL_GetBoardRev() {
 	board_rev += vmxpi_board_rev_count;
 #endif
 	return board_rev;
+}
+
+#define COMMDIO_NUM_GPIOS	8
+#define COMMDIO_NUM_COMMS	3
+
+typedef enum  {
+	COMMDIO_PERIPHERAL_I2C3,
+	COMMDIO_PERIPHERAL_UART6,
+	COMMDIO_PERIPHERAL_SPI1,
+} COMMDIO_PERIPHERAL_TYPE;
+
+typedef struct {
+	GPIO_TypeDef  *GPIOPort;
+	uint32_t GPIOPin;
+	int allow_output;
+	int allow_input;
+} TestJigCommDIO_GPIOConfig;
+
+typedef struct {
+	COMMDIO_PERIPHERAL_TYPE type;
+	union {
+		I2C_HandleTypeDef* i2c;
+		SPI_HandleTypeDef* spi;
+		UART_HandleTypeDef *uart;
+	} DigCommPeriphHandle;
+} TestJigCommDIO_CommConfig;
+
+static TestJigCommDIO_GPIOConfig commdio_gpio_configs[COMMDIO_NUM_GPIOS] =
+{
+	{COMMDIO_I2C_SDA_GPIO_Port, 	COMMDIO_I2C_SDA_Pin,	1,	1	},	// I2C pins are bidirectional
+	{COMMDIO_I2C_SCL_GPIO_Port, 	COMMDIO_I2C_SCL_Pin,	1,	1	},  // I2C pins are bidirectional
+	{COMMDIO_UART_TX_GPIO_Port, 	COMMDIO_UART_TX_Pin,	0,	1	},
+	{COMMDIO_UART_RX_GPIO_Port, 	COMMDIO_UART_RX_Pin,	1,	0	},
+	{COMMDIO_SPI_SCK_GPIO_Port, 	COMMDIO_SPI_SCK_Pin,	0,	1	},
+	{COMMDIO_SPI_MOSI_GPIO_Port,	COMMDIO_SPI_MOSI_Pin,	0,	1	},
+	{COMMDIO_SPI_MISO_GPIO_Port, 	COMMDIO_SPI_MISO_Pin,	1,	0	},
+	{COMMDIO_SPI_CS_GPIO_Port,		COMMDIO_SPI_CS_Pin,		0,	1	},
+};
+
+static TestJigCommDIO_CommConfig commdio_comm_configs[COMMDIO_NUM_COMMS] =
+{
+	{COMMDIO_PERIPHERAL_I2C3, 	{.i2c = &hi2c3}},
+	{COMMDIO_PERIPHERAL_UART6, 	{.uart = &huart6}},
+	{COMMDIO_PERIPHERAL_SPI1, 	{.spi = &hspi1}},
+};
+
+int HAL_CommDIOPins_IsConfiguredForCommunication() {
+	int configured_count = 0;
+	int i;
+	for (i = 0; i < COMMDIO_NUM_COMMS; i++) {
+		switch(commdio_comm_configs[i].type) {
+		case COMMDIO_PERIPHERAL_I2C3:
+			if (commdio_comm_configs[i].DigCommPeriphHandle.i2c->State != HAL_I2C_STATE_RESET) {
+				configured_count++;
+			}
+			break;
+		case COMMDIO_PERIPHERAL_UART6:
+			if (commdio_comm_configs[i].DigCommPeriphHandle.uart->State != HAL_UART_STATE_RESET) {
+				configured_count++;
+			}
+			break;
+		case COMMDIO_PERIPHERAL_SPI1:
+			if (commdio_comm_configs[i].DigCommPeriphHandle.spi->State != HAL_SPI_STATE_RESET) {
+				configured_count++;
+			}
+			break;
+		}
+	}
+	return configured_count; // If not 0, at least one CommDIO Comm Perhiperal is active
+}
+
+void HAL_CommDIOPins_ConfigForCommunication()
+{
+	int i;
+	for (i = 0; i < COMMDIO_NUM_COMMS; i++) {
+		switch(commdio_comm_configs[i].type) {
+		case COMMDIO_PERIPHERAL_I2C3:
+			HAL_I2C_MspInit(commdio_comm_configs[i].DigCommPeriphHandle.i2c);
+			break;
+		case COMMDIO_PERIPHERAL_UART6:
+			HAL_UART_MspInit(commdio_comm_configs[i].DigCommPeriphHandle.uart);
+			break;
+		case COMMDIO_PERIPHERAL_SPI1:
+			HAL_SPI_MspInit(commdio_comm_configs[i].DigCommPeriphHandle.spi);
+			break;
+		}
+	}
+}
+
+void HAL_CommDIOPins_UnConfigForCommunication()
+{
+	int i;
+	for (i = 0; i < COMMDIO_NUM_COMMS; i++) {
+		switch(commdio_comm_configs[i].type) {
+		case COMMDIO_PERIPHERAL_I2C3:
+			HAL_I2C_MspDeInit(commdio_comm_configs[i].DigCommPeriphHandle.i2c);
+			break;
+		case COMMDIO_PERIPHERAL_UART6:
+			HAL_UART_MspDeInit(commdio_comm_configs[i].DigCommPeriphHandle.uart);
+			break;
+		case COMMDIO_PERIPHERAL_SPI1:
+			HAL_SPI_MspDeInit(commdio_comm_configs[i].DigCommPeriphHandle.spi);
+			break;
+		}
+	}
+}
+
+void HAL_CommDIOPins_ConfigForInput()
+{
+	int i;
+	GPIO_InitTypeDef GPIO_InitStruct;
+
+	if (HAL_CommDIOPins_IsConfiguredForCommunication()) {
+		HAL_CommDIOPins_UnConfigForCommunication();
+	}
+	for (i = 0; i < COMMDIO_NUM_GPIOS; i++) {
+		if (commdio_gpio_configs[i].allow_input) {
+			memset(&GPIO_InitStruct,0,sizeof(GPIO_InitStruct));
+			GPIO_InitStruct.Pin = commdio_gpio_configs[i].GPIOPin;
+			GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+			GPIO_InitStruct.Pull = GPIO_NOPULL;	// TODO:  Review if "no pull" is correct setting for all CommDIO inputs
+			GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+			HAL_GPIO_Init(commdio_gpio_configs[i].GPIOPort, &GPIO_InitStruct);
+		}
+	}
+}
+
+void HAL_CommDIOPins_ConfigForOutput()
+{
+	int i;
+	GPIO_InitTypeDef GPIO_InitStruct;
+
+	if (HAL_CommDIOPins_IsConfiguredForCommunication()) {
+		HAL_CommDIOPins_UnConfigForCommunication();
+	}
+	for (i = 0; i < COMMDIO_NUM_GPIOS; i++) {
+		if (commdio_gpio_configs[i].allow_output) {
+			memset(&GPIO_InitStruct,0,sizeof(GPIO_InitStruct));
+			GPIO_InitStruct.Pin = commdio_gpio_configs[i].GPIOPin;
+			GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+			GPIO_InitStruct.Pull = GPIO_NOPULL;	// TODO:  Should pullups be used for Input-mode CommDIOs?
+			GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+			HAL_GPIO_Init(commdio_gpio_configs[i].GPIOPort, &GPIO_InitStruct);
+		}
+	}
+}
+
+void HAL_CommDIOPins_Get(uint8_t* p_value)
+{
+	int i;
+	int bitmask;
+	*p_value = 0;
+	for (i = 0; i < COMMDIO_NUM_GPIOS; i++) {
+		bitmask = (1 << i);
+		if (commdio_gpio_configs[i].allow_input) {
+			if (HAL_GPIO_ReadPin(commdio_gpio_configs[i].GPIOPort,commdio_gpio_configs[i].GPIOPin) == GPIO_PIN_SET) {
+				*p_value |= bitmask;
+			}
+		}
+	}
+}
+
+void HAL_CommDIOPins_Set(uint8_t value)
+{
+	int i;
+	int bitmask;
+	for (i = 0; i < COMMDIO_NUM_GPIOS; i++) {
+		bitmask = (1 << i);
+		if (commdio_gpio_configs[i].allow_output) {
+			if (value & bitmask) {
+				HAL_GPIO_WritePin(commdio_gpio_configs[i].GPIOPort,commdio_gpio_configs[i].GPIOPin,GPIO_PIN_SET);
+			} else {
+				HAL_GPIO_WritePin(commdio_gpio_configs[i].GPIOPort,commdio_gpio_configs[i].GPIOPin,GPIO_PIN_RESET);
+			}
+		}
+	}
 }

@@ -11,6 +11,7 @@
 #include "stm32f4xx_hal.h"
 #include "CAN_hal_types.h"
 #include "FIFO.h"
+#include "CAN.h"
 
 typedef int CAN_INTERFACE_STATUS;
 

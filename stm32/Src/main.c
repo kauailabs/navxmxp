@@ -37,8 +37,12 @@
 #include "usb_device.h"
 /* USER CODE BEGIN Includes */
 #include "navx-mxp.h"
-#include "iocx.h"
+//#include "iocx.h"
 #include "navx-mxp_hal.h"
+#ifdef ENABLE_VMX_PI_TEST_JIG_EXTERNAL_I2C_INTERFACE_ALTERNATE
+#include "gpiomap_vmx_pi_test_jig.h"
+#include "gpio_vmx_pi_test_jig.h"
+#endif
 #ifdef ENABLE_IOCX
 #include "gpio_navx-pi.h"
 #include "adc_navx-pi.h"
@@ -81,7 +85,9 @@ static void MX_I2C3_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USART6_UART_Init(void);
+#if defined(ENABLE_RTC)
 static void MX_RTC_Init(void);
+#endif
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -151,7 +157,7 @@ int main(void)
     HAL_Init();
     /* Configure the system clock */
     SystemClock_Config();
-    int board_rev = MX_GPIO_Init();
+    MX_GPIO_Init();
 
     USB_Soft_Disconnect();
 
@@ -207,11 +213,13 @@ int main(void)
     nav10_set_register_write_func(IOCX_EX_BANK_NUMBER, IOCX_banked_writable_reg_update_func);
 #endif // ENABLE_IOCX
 #ifdef ENABLE_CAN_TRANSCEIVER
+#ifndef GPIO_MAP_VMX_PI_TEST_JIG
 #define CAN_BANK_NUMBER 2
     CAN_init();
     nav10_set_loop(CAN_BANK_NUMBER, CAN_loop);
     nav10_set_register_lookup_func(CAN_BANK_NUMBER, CAN_get_reg_addr_and_max_size);
     nav10_set_register_write_func(CAN_BANK_NUMBER, CAN_banked_writable_reg_update_func);
+#endif
 #endif // ENABLE_CAN_TRANSCEIVER
 #ifdef ENABLE_MISC
 #define MISC_BANK_NUMBER 3
@@ -233,7 +241,6 @@ void SystemClock_Config(void)
 {
     RCC_OscInitTypeDef RCC_OscInitStruct;
     RCC_ClkInitTypeDef RCC_ClkInitStruct;
-    RCC_PeriphCLKInitTypeDef PeriphClkInitStruct;
 
     __PWR_CLK_ENABLE();
     __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
@@ -250,8 +257,11 @@ void SystemClock_Config(void)
     RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
     RCC_OscInitStruct.PLL.PLLQ = 8;
     HAL_RCC_OscConfig(&RCC_OscInitStruct);
+    //RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1;
+
     RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                                 |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+
     RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
     RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
     RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4; // 24Mhz.  Was RCC_HCLK_DIV2 (48Mhz);
@@ -259,6 +269,7 @@ void SystemClock_Config(void)
     HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3 );
 #ifdef ENABLE_LSE
 #ifdef ENABLE_RTC
+    RCC_PeriphCLKInitTypeDef PeriphClkInitStruct;
     /* Feed Real-time Clock via Low-Speed External (LSE) */
     PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC;
     PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
@@ -270,6 +281,7 @@ void SystemClock_Config(void)
 /* I2C2 init function */
 void MX_I2C2_Init(void)
 {
+#ifndef ENABLE_VMX_PI_TEST_JIG_EXTERNAL_I2C_INTERFACE_ALTERNATE
     hi2c2.Instance = I2C2;
     hi2c2.Init.ClockSpeed = 200000;
     hi2c2.Init.DutyCycle = I2C_DUTYCYCLE_2;
@@ -280,6 +292,7 @@ void MX_I2C2_Init(void)
     hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLED;
     hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLED;
     HAL_I2C_Init(&hi2c2);
+#endif
 }
 
 /* I2C3 init function */
@@ -351,6 +364,8 @@ void MX_SPI2_Init(void)
 /* USART6 init function */
 void MX_USART6_UART_Init(void)
 {
+	uint32_t pclk1_freq = HAL_RCC_GetPCLK1Freq();
+	uint32_t pclk2_freq = HAL_RCC_GetPCLK2Freq();
 #ifndef DISABLE_EXTERNAL_UART_INTERFACE
     huart6.Instance = USART6;
     huart6.Init.BaudRate = 57600;
@@ -374,10 +389,11 @@ void MX_USART6_UART_Init(void)
  */
 int MX_GPIO_Init(void)
 {
-	int board_rev = 7; // Board revisions are 3-bit values (0-7).  Default is 7.
-
-#ifdef GPIO_MAP_NAVX_PI
+	int board_rev = 7;
+#if defined GPIO_MAP_NAVX_PI
     board_rev = MX_GPIO_Init_NavX_PI();
+#elif defined GPIO_MAP_VMX_PI_TEST_JIG
+    MX_GPIO_Init_VMX_PI_Test_Jig();
 #else
 	GPIO_InitTypeDef GPIO_InitStruct;
 
@@ -481,9 +497,9 @@ void MX_DMA_Init(void)
 }
 
 /* RTC init function */
+#ifdef ENABLE_RTC
 void MX_RTC_Init(void)
 {
-#ifdef ENABLE_RTC
 
 	RTC_TimeTypeDef sTime;
 	RTC_DateTypeDef sDate;
@@ -536,8 +552,8 @@ void MX_RTC_Init(void)
 		HAL_RTC_SetDate(&hrtc, &sDate, FORMAT_BIN);
 	}
 	HAL_RTC_InitializeCache();
-#endif
 }
+#endif
 
 /* USER CODE BEGIN 4 */
 
