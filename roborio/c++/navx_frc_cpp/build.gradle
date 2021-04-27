@@ -14,6 +14,10 @@ if (project.hasProperty('releaseMode')) {
     wpilibRepositories.addAllDevelopmentRepositories(project)
 }
 
+tasks.withType(GenerateModuleMetadata) {
+    enabled = false
+}
+
 apply from: 'config.gradle'
 
 task copyFirmwareHeaders(type: Copy) {

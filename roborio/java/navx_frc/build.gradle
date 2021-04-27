@@ -33,6 +33,10 @@ dependencies {
     api 'edu.wpi.first.thirdparty.frc2020.opencv:opencv-java:3.4.7-2'
 }
 
+tasks.withType(GenerateModuleMetadata) {
+    enabled = false
+}
+
 sourceSets {
     main {
         java {
