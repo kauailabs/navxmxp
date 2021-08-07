@@ -54,6 +54,7 @@ Source: "weblinks\vmx-pi-software.url"; DestDir: "{app}"
 Source: "graphics\*.*"; DestDir: "{app}\graphics"; Flags: recursesubdirs
 
 Source: "..\stm32\bin\vmx-pi*.hex"; DestDir: "{%HOMEPATH}\vmx-pi\firmware"; Flags:
+Source: "..\stm32\bin\vmx-pi*.hex"; DestDir: "{%HOMEPATH}\vmx-pi\firmware\classic_VMX"; Flags:
 
 [Run]
 Filename: "{app}\installers\vcp\Win7\dpinst_amd64.exe"; Parameters: "/SW"; Flags: 64bit; OnlyBelowVersion: 0,6.2; Check: IsWin64
