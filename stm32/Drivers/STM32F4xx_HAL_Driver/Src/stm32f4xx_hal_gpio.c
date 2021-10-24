@@ -343,16 +343,21 @@ void HAL_GPIO_DeInit(GPIO_TypeDef  *GPIOx, uint32_t GPIO_Pin)
 
       /*------------------------- EXTI Mode Configuration --------------------*/
       /* Configure the External Interrupt or event for the current IO */
-      tmp = ((uint32_t)0x0F) << (4 * (position & 0x03));
-      SYSCFG->EXTICR[position >> 2] &= ~tmp;
+      tmp = SYSCFG->EXTICR[position >> 2];
+      tmp &= (((uint32_t)0x0F) << (4 * (position & 0x03)));
+      if(tmp == (GET_GPIO_SOURCE(GPIOx) << (4 * (position & 0x03))))
+      {
+        tmp = ((uint32_t)0x0F) << (4 * (position & 0x03));
+        SYSCFG->EXTICR[position >> 2] &= ~tmp;
 
-      /* Clear EXTI line configuration */
-      EXTI->IMR &= ~((uint32_t)iocurrent);
-      EXTI->EMR &= ~((uint32_t)iocurrent);
+        /* Clear EXTI line configuration */
+        EXTI->IMR &= ~((uint32_t)iocurrent);
+        EXTI->EMR &= ~((uint32_t)iocurrent);
 
-      /* Clear Rising Falling edge configuration */
-      EXTI->RTSR &= ~((uint32_t)iocurrent);
-      EXTI->FTSR &= ~((uint32_t)iocurrent);
+        /* Clear Rising Falling edge configuration */
+        EXTI->RTSR &= ~((uint32_t)iocurrent);
+        EXTI->FTSR &= ~((uint32_t)iocurrent);
+      }
     }
   }
 }

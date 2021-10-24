@@ -294,6 +294,7 @@ _EXTERN_ATTRIB void CAN_loop()
 			CAN_loop_int_flags.tx_fifo_empty = (curr_tx_fifo_count == 0);
 
 			if (can_regs.int_flags.tx_fifo_empty != CAN_loop_int_flags.tx_fifo_empty) {
+				CAN_loop_int_mask.tx_fifo_empty = 1;
 				p_CAN->disable_CAN_interrupts();
 				CAN_ISR_Flag_Function(CAN_loop_int_mask, CAN_loop_int_flags);
 				p_CAN->enable_CAN_interrupts();

@@ -5,4 +5,4 @@ TASKKILL /F /IM openocd.exe
 set flasher="%ProgramFiles(x86)%\STMicroelectronics\STM32 ST-LINK Utility\ST-LINK Utility\ST-LINK_CLI.exe"
 set binary=vmx-pi.srec
 REM Download firmware, and protect ALL flash pages except the second (which is used for parameter storage)
-%flasher% -c SWD SWCLK=9 -OB WRP=0x00000002 -P %binary% -V
+%flasher% -c SWD SWCLK=9 -OB WRP=0xFFFFFFFD -P %binary% -V

@@ -347,19 +347,36 @@ void CANInterface::process_transmit_fifo() {
 	HAL_StatusTypeDef spi_status = HAL_MCP25625_Read_Status(&status);
 	enable_CAN_interrupts();
 	if(spi_status==HAL_OK){
+
+		bool use_buff2 = true;		// Set to true to transmit via TX2
+		bool use_buff1 = false;     // Set to true to transmit via TX1
+		bool use_buff0 = false;     // Set to true to transmit via TX0
+
 		while(!tx_fifo.is_empty()) {
 			MCP25625_TX_BUFFER_INDEX available_tx_index;
-			if(!(status & QSTAT_TX0REQ) &&
-			   !(status & QSTAT_TX0IF)) {
-				available_tx_index = TXB0;
-			} else if(!(status & QSTAT_TX1REQ) &&
-					  !(status & QSTAT_TX1IF)) {
-				available_tx_index = TXB1;
-			} else if(!(status & QSTAT_TX2REQ) &&
-					  !(status & QSTAT_TX2IF)) {
+			// To ensure that messages are transmitted in the same order as in the FIFO:
+			// 1) Each tx buffer shares the same priority, thus the highest numbered buffer is transmitted first.
+			// 2) Only load a higher-numbered buffer if all of the lower-numbered buffers are empty
+			if(use_buff2 && !(status & QSTAT_TX2REQ) && !(status & QSTAT_TX2IF)) {
 				available_tx_index = TXB2;
+			} else if(use_buff1 && !(status & QSTAT_TX1REQ) && !(status & QSTAT_TX1IF)) {
+				available_tx_index = TXB1;
+			} else if(use_buff0 && !(status & QSTAT_TX0REQ) && !(status & QSTAT_TX0IF)) {
+				available_tx_index = TXB0;
 			} else {
 				break;
+			}
+			if (available_tx_index == TXB2) {
+				if (((status & QSTAT_TX1REQ) || (status & QSTAT_TX1IF)) ||
+					((status & QSTAT_TX0REQ) || (status & QSTAT_TX0IF))) {
+					status = (MCP25625_CAN_QUICK_STATUS)(status | QSTAT_TX2REQ);
+					continue;
+				}
+			} else if (available_tx_index == TXB1) {
+				if ((status & QSTAT_TX0REQ) || (status & QSTAT_TX0IF)) {
+					status = (MCP25625_CAN_QUICK_STATUS)(status | QSTAT_TX1REQ);
+					continue;
+				}
 			}
 			CAN_TRANSFER_PADDED *p_data = tx_fifo.dequeue();
 			if(p_data) {
@@ -380,7 +397,6 @@ void CANInterface::process_transmit_fifo() {
 					}
 				}
 				enable_CAN_interrupts();
-				break;
 			}
 		}
 	}
@@ -501,12 +517,12 @@ CAN_INTERFACE_STATUS CANInterface::init(CAN_MODE mode, CAN_BITRATE bitrate) {
 	if (HAL_MCP25625_HW_Ctl_Set(&tx_ctl))
 		goto error_cleanup;
 
-	tx_ctl.txp = 1; /* High Priority */
+	tx_ctl.txp = 2; /* High Priority */
 	tx_ctl.buffer = TXB1;
 	if (HAL_MCP25625_HW_Ctl_Set(&tx_ctl))
 		goto error_cleanup;
 
-	tx_ctl.txp = 0; /* Medium Priority */
+	tx_ctl.txp = 2; /* Medium Priority */
 	tx_ctl.buffer = TXB2;
 	if (HAL_MCP25625_HW_Ctl_Set(&tx_ctl))
 		goto error_cleanup;

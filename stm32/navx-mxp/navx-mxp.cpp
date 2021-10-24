@@ -28,6 +28,7 @@ extern "C" {
 #include "mpucontroller.h"
 #include "stm32f4xx_hal.h"
 #include "stm32f4xx_hal_spi.h"
+#include "SPICommCtrl.h"
 }
 
 #include "navx-mxp.h"
@@ -59,7 +60,7 @@ HAL_StatusTypeDef prepare_next_i2c_receive();
 
 #define RXBUFFERSIZE 64
 uint8_t i2c3_RxBuffer[RXBUFFERSIZE];
-uint8_t spi1_RxBuffer[RXBUFFERSIZE];
+uint8_t spi1_RxBuffer[MAX_SPI_MSG_LEN+1];
 
 #define NUM_SPI_BANKS 5
 
@@ -1838,7 +1839,7 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
                     	if ( write ) {
                     	    // Write Request
                     		HAL_SPI_Comm_Ready_Deassert();
-                    		uint16_t next_rcv_size = SPI_RECV_LENGTH;
+                    		uint8_t next_rcv_size = SPI_RECV_LENGTH;
 #ifdef ENABLE_BANKED_REGISTERS
                     		if (bank <= NUM_SPI_BANKS) {
                     			if (bank == 0) {

@@ -19,7 +19,7 @@
 
 extern SPI_HandleTypeDef hspi2; /* TODO:  Relocate this */
 
-#define MCP25625_SPI_TIMEOUT_MS  100
+#define MCP25625_SPI_TIMEOUT_MS  5
 
 typedef struct {
 	uint8_t value;

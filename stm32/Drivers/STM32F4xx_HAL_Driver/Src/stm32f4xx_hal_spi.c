@@ -104,7 +104,7 @@
 /* Private define ------------------------------------------------------------*/
 #define SPI_TIMEOUT_VALUE  10
 
-#define SPI_TX_COMPLETE_STUCK_BUSY_ITER_COUNT 100 /* Scott Libert, 6/13/2017 */
+#define SPI_TX_COMPLETE_STUCK_BUSY_ITER_COUNT 20   /* Scott Libert, 6/13/2017 */
 /* Note that this "stuck busy timeout value" is a workaround for a documented */
 /* Silicon issue w/the STM32F411, see "STM32F40x and STM32F41x Errata sheet " */
 /* under section "2.5.4 BSY bit may stay high at the end of a data transfer   */
@@ -1936,6 +1936,8 @@ static void SPI_RxISR(SPI_HandleTypeDef *hspi)
 static int last_spi_dma_transmit_cmplt_success_loop_count = -1;
 static int max_spi_dma_transmit_cmplt_success_loop_count = -1;
 static int num_spi_dma_transmit_cmplt_no_wait_count = -1;
+static int num_spi_dma_transmit_cmplt_busy_err_count = -1;
+static int last_spi_dma_transmit_cmplt_busy_retry_count = -1;
 /**
   * @brief DMA SPI transmit process complete callback 
   * @param  hdma: pointer to a DMA_HandleTypeDef structure that contains
@@ -1974,12 +1976,14 @@ static void SPI_DMATransmitCplt(DMA_HandleTypeDef *hdma)
 				}
 				break;
 			}
+			last_spi_dma_transmit_cmplt_busy_retry_count = i+1;
 		}
 		/* If busy bit is still set, cleanup and flag an error. */
 		if(__HAL_SPI_GET_FLAG(hspi, SPI_FLAG_BSY) == SET) {
 			if(SPI_WaitOnFlagUntilTimeout(hspi, SPI_FLAG_BSY, SET, 0 /*Immediate Timeout*/) != HAL_OK)
 			{
 				hspi->ErrorCode |= HAL_SPI_ERROR_FLAG;
+				num_spi_dma_transmit_cmplt_busy_err_count++;
 			}
 		}
 	} else {
