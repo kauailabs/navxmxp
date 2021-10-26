@@ -926,11 +926,12 @@ CAN_INTERFACE_STATUS CANInterface::msg_load(MCP25625_TX_BUFFER_INDEX tx_buff,
 }
 
 CAN_INTERFACE_STATUS CANInterface::msg_send(MCP25625_TX_BUFFER_INDEX tx_buff) {
-	tx_ctl.buffer = tx_buff;
-	tx_ctl.txreq = true;
-	tx_ctl.mask = TXB_TXREQ;
 
-	if (HAL_MCP25625_HW_Ctl_Update((void*) &tx_ctl))
+	// Note that the MCP25625 RTS command is used here, rather than HAL_MCP25625_Ctl_Set90,
+	// due to an item discussed in the MCP25625 errata sheet, which can cause a tx buffer
+	// to be sent more than once, in the case when the SPI CS signal is not raised
+	// within a minimum of 47us before the message transmission is complete.
+	if (HAL_MCP25625_RTS(tx_buff))
 		return MCP25625_CTL_ERR;
 
 	return MCP25625_OK;

@@ -67,6 +67,9 @@ static MCP25625_RX_FILTER_INDEX rxb1_filter_indices[NUM_ACCEPT_FILTERS_RX1_BUFFE
 /* can be re-entered.                                                    */
 void CAN_ISR_Flag_Function(CAN_IFX_INT_FLAGS mask, CAN_IFX_INT_FLAGS flags)
 {
+	uint32_t prim = __get_PRIMASK();
+	__disable_irq();  // Disable all interrupt requests (includes both SPI and CAN interrupts)
+
 	can_regs.rx_fifo_entry_count = p_CAN->get_rx_fifo().get_count();
 
 	uint8_t umask = (uint8_t)*(uint8_t *)&mask;
@@ -81,6 +84,11 @@ void CAN_ISR_Flag_Function(CAN_IFX_INT_FLAGS mask, CAN_IFX_INT_FLAGS flags)
 		HAL_CAN_Int_Assert();
 	} else {
 		HAL_CAN_Int_Deassert();
+	}
+
+	// If all interrupts were disabled, re-enable them now.
+	if (!prim) {
+		__enable_irq();
 	}
 }
 
