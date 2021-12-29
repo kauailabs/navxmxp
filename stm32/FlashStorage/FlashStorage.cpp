@@ -67,7 +67,8 @@ uint8_t *FlashStorageClass::get_mem( bool& valid, uint16_t& data_size )
 	if ( ( pflashpage->signature[0] == 'K' ) &&
 		 ( pflashpage->signature[1] == 'l' ) &&
 		 ( pflashpage->signature[2] == 'a' ) &&
-		 ( pflashpage->signature[3] == 'b' ) ) {
+		 ( pflashpage->signature[3] == 'b' ) &&
+		 ( pflashpage->data_size == ShadowMemorySize ) ) {
 		data_size = pflashpage->data_size;
 		memcpy(ShadowMemory, &(pflashpage->first_data_byte), data_size);
 		valid = true;

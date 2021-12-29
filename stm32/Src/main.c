@@ -146,6 +146,10 @@ int main(void)
     /* USER CODE BEGIN 1 */
     int spi_slave_enabled = 0;
     int uart_slave_enabled = 0;
+    int power_on_reset = 0;
+    if(__HAL_RCC_GET_FLAG(RCC_FLAG_PORRST) == SET) {
+    	power_on_reset = 1;
+    }
 
     /* USER CODE END 1 */
 
@@ -156,7 +160,9 @@ int main(void)
     SystemClock_Config();
     int board_rev = MX_GPIO_Init();
 
-    USB_Soft_Disconnect();
+    if (!power_on_reset) {
+    	USB_Soft_Disconnect();
+    }
 
     MX_DMA_Init();
     MX_I2C2_Init();
@@ -173,6 +179,23 @@ int main(void)
 
     if (uart_slave_enabled) {
         MX_USART6_UART_Init();
+    }
+
+    // Work around clock stability issue occurring on some boards
+    // with STM32 power circuitry that comes up in a state
+    // where apparently ground noise is generated:
+    // If hard boot (Power-on Reset) is detected, force a software reset
+    //if(__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST) != SET) {
+    if(power_on_reset) {
+    	__HAL_RCC_CLEAR_RESET_FLAGS();  // Clear existing Power-on Reset flag
+        HAL_LED1_On(1);
+        HAL_LED2_On(0);
+        HAL_Delay(50);
+        HAL_LED1_On(0);
+        HAL_LED2_On(1);
+        HAL_Delay(50);
+        NVIC_SystemReset();
+    	// Board will be reset now; upon resetart, poweron reset flag will not be set
     }
 
 #ifdef ENABLE_CAN_TRANSCEIVER
