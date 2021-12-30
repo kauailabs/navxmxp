@@ -1185,17 +1185,18 @@ _EXTERN_ATTRIB int mpu_did_dmp_gyro_biases_change(struct mpu_dmp_calibration_dat
     GYRO_BIAS curr_gyro_bias;
     int gyro_bias_cmp;
     int changed = 0;
-    mpu_read_mem(D_EXT_GYRO_BIAS_X,12,curr_gyro_bias.dmp_gyro_bias_bytes);
-    gyro_bias_cmp = memcmp(curr_gyro_bias.dmp_gyro_bias_bytes,last_dmp_gyro_bias,12);
-    if ( gyro_bias_cmp != 0 ) {
-        changed = 1;
-        memcpy(last_dmp_gyro_bias,curr_gyro_bias.dmp_gyro_bias_bytes,12);
-        for ( int i = 0; i < 3; i++ ) {
-            /* Convert from big-endian to little-endian */
-            uint32_t big_endian_bias = curr_gyro_bias.dmp_gyro_bias_big_endian[i];
-            dmpcaldata->gyro_bias_q16[i] = (int32_t)__REV(big_endian_bias);
-        }
-        dmpcaldata->mpu_temp_c = last_temperature / 65536.0;
+    if (!mpu_read_mem(D_EXT_GYRO_BIAS_X,12,curr_gyro_bias.dmp_gyro_bias_bytes)) {
+		gyro_bias_cmp = memcmp(curr_gyro_bias.dmp_gyro_bias_bytes,last_dmp_gyro_bias,12);
+		if ( gyro_bias_cmp != 0 ) {
+			changed = 1;
+			memcpy(last_dmp_gyro_bias,curr_gyro_bias.dmp_gyro_bias_bytes,12);
+			for ( int i = 0; i < 3; i++ ) {
+				/* Convert from big-endian to little-endian */
+				uint32_t big_endian_bias = curr_gyro_bias.dmp_gyro_bias_big_endian[i];
+				dmpcaldata->gyro_bias_q16[i] = (int32_t)__REV(big_endian_bias);
+			}
+			dmpcaldata->mpu_temp_c = last_temperature / 65536.0;
+		}
     }
     return changed;
 }

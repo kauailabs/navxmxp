@@ -1118,12 +1118,9 @@ _EXTERN_ATTRIB void nav10_main()
                 bool rising_edge_trigger = false;
                 bool falling_edge_trigger = false;
                 bool pull_up_direction = false;
-                if (MPU9250_INT_GPIO_Port == GPIOC) {
-                	// MPU Interrupt is in Group C
+                if ((MPU9250_INT_GPIO_Port == GPIOC) || (MPU9250_INT_GPIO_Port == GPIOD)){
+                	// MPU Interrupt is in Group C or D
                 	temp = SYSCFG->EXTICR[2];
-                } else {
-                	// MPU Interrupt is in Group D
-                	temp = SYSCFG->EXTICR[3];
                 }
                 if ( temp & 0x00000003 ) {
                     /* EXTI8 is enabled for GPIOC/GPIOD Group */
@@ -1150,20 +1147,22 @@ _EXTERN_ATTRIB void nav10_main()
                     pull_up_direction = true;
                 }
 
-                /* HACK:  For some reason, in certain error cases (e.g., when  */
-                /* power to I2C/SPI/UART is removed and then re-applied), the  */
-                /* PC8 Interrupt Mask is disabled.  For the navX-MXP, this     */
-                /* condition causes further MPU interrupts to be missed.       */
-                /* Therefore, whenever this condition is detected, re-         */
-                /* configure GPIO pin : PC8 (MPU) for rising-edge interrupts   */
-                GPIO_InitTypeDef GPIO_InitStruct;
+                if (!group_enabled || !pin_masked_in || !rising_edge_trigger || falling_edge_trigger || pull_up_direction) {
+					/* HACK:  For some reason, in certain error cases (e.g., when  */
+					/* power to I2C/SPI/UART is removed and then re-applied), the  */
+					/* PC8 Interrupt Mask is disabled.  For the navX-MXP, this     */
+					/* condition causes further MPU interrupts to be missed.       */
+					/* Therefore, whenever this condition is detected, re-         */
+					/* configure GPIO pin : PC8 (MPU) for rising-edge interrupts   */
+					GPIO_InitTypeDef GPIO_InitStruct;
 
-                GPIO_InitStruct.Pin = GPIO_PIN_8;
-                GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-                GPIO_InitStruct.Pull = GPIO_NOPULL;
-                HAL_GPIO_Init(MPU9250_INT_GPIO_Port, &GPIO_InitStruct);
-                last_scan = timestamp;
-                i2c_interrupt_reset_count++;
+					GPIO_InitStruct.Pin = GPIO_PIN_8;
+					GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+					GPIO_InitStruct.Pull = GPIO_NOPULL;
+					HAL_GPIO_Init(MPU9250_INT_GPIO_Port, &GPIO_InitStruct);
+					i2c_interrupt_reset_count++;
+                }
+				last_scan = timestamp;
 #ifdef DEBUG_I2C_COMM
                 for ( int ifx = 0; ifx < num_serial_interfaces; ifx++ ) {
                     serial_interfaces[ifx]->println("Scanning");
