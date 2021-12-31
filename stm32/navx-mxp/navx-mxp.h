@@ -34,7 +34,7 @@ typedef void (*loop_func)();
 typedef uint8_t *(*register_lookup_func)(uint8_t bank, uint8_t register_offset, uint8_t requested_count, uint16_t* size );
 typedef void (*register_write_func)(uint8_t bank, uint8_t register_offset, uint8_t *p_reg, uint8_t count, uint8_t *p_new_data );
 
-_EXTERN_ATTRIB void nav10_init();
+_EXTERN_ATTRIB void nav10_init(int init_power_only);
 _EXTERN_ATTRIB void nav10_main();
 _EXTERN_ATTRIB void nav10_set_loop(uint8_t bank, loop_func);
 _EXTERN_ATTRIB void nav10_set_register_lookup_func(uint8_t bank, register_lookup_func);

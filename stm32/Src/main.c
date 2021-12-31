@@ -181,23 +181,6 @@ int main(void)
         MX_USART6_UART_Init();
     }
 
-    // Work around clock stability issue occurring on some boards
-    // with STM32 power circuitry that comes up in a state
-    // where apparently ground noise is generated:
-    // If hard boot (Power-on Reset) is detected, force a software reset
-    //if(__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST) != SET) {
-    if(power_on_reset) {
-    	__HAL_RCC_CLEAR_RESET_FLAGS();  // Clear existing Power-on Reset flag
-        HAL_LED1_On(1);
-        HAL_LED2_On(0);
-        HAL_Delay(50);
-        HAL_LED1_On(0);
-        HAL_LED2_On(1);
-        HAL_Delay(50);
-        NVIC_SystemReset();
-    	// Board will be reset now; upon resetart, poweron reset flag will not be set
-    }
-
 #ifdef ENABLE_CAN_TRANSCEIVER
     MX_SPI2_Init();
 #endif
@@ -214,7 +197,7 @@ int main(void)
 #ifdef ENABLE_IOCX
     HAL_IOCX_Init(board_rev);  // Ensure board_rev is registered BEFORE nav10_init() is invoked.
 #endif
-    nav10_init();
+    nav10_init(power_on_reset);
 #ifdef ENABLE_IOCX
 
 #define IOCX_BANK_NUMBER 1
@@ -247,6 +230,23 @@ int main(void)
     nav10_set_register_write_func(MISC_BANK_NUMBER, MISC_banked_writable_reg_update_func);
 #endif // ENABLE_MISC
     /* USER CODE END 2 */
+
+    // Work around clock stability issue occurring on some boards
+    // with STM32 power circuitry that comes up in a state
+    // where apparently ground noise is generated:
+    // If hard boot (Power-on Reset) is detected, force a software reset
+    //if(__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST) != SET) {
+    if(power_on_reset) {
+    	__HAL_RCC_CLEAR_RESET_FLAGS();  // Clear existing Power-on Reset flag
+        HAL_LED1_On(1);
+        HAL_LED2_On(0);
+        HAL_Delay(50);
+        HAL_LED1_On(0);
+        HAL_LED2_On(1);
+        HAL_Delay(50);
+        NVIC_SystemReset();
+    	// Board will be reset now; upon resetart, poweron reset flag will not be set
+    }
 
     nav10_main();
 

@@ -340,7 +340,7 @@ int sense_current_yaw_orientation() {
 
 uint8_t crc_lookup_table[256];
 
-_EXTERN_ATTRIB void nav10_init()
+_EXTERN_ATTRIB void nav10_init(int init_power_only)
 {
     IMURegisters::buildCRCLookupTable(crc_lookup_table, sizeof(crc_lookup_table));
 
@@ -396,6 +396,7 @@ _EXTERN_ATTRIB void nav10_init()
     }
 
     ext_spi_init_complete = true;
+    if (init_power_only) return;
 
     mpu_initialize(MPU9250_INT_Pin);
     enable_dmp();
