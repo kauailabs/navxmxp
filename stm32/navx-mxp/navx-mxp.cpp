@@ -340,7 +340,7 @@ int sense_current_yaw_orientation() {
 
 uint8_t crc_lookup_table[256];
 
-_EXTERN_ATTRIB void nav10_init(int init_power_only)
+_EXTERN_ATTRIB void nav10_init()
 {
     IMURegisters::buildCRCLookupTable(crc_lookup_table, sizeof(crc_lookup_table));
 
@@ -385,7 +385,7 @@ _EXTERN_ATTRIB void nav10_init(int init_power_only)
 
     /* Power on the on-board I2C devices */
     HAL_I2C_Power_On();
-    HAL_Delay(1000);
+    HAL_Delay(100);
 
     FlashStorage.init(sizeof(flash_cal_data));
 
@@ -396,7 +396,6 @@ _EXTERN_ATTRIB void nav10_init(int init_power_only)
     }
 
     ext_spi_init_complete = true;
-    if (init_power_only) return;
 
     mpu_initialize(MPU9250_INT_Pin);
     enable_dmp();

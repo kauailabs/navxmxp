@@ -34,6 +34,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
+#include "stm32f4xx_it.h"
 #include "usb_device.h"
 /* USER CODE BEGIN Includes */
 #include "navx-mxp.h"
@@ -110,32 +111,42 @@ static void MX_RTC_Init(void);
 
 /* USER CODE BEGIN 0 */
 
+void USB_Soft_Disconnect_Signal()
+{
+	GPIO_InitTypeDef GPIO_InitStruct;
+	/* In case of disconnect, ensure the USB host    */
+	/* sees the D+ USB signal lines low.  Note that  */
+	/* the onboard EMI Filter has a 1.5K ohm pullup, */
+	/* therefore this causes 2.2mA of current to be  */
+	/* sunk into this pin.                           */
+
+	GPIO_InitStruct.Pin = GPIO_PIN_12;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+	HAL_GPIO_WritePin( GPIOA, GPIO_PIN_12, GPIO_PIN_RESET);
+	HAL_Delay(1);
+}
+
+void USB_Soft_Connect_Request()
+{
+	/* In case of connect request, ensure the USB host  */
+	/* sees the D+ USB signal line high (full speed).   */
+	GPIO_InitTypeDef GPIO_InitStruct;
+	GPIO_InitStruct.Pin = GPIO_PIN_12;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+}
+
 void USB_Soft_Disconnect()
 {
-    GPIO_InitTypeDef GPIO_InitStruct;
-    /* In case of soft reset, ensure the USB host    */
-    /* sees the D+ USB signal lines low.  Note that  */
-    /* the onboard EMI Filter has a 1.5K ohm pullup, */
-    /* therefore this causes 2.2mA of current to be  */
-    /* sunk into this pin.                           */
-
-    GPIO_InitStruct.Pin = GPIO_PIN_12;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-	//HAL_GPIO_WritePin( GPIOA, GPIO_PIN_12, GPIO_PIN_RESET);
-
-    /* Wait a bit for the usb host to discover the reset */
-    HAL_Delay(2000);
-	//HAL_GPIO_WritePin( GPIOA, GPIO_PIN_12, GPIO_PIN_SET);
-	//HAL_Delay(3);
-
-    GPIO_InitStruct.Pin = GPIO_PIN_12;
-    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+	USB_Soft_Disconnect_Signal();
+	/* Wait a bit for the usb host to discover the reset */
+	HAL_Delay(20);
+	USB_Soft_Connect_Request();
 }
 
 /* USER CODE END 0 */
@@ -146,23 +157,20 @@ int main(void)
     /* USER CODE BEGIN 1 */
     int spi_slave_enabled = 0;
     int uart_slave_enabled = 0;
-    int power_on_reset = 0;
-    if(__HAL_RCC_GET_FLAG(RCC_FLAG_PORRST) == SET) {
-    	power_on_reset = 1;
-    }
 
     /* USER CODE END 1 */
 
     /* MCU Configuration----------------------------------------------------------*/
     /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
     HAL_Init();
-    /* Configure the system clock */
-    SystemClock_Config();
+
     int board_rev = MX_GPIO_Init();
 
-    if (!power_on_reset) {
-    	USB_Soft_Disconnect();
-    }
+    /* In case of software reset, forcibly indicate USB device disconnection */
+    USB_Soft_Disconnect_Signal();
+
+     /* Configure the system clock */
+    SystemClock_Config(); // Note that this may several seconds to complete
 
     MX_DMA_Init();
     MX_I2C2_Init();
@@ -189,7 +197,12 @@ int main(void)
     MX_ADC1_Init();
 #endif
 
+    /* Clearly signal USB device is now connected and available for enumeration, */
+    /* before initializing USB Device.                                           */
+    USB_Soft_Connect_Request();
+
     MX_USB_DEVICE_Init();
+
 #if defined(ENABLE_RTC)
     MX_RTC_Init();
 #endif
@@ -197,7 +210,7 @@ int main(void)
 #ifdef ENABLE_IOCX
     HAL_IOCX_Init(board_rev);  // Ensure board_rev is registered BEFORE nav10_init() is invoked.
 #endif
-    nav10_init(power_on_reset);
+    nav10_init();
 #ifdef ENABLE_IOCX
 
 #define IOCX_BANK_NUMBER 1
@@ -231,26 +244,34 @@ int main(void)
 #endif // ENABLE_MISC
     /* USER CODE END 2 */
 
-    // Work around clock stability issue occurring on some boards
-    // with STM32 power circuitry that comes up in a state
-    // where apparently ground noise is generated:
-    // If hard boot (Power-on Reset) is detected, force a software reset
-    //if(__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST) != SET) {
-    if(power_on_reset) {
-    	__HAL_RCC_CLEAR_RESET_FLAGS();  // Clear existing Power-on Reset flag
-        HAL_LED1_On(1);
-        HAL_LED2_On(0);
-        HAL_Delay(50);
-        HAL_LED1_On(0);
-        HAL_LED2_On(1);
-        HAL_Delay(50);
-        NVIC_SystemReset();
-    	// Board will be reset now; upon resetart, poweron reset flag will not be set
-    }
-
     nav10_main();
 
     return 0; /* Note:  Control will never reach this point. */
+}
+
+int system_clock_bringup_state = 0;
+void UpdateSystemClockBringupStatus()
+{
+	int can = 1;
+	int cal = 1;
+	if (system_clock_bringup_state > 0) {
+		can = 0;
+		system_clock_bringup_state = 0;
+	} else {
+		system_clock_bringup_state++;
+	}
+	HAL_CAL_LED_On(cal);
+
+	HAL_CAN_Status_LED_On(can);
+	HAL_LED1_On(can);
+	HAL_LED2_On(can);
+}
+
+void ClearSystemClockBringupStatus() {
+	HAL_CAN_Status_LED_On(0);
+	HAL_CAL_LED_On(0);
+	HAL_LED1_On(0);
+	HAL_LED2_On(0);
 }
 
 /** System Clock Configuration
@@ -260,6 +281,10 @@ void SystemClock_Config(void)
     RCC_OscInitTypeDef RCC_OscInitStruct;
     RCC_ClkInitTypeDef RCC_ClkInitStruct;
     RCC_PeriphCLKInitTypeDef PeriphClkInitStruct;
+
+    HAL_LED_Init(); // Initialize LEDs, which are used to display status
+    UpdateSystemClockBringupStatus();
+    AttachStartupTimerHandler(UpdateSystemClockBringupStatus, 500 /* ms */);
 
     __PWR_CLK_ENABLE();
     __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
@@ -275,14 +300,25 @@ void SystemClock_Config(void)
     RCC_OscInitStruct.PLL.PLLN = 384;
     RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
     RCC_OscInitStruct.PLL.PLLQ = 8;
-    HAL_RCC_OscConfig(&RCC_OscInitStruct);
+    int osc_ready = 0;
+    while(!osc_ready) {
+    	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) == HAL_OK) {
+    		osc_ready = 1;
+    	}
+    }
     RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                                 |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
     RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
     RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
     RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4; // 24Mhz.  Was RCC_HCLK_DIV2 (48Mhz);
     RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
-    HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3 );
+
+    int clocks_ready = 0;
+    while (!clocks_ready) {
+    	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3 ) == HAL_OK) {
+    		clocks_ready = 1;
+    	}
+    }
 #ifdef ENABLE_LSE
 #ifdef ENABLE_RTC
     /* Feed Real-time Clock via Low-Speed External (LSE) */
@@ -291,6 +327,8 @@ void SystemClock_Config(void)
     HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct);
 #endif // ENABLE_RTC
 #endif // ENABLE_LSE
+    DetachStartupTimerHandler();
+    ClearSystemClockBringupStatus();
 }
 
 /* I2C2 init function */

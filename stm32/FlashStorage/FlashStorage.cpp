@@ -118,14 +118,16 @@ uint16_t FlashStorageClass::commit()
 		for ( size_t i = 0; i < sizeof(page.signature); i++ ) {
 			HAL_FLASH_Program(TYPEPROGRAM_BYTE,(uint32_t)flashmem++,page.signature[i]);
 		}
-		/* Size */
-		uint16_t *flashmem_uint16 = (uint16_t *)flashmem;
-		HAL_FLASH_Program(TYPEPROGRAM_HALFWORD,(uint32_t)flashmem_uint16++,page.data_size);
-		/* Data */
+		/* Data (written after size halfword in address space, but before size halfword in time) */
+		uint16_t *flashmem_uint16 = (uint16_t *)(PageBase + sizeof(page.signature) + sizeof(uint16_t));
 		uint16_t *src_data = (uint16_t *)ShadowMemory;
 		for ( int i = 0; i < page.data_size / sizeof(uint16_t); i++ ) {
 			HAL_FLASH_Program(TYPEPROGRAM_HALFWORD,(uint32_t)flashmem_uint16++,*src_data++);
 		}
+		/* Size (this is written last in order, to enable "torn write" (e.g. reset during write) cases. */
+		flashmem_uint16 = (uint16_t *)(PageBase + sizeof(page.signature));
+		HAL_FLASH_Program(TYPEPROGRAM_HALFWORD,(uint32_t)flashmem_uint16,page.data_size);
+
 		HAL_FLASH_Lock();
 		return HAL_OK;
 	} else {

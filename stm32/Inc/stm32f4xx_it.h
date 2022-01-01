@@ -54,6 +54,8 @@ void I2C3_ER_IRQHandler(void);
 void SPI1_IRQHandler(void);
 void USART6_IRQHandler(void);
 void ADC_IRQHandler(void);
+void AttachStartupTimerHandler(void (*func)(), int period_ms);
+void DetachStartupTimerHandler();
 
 #ifdef __cplusplus
 }

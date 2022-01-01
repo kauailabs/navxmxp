@@ -47,6 +47,7 @@ extern DMA_HandleTypeDef hdma_i2c3_tx;
 extern SPI_HandleTypeDef hspi1;
 extern DMA_HandleTypeDef hdma_usart6_tx;
 extern UART_HandleTypeDef huart6;
+extern TIM_HandleTypeDef	StartupTimHandle;
 extern TIM_HandleTypeDef    TimHandle;
 extern DMA_HandleTypeDef hdma_spi1_tx;
 extern DMA_HandleTypeDef hdma_spi1_rx;
@@ -170,6 +171,25 @@ void I2C3_EV_IRQHandler(void)
 /**
 * @brief This function handles System tick timer.
 */
+
+static void (*startup_timer_func)() = 0;
+static int startup_timer_period_ms = 0;
+static int startup_timer_count = 0;
+
+void AttachStartupTimerHandler(void (*func)(), int period_ms)
+{
+	startup_timer_period_ms = period_ms;
+	startup_timer_count = 0;
+	startup_timer_func = func;
+}
+
+void DetachStartupTimerHandler()
+{
+	startup_timer_func = 0;
+	startup_timer_period_ms = 0;
+	startup_timer_count = 0;
+}
+
 void SysTick_Handler(void)
 {
   /* USER CODE BEGIN SysTick_IRQn 0 */
@@ -182,6 +202,14 @@ void SysTick_Handler(void)
 #ifdef ENABLE_IOCX
   HAL_IOCX_SysTick_Handler();
 #endif
+  void (*cached_startup_timer_func)() = startup_timer_func;
+  if (cached_startup_timer_func) {
+	  startup_timer_count++;
+	  if (startup_timer_count >= startup_timer_period_ms) {
+		  startup_timer_count = 0;
+		  cached_startup_timer_func();
+	  }
+  }
   /* USER CODE BEGIN SysTick_IRQn 1 */
 
   /* USER CODE END SysTick_IRQn 1 */
