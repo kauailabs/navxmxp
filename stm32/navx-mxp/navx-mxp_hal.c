@@ -960,6 +960,10 @@ void HAL_IOCX_FlexDIO_Suspend(int suspend) {
 		GPIO_TypeDef *p_gpio = gpio_channels[i].p_gpio;
 		uint16_t pin = gpio_channels[i].pin;
 		uint8_t timer_index = gpio_channels[i].timer_index;
+		int altpin = 0;
+		if (gpio_channels[i].interrupt_type == INT_ALTPIN ) {
+			altpin = 1;
+		}
 
 		position = POSITION_VAL(pin);
 		mode_reg_val = p_gpio->MODER;
@@ -986,6 +990,11 @@ void HAL_IOCX_FlexDIO_Suspend(int suspend) {
 		} else {
 			// Restore the GPIO configuration to state requested during the GPIO pin's
 			// most-recent configuration request, if previous state was one of the suspended modes
+			// If an altpin, adjust the position index so that the configured pin mode/pull
+			// states correspond to the correct pin
+			if (altpin) {
+				position = POSITION_VAL(altint_pin);
+			}
 			uint32_t prev_mode = IOCX_gpio_pin_mode_configuration[position] & (GPIO_MODER_MODER0);
 			if ((prev_mode == GPIO_MODE_AF_PP) || (prev_mode == GPIO_MODE_OUTPUT_PP)) {
 				GPIO_InitTypeDef GPIO_InitStruct;
