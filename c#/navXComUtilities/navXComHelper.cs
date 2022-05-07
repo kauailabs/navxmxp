@@ -94,6 +94,45 @@ namespace navXComUtilities
             }
         }
 
+        static void GetMatchingDevicesInSearcher(ManagementObjectSearcher searcher, STM32_USB_Interface_type type, List<USBDeviceInfo> devices)
+        {
+            foreach (var device in searcher.Get())
+            {
+                try
+                {
+                    USBDeviceInfo devInfo = new USBDeviceInfo(
+                    (string)device.GetPropertyValue("DeviceID"),
+                    (string)device.GetPropertyValue("PNPDeviceID"),
+                    (string)device.GetPropertyValue("Description"),
+                    (string)device.GetPropertyValue("Name"),
+                    (string)device.GetPropertyValue("Caption")
+                    );
+                    if (type == STM32_USB_Interface_type.VCP)
+                    {
+                        if (devInfo.PnpDeviceID.Contains("VID_0483") && /* ST Microelectronics */
+                                devInfo.PnpDeviceID.Contains("PID_5740") /* STM32F407 */
+                            )
+                        {
+                            devices.Add(devInfo);
+                        }
+                    }
+                    if (type == STM32_USB_Interface_type.DFU)
+                    {
+                        if (devInfo.PnpDeviceID.Contains("VID_0483") && /* ST Microelectronics */
+                                devInfo.PnpDeviceID.Contains("PID_DF11") /* STM Device in DFU Mode */
+                            )
+                        {
+                            devices.Add(devInfo);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    string s = ex.Message;
+                }
+            }
+        }
+
         static List<USBDeviceInfo> GetSTM32F4USBDevices(STM32_USB_Interface_type type)
         {
             lock (crit_sec_lock)
@@ -111,40 +150,16 @@ namespace navXComUtilities
                     searcher = new ManagementObjectSearcher(@"Select * From Win32_USBHub");
                 }
 
-                foreach (var device in searcher.Get())
+                GetMatchingDevicesInSearcher(searcher, type, devices);
+
+                // Starting in Windows 11, and with newer STM32 Bootloader installer,
+                // The DFU device has been seen not present in Win32_USBHub devices;
+                // however in this case it is present in Win32_PnpEntity; to handle this
+                // case, search again in Win32_PnpEntity if not first found in Win32_USBHub.
+                if ((devices.Count == 0) && (type == STM32_USB_Interface_type.DFU))
                 {
-                    try
-                    {
-                        USBDeviceInfo devInfo = new USBDeviceInfo(
-                        (string)device.GetPropertyValue("DeviceID"),
-                        (string)device.GetPropertyValue("PNPDeviceID"),
-                        (string)device.GetPropertyValue("Description"),
-                        (string)device.GetPropertyValue("Name"),
-                        (string)device.GetPropertyValue("Caption")
-                        );
-                        if (type == STM32_USB_Interface_type.VCP)
-                        {
-                            if (devInfo.PnpDeviceID.Contains("VID_0483") && /* ST Microelectronics */
-                                    devInfo.PnpDeviceID.Contains("PID_5740") /* STM32F407 */
-                                )
-                            {
-                                devices.Add(devInfo);
-                            }
-                        }
-                        if (type == STM32_USB_Interface_type.DFU)
-                        {
-                            if (devInfo.PnpDeviceID.Contains("VID_0483") && /* ST Microelectronics */
-                                    devInfo.PnpDeviceID.Contains("PID_DF11") /* STM Device in DFU Mode */
-                                )
-                            {
-                                devices.Add(devInfo);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        string s = ex.Message;
-                    }
+                    searcher = new ManagementObjectSearcher(@"Select * From Win32_PnpEntity");
+                    GetMatchingDevicesInSearcher(searcher, type, devices);
                 }
 
                 return devices;
