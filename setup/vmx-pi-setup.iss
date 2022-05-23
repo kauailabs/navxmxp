@@ -61,10 +61,11 @@ Filename: "{app}\installers\vcp\Win7\dpinst_amd64.exe"; Parameters: "/SW"; Flags
 Filename: "{app}\installers\vcp\Win7\dpinst_x86.exe"; Parameters: "/SW"; Flags: 32bit; OnlyBelowVersion: 0,6.2; Check: not IsWin64
 Filename: "{app}\installers\vcp\Win8\dpinst_amd64.exe"; Parameters: "/SW"; Flags: 64bit; MinVersion: 0,6.2; Check: IsWin64
 Filename: "{app}\installers\vcp\Win8\dpinst_x86.exe"; Parameters: "/SW"; Flags: 32bit; MinVersion: 0,6.2; Check: not IsWin64
-;Removing older DFU installer, which began to fail on Windows 11
-;Filename: "{app}\installers\dfu\dpinst_amd64.exe"; Parameters: "/SW"; Flags: 64bit; Check: IsWin64
-;Filename: "{app}\installers\dfu\dpinst_x86.exe"; Parameters: "/SW"; Flags: 32bit; Check: not IsWin64
-Filename: "{app}\installers\dfu\STM32Bootloader.bat"; StatusMsg: "Installing DFU Driver..."
+;Using older "STM Device in DFU Mode" Driver, adding "Force" option to allow its installation, even if newer "STM BOOTLOADER" is installed.
+Filename: "{app}\installers\dfu\dpinst_amd64.exe"; Parameters: "/SW /F"; Flags: 64bit; Check: IsWin64
+Filename: "{app}\installers\dfu\dpinst_x86.exe"; Parameters: "/SW /F"; Flags: 32bit; Check: not IsWin64
+; Disabling installation of newer STM32 Bootloader driver, which is currently incompatible with firmware updater
+; Filename: "{app}\installers\dfu\STM32Bootloader.bat"; StatusMsg: "Installing DFU Driver..."
 Filename: "{app}\VMXFirmwareUpdater\vcredist_x86.exe"; Parameters: "/install /passive /norestart"; Flags:
 Filename: "{app}\VMXFirmwareUpdater\vcredist_x86_vs2005SP1_redist_KB2538242.exe"; Parameters: "/q:a"; Flags:
 
