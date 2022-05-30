@@ -6,9 +6,8 @@ option batch on
 # Connect to kauailabs ftp server using a password
 open ftp://%FTP_USERNAME%:%FTP_PASSWORD%@ftp.kauailabs.com/
 # Synchronize files
-put -neweronly -transfer=binary ..\navx-micro.zip kauailabs.com/public_files/navx-micro/
-put -neweronly -transfer=binary ..\navx-micro-libs.zip kauailabs.com/public_files/navx-micro/
-cd kauailabs.com/public_files/navx-micro
+put -neweronly -transfer=binary ..\vmx-pi.zip kauailabs.com/public_files/vmx-pi/
+cd kauailabs.com/public_files/vmx-pi
 mkdir installers
 synchronize remote -transfer=binary ../installers installers/
 mkdir drivers
